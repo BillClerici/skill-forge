@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}{% if location %}Edit Location{% else %}Create Location{% endif %} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">location_on</i>
+            {% if location %}Edit Location{% else %}Create New Location{% endif %}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <form method="post" id="location-form">
+                    {% csrf_token %}
+
+                    <!-- Location Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">location_on</i>
+                        <input id="location_name" name="location_name" type="text" class="validate" required
+                               value="{% if location %}{{ location.location_name }}{% endif %}"
+                               style="color: #e0e0e0;">
+                        <label for="location_name" {% if location %}class="active"{% endif %}>Location Name *</label>
+                    </div>
+
+                    <!-- Location Type -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
+                        <select id="location_type" name="location_type" class="validate" required>
+                            <option value="" disabled {% if not location %}selected{% endif %}>Choose Location Type</option>
+                            <option value="City" {% if location and location.location_type == "City" %}selected{% endif %}>City</option>
+                            <option value="Town" {% if location and location.location_type == "Town" %}selected{% endif %}>Town</option>
+                            <option value="Village" {% if location and location.location_type == "Village" %}selected{% endif %}>Village</option>
+                            <option value="Fortress" {% if location and location.location_type == "Fortress" %}selected{% endif %}>Fortress</option>
+                            <option value="Castle" {% if location and location.location_type == "Castle" %}selected{% endif %}>Castle</option>
+                            <option value="Temple" {% if location and location.location_type == "Temple" %}selected{% endif %}>Temple</option>
+                            <option value="Dungeon" {% if location and location.location_type == "Dungeon" %}selected{% endif %}>Dungeon</option>
+                            <option value="Cave" {% if location and location.location_type == "Cave" %}selected{% endif %}>Cave</option>
+                            <option value="Ruins" {% if location and location.location_type == "Ruins" %}selected{% endif %}>Ruins</option>
+                            <option value="Market" {% if location and location.location_type == "Market" %}selected{% endif %}>Market</option>
+                            <option value="Port" {% if location and location.location_type == "Port" %}selected{% endif %}>Port</option>
+                            <option value="Inn/Tavern" {% if location and location.location_type == "Inn/Tavern" %}selected{% endif %}>Inn/Tavern</option>
+                            <option value="Guild Hall" {% if location and location.location_type == "Guild Hall" %}selected{% endif %}>Guild Hall</option>
+                            <option value="Academy" {% if location and location.location_type == "Academy" %}selected{% endif %}>Academy</option>
+                            <option value="Library" {% if location and location.location_type == "Library" %}selected{% endif %}>Library</option>
+                            <option value="Landmark" {% if location and location.location_type == "Landmark" %}selected{% endif %}>Landmark</option>
+                            <option value="Wilderness" {% if location and location.location_type == "Wilderness" %}selected{% endif %}>Wilderness</option>
+                        </select>
+                        <label>Location Type *</label>
+                    </div>
+
+                    <!-- Features (Multi-select) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">stars</i>
+                        <select id="features" name="features" multiple>
+                            <option value="" disabled>Choose Features</option>
+                            <option value="Trading Post" {% if location and "Trading Post" in location.features %}selected{% endif %}>Trading Post</option>
+                            <option value="Blacksmith" {% if location and "Blacksmith" in location.features %}selected{% endif %}>Blacksmith</option>
+                            <option value="Magic Shop" {% if location and "Magic Shop" in location.features %}selected{% endif %}>Magic Shop</option>
+                            <option value="Quest Board" {% if location and "Quest Board" in location.features %}selected{% endif %}>Quest Board</option>
+                            <option value="Safe Haven" {% if location and "Safe Haven" in location.features %}selected{% endif %}>Safe Haven</option>
+                            <option value="Dangerous" {% if location and "Dangerous" in location.features %}selected{% endif %}>Dangerous</option>
+                            <option value="Hidden" {% if location and "Hidden" in location.features %}selected{% endif %}>Hidden</option>
+                            <option value="Magical" {% if location and "Magical" in location.features %}selected{% endif %}>Magical</option>
+                            <option value="Ancient" {% if location and "Ancient" in location.features %}selected{% endif %}>Ancient</option>
+                            <option value="Cursed" {% if location and "Cursed" in location.features %}selected{% endif %}>Cursed</option>
+                            <option value="Sacred" {% if location and "Sacred" in location.features %}selected{% endif %}>Sacred</option>
+                            <option value="Abandoned" {% if location and "Abandoned" in location.features %}selected{% endif %}>Abandoned</option>
+                            <option value="Thriving" {% if location and "Thriving" in location.features %}selected{% endif %}>Thriving</option>
+                            <option value="Under Siege" {% if location and "Under Siege" in location.features %}selected{% endif %}>Under Siege</option>
+                            <option value="Mysterious" {% if location and "Mysterious" in location.features %}selected{% endif %}>Mysterious</option>
+                            <option value="Fortified" {% if location and "Fortified" in location.features %}selected{% endif %}>Fortified</option>
+                            <option value="Underground" {% if location and "Underground" in location.features %}selected{% endif %}>Underground</option>
+                            <option value="Floating" {% if location and "Floating" in location.features %}selected{% endif %}>Floating</option>
+                        </select>
+                        <label>Features</label>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                        <textarea id="description" name="description" class="materialize-textarea"
+                                  style="color: #e0e0e0;">{% if location %}{{ location.description }}{% endif %}</textarea>
+                        <label for="description" {% if location and location.description %}class="active"{% endif %}>Description</label>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="row" style="margin-top: 30px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn-large waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                                <i class="material-icons left">save</i>{% if location %}Update Location{% else %}Create Location{% endif %}
+                            </button>
+                            {% if location %}
+                            <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                            {% else %}
+                            <a href="{% url 'region_detail' world.world_id region.region_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize select dropdowns
+        var elems = document.querySelectorAll('select');
+        M.FormSelect.init(elems);
+
+        // Initialize textarea auto-resize
+        var textareas = document.querySelectorAll('textarea');
+        M.textareaAutoResize(textareas);
+    });
+</script>
+{% endblock %}

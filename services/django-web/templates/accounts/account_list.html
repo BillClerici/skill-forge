@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}Accounts - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h4 class="white-text" style="color: var(--rpg-gold) !important; text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);">
+            <i class="material-icons left">group</i>Accounts
+        </h4>
+        <p class="grey-text" style="font-size: 1.1rem;">Manage all player accounts in the realm</p>
+    </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12 m4 center-align">
+                        <h5 style="color: var(--rpg-gold); margin: 0;">{{ total_accounts }}</h5>
+                        <p class="grey-text">Total Accounts</p>
+                    </div>
+                    <div class="col s12 m4 center-align">
+                        <h5 style="color: var(--rpg-silver); margin: 0;">{{ page_obj.paginator.count }}</h5>
+                        <p class="grey-text">Showing</p>
+                    </div>
+                    <div class="col s12 m4 center-align">
+                        <a href="#create-modal" class="btn waves-effect waves-light modal-trigger">
+                            <i class="material-icons left">add</i>Create Account
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accounts Grid -->
+{% if accounts %}
+<div class="row">
+    {% for account in accounts %}
+    <div class="col s12 m6 l4">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span style="color: var(--rpg-gold);">{{ account.name }}</span>
+                    <span class="chip" style="margin: 0;">
+                        {{ account.account_type }}
+                    </span>
+                </span>
+
+                <div style="margin-top: 15px;">
+                    <p style="margin: 8px 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">person</i>
+                        <span class="grey-text">Members: </span>
+                        <strong>{{ account.current_member_count|default:0 }}/{{ account.max_members|default:"∞" }}</strong>
+                    </p>
+
+                    <p style="margin: 8px 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">star</i>
+                        <span class="grey-text">Tier: </span>
+                        <strong>{{ account.subscription_tier|default:"Free" }}</strong>
+                    </p>
+
+                    <p style="margin: 8px 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">schedule</i>
+                        <span class="grey-text">Created: </span>
+                        <strong>{{ account.created_at|timesince }} ago</strong>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card-action">
+                <a href="{% url 'account_detail' account.account_id %}" style="color: var(--rpg-gold);">
+                    <i class="material-icons tiny" style="vertical-align: middle;">visibility</i> View Details
+                </a>
+                <a href="#" style="color: var(--rpg-blue);">
+                    <i class="material-icons tiny" style="vertical-align: middle;">edit</i> Edit
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="row">
+    <div class="col s12 center-align">
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="waves-effect">
+                <a href="?page=1" style="color: var(--rpg-gold);">
+                    <i class="material-icons">first_page</i>
+                </a>
+            </li>
+            <li class="waves-effect">
+                <a href="?page={{ page_obj.previous_page_number }}" style="color: var(--rpg-gold);">
+                    <i class="material-icons">chevron_left</i>
+                </a>
+            </li>
+            {% else %}
+            <li class="disabled">
+                <a href="#!"><i class="material-icons">first_page</i></a>
+            </li>
+            <li class="disabled">
+                <a href="#!"><i class="material-icons">chevron_left</i></a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="active" style="background-color: var(--rpg-gold);">
+                    <a href="#!" style="color: #1a1a2e;">{{ num }}</a>
+                </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="waves-effect">
+                    <a href="?page={{ num }}" style="color: var(--rpg-gold);">{{ num }}</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="waves-effect">
+                <a href="?page={{ page_obj.next_page_number }}" style="color: var(--rpg-gold);">
+                    <i class="material-icons">chevron_right</i>
+                </a>
+            </li>
+            <li class="waves-effect">
+                <a href="?page={{ page_obj.paginator.num_pages }}" style="color: var(--rpg-gold);">
+                    <i class="material-icons">last_page</i>
+                </a>
+            </li>
+            {% else %}
+            <li class="disabled">
+                <a href="#!"><i class="material-icons">chevron_right</i></a>
+            </li>
+            <li class="disabled">
+                <a href="#!"><i class="material-icons">last_page</i></a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+{% else %}
+<!-- Empty State -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content center-align" style="padding: 60px 24px;">
+                <i class="material-icons" style="font-size: 120px; color: var(--rpg-gold); opacity: 0.3;">group</i>
+                <h5 class="grey-text">No Accounts Found</h5>
+                <p class="grey-text">Start by creating your first account</p>
+                <div style="margin-top: 30px;">
+                    <a href="#create-modal" class="btn-large waves-effect waves-light modal-trigger">
+                        <i class="material-icons left">add</i>Create First Account
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Create Modal (placeholder) -->
+<div id="create-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid var(--rpg-gold);">
+    <div class="modal-content">
+        <h4 style="color: var(--rpg-gold);">
+            <i class="material-icons left">add</i>Create New Account
+        </h4>
+        <p class="grey-text">Account creation form will be implemented here</p>
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">Close</a>
+        <a href="#!" class="waves-effect waves-light btn">Create Account</a>
+    </div>
+</div>
+{% endblock %}

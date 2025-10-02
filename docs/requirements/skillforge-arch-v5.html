@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillForge RPG - Hybrid AI Agent Architecture v6.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+            color: #fff;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .container {
+            max-width: 2600px;
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .architecture {
+            position: relative;
+            min-height: 2400px;
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 30px;
+            border: 2px solid #334155;
+        }
+
+        .layer {
+            position: absolute;
+            border: 2px dashed #475569;
+            border-radius: 8px;
+            padding: 15px;
+            background: rgba(30, 41, 59, 0.4);
+        }
+
+        .layer-title {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: #0f172a;
+            padding: 0 10px;
+            font-weight: bold;
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+
+        .component {
+            position: absolute;
+            background: linear-gradient(135deg, #1e40af 0%, #3730a3 100%);
+            border: 2px solid #60a5fa;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .component:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(96, 165, 250, 0.4);
+        }
+
+        .component-title {
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .component-tech {
+            font-size: 0.75em;
+            color: #93c5fd;
+            margin-bottom: 5px;
+        }
+
+        .component-desc {
+            font-size: 0.7em;
+            color: #cbd5e1;
+            line-height: 1.3;
+        }
+
+        .service {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            border-color: #34d399;
+        }
+
+        .database {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            border-color: #f87171;
+        }
+
+        .message-broker {
+            background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+            border-color: #fbbf24;
+        }
+
+        .api-gateway {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+            border-color: #a78bfa;
+        }
+
+        .cache {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            border-color: #22d3ee;
+        }
+
+        .external {
+            background: linear-gradient(135deg, #be123c 0%, #9f1239 100%);
+            border-color: #fb7185;
+        }
+
+        .frontend {
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border-color: #38bdf8;
+        }
+
+        .mobile {
+            background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+            border-color: #5eead4;
+        }
+
+        .aws-service {
+            background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+            border-color: #fb923c;
+        }
+
+        .universe {
+            background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+            border-color: #c084fc;
+        }
+
+        .account {
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+            border-color: #22d3ee;
+        }
+
+        .ai-agent {
+            background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            border-color: #f9a8d4;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
+            }
+            to {
+                box-shadow: 0 6px 25px rgba(236, 72, 153, 0.6);
+            }
+        }
+
+        .mcp-server {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            border-color: #c4b5fd;
+        }
+
+        .new-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .ai-badge {
+            display: inline-block;
+            background: #ec4899;
+            color: white;
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 5px;
+            font-weight: bold;
+        }
+
+        .legend {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            width: 220px;
+            z-index: 100;
+        }
+
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #94a3b8;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.8em;
+        }
+
+        .legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 2px solid;
+        }
+
+        .info-box {
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px solid #475569;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .info-box h3 {
+            color: #60a5fa;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .info-box h4 {
+            color: #94a3b8;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #cbd5e1;
+        }
+
+        .info-box li {
+            margin-bottom: 5px;
+            line-height: 1.6;
+        }
+
+        .agent-callout {
+            background: rgba(236, 72, 153, 0.1);
+            border-left: 4px solid #ec4899;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SkillForge RPG - Hybrid AI Agent Architecture v6.0</h1>
+        <div class="subtitle">Traditional Microservices + AI Agents + MCP Protocol | Multi-Account, Multi-Universe, Multi-Platform</div>
+
+        <div class="architecture">
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-title">Component Types</div>
+                <div class="legend-item">
+                    <div class="legend-box frontend" style="border-color: #38bdf8;"></div>
+                    <span>Web/Mobile</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box api-gateway" style="border-color: #a78bfa;"></div>
+                    <span>API Gateway</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box ai-agent" style="border-color: #f9a8d4;"></div>
+                    <span>AI Agent</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box mcp-server" style="border-color: #c4b5fd;"></div>
+                    <span>MCP Server</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box service" style="border-color: #34d399;"></div>
+                    <span>Microservice</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box database" style="border-color: #f87171;"></div>
+                    <span>Database</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box external" style="border-color: #fb7185;"></div>
+                    <span>External API</span>
+                </div>
+            </div>
+
+            <!-- Row 1: Client Layer -->
+            <div class="layer" style="left: 30px; top: 30px; width: 600px; height: 180px;">
+                <div class="layer-title">Client Layer</div>
+            </div>
+
+            <div class="component frontend" style="left: 50px; top: 70px; width: 260px; height: 120px;">
+                <div class="component-title">Django Web App</div>
+                <div class="component-tech">Django + Tailwind + HTMX</div>
+                <div class="component-desc">
+                    Account-aware UI, family dashboard, character selection, WebSocket real-time updates.
+                </div>
+            </div>
+
+            <div class="component mobile" style="left: 340px; top: 70px; width: 260px; height: 120px;">
+                <div class="component-title">Flutter Mobile App</div>
+                <div class="component-tech">Flutter + Dart + Riverpod</div>
+                <div class="component-desc">
+                    iOS/Android native, account switcher, Universe browser, offline mode per character.
+                </div>
+            </div>
+
+            <!-- Row 1: API Gateway -->
+            <div class="layer" style="left: 660px; top: 30px; width: 280px; height: 180px;">
+                <div class="layer-title">API Gateway</div>
+            </div>
+
+            <div class="component api-gateway" style="left: 680px; top: 70px; width: 240px; height: 120px;">
+                <div class="component-title">GraphQL Gateway</div>
+                <div class="component-tech">Strawberry + Django</div>
+                <div class="component-desc">
+                    Routes to services & agents. Account context injection, JWT auth, rate limiting.
+                </div>
+            </div>
+
+            <!-- Row 1: Message Broker -->
+            <div class="layer" style="left: 970px; top: 30px; width: 280px; height: 180px;">
+                <div class="layer-title">Event Bus</div>
+            </div>
+
+            <div class="component message-broker" style="left: 990px; top: 70px; width: 240px; height: 120px;">
+                <div class="component-title">RabbitMQ</div>
+                <div class="component-tech">Message Broker</div>
+                <div class="component-desc">
+                    Events from services & agents. Account/Universe-scoped channels.
+                </div>
+            </div>
+
+            <!-- Row 2: MCP Servers -->
+            <div class="layer" style="left: 30px; top: 240px; width: 1220px; height: 180px;">
+                <div class="layer-title">MCP (Model Context Protocol) Servers <span class="new-badge">NEW</span></div>
+            </div>
+
+            <div class="component mcp-server" style="left: 50px; top: 280px; width: 280px; height: 120px;">
+                <div class="component-title">Player Data MCP</div>
+                <div class="component-tech">MCP + FastAPI</div>
+                <div class="component-desc">
+                    Secure access to player profiles, cognitive data, character info, family structure for AI agents.
+                </div>
+            </div>
+
+            <div class="component mcp-server" style="left: 360px; top: 280px; width: 280px; height: 120px;">
+                <div class="component-title">World/Universe MCP</div>
+                <div class="component-tech">MCP + FastAPI</div>
+                <div class="component-desc">
+                    Provides World lore, Universe rules, NPC data, visual styles to AI agents.
+                </div>
+            </div>
+
+            <div class="component mcp-server" style="left: 670px; top: 280px; width: 280px; height: 120px;">
+                <div class="component-title">Educational Standards MCP</div>
+                <div class="component-tech">MCP + FastAPI</div>
+                <div class="component-desc">
+                    Common Core, NGSS, state standards. Enables curriculum alignment validation.
+                </div>
+            </div>
+
+            <div class="component mcp-server" style="left: 980px; top: 280px; width: 250px; height: 120px;">
+                <div class="component-title">AI Content Cache MCP</div>
+                <div class="component-tech">MCP + Redis</div>
+                <div class="component-desc">
+                    Caches AI outputs, ensures consistency, prevents contradictions.
+                </div>
+            </div>
+
+            <!-- Row 3: AI Agents -->
+            <div class="layer" style="left: 30px; top: 450px; width: 1220px; height: 360px;">
+                <div class="layer-title">AI Agent Layer (Intelligence & Reasoning) <span class="ai-badge">AI AGENTS</span></div>
+            </div>
+
+            <div class="component ai-agent" style="left: 50px; top: 490px; width: 280px; height: 140px;">
+                <div class="component-title">AI Game Master <span class="ai-badge">CORE</span></div>
+                <div class="component-tech">Claude/GPT-4 + LangGraph</div>
+                <div class="component-desc">
+                    Autonomous narrative generation. Uses MCP for context. Calls services as tools. Conversation memory.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 360px; top: 490px; width: 280px; height: 140px;">
+                <div class="component-title">Content Adaptation Agent</div>
+                <div class="component-tech">Claude + LangChain</div>
+                <div class="component-desc">
+                    Reads base Worlds via MCP. Reasons about Universe-appropriate modifications.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 670px; top: 490px; width: 280px; height: 140px;">
+                <div class="component-title">Educational Assessment</div>
+                <div class="component-tech">GPT-4 + Tools</div>
+                <div class="component-desc">
+                    Maps actions to Bloom's taxonomy. Generates feedback. Writes progress reports.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 980px; top: 490px; width: 250px; height: 140px;">
+                <div class="component-title">Parental Monitoring</div>
+                <div class="component-tech">GPT-4 + Analytics</div>
+                <div class="component-desc">
+                    Analyzes logs. Weekly summaries. Flags concerning patterns.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 50px; top: 650px; width: 280px; height: 140px;">
+                <div class="component-title">Universe Recommendation</div>
+                <div class="component-tech">GPT-4 + Embeddings</div>
+                <div class="component-desc">
+                    Interviews users about goals. Understands preferences. Explains recommendations.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 360px; top: 650px; width: 280px; height: 140px;">
+                <div class="component-title">NPC Conversation Agents</div>
+                <div class="component-tech">GPT-4 + Memory</div>
+                <div class="component-desc">
+                    Per-NPC personality. Persistent memory per character. Major NPCs only.
+                </div>
+            </div>
+
+            <div class="component ai-agent" style="left: 670px; top: 650px; width: 560px; height: 140px;">
+                <div class="component-title">Agent Orchestration & Cost Control</div>
+                <div class="component-tech">Python + FastAPI + Redis</div>
+                <div class="component-desc">
+                    Cold-start on demand. Rate limiting per account. Cost tracking. Health monitoring. Kill switches. Audit logging of all agent decisions.
+                </div>
+            </div>
+
+            <!-- Row 4: Account & Character Services -->
+            <div class="layer" style="left: 30px; top: 840px; width: 1220px; height: 180px;">
+                <div class="layer-title">Account & Character Management (Traditional Services)</div>
+            </div>
+
+            <div class="component account" style="left: 50px; top: 880px; width: 280px; height: 120px;">
+                <div class="component-title">Account Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    CRUD for accounts. Subscriptions, billing, member limits. Deterministic only.
+                </div>
+            </div>
+
+            <div class="component account" style="left: 360px; top: 880px; width: 280px; height: 120px;">
+                <div class="component-title">Member & Parental Controls</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Family member CRUD. Age restrictions (rule-based). Time limits. No AI.
+                </div>
+            </div>
+
+            <div class="component account" style="left: 670px; top: 880px; width: 280px; height: 120px;">
+                <div class="component-title">Character Profile Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Multi-character CRUD. Character switching. Cognitive tracking (deterministic).
+                </div>
+            </div>
+
+            <div class="component account" style="left: 980px; top: 880px; width: 250px; height: 120px;">
+                <div class="component-title">Time Limit Enforcement</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Hard limits, quiet hours. Security-critical. NO AI.
+                </div>
+            </div>
+
+            <!-- Row 5: Universe & World Services -->
+            <div class="layer" style="left: 30px; top: 1050px; width: 1220px; height: 180px;">
+                <div class="layer-title">Universe & World System (Traditional Services)</div>
+            </div>
+
+            <div class="component universe" style="left: 50px; top: 1090px; width: 280px; height: 120px;">
+                <div class="component-title">Universe Catalog</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    CRUD for Universes. Browse, filter. Recommendations via AI agent.
+                </div>
+            </div>
+
+            <div class="component universe" style="left: 360px; top: 1090px; width: 280px; height: 120px;">
+                <div class="component-title">World Repository</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    World library CRUD. World-Universe mappings. Version management.
+                </div>
+            </div>
+
+            <div class="component universe" style="left: 670px; top: 1090px; width: 280px; height: 120px;">
+                <div class="component-title">Universe Validation</div>
+                <div class="component-tech">Python + ML + Rules</div>
+                <div class="component-desc">
+                    Rule-based filters. ML moderation. Educational certification workflow.
+                </div>
+            </div>
+
+            <div class="component universe" style="left: 980px; top: 1090px; width: 250px; height: 120px;">
+                <div class="component-title">Content Factory Tools</div>
+                <div class="component-tech">Python + AI Pipeline</div>
+                <div class="component-desc">
+                    Uses Adaptation Agent. Official content creation. Human approval.
+                </div>
+            </div>
+
+            <!-- Row 6: Core Microservices -->
+            <div class="layer" style="left: 30px; top: 1260px; width: 1220px; height: 360px;">
+                <div class="layer-title">Core Microservices (Called by Agents as Tools)</div>
+            </div>
+
+            <div class="component service" style="left: 50px; top: 1300px; width: 230px; height: 130px;">
+                <div class="component-title">Player Development</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Cognitive skill updates. Bloom's progression. Called by agents.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 300px; top: 1300px; width: 230px; height: 130px;">
+                <div class="component-title">Challenge Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Challenge CRUD, scoring. Maps to context. Assessment integration.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 550px; top: 1300px; width: 230px; height: 130px;">
+                <div class="component-title">Character Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Character CRUD. Archetypes. NPC templates. Relationships.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 800px; top: 1300px; width: 200px; height: 130px;">
+                <div class="component-title">Visualization</div>
+                <div class="component-tech">FastAPI + Celery</div>
+                <div class="component-desc">
+                    Image generation. Asset caching. Called by GM agent.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 1020px; top: 1300px; width: 210px; height: 130px;">
+                <div class="component-title">Session Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Session state CRUD. Campaign orchestration. Universe transitions.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 50px; top: 1450px; width: 230px; height: 150px;">
+                <div class="component-title">Social Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Family features. Campaign sharing. Multiplayer coordination.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 300px; top: 1450px; width: 230px; height: 150px;">
+                <div class="component-title">Analytics Service</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Data aggregation. Metrics calculation. Feeds monitoring agent.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 550px; top: 1450px; width: 230px; height: 150px;">
+                <div class="component-title">Educational Dashboard</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Teacher UI. Class management. Progress display.
+                </div>
+            </div>
+
+            <div class="component service" style="left: 800px; top: 1450px; width: 200px; height: 150px;">
+                <div class="component-title">Campaign Mgmt</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    Multi-character campaigns. State management.
+                </div>
+            </div>
+
+            <div class="component mobile" style="left: 1020px; top: 1450px; width: 210px; height: 150px;">
+                <div class="component-title">Push Notifications</div>
+                <div class="component-tech">Python + FastAPI</div>
+                <div class="component-desc">
+                    FCM/APNs. Agent-triggered. Deterministic delivery.
+                </div>
+            </div>
+
+            <!-- Row 7: Data Layer -->
+            <div class="layer" style="left: 30px; top: 1650px; width: 1220px; height: 180px;">
+                <div class="layer-title">Data Layer (Multi-Tenant + AI Context Storage)</div>
+            </div>
+
+            <div class="component database" style="left: 50px; top: 1690px; width: 220px; height: 120px;">
+                <div class="component-title">PostgreSQL</div>
+                <div class="component-tech">Relational DB</div>
+                <div class="component-desc">
+                    Accounts, Members, Profiles, Universes, Worlds, Subscriptions.
+                </div>
+            </div>
+
+            <div class="component database" style="left: 290px; top: 1690px; width: 200px; height: 120px;">
+                <div class="component-title">Neo4j Graph</div>
+                <div class="component-tech">Graph DB</div>
+                <div class="component-desc">
+                    Universe-World links, character networks, families, skills.
+                </div>
+            </div>
+
+            <div class="component aws-service" style="left: 510px; top: 1690px; width: 280px; height: 120px;">
+                <div class="component-title">AWS DocumentDB</div>
+                <div class="component-tech">MongoDB-Compatible</div>
+                <div class="component-desc">
+                    Universe/World defs (MCP), Event sourcing, Agent memory, Character history.
+                </div>
+            </div>
+
+            <div class="component cache" style="left: 810px; top: 1690px; width: 200px; height: 120px;">
+                <div class="component-title">Redis Cache</div>
+                <div class="component-tech">Cache + Sessions</div>
+                <div class="component-desc">
+                    Active sessions, agent state, visual cache, rate limits.
+                </div>
+            </div>
+
+            <div class="component database" style="left: 1030px; top: 1690px; width: 200px; height: 120px;">
+                <div class="component-title">AI Audit Logs</div>
+                <div class="component-tech">PostgreSQL + S3</div>
+                <div class="component-desc">
+                    All agent decisions. Compliance, debugging, cost tracking.
+                </div>
+            </div>
+
+            <!-- Row 8: External Services -->
+            <div class="layer" style="left: 30px; top: 1860px; width: 1220px; height: 180px;">
+                <div class="layer-title">External Services & AI Infrastructure</div>
+            </div>
+
+            <div class="component external" style="left: 50px; top: 1900px; width: 200px; height: 120px;">
+                <div class="component-title">Claude API</div>
+                <div class="component-tech">Anthropic</div>
+                <div class="component-desc">
+                    Primary for GM, Adaptation. Extended context.
+                </div>
+            </div>
+
+            <div class="component external" style="left: 270px; top: 1900px; width: 200px; height: 120px;">
+                <div class="component-title">OpenAI GPT-4</div>
+                <div class="component-tech">OpenAI</div>
+                <div class="component-desc">
+                    Assessment, monitoring. Fallback. Function calling.
+                </div>
+            </div>
+
+            <div class="component external" style="left: 490px; top: 1900px; width: 180px; height: 120px;">
+                <div class="component-title">Stable Diffusion</div>
+                <div class="component-tech">Image Gen</div>
+                <div class="component-desc">
+                    Universe visuals. Via Visualization Service.
+                </div>
+            </div>
+
+            <div class="component aws-service" style="left: 690px; top: 1900px; width: 180px; height: 120px;">
+                <div class="component-title">AWS S3/CDN</div>
+                <div class="component-tech">Storage</div>
+                <div class="component-desc">
+                    Assets, portraits, AI content, cached images.
+                </div>
+            </div>
+
+            <div class="component mobile" style="left: 890px; top: 1900px; width: 160px; height: 120px;">
+                <div class="component-title">Firebase</div>
+                <div class="component-tech">Mobile</div>
+                <div class="component-desc">
+                    FCM, crash reports, analytics.
+                </div>
+            </div>
+
+            <div class="component external" style="left: 1070px; top: 1900px; width: 160px; height: 120px;">
+                <div class="component-title">Stripe API</div>
+                <div class="component-tech">Payments</div>
+                <div class="component-desc">
+                    Subscriptions. NO AI. Deterministic.
+                </div>
+            </div>
+
+            <!-- Row 9: Background Workers & Mobile Storage -->
+            <div class="layer" style="left: 30px; top: 2070px; width: 600px; height: 150px;">
+                <div class="layer-title">Background Workers</div>
+            </div>
+
+            <div class="component service" style="left: 50px; top: 2110px; width: 260px; height: 90px;">
+                <div class="component-title">Celery Workers</div>
+                <div class="component-tech">Python + Celery</div>
+                <div class="component-desc">
+                    Async tasks: assets, emails, analytics, AI job queuing.
+                </div>
+            </div>
+
+            <div class="component message-broker" style="left: 340px; top: 2110px; width: 260px; height: 90px;">
+                <div class="component-title">Celery Beat</div>
+                <div class="component-tech">Task Scheduler</div>
+                <div class="component-desc">
+                    Scheduled: billing, reports, AI warm-up, cache cleanup.
+                </div>
+            </div>
+
+            <div class="layer" style="left: 650px; top: 2070px; width: 600px; height: 150px;">
+                <div class="layer-title">Mobile Client Storage</div>
+            </div>
+
+            <div class="component mobile" style="left: 670px; top: 2110px; width: 260px; height: 90px;">
+                <div class="component-title">SQLite (Flutter)</div>
+                <div class="component-tech">Local DB</div>
+                <div class="component-desc">
+                    Offline data per character, cached AI, Universe context.
+                </div>
+            </div>
+
+            <div class="component mobile" style="left: 960px; top: 2110px; width: 260px; height: 90px;">
+                <div class="component-title">Hive (Flutter)</div>
+                <div class="component-tech">Key-Value Store</div>
+                <div class="component-desc">
+                    Preferences, character history, Universe favorites, tokens.
+                </div>
+            </div>
+        </div>
+
+        <!-- Info boxes remain the same as before -->
+        <div class="info-box">
+            <h3>Hybrid Architecture: Traditional Services + AI Agents</h3>
+            
+            <div class="agent-callout">
+                <strong>Core Principle:</strong> Use traditional microservices for CRUD, security, and deterministic logic. Use AI agents for reasoning, creativity, and complex decision-making.
+            </div>
+
+            <h4>AI Agents (Pink Components)</h4>
+            <ul>
+                <li><strong>AI Game Master Agent:</strong> Core narrative experience. Autonomous storytelling with tool use.</li>
+                <li><strong>Content Adaptation Agent:</strong> Intelligently modifies Worlds for different Universes.</li>
+                <li><strong>Educational Assessment Agent:</strong> Maps player actions to learning outcomes.</li>
+                <li><strong>Parental Monitoring Agent:</strong> Analyzes patterns, generates summaries.</li>
+                <li><strong>Universe Recommendation Agent:</strong> Interviews users, explains recommendations.</li>
+                <li><strong>NPC Conversation Agents:</strong> Per-NPC personality with memory (major NPCs only).</li>
+            </ul>
+
+            <h4>Traditional Microservices (Green/Blue/Teal)</h4>
+            <ul>
+                <li><strong>All CRUD operations:</strong> Accounts, Characters, Campaigns, Sessions</li>
+                <li><strong>Security-critical:</strong> Auth, Time Limits, Content Filtering, Billing</li>
+                <li><strong>Deterministic logic:</strong> Cognitive skills, campaign state, relationships</li>
+                <li><strong>High-frequency ops:</strong> Session management, real-time updates</li>
+            </ul>
+
+            <h4>What AI Agents CANNOT Do</h4>
+            <ul>
+                <li>Override parental controls or content filters (rule-based enforcement)</li>
+                <li>Make billing/payment decisions (deterministic only)</li>
+                <li>Decide time limits (hard limits, agents only notify)</li>
+                <li>Handle auth/authorization (security-critical)</li>
+                <li>Directly modify databases (must call microservices)</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Implementation Roadmap</h3>
+            
+            <h4>Phase 1: Foundation (Months 1-3)</h4>
+            <ul>
+                <li>Build traditional microservices (Account, Character, Universe, World)</li>
+                <li>Implement PostgreSQL, DocumentDB, Redis data layer</li>
+                <li>Deploy API Gateway and authentication</li>
+            </ul>
+
+            <h4>Phase 2: MCP Infrastructure (Months 3-4)</h4>
+            <ul>
+                <li>Build Player Data, World/Universe, Educational Standards MCP servers</li>
+                <li>Implement MCP authentication and rate limiting</li>
+            </ul>
+
+            <h4>Phase 3: AI Game Master (Months 4-6)</h4>
+            <ul>
+                <li>Develop AI Game Master Agent with LangGraph</li>
+                <li>Integrate Claude API, connect to MCP servers</li>
+                <li>Implement tool calling, conversation persistence</li>
+                <li>Deploy orchestration with cold start and cost tracking</li>
+                <li><strong>LAUNCH BETA:</strong> Game Master with 1-2 Universes, 2-3 Worlds</li>
+            </ul>
+
+            <h4>Phase 4: Additional Agents (Months 6-9)</h4>
+            <ul>
+                <li>Deploy Content Adaptation, Educational Assessment, Recommendation agents</li>
+                <li>Implement quality monitoring and human review queues</li>
+            </ul>
+
+            <h4>Phase 5: Scale & Optimize (Months 9-12+)</h4>
+            <ul>
+                <li>Deploy Parental Monitoring, NPC Conversation agents</li>
+                <li>Optimize costs (caching, model selection, prompt engineering)</li>
+                <li>Expand warm agent pool, implement advanced A/B testing</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>AI Agent Cost Projections</h3>
+            
+            <h4>Assumptions</h4>
+            <ul>
+                <li>Claude Sonnet: $3 input / $15 output per million tokens</li>
+                <li>Average session: 30 min, ~50K tokens (with caching: $0.10/session)</li>
+                <li>Caching reduces costs by 30%</li>
+            </ul>
+
+            <h4>Monthly Cost by User Base</h4>
+            <ul>
+                <li><strong>1,000 users</strong> (10 sessions/month): $1,000/month</li>
+                <li><strong>10,000 users:</strong> $10,000/month</li>
+                <li><strong>100,000 users:</strong> $100,000/month</li>
+                <li><strong>1,000,000 users:</strong> $1,000,000/month</li>
+            </ul>
+
+            <h4>Revenue Coverage</h4>
+            <ul>
+                <li><strong>Individual ($10/mo):</strong> 100 sessions → AI cost covered if < $0.10/session</li>
+                <li><strong>Family ($25/mo):</strong> 250 sessions → AI cost covered</li>
+                <li><strong>Educational ($50/mo):</strong> 500 sessions → AI cost covered</li>
+                <li><strong>Margins:</strong> 50-70% of revenue after AI costs (at scale)</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

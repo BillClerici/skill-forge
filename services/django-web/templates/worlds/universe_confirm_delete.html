@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Universe - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">warning</i>
+            Delete Universe
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'universe_detail' universe.universe_id %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to Universe
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 l8 offset-l2">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: #ff6b6b;">
+                    <i class="material-icons left">warning</i>
+                    Confirm Deletion
+                </span>
+
+                <p style="margin: 24px 0; color: #e0e0e0; font-size: 1.1rem;">
+                    Are you sure you want to delete the universe <strong style="color: var(--rpg-gold);">{{ universe.universe_name }}</strong>?
+                </p>
+
+                {% if related_worlds %}
+                    <div style="margin: 24px 0; padding: 20px; background: rgba(255, 107, 107, 0.1); border-left: 4px solid #ff6b6b; border-radius: 4px;">
+                        <h6 style="color: #ff6b6b; margin-bottom: 16px;">
+                            <i class="material-icons tiny">error</i> Cannot Delete - Related Worlds Exist
+                        </h6>
+                        <p style="color: #e0e0e0; margin-bottom: 16px;">
+                            This universe has <strong>{{ related_worlds|length }}</strong> related world(s). You must delete these worlds first before deleting this universe:
+                        </p>
+                        <ul style="margin-left: 20px;">
+                            {% for world in related_worlds %}
+                                <li style="color: #e0e0e0; margin: 8px 0;">
+                                    <a href="{% url 'world_detail' world.world_id %}" style="color: var(--rpg-gold);">
+                                        {{ world.world_name }}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div class="card-action center-align" style="background: transparent; border: none; padding-top: 20px;">
+                        <a href="{% url 'universe_detail' universe.universe_id %}" class="btn-large waves-effect waves-light grey darken-2">
+                            <i class="material-icons left">arrow_back</i>Go Back
+                        </a>
+                    </div>
+                {% else %}
+                    <div style="margin: 24px 0; padding: 20px; background: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <h6 style="color: #ffc107; margin-bottom: 12px;">
+                            <i class="material-icons tiny">info</i> Warning
+                        </h6>
+                        <p style="color: #e0e0e0;">
+                            This action cannot be undone. The universe and all its data will be permanently deleted.
+                        </p>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="card-action center-align" style="background: transparent; border: none; padding-top: 20px;">
+                            <button type="submit" class="btn-large waves-effect waves-light red darken-2">
+                                <i class="material-icons left">delete</i>Delete Universe
+                            </button>
+                            <a href="{% url 'universe_detail' universe.universe_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Locations - {{ region.region_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">location_on</i>
+            Locations in {{ region.region_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'region_detail' world.world_id region.region_id %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to Region
+        </a>
+        <a href="{% url 'location_create' world.world_id region.region_id %}" class="btn waves-effect waves-light" style="margin-left: 10px; background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+            <i class="material-icons left">add</i>Create New Location
+        </a>
+    </div>
+</div>
+
+{% if locations %}
+<div class="row">
+    {% for location in locations %}
+    <div class="col s12 m6 l4">
+        <div class="card hoverable" style="transition: all 0.3s ease;">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); font-weight: 600;">
+                    <i class="material-icons left">location_on</i>
+                    {{ location.location_name }}
+                </span>
+
+                <div style="margin: 15px 0;">
+                    <div class="chip" style="background-color: rgba(156, 39, 176, 0.3);">
+                        <i class="material-icons tiny">category</i>
+                        {{ location.location_type }}
+                    </div>
+                </div>
+
+                {% if location.features %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); font-size: 0.9rem; margin-bottom: 8px;">
+                        <i class="material-icons tiny">stars</i> Features
+                    </h6>
+                    {% for feature in location.features %}
+                        <span class="chip" style="background-color: rgba(255, 152, 0, 0.3); font-size: 0.85rem;">
+                            {{ feature }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if location.description %}
+                <p style="color: #b8b8d1; margin-top: 15px; font-size: 0.95rem;">
+                    {{ location.description|truncatewords:15 }}
+                </p>
+                {% endif %}
+            </div>
+
+            <div class="card-action" style="background-color: rgba(30, 30, 46, 0.5);">
+                <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="color: var(--rpg-gold);">
+                    <i class="material-icons tiny">visibility</i> View
+                </a>
+                <a href="{% url 'location_update' world.world_id region.region_id location.location_id %}" style="color: #64b5f6;">
+                    <i class="material-icons tiny">edit</i> Edit
+                </a>
+                <a href="{% url 'location_delete' world.world_id region.region_id location.location_id %}" style="color: #ef5350;">
+                    <i class="material-icons tiny">delete</i> Delete
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">location_off</i>
+                <h5 style="color: var(--rpg-gold);">No Locations Yet</h5>
+                <p style="color: #b8b8d1; margin-bottom: 20px;">Create your first location for this region.</p>
+                <a href="{% url 'location_create' world.world_id region.region_id %}" class="btn-large waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                    <i class="material-icons left">add</i>Create First Location
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

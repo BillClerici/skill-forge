@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ account.name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'account_list' %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Accounts
+        </a>
+    </div>
+</div>
+
+<!-- Account Header -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12 m8">
+                        <h4 style="color: var(--rpg-gold); margin-top: 0;">
+                            <i class="material-icons left" style="vertical-align: middle;">group</i>
+                            {{ account.name }}
+                        </h4>
+                        <div style="margin-top: 20px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px;">
+                                <i class="material-icons left" style="font-size: 1.2rem;">label</i>
+                                {{ account.account_type|title }}
+                            </span>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px;">
+                                <i class="material-icons left" style="font-size: 1.2rem;">star</i>
+                                {{ account.subscription_tier|default:"Free" }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col s12 m4 right-align">
+                        <a href="#" class="btn waves-effect waves-light">
+                            <i class="material-icons left">edit</i>Edit
+                        </a>
+                        <a href="#" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">delete</i>Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Details -->
+<div class="row">
+    <!-- Info Card -->
+    <div class="col s12 l4">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">info</i>Account Information
+                </span>
+
+                <div style="margin-top: 20px;">
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Account ID:</strong><br>
+                        <code style="color: var(--rpg-silver); font-size: 0.85rem; word-break: break-all;">{{ account.account_id }}</code>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Type:</strong><br>
+                        <span style="color: white;">{{ account.account_type|title }}</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Subscription Tier:</strong><br>
+                        <span style="color: white;">{{ account.subscription_tier|default:"Free" }}</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Members:</strong><br>
+                        <span style="color: white;">{{ account.current_member_count|default:0 }} / {{ account.max_members|default:"∞" }}</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Created:</strong><br>
+                        <span style="color: white;">{{ account.created_at|date:"F d, Y" }}</span><br>
+                        <small class="grey-text">({{ account.created_at|timesince }} ago)</small>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Last Updated:</strong><br>
+                        <span style="color: white;">{{ account.updated_at|date:"F d, Y" }}</span><br>
+                        <small class="grey-text">({{ account.updated_at|timesince }} ago)</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Members Card -->
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">person</i>Members</span>
+                    <a href="{% url 'member_list' %}?account={{ account.account_id }}" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">add</i>Add Member
+                    </a>
+                </span>
+
+                {% if account.member_set.exists %}
+                <table class="highlight responsive-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Display Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in account.member_set.all %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'member_detail' member.member_id %}" style="color: var(--rpg-gold); font-weight: 500;">
+                                    {{ member.display_name }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="chip" style="margin: 0;">{{ member.role|default:"Member" }}</span>
+                            </td>
+                            <td>
+                                {% if member.is_active %}
+                                <span style="color: var(--rpg-green);">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i> Active
+                                </span>
+                                {% else %}
+                                <span class="grey-text">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">cancel</i> Inactive
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ member.created_at|date:"M d, Y" }}</td>
+                            <td>
+                                <a href="{% url 'member_detail' member.member_id %}" class="btn-small waves-effect waves-light" style="margin-right: 5px;">
+                                    <i class="material-icons">visibility</i>
+                                </a>
+                                <a href="#" class="btn-small waves-effect waves-light blue">
+                                    <i class="material-icons">edit</i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">person_outline</i>
+                    <p class="grey-text" style="margin-top: 15px;">No members in this account yet</p>
+                    <a href="{% url 'member_list' %}?account={{ account.account_id }}" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">add</i>Add First Member
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Activity Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">timeline</i>Recent Activity
+                </span>
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">history</i>
+                    <p class="grey-text" style="margin-top: 15px;">Activity tracking coming soon</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

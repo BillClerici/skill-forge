@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}{{ universe.universe_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">public</i>
+            {{ universe.universe_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'universe_list' %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to Universes
+        </a>
+        <a href="{% url 'universe_update' universe.universe_id %}" class="btn waves-effect waves-light" style="margin-left: 10px;">
+            <i class="material-icons left">edit</i>Edit Universe
+        </a>
+        <a href="{% url 'universe_delete' universe.universe_id %}" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+            <i class="material-icons left">delete</i>Delete Universe
+        </a>
+    </div>
+</div>
+
+<!-- Universe Details Card -->
+<div class="row">
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">Universe Details</span>
+                <p style="margin-bottom: 24px; color: #b8b8d1; line-height: 1.6;">
+                    {{ universe.description }}
+                </p>
+
+                <!-- Purpose-Driven Categorization -->
+                {% if universe.purpose_category or universe.target_age_group %}
+                <div style="margin: 24px 0; padding: 20px; background: rgba(212, 175, 55, 0.05); border-radius: 8px; border-left: 4px solid var(--rpg-gold);">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 12px;">
+                        <i class="material-icons tiny">stars</i> Universe Purpose & Intent
+                    </h6>
+                    <p style="color: #b8b8d1; margin-bottom: 16px; font-size: 0.95rem;">
+                        This universe is purpose-driven, designed to group worlds by shared goals and audience rather than genre alone.
+                    </p>
+                    <div>
+                        {% if universe.purpose_category %}
+                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.3); margin-right: 8px; margin-bottom: 8px;">
+                            <i class="material-icons tiny" style="margin-right: 4px;">category</i>
+                            {{ universe.purpose_category_display }}
+                        </div>
+                        {% endif %}
+                        {% if universe.target_age_group %}
+                        <div class="chip" style="background-color: rgba(106, 76, 147, 0.3); margin-bottom: 8px;">
+                            <i class="material-icons tiny" style="margin-right: 4px;">group</i>
+                            {{ universe.target_age_group_display }}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="divider" style="background-color: rgba(212, 175, 55, 0.2); margin: 24px 0;"></div>
+
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12 m6">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 16px;">
+                            <i class="material-icons tiny">info</i> Narrative Settings
+                        </h6>
+                        <p><strong>Style:</strong> <span class="chip">{{ universe.narrative_style|title }}</span></p>
+                        <p><strong>Humor Level:</strong> <span class="chip">{{ universe.humor_level|title }}</span></p>
+                        <p><strong>Reading Level:</strong> <span class="chip">{{ universe.reading_level_display }}</span></p>
+                        <p><strong>Complexity:</strong> <span class="chip">{{ universe.complexity|title }}</span></p>
+                    </div>
+                    <div class="col s12 m6">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 16px;">
+                            <i class="material-icons tiny">tune</i> Game Features
+                        </h6>
+                        <p>
+                            <i class="material-icons tiny {% if universe.combat_enabled %}green-text{% else %}red-text{% endif %}">
+                                {% if universe.combat_enabled %}check_circle{% else %}cancel{% endif %}
+                            </i>
+                            Combat {% if universe.combat_enabled %}Enabled{% else %}Disabled{% endif %}
+                        </p>
+                        <p>
+                            <i class="material-icons tiny {% if universe.romance_enabled %}green-text{% else %}red-text{% endif %}">
+                                {% if universe.romance_enabled %}check_circle{% else %}cancel{% endif %}
+                            </i>
+                            Romance {% if universe.romance_enabled %}Enabled{% else %}Disabled{% endif %}
+                        </p>
+                        <p>
+                            <i class="material-icons tiny {% if universe.character_death %}green-text{% else %}red-text{% endif %}">
+                                {% if universe.character_death %}check_circle{% else %}cancel{% endif %}
+                            </i>
+                            Character Death {% if universe.character_death %}Allowed{% else %}Disabled{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Card -->
+    <div class="col s12 l4">
+        <div class="card stat-card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">map</i>
+                <h3 style="margin: 10px 0; color: white;">{{ worlds_count }}</h3>
+                <p style="color: white; font-size: 1.1rem;">World{% if worlds_count != 1 %}s{% endif %}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">Content Rating</span>
+                <div class="center-align" style="padding: 20px 0;">
+                    <div class="chip" style="font-size: 1.2rem; padding: 0 20px; height: auto; line-height: 40px;">
+                        <i class="material-icons" style="font-size: 1.5rem;">star</i>
+                        {{ universe.max_content_rating }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Worlds in this Universe -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">map</i>
+                    Worlds in this Universe
+                </span>
+
+                {% if worlds %}
+                    <div class="row">
+                        {% for world in worlds %}
+                        <div class="col s12 m6 l4">
+                            <div class="card hoverable" style="margin-top: 20px;">
+                                <div class="card-content">
+                                    <span class="card-title" style="font-size: 1.3rem;">{{ world.world_name }}</span>
+                                    <p style="color: #b8b8d1;">
+                                        <strong>Genre:</strong> {{ world.genre }}
+                                    </p>
+                                    {% if world.setting %}
+                                    <p style="margin-top: 10px; color: #b8b8d1; min-height: 60px;">
+                                        {{ world.setting|truncatewords:15 }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="card-action" style="background: rgba(212, 175, 55, 0.05); border-top: 1px solid rgba(212, 175, 55, 0.2);">
+                                    <a href="{% url 'world_detail' world.world_id %}" style="color: var(--rpg-gold);">
+                                        <i class="material-icons tiny">visibility</i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="center-align" style="padding: 40px 0;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">map</i>
+                        <h5 style="color: var(--rpg-gold);">No Worlds Yet</h5>
+                        <p style="color: #b8b8d1;">Create your first world in this universe to start building your RPG setting.</p>
+                        <a href="{% url 'world_create' %}?universe={{ universe.id }}" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                            <i class="material-icons left">add</i>Create World
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

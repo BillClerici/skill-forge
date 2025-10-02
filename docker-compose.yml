@@ -1,0 +1,281 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # Data Layer
+  # ============================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: skillforge-postgres
+    environment:
+      POSTGRES_DB: skillforge
+      POSTGRES_USER: skillforge_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillforge_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skillforge-network
+
+  neo4j:
+    image: neo4j:5.13
+    container_name: skillforge-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+    ports:
+      - "7474:7474"  # Browser
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - skillforge-network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: skillforge-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - skillforge-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: skillforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - skillforge-network
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: skillforge-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: skillforge
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - skillforge-network
+
+  # ============================================
+  # MCP Servers
+  # ============================================
+
+  mcp-player-data:
+    build: ./mcp-servers/player-data
+    container_name: skillforge-mcp-player-data
+    ports:
+      - "8001:8001"
+    environment:
+      - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+    networks:
+      - skillforge-network
+    volumes:
+      - ./mcp-servers/player-data:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+
+  mcp-world-universe:
+    build: ./mcp-servers/world-universe
+    container_name: skillforge-mcp-world-universe
+    ports:
+      - "8002:8002"
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - REDIS_URL=redis://redis:6379
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mongodb
+      - neo4j
+      - redis
+    networks:
+      - skillforge-network
+    volumes:
+      - ./mcp-servers/world-universe:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
+
+  # ============================================
+  # AI Agents
+  # ============================================
+
+  agent-orchestrator:
+    build: ./ai-agents/orchestrator
+    container_name: skillforge-agent-orchestrator
+    ports:
+      - "9000:9000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
+      - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - GAME_MASTER_URL=http://agent-game-master:8000
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+      - mongodb
+      - mcp-player-data
+      - mcp-world-universe
+    networks:
+      - skillforge-network
+    volumes:
+      - ./ai-agents/orchestrator:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 9000 --reload
+
+  agent-game-master:
+    build: ./ai-agents/game-master
+    container_name: skillforge-agent-game-master
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
+      - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mcp-player-data
+      - mcp-world-universe
+    networks:
+      - skillforge-network
+    volumes:
+      - ./ai-agents/game-master:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # API Gateway
+  # ============================================
+
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: skillforge-api-gateway
+    ports:
+      - "4000:8000"
+    environment:
+      - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/api-gateway:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # Traditional Microservices
+  # ============================================
+
+  account-service:
+    build: ./services/account-service
+    container_name: skillforge-account-service
+    environment:
+      - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/account-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  member-service:
+    build: ./services/member-service
+    container_name: skillforge-member-service
+    environment:
+      - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - postgres
+      - neo4j
+      - rabbitmq
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/member-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ============================================
+  # Django Web Application
+  # ============================================
+
+  django-web:
+    build: ./services/django-web
+    container_name: skillforge-django-web
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SECRET_KEY=${JWT_SECRET}
+      - DEBUG=True
+      - POSTGRES_DB=skillforge
+      - POSTGRES_USER=skillforge_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/django-web:/app
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  postgres_data:
+  neo4j_data:
+  neo4j_logs:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+
+networks:
+  skillforge-network:
+    driver: bridge

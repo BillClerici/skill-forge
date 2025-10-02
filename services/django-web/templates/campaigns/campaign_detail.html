@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}{{ campaign.campaign_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">book</i>
+            {{ campaign.campaign_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'campaign_list' %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to Campaigns
+        </a>
+        <a href="{% url 'campaign_update' campaign.campaign_id %}" class="btn waves-effect waves-light">
+            <i class="material-icons left">edit</i>Edit Campaign
+        </a>
+        <a href="#deleteModal" class="btn waves-effect waves-light red darken-2 modal-trigger">
+            <i class="material-icons left">delete</i>Delete Campaign
+        </a>
+    </div>
+</div>
+
+<!-- Campaign Overview -->
+<div class="row">
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">info</i>
+                    Campaign Overview
+                </span>
+
+                <div style="margin: 20px 0;">
+                    {% for world in worlds %}
+                    <div class="chip">
+                        <i class="material-icons tiny">map</i>
+                        <a href="{% url 'world_detail' world.id %}" style="color: inherit;">{{ world.world_name }}</a>
+                    </div>
+                    {% endfor %}
+
+                    {% for member in members %}
+                    <div class="chip">
+                        <i class="material-icons tiny">person</i>
+                        {{ member.display_name }}
+                    </div>
+                    {% endfor %}
+
+                    {% if campaign.status == 'active' %}
+                        <span class="chip" style="background-color: rgba(47, 158, 68, 0.3); color: var(--rpg-green);">
+                            <i class="material-icons tiny">check_circle</i>
+                            Active
+                        </span>
+                    {% elif campaign.status == 'in_progress' %}
+                        <span class="chip" style="background-color: rgba(76, 110, 245, 0.3); color: var(--rpg-blue);">
+                            <i class="material-icons tiny">play_arrow</i>
+                            In Progress
+                        </span>
+                    {% elif campaign.status == 'completed' %}
+                        <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); color: var(--rpg-gold);">
+                            <i class="material-icons tiny">done_all</i>
+                            Completed
+                        </span>
+                    {% else %}
+                        <span class="chip" style="background-color: rgba(192, 192, 192, 0.3); color: var(--rpg-silver);">
+                            {{ campaign.status }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 l4">
+        <div class="card stat-card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">book</i>
+                <h5 style="margin: 10px 0; color: white;">Campaign</h5>
+                <p style="color: white;">{{ worlds|length }} World(s), {{ members|length }} Player(s)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Scene -->
+{% if campaign.current_scene %}
+<div class="row">
+    <div class="col s12">
+        <div class="card" style="background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); border: 2px solid var(--rpg-gold);">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">description</i>
+                    Current Scene
+                </span>
+                <p style="color: #e0e0e0; line-height: 1.8; white-space: pre-wrap; margin-top: 16px;">{{ campaign.current_scene }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Start Campaign Button -->
+{% if campaign.status == 'active' %}
+<div class="row">
+    <div class="col s12 center-align">
+        <form method="post" action="{% url 'campaign_start' campaign.campaign_id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-large waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-green) 0%, #51cf66 100%);">
+                <i class="material-icons left">play_arrow</i>Start Campaign
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<!-- Player Action Form -->
+{% if campaign.status == 'in_progress' %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">edit</i>
+                    Player Action
+                </span>
+                <form method="post" action="{% url 'campaign_detail' campaign.campaign_id %}">
+                    {% csrf_token %}
+                    <div class="input-field">
+                        <textarea id="player_action" name="player_action" class="materialize-textarea"
+                                  placeholder="What do you do next?" required></textarea>
+                        <label for="player_action">Your Action</label>
+                    </div>
+                    <div class="center-align" style="margin-top: 20px;">
+                        <button type="submit" class="btn-large waves-effect waves-light">
+                            <i class="material-icons left">send</i>Submit Action
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Scene History -->
+{% if campaign.scene_history %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">history</i>
+                    Scene History
+                </span>
+                <div style="margin-top: 20px;">
+                    <ul class="collection" style="border: none;">
+                        {% for scene in campaign.scene_history %}
+                        <li class="collection-item" style="background: rgba(212, 175, 55, 0.05); border-bottom: 1px solid rgba(212, 175, 55, 0.2); margin-bottom: 8px; border-radius: 8px;">
+                            <div style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">{{ scene }}</div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+    {% if campaign.status == 'active' %}
+    <div class="row">
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content center-align">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">auto_stories</i>
+                    <h5 style="color: var(--rpg-gold);">No Scenes Yet</h5>
+                    <p style="color: #b8b8d1;">Start the campaign to begin your adventure.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal" style="max-width: 600px;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #e0e0e0;">
+        <h4 style="color: #ff6b6b;">
+            <i class="material-icons left" style="font-size: 2rem;">warning</i>
+            Delete Campaign
+        </h4>
+        <p style="font-size: 1.1rem; margin: 20px 0;">
+            You are about to permanently delete the campaign:
+        </p>
+        <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-left: 4px solid var(--rpg-gold); margin: 20px 0; border-radius: 4px;">
+            <strong style="color: var(--rpg-gold); font-size: 1.2rem;">{{ campaign.campaign_name }}</strong>
+        </div>
+
+        <div style="background: rgba(255, 107, 107, 0.1); padding: 15px; border-left: 4px solid #ff6b6b; margin: 20px 0; border-radius: 4px;">
+            <p style="margin: 0; color: #ff6b6b;"><strong>⚠️ This action cannot be undone!</strong></p>
+        </div>
+
+        <p style="margin: 20px 0; line-height: 1.6;">
+            Deleting this campaign will:
+        </p>
+        <ul style="margin-left: 20px; line-height: 1.8;">
+            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Remove all campaign data from MongoDB</li>
+            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Delete all Neo4j relationships</li>
+            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Permanently erase {{ campaign.scene_history|length|default:0 }} scene(s) from history</li>
+            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Remove connections to {{ worlds|length }} world(s) and {{ members|length }} player(s)</li>
+        </ul>
+
+        <p style="margin: 20px 0; font-style: italic; color: #b8b8d1;">
+            The worlds and players themselves will not be affected, only their connection to this campaign.
+        </p>
+    </div>
+    <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
+            <i class="material-icons left">cancel</i>Cancel
+        </a>
+        <form method="post" action="{% url 'campaign_delete' campaign.campaign_id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn waves-effect waves-light red darken-2">
+                <i class="material-icons left">delete_forever</i>Yes, Delete Campaign
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize all textareas
+        var textareas = document.querySelectorAll('textarea');
+        textareas.forEach(function(textarea) {
+            M.textareaAutoResize(textarea);
+        });
+
+        // Initialize delete modal
+        var deleteModal = document.querySelectorAll('.modal');
+        M.Modal.init(deleteModal);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}{{ world.world_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">map</i>
+            {{ world.world_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'world_list' %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to Worlds
+        </a>
+        <a href="{% url 'world_update' world.world_id %}" class="btn waves-effect waves-light" style="margin-left: 10px;">
+            <i class="material-icons left">edit</i>Edit World
+        </a>
+        <a href="{% url 'world_delete' world.world_id %}" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+            <i class="material-icons left">delete</i>Delete World
+        </a>
+    </div>
+</div>
+
+<!-- World Overview -->
+<div class="row">
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">info</i>
+                    World Overview
+                </span>
+
+                <!-- Universes -->
+                {% if universes %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">public</i> Universes
+                    </h6>
+                    {% for universe in universes %}
+                        <a href="{% url 'universe_detail' universe.universe_id %}" style="text-decoration: none;">
+                            <span class="chip hoverable" style="background-color: rgba(212, 175, 55, 0.3); margin: 4px;">
+                                {{ universe.universe_name }}
+                            </span>
+                        </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Genre -->
+                <div style="margin: 20px 0;">
+                    <div class="chip">
+                        <i class="material-icons tiny">category</i>
+                        {{ world.genre }}
+                    </div>
+                </div>
+
+                <!-- Visual Styles -->
+                {% if world.visual_style %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">palette</i> Visual Styles
+                    </h6>
+                    {% if world.visual_style|length > 0 %}
+                        {% for style in world.visual_style %}
+                            <span class="chip" style="background-color: rgba(156, 39, 176, 0.3); margin: 4px;">
+                                {{ style }}
+                            </span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Themes -->
+                {% if world.themes %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">label</i> Themes
+                    </h6>
+                    {% if world.themes|length > 0 %}
+                        {% for theme in world.themes %}
+                            <span class="chip" style="background-color: rgba(106, 76, 147, 0.3); margin: 4px;">
+                                {{ theme }}
+                            </span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 l4">
+        <div class="card stat-card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">map</i>
+                <h5 style="margin: 10px 0; color: white;">World Details</h5>
+                <p style="color: white;">
+                    {% if universes %}
+                        {{ universes|length }} Universe{% if universes|length != 1 %}s{% endif %}
+                    {% else %}
+                        No Universes
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lore Sections -->
+<div class="row">
+    <!-- Setting -->
+    {% if world.setting %}
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">landscape</i>
+                    Setting
+                </span>
+                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.setting }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- History -->
+    {% if world.lore.history %}
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">history</i>
+                    History
+                </span>
+                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.history }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Geography -->
+    {% if world.lore.geography %}
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">terrain</i>
+                    Geography
+                </span>
+                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.geography }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Culture -->
+    {% if world.lore.culture %}
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">groups</i>
+                    Culture
+                </span>
+                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.culture }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- AI-Generated Backstory -->
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">auto_awesome</i>
+                    AI-Generated Backstory
+                </span>
+
+                <div id="backstory-display" style="margin-top: 20px;">
+                    {% if world.backstory %}
+                        <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap; margin-bottom: 20px;">{{ world.backstory }}</p>
+                        <button id="regenerate-btn" class="btn waves-effect waves-light" style="margin-right: 10px;">
+                            <i class="material-icons left">refresh</i>Regenerate
+                        </button>
+                        <button id="edit-btn" class="btn waves-effect waves-light grey darken-1">
+                            <i class="material-icons left">edit</i>Edit
+                        </button>
+                    {% else %}
+                        <p style="color: #b8b8d1; margin-bottom: 20px;">Generate a creative AI backstory for this world based on its properties.</p>
+                        <button id="generate-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                            <i class="material-icons left">auto_awesome</i>Generate Backstory
+                        </button>
+                    {% endif %}
+                </div>
+
+                <!-- Edit Form (hidden by default) -->
+                <div id="backstory-edit-form" style="display: none; margin-top: 20px;">
+                    <div class="input-field">
+                        <textarea id="backstory-textarea" class="materialize-textarea" style="color: #e0e0e0; min-height: 200px;">{{ world.backstory }}</textarea>
+                        <label for="backstory-textarea" class="active">Edit Backstory</label>
+                    </div>
+                    <button id="save-btn" class="btn waves-effect waves-light green darken-1">
+                        <i class="material-icons left">save</i>Save
+                    </button>
+                    <button id="cancel-btn" class="btn waves-effect waves-light grey darken-1">
+                        <i class="material-icons left">cancel</i>Cancel
+                    </button>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="backstory-loading" style="display: none; margin-top: 20px;">
+                    <div class="progress" style="background-color: rgba(212, 175, 55, 0.2);">
+                        <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
+                    </div>
+                    <p style="color: #b8b8d1; text-align: center;">Generating backstory with AI...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Regions in World -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">terrain</i>
+                    Regions in this World
+                </span>
+
+                {% if regions %}
+                <div class="row" style="margin-top: 20px;">
+                    {% for region in regions %}
+                    <div class="col s12 m6 l4">
+                        <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5);">
+                            <div class="card-content">
+                                <span class="card-title" style="color: var(--rpg-gold); font-size: 1.2rem;">
+                                    <i class="material-icons left">terrain</i>
+                                    {{ region.region_name }}
+                                </span>
+                                <div style="margin-top: 10px;">
+                                    <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); font-size: 0.85rem;">
+                                        {{ region.region_type }}
+                                    </span>
+                                    <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); font-size: 0.85rem;">
+                                        {{ region.climate }}
+                                    </span>
+                                </div>
+                                <p style="color: #b8b8d1; margin-top: 10px; font-size: 0.9rem;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">location_on</i>
+                                    {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
+                                </p>
+                            </div>
+                            <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
+                                <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold);">
+                                    <i class="material-icons tiny">visibility</i> View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div style="margin-top: 20px;">
+                    <a href="{% url 'region_list' world.world_id %}" class="btn waves-effect waves-light">
+                        <i class="material-icons left">list</i>View All Regions
+                    </a>
+                    <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="margin-left: 10px; background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                        <i class="material-icons left">add</i>Create New Region
+                    </a>
+                </div>
+                {% else %}
+                <div style="margin-top: 20px; text-align: center;">
+                    <i class="material-icons" style="font-size: 60px; color: var(--rpg-gold); opacity: 0.5;">terrain</i>
+                    <p style="color: #b8b8d1; margin: 15px 0;">No regions in this world yet.</p>
+                    <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                        <i class="material-icons left">add</i>Create First Region
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Empty State if no lore -->
+{% if not world.setting and not world.lore.history and not world.lore.geography and not world.lore.culture %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">book</i>
+                <h5 style="color: var(--rpg-gold);">No Lore Added Yet</h5>
+                <p style="color: #b8b8d1;">Add lore to this world by editing its details.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generate-btn');
+        const regenerateBtn = document.getElementById('regenerate-btn');
+        const editBtn = document.getElementById('edit-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const backstoryDisplay = document.getElementById('backstory-display');
+        const backstoryEditForm = document.getElementById('backstory-edit-form');
+        const backstoryLoading = document.getElementById('backstory-loading');
+        const backstoryTextarea = document.getElementById('backstory-textarea');
+
+        // Generate backstory
+        async function generateBackstory() {
+            backstoryDisplay.style.display = 'none';
+            backstoryLoading.style.display = 'block';
+
+            try {
+                const response = await fetch('{% url "world_generate_backstory" world.world_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    backstoryTextarea.value = data.backstory;
+                    M.textareaAutoResize(backstoryTextarea);
+                    backstoryLoading.style.display = 'none';
+                    backstoryEditForm.style.display = 'block';
+                    M.toast({
+                        html: `<span>Backstory generated! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
+                        classes: 'green darken-2',
+                        displayLength: 4000
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to generate backstory');
+                }
+            } catch (error) {
+                backstoryLoading.style.display = 'none';
+                backstoryDisplay.style.display = 'block';
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+            }
+        }
+
+        // Save backstory
+        async function saveBackstory() {
+            const formData = new FormData();
+            formData.append('backstory', backstoryTextarea.value);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            try {
+                const response = await fetch('{% url "world_save_backstory" world.world_id %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: '<span>Backstory saved successfully!</span>',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    // Reload page to show updated backstory
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to save backstory');
+                }
+            } catch (error) {
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+            }
+        }
+
+        // Event listeners
+        if (generateBtn) {
+            generateBtn.addEventListener('click', generateBackstory);
+        }
+
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', generateBackstory);
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', function() {
+                backstoryDisplay.style.display = 'none';
+                backstoryEditForm.style.display = 'block';
+                M.textareaAutoResize(backstoryTextarea);
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveBackstory);
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                backstoryEditForm.style.display = 'none';
+                backstoryDisplay.style.display = 'block';
+            });
+        }
+
+        // Initialize textarea auto-resize
+        M.textareaAutoResize(backstoryTextarea);
+    });
+</script>
+{% endblock %}

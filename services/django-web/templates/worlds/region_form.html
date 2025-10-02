@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}{% if region %}Edit Region{% else %}Create Region{% endif %} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">terrain</i>
+            {% if region %}Edit Region{% else %}Create New Region{% endif %}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <form method="post" id="region-form">
+                    {% csrf_token %}
+
+                    <!-- Region Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">terrain</i>
+                        <input id="region_name" name="region_name" type="text" class="validate" required
+                               value="{% if region %}{{ region.region_name }}{% endif %}"
+                               style="color: #e0e0e0;">
+                        <label for="region_name" {% if region %}class="active"{% endif %}>Region Name *</label>
+                    </div>
+
+                    <!-- Region Type -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
+                        <select id="region_type" name="region_type" class="validate" required>
+                            <option value="" disabled {% if not region %}selected{% endif %}>Choose Region Type</option>
+                            <option value="Mountain" {% if region and region.region_type == "Mountain" %}selected{% endif %}>Mountain</option>
+                            <option value="Forest" {% if region and region.region_type == "Forest" %}selected{% endif %}>Forest</option>
+                            <option value="Desert" {% if region and region.region_type == "Desert" %}selected{% endif %}>Desert</option>
+                            <option value="Coastal" {% if region and region.region_type == "Coastal" %}selected{% endif %}>Coastal</option>
+                            <option value="Urban" {% if region and region.region_type == "Urban" %}selected{% endif %}>Urban</option>
+                            <option value="Rural" {% if region and region.region_type == "Rural" %}selected{% endif %}>Rural</option>
+                            <option value="Wasteland" {% if region and region.region_type == "Wasteland" %}selected{% endif %}>Wasteland</option>
+                            <option value="Tundra" {% if region and region.region_type == "Tundra" %}selected{% endif %}>Tundra</option>
+                            <option value="Swamp" {% if region and region.region_type == "Swamp" %}selected{% endif %}>Swamp</option>
+                            <option value="Underground" {% if region and region.region_type == "Underground" %}selected{% endif %}>Underground</option>
+                            <option value="Island" {% if region and region.region_type == "Island" %}selected{% endif %}>Island</option>
+                            <option value="Volcanic" {% if region and region.region_type == "Volcanic" %}selected{% endif %}>Volcanic</option>
+                            <option value="Mystical" {% if region and region.region_type == "Mystical" %}selected{% endif %}>Mystical</option>
+                        </select>
+                        <label>Region Type *</label>
+                    </div>
+
+                    <!-- Climate -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">thermostat</i>
+                        <select id="climate" name="climate" class="validate" required>
+                            <option value="" disabled {% if not region %}selected{% endif %}>Choose Climate</option>
+                            <option value="Tropical" {% if region and region.climate == "Tropical" %}selected{% endif %}>Tropical</option>
+                            <option value="Temperate" {% if region and region.climate == "Temperate" %}selected{% endif %}>Temperate</option>
+                            <option value="Arctic" {% if region and region.climate == "Arctic" %}selected{% endif %}>Arctic</option>
+                            <option value="Arid" {% if region and region.climate == "Arid" %}selected{% endif %}>Arid</option>
+                            <option value="Mediterranean" {% if region and region.climate == "Mediterranean" %}selected{% endif %}>Mediterranean</option>
+                            <option value="Continental" {% if region and region.climate == "Continental" %}selected{% endif %}>Continental</option>
+                            <option value="Oceanic" {% if region and region.climate == "Oceanic" %}selected{% endif %}>Oceanic</option>
+                            <option value="Subarctic" {% if region and region.climate == "Subarctic" %}selected{% endif %}>Subarctic</option>
+                            <option value="Subtropical" {% if region and region.climate == "Subtropical" %}selected{% endif %}>Subtropical</option>
+                            <option value="Monsoon" {% if region and region.climate == "Monsoon" %}selected{% endif %}>Monsoon</option>
+                        </select>
+                        <label>Climate *</label>
+                    </div>
+
+                    <!-- Terrain (Multi-select) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">landscape</i>
+                        <select id="terrain" name="terrain" multiple>
+                            <option value="" disabled>Choose Terrain Features</option>
+                            <option value="Mountains" {% if region and "Mountains" in region.terrain %}selected{% endif %}>Mountains</option>
+                            <option value="Hills" {% if region and "Hills" in region.terrain %}selected{% endif %}>Hills</option>
+                            <option value="Plains" {% if region and "Plains" in region.terrain %}selected{% endif %}>Plains</option>
+                            <option value="Forests" {% if region and "Forests" in region.terrain %}selected{% endif %}>Forests</option>
+                            <option value="Jungles" {% if region and "Jungles" in region.terrain %}selected{% endif %}>Jungles</option>
+                            <option value="Swamps" {% if region and "Swamps" in region.terrain %}selected{% endif %}>Swamps</option>
+                            <option value="Rivers" {% if region and "Rivers" in region.terrain %}selected{% endif %}>Rivers</option>
+                            <option value="Lakes" {% if region and "Lakes" in region.terrain %}selected{% endif %}>Lakes</option>
+                            <option value="Oceans" {% if region and "Oceans" in region.terrain %}selected{% endif %}>Oceans</option>
+                            <option value="Beaches" {% if region and "Beaches" in region.terrain %}selected{% endif %}>Beaches</option>
+                            <option value="Cliffs" {% if region and "Cliffs" in region.terrain %}selected{% endif %}>Cliffs</option>
+                            <option value="Canyons" {% if region and "Canyons" in region.terrain %}selected{% endif %}>Canyons</option>
+                            <option value="Caves" {% if region and "Caves" in region.terrain %}selected{% endif %}>Caves</option>
+                            <option value="Glaciers" {% if region and "Glaciers" in region.terrain %}selected{% endif %}>Glaciers</option>
+                            <option value="Deserts" {% if region and "Deserts" in region.terrain %}selected{% endif %}>Deserts</option>
+                            <option value="Dunes" {% if region and "Dunes" in region.terrain %}selected{% endif %}>Dunes</option>
+                            <option value="Valleys" {% if region and "Valleys" in region.terrain %}selected{% endif %}>Valleys</option>
+                            <option value="Plateaus" {% if region and "Plateaus" in region.terrain %}selected{% endif %}>Plateaus</option>
+                        </select>
+                        <label>Terrain Features</label>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                        <textarea id="description" name="description" class="materialize-textarea"
+                                  style="color: #e0e0e0;">{% if region %}{{ region.description }}{% endif %}</textarea>
+                        <label for="description" {% if region and region.description %}class="active"{% endif %}>Description</label>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="row" style="margin-top: 30px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn-large waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                                <i class="material-icons left">save</i>{% if region %}Update Region{% else %}Create Region{% endif %}
+                            </button>
+                            {% if region %}
+                            <a href="{% url 'region_detail' world.world_id region.region_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                            {% else %}
+                            <a href="{% url 'region_list' world.world_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                                <i class="material-icons left">cancel</i>Cancel
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize select dropdowns
+        var elems = document.querySelectorAll('select');
+        M.FormSelect.init(elems);
+
+        // Initialize textarea auto-resize
+        var textareas = document.querySelectorAll('textarea');
+        M.textareaAutoResize(textareas);
+    });
+</script>
+{% endblock %}

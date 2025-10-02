@@ -1,0 +1,581 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance.pk %}Edit{% else %}Create{% endif %} Campaign - SkillForge RPG{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Make dropdown placeholder text more visible */
+    select option[disabled] {
+        color: #b8b8d1 !important;
+    }
+
+    /* Style for Materialize dropdown */
+    .dropdown-content {
+        background-color: #2a2a3e !important;
+    }
+
+    .dropdown-content li > a,
+    .dropdown-content li > span {
+        color: #e0e0e0 !important;
+    }
+
+    .dropdown-content li:hover,
+    .dropdown-content li.active {
+        background-color: rgba(212, 175, 55, 0.2) !important;
+    }
+
+    .dropdown-content li.selected {
+        background-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    /* Input field labels and text */
+    .input-field label {
+        color: #b8b8d1 !important;
+    }
+
+    .input-field input[type=text],
+    .input-field textarea.materialize-textarea {
+        color: #e0e0e0 !important;
+        border-bottom-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    .input-field input[type=text]:focus,
+    .input-field textarea.materialize-textarea:focus {
+        border-bottom-color: var(--rpg-gold) !important;
+        box-shadow: 0 1px 0 0 var(--rpg-gold) !important;
+    }
+
+    .input-field label.active {
+        color: var(--rpg-gold) !important;
+    }
+
+    /* Select wrapper text color */
+    .select-wrapper input.select-dropdown {
+        color: #e0e0e0 !important;
+    }
+
+    /* Helper text color */
+    .helper-text {
+        color: #b8b8d1 !important;
+    }
+
+    /* Modal styling */
+    .modal {
+        background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+        border-radius: 12px;
+        border: 2px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .modal .modal-content input[type=text] {
+        color: #e0e0e0 !important;
+        border-bottom-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    .modal .modal-content input[type=text]:focus {
+        border-bottom-color: var(--rpg-gold) !important;
+        box-shadow: 0 1px 0 0 var(--rpg-gold) !important;
+    }
+
+    .modal .modal-content label {
+        color: #b8b8d1 !important;
+    }
+
+    .modal .modal-content label.active {
+        color: var(--rpg-gold) !important;
+    }
+
+    /* Checkbox styling in modals */
+    [type="checkbox"].filled-in:checked + span:not(.lever):after {
+        background-color: var(--rpg-gold);
+        border-color: var(--rpg-gold);
+    }
+
+    /* Readonly input cursor */
+    input[readonly] {
+        cursor: pointer !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">book</i>
+            {% if is_edit %}Edit{% else %}Create{% endif %} Campaign
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 l10 offset-l1">
+        <div class="card">
+            <div class="card-content">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Campaign Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">title</i>
+                        <input type="text" id="campaign_name" name="campaign_name"
+                               value="{{ form.campaign_name.value|default:'' }}" required>
+                        <label for="campaign_name" class="{% if form.campaign_name.value %}active{% endif %}">Campaign Name</label>
+                        {% if form.campaign_name.errors %}
+                            <span class="helper-text red-text">{{ form.campaign_name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- World Selection (Modal Dialog) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">map</i>
+                        <input type="text" id="world_display" readonly class="modal-trigger" href="#worldModal"
+                               placeholder="Click to select worlds" style="cursor: pointer;">
+                        <label for="world_display">Worlds <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text">Click to search, filter, and select worlds</span>
+                        <span class="helper-text" id="world_ids_error"></span>
+                        <div id="selected_worlds_display" style="margin-top: 10px;"></div>
+                    </div>
+
+                    <!-- Member Selection (Modal Dialog) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">people</i>
+                        <input type="text" id="member_display" readonly class="modal-trigger" href="#memberModal"
+                               placeholder="Click to select players" style="cursor: pointer;">
+                        <label for="member_display">Players <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text">Click to search, filter, and select players</span>
+                        <span class="helper-text" id="member_ids_error"></span>
+                        <div id="selected_members_display" style="margin-top: 10px;"></div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="card-action center-align" style="background: transparent; border: none; padding-top: 20px;">
+                        <button type="submit" class="btn-large waves-effect waves-light">
+                            <i class="material-icons left">save</i>
+                            {% if is_edit %}Update{% else %}Create{% endif %} Campaign
+                        </button>
+                        {% if is_edit %}
+                        <a href="{% url 'campaign_detail' campaign.campaign_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                        {% else %}
+                        <a href="{% url 'campaign_list' %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- World Selection Modal -->
+<div id="worldModal" class="modal" style="max-height: 90%; width: 80%;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); color: #e0e0e0;">
+        <h4 style="color: var(--rpg-gold);">
+            <i class="material-icons left">map</i>Select Worlds
+        </h4>
+
+        <!-- Search and Filter Controls -->
+        <div class="row" style="margin-bottom: 20px;">
+            <div class="col s12 m6">
+                <div class="input-field">
+                    <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
+                    <input type="text" id="worldSearch" placeholder="Search worlds...">
+                    <label for="worldSearch">Search by name</label>
+                </div>
+            </div>
+            <div class="col s12 m6">
+                <div class="input-field">
+                    <i class="material-icons prefix" style="color: var(--rpg-gold);">filter_list</i>
+                    <select id="worldGenreFilter">
+                        <option value="">All Genres</option>
+                        <option value="Fantasy">Fantasy</option>
+                        <option value="Sci-Fi">Sci-Fi</option>
+                        <option value="Horror">Horror</option>
+                        <option value="Cyberpunk">Cyberpunk</option>
+                        <option value="Steampunk">Steampunk</option>
+                        <option value="Post-Apocalyptic">Post-Apocalyptic</option>
+                        <option value="Historical">Historical</option>
+                        <option value="Modern">Modern</option>
+                        <option value="Mystery">Mystery</option>
+                        <option value="Adventure">Adventure</option>
+                        <option value="Western">Western</option>
+                        <option value="Superhero">Superhero</option>
+                    </select>
+                    <label>Filter by Genre</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- World List -->
+        <div id="worldList" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 10px;">
+            {% for world in worlds %}
+            <div class="world-item" data-id="{{ world.id }}" data-name="{{ world.world_name }}" data-genre="{{ world.genre }}"
+                 style="padding: 12px; margin: 8px 0; background: rgba(212, 175, 55, 0.05); border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.2); cursor: pointer; transition: all 0.3s;">
+                <label>
+                    <input type="checkbox" class="world-checkbox filled-in" value="{{ world.id }}" />
+                    <span style="color: #e0e0e0;">
+                        <strong>{{ world.world_name }}</strong>
+                        <span class="chip" style="margin-left: 10px; background-color: rgba(106, 76, 147, 0.3); font-size: 0.8rem;">{{ world.genre }}</span>
+                        {% if world.setting %}
+                        <br><small style="color: #b8b8d1;">{{ world.setting|truncatewords:15 }}</small>
+                        {% endif %}
+                    </span>
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="modal-footer" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);">
+        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
+            <i class="material-icons left">cancel</i>Cancel
+        </a>
+        <a href="#!" id="confirmWorlds" class="modal-close waves-effect waves-light btn">
+            <i class="material-icons left">check</i>Confirm Selection
+        </a>
+    </div>
+</div>
+
+<!-- Member Selection Modal -->
+<div id="memberModal" class="modal" style="max-height: 90%; width: 80%;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); color: #e0e0e0;">
+        <h4 style="color: var(--rpg-gold);">
+            <i class="material-icons left">people</i>Select Players
+        </h4>
+
+        <!-- Search Controls -->
+        <div class="row" style="margin-bottom: 20px;">
+            <div class="col s12">
+                <div class="input-field">
+                    <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
+                    <input type="text" id="memberSearch" placeholder="Search players...">
+                    <label for="memberSearch">Search by name or email</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Member List -->
+        <div id="memberList" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 10px;">
+            {% for member in members %}
+            <div class="member-item" data-id="{{ member.id }}" data-name="{{ member.member_name }}" data-email="{{ member.email|default:'' }}"
+                 style="padding: 12px; margin: 8px 0; background: rgba(212, 175, 55, 0.05); border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.2); cursor: pointer; transition: all 0.3s;">
+                <label>
+                    <input type="checkbox" class="member-checkbox filled-in" value="{{ member.id }}" />
+                    <span style="color: #e0e0e0;">
+                        <strong>{{ member.member_name }}</strong>
+                        {% if member.email %}
+                        <br><small style="color: #b8b8d1;">{{ member.email }}</small>
+                        {% endif %}
+                    </span>
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="modal-footer" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);">
+        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
+            <i class="material-icons left">cancel</i>Cancel
+        </a>
+        <a href="#!" id="confirmMembers" class="modal-close waves-effect waves-light btn">
+            <i class="material-icons left">check</i>Confirm Selection
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize modals
+        var modals = document.querySelectorAll('.modal');
+        M.Modal.init(modals, {
+            dismissible: true,
+            onOpenStart: function(modal) {
+                // Initialize selects in modal when opened
+                var selects = modal.querySelectorAll('select');
+                M.FormSelect.init(selects);
+            }
+        });
+
+        // Selected items storage
+        let selectedWorlds = new Map();
+        let selectedMembers = new Map();
+
+        // Pre-populate selections in edit mode
+        {% if is_edit %}
+        // Pre-select worlds
+        {% for world_id in form.world_ids.value %}
+        const worldCheckbox{{ forloop.counter }} = document.querySelector('.world-checkbox[value="{{ world_id }}"]');
+        if (worldCheckbox{{ forloop.counter }}) {
+            worldCheckbox{{ forloop.counter }}.checked = true;
+            const worldItem{{ forloop.counter }} = worldCheckbox{{ forloop.counter }}.closest('.world-item');
+            selectedWorlds.set('{{ world_id }}', {
+                id: '{{ world_id }}',
+                name: worldItem{{ forloop.counter }}.dataset.name,
+                genre: worldItem{{ forloop.counter }}.dataset.genre
+            });
+        }
+        {% endfor %}
+
+        // Pre-select members
+        {% for member_id in form.member_ids.value %}
+        const memberCheckbox{{ forloop.counter }} = document.querySelector('.member-checkbox[value="{{ member_id }}"]');
+        if (memberCheckbox{{ forloop.counter }}) {
+            memberCheckbox{{ forloop.counter }}.checked = true;
+            const memberItem{{ forloop.counter }} = memberCheckbox{{ forloop.counter }}.closest('.member-item');
+            selectedMembers.set('{{ member_id }}', {
+                id: '{{ member_id }}',
+                name: memberItem{{ forloop.counter }}.dataset.name,
+                email: memberItem{{ forloop.counter }}.dataset.email
+            });
+        }
+        {% endfor %}
+
+        // Update displays
+        updateWorldDisplay();
+        updateMemberDisplay();
+        {% endif %}
+
+        // World search functionality
+        document.getElementById('worldSearch').addEventListener('input', function(e) {
+            filterWorlds();
+        });
+
+        document.getElementById('worldGenreFilter').addEventListener('change', function(e) {
+            filterWorlds();
+        });
+
+        function filterWorlds() {
+            const searchTerm = document.getElementById('worldSearch').value.toLowerCase();
+            const genreFilter = document.getElementById('worldGenreFilter').value;
+            const worldItems = document.querySelectorAll('.world-item');
+
+            worldItems.forEach(item => {
+                const name = item.dataset.name.toLowerCase();
+                const genre = item.dataset.genre;
+                const matchesSearch = name.includes(searchTerm);
+                const matchesGenre = !genreFilter || genre === genreFilter;
+
+                if (matchesSearch && matchesGenre) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // Member search functionality
+        document.getElementById('memberSearch').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const memberItems = document.querySelectorAll('.member-item');
+
+            memberItems.forEach(item => {
+                const name = item.dataset.name.toLowerCase();
+                const email = item.dataset.email.toLowerCase();
+                const matches = name.includes(searchTerm) || email.includes(searchTerm);
+
+                if (matches) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // World item hover effects
+        document.querySelectorAll('.world-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(212, 175, 55, 0.15)';
+                this.style.borderColor = 'var(--rpg-gold)';
+            });
+            item.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(212, 175, 55, 0.05)';
+                this.style.borderColor = 'rgba(212, 175, 55, 0.2)';
+            });
+        });
+
+        // Member item hover effects
+        document.querySelectorAll('.member-item').forEach(item => {
+            item.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(212, 175, 55, 0.15)';
+                this.style.borderColor = 'var(--rpg-gold)';
+            });
+            item.addEventListener('mouseleave', function() {
+                this.style.background = 'rgba(212, 175, 55, 0.05)';
+                this.style.borderColor = 'rgba(212, 175, 55, 0.2)';
+            });
+        });
+
+        // Confirm world selection
+        document.getElementById('confirmWorlds').addEventListener('click', function() {
+            selectedWorlds.clear();
+            document.querySelectorAll('.world-checkbox:checked').forEach(checkbox => {
+                const item = checkbox.closest('.world-item');
+                selectedWorlds.set(checkbox.value, {
+                    id: checkbox.value,
+                    name: item.dataset.name,
+                    genre: item.dataset.genre
+                });
+            });
+            updateWorldDisplay();
+        });
+
+        // Confirm member selection
+        document.getElementById('confirmMembers').addEventListener('click', function() {
+            selectedMembers.clear();
+            document.querySelectorAll('.member-checkbox:checked').forEach(checkbox => {
+                const item = checkbox.closest('.member-item');
+                selectedMembers.set(checkbox.value, {
+                    id: checkbox.value,
+                    name: item.dataset.name,
+                    email: item.dataset.email
+                });
+            });
+            updateMemberDisplay();
+        });
+
+        function updateWorldDisplay() {
+            const display = document.getElementById('selected_worlds_display');
+            const input = document.getElementById('world_display');
+
+            if (selectedWorlds.size === 0) {
+                display.innerHTML = '';
+                input.value = '';
+                return;
+            }
+
+            input.value = `${selectedWorlds.size} world(s) selected`;
+
+            let html = '';
+            selectedWorlds.forEach((world, id) => {
+                html += `
+                    <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); margin: 5px; display: inline-flex; align-items: center;">
+                        ${world.name} <span style="font-size: 0.8em; color: #b8b8d1;">(${world.genre})</span>
+                        <i class="material-icons close" style="cursor: pointer; margin-left: 8px; font-size: 16px;" onclick="removeWorld('${id}')">close</i>
+                    </div>
+                `;
+            });
+            display.innerHTML = html;
+
+            // Clear error
+            const errorSpan = document.getElementById('world_ids_error');
+            if (errorSpan) {
+                errorSpan.textContent = '';
+            }
+        }
+
+        function updateMemberDisplay() {
+            const display = document.getElementById('selected_members_display');
+            const input = document.getElementById('member_display');
+
+            if (selectedMembers.size === 0) {
+                display.innerHTML = '';
+                input.value = '';
+                return;
+            }
+
+            input.value = `${selectedMembers.size} player(s) selected`;
+
+            let html = '';
+            selectedMembers.forEach((member, id) => {
+                html += `
+                    <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); margin: 5px; display: inline-flex; align-items: center;">
+                        ${member.name}${member.email ? ` <span style="font-size: 0.8em; color: #b8b8d1;">(${member.email})</span>` : ''}
+                        <i class="material-icons close" style="cursor: pointer; margin-left: 8px; font-size: 16px;" onclick="removeMember('${id}')">close</i>
+                    </div>
+                `;
+            });
+            display.innerHTML = html;
+
+            // Clear error
+            const errorSpan = document.getElementById('member_ids_error');
+            if (errorSpan) {
+                errorSpan.textContent = '';
+            }
+        }
+
+        // Global functions for removing items
+        window.removeWorld = function(id) {
+            selectedWorlds.delete(id);
+            const checkbox = document.querySelector(`.world-checkbox[value="${id}"]`);
+            if (checkbox) checkbox.checked = false;
+            updateWorldDisplay();
+        };
+
+        window.removeMember = function(id) {
+            selectedMembers.delete(id);
+            const checkbox = document.querySelector(`.member-checkbox[value="${id}"]`);
+            if (checkbox) checkbox.checked = false;
+            updateMemberDisplay();
+        };
+
+        // Form submission - add hidden inputs for selected items
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            let isValid = true;
+
+            // Validate campaign name
+            const campaignName = document.getElementById('campaign_name');
+            if (!campaignName.value.trim()) {
+                isValid = false;
+            }
+
+            // Validate worlds selection
+            if (selectedWorlds.size === 0) {
+                isValid = false;
+                const errorSpan = document.getElementById('world_ids_error');
+                if (errorSpan) {
+                    errorSpan.textContent = 'Please select at least one world';
+                    errorSpan.style.color = '#ff6b6b';
+                }
+            }
+
+            // Validate members selection
+            if (selectedMembers.size === 0) {
+                isValid = false;
+                const errorSpan = document.getElementById('member_ids_error');
+                if (errorSpan) {
+                    errorSpan.textContent = 'Please select at least one player';
+                    errorSpan.style.color = '#ff6b6b';
+                }
+            }
+
+            if (!isValid) {
+                M.toast({
+                    html: '<span style="color: white;">Please complete all required fields marked with *</span>',
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                return;
+            }
+
+            // Remove any existing hidden inputs
+            form.querySelectorAll('input[name="world_ids"], input[name="member_ids"]').forEach(input => input.remove());
+
+            // Add hidden inputs for selected worlds
+            selectedWorlds.forEach((world, id) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'world_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+
+            // Add hidden inputs for selected members
+            selectedMembers.forEach((member, id) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'member_ids';
+                input.value = id;
+                form.appendChild(input);
+            });
+
+            // Submit the form
+            form.submit();
+        });
+    });
+</script>
+{% endblock %}

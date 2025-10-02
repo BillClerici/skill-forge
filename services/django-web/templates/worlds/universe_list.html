@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Universes - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">public</i>
+            Universes
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'universe_create' %}" class="btn-large waves-effect waves-light">
+            <i class="material-icons left">add</i>Create Universe
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    {% if universes %}
+        {% for universe in universes %}
+        <div class="col s12 m6 l4">
+            <div class="card hoverable">
+                <div class="card-content">
+                    <span class="card-title">{{ universe.universe_name }}</span>
+                    <p style="margin-bottom: 16px; min-height: 60px; color: #b8b8d1;">
+                        {{ universe.description|truncatewords:20 }}
+                    </p>
+                    <div class="chip">
+                        <i class="material-icons tiny">star</i>
+                        {{ universe.max_content_rating }}
+                    </div>
+                    <div class="chip">
+                        <i class="material-icons tiny">style</i>
+                        {{ universe.narrative_style|title }}
+                    </div>
+                    {% if universe.humor_level and universe.humor_level != 'none' %}
+                    <div class="chip">
+                        <i class="material-icons tiny">mood</i>
+                        {{ universe.humor_level|title }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-action" style="background: rgba(212, 175, 55, 0.05); border-top: 1px solid rgba(212, 175, 55, 0.2);">
+                    <a href="{% url 'universe_detail' universe.universe_id %}" style="color: var(--rpg-gold);">
+                        <i class="material-icons tiny">visibility</i> View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col s12">
+            <div class="card">
+                <div class="card-content center-align">
+                    <i class="material-icons large" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">public</i>
+                    <h5 style="color: var(--rpg-gold);">No Universes Found</h5>
+                    <p style="color: #b8b8d1;">Create your first universe to get started building your RPG worlds.</p>
+                    <a href="{% url 'universe_create' %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">add</i>Create Universe
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

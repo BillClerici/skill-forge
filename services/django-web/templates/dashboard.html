@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h4 class="white-text" style="color: var(--rpg-gold) !important; text-shadow: 0 0 15px rgba(212, 175, 55, 0.4);">
+            <i class="material-icons left">dashboard</i>Dashboard
+        </h4>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row">
+    <div class="col s12 m6 l3">
+        <div class="card stat-card hoverable">
+            <div class="card-content white-text center-align">
+                <i class="material-icons">group</i>
+                <h3 class="white-text" style="margin: 10px 0;">{{ total_accounts }}</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Total Accounts</p>
+            </div>
+            <div class="card-action center-align">
+                <a href="{% url 'account_list' %}" class="white-text" style="font-weight: 600;">View All</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 m6 l3">
+        <div class="card stat-card hoverable">
+            <div class="card-content white-text center-align">
+                <i class="material-icons">person</i>
+                <h3 class="white-text" style="margin: 10px 0;">{{ total_members }}</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Total Members</p>
+            </div>
+            <div class="card-action center-align">
+                <a href="{% url 'member_list' %}" class="white-text" style="font-weight: 600;">View All</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 m6 l3">
+        <div class="card stat-card hoverable">
+            <div class="card-content white-text center-align">
+                <i class="material-icons">public</i>
+                <h3 class="white-text" style="margin: 10px 0;">0</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Universes</p>
+            </div>
+            <div class="card-action center-align">
+                <a href="#!" class="white-text" style="font-weight: 600;">Coming Soon</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 m6 l3">
+        <div class="card stat-card hoverable">
+            <div class="card-content white-text center-align">
+                <i class="material-icons">book</i>
+                <h3 class="white-text" style="margin: 10px 0;">0</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Campaigns</p>
+            </div>
+            <div class="card-action center-align">
+                <a href="#!" class="white-text" style="font-weight: 600;">Coming Soon</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <!-- Recent Accounts -->
+    <div class="col s12 l6">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">group</i>Recent Accounts
+                </span>
+                {% if recent_accounts %}
+                <ul class="collection" style="border: none; margin-top: 15px;">
+                    {% for account in recent_accounts %}
+                    <li class="collection-item" style="background-color: transparent;">
+                        <div>
+                            <a href="{% url 'account_detail' account.account_id %}" class="white-text" style="font-weight: 500; font-size: 1.05rem;">
+                                {{ account.name }}
+                            </a>
+                            <span class="badge" style="background-color: var(--rpg-purple);">{{ account.account_type }}</span>
+                            <p class="grey-text" style="margin: 5px 0 0 0; font-size: 0.9rem;">
+                                Created {{ account.created_at|timesince }} ago
+                            </p>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="grey-text center-align" style="padding: 20px;">No accounts yet</p>
+                {% endif %}
+            </div>
+            <div class="card-action">
+                <a href="{% url 'account_list' %}" style="color: var(--rpg-gold); font-weight: 600;">View All Accounts</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Members -->
+    <div class="col s12 l6">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">person</i>Recent Members
+                </span>
+                {% if recent_members %}
+                <ul class="collection" style="border: none; margin-top: 15px;">
+                    {% for member in recent_members %}
+                    <li class="collection-item" style="background-color: transparent;">
+                        <div>
+                            <a href="{% url 'member_detail' member.member_id %}" class="white-text" style="font-weight: 500; font-size: 1.05rem;">
+                                {{ member.display_name }}
+                            </a>
+                            <span class="badge" style="background-color: var(--rpg-blue);">{{ member.role }}</span>
+                            <p class="grey-text" style="margin: 5px 0 0 0; font-size: 0.9rem;">
+                                Joined {{ member.created_at|timesince }} ago
+                            </p>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="grey-text center-align" style="padding: 20px;">No members yet</p>
+                {% endif %}
+            </div>
+            <div class="card-action">
+                <a href="{% url 'member_list' %}" style="color: var(--rpg-gold); font-weight: 600;">View All Members</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">flash_on</i>Quick Actions
+                </span>
+                <div style="margin-top: 20px;">
+                    <a href="{% url 'account_list' %}" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
+                        <i class="material-icons left">add</i>Create Account
+                    </a>
+                    <a href="{% url 'member_list' %}" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
+                        <i class="material-icons left">person_add</i>Add Member
+                    </a>
+                    <a href="/graphql/" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
+                        <i class="material-icons left">code</i>GraphQL Playground
+                    </a>
+                    <a href="{% url 'admin:index' %}" class="btn waves-effect waves-light" style="margin-bottom: 10px;">
+                        <i class="material-icons left">settings</i>Admin Panel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

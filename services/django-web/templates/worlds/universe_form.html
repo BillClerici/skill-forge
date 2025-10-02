@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form.instance %}Edit{% else %}Create{% endif %} Universe - SkillForge RPG{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Make dropdown placeholder text more visible */
+    select option[disabled] {
+        color: #b8b8d1 !important;
+    }
+
+    /* Style for Materialize dropdown */
+    .dropdown-content {
+        background-color: #2a2a3e !important;
+    }
+
+    .dropdown-content li > a,
+    .dropdown-content li > span {
+        color: #e0e0e0 !important;
+    }
+
+    .dropdown-content li:hover,
+    .dropdown-content li.active {
+        background-color: rgba(212, 175, 55, 0.2) !important;
+    }
+
+    .dropdown-content li.selected {
+        background-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    /* Input field labels and text */
+    .input-field label {
+        color: #b8b8d1 !important;
+    }
+
+    .input-field input[type=text],
+    .input-field textarea.materialize-textarea {
+        color: #e0e0e0 !important;
+        border-bottom-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    .input-field input[type=text]:focus,
+    .input-field textarea.materialize-textarea:focus {
+        border-bottom-color: var(--rpg-gold) !important;
+        box-shadow: 0 1px 0 0 var(--rpg-gold) !important;
+    }
+
+    .input-field label.active {
+        color: var(--rpg-gold) !important;
+    }
+
+    /* Select wrapper text color */
+    .select-wrapper input.select-dropdown {
+        color: #e0e0e0 !important;
+    }
+
+    /* Checkbox labels */
+    [type="checkbox"] + span {
+        color: #e0e0e0 !important;
+    }
+
+    /* Helper text color */
+    .helper-text {
+        color: #b8b8d1 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">public</i>
+            {% if form.instance %}Edit{% else %}Create{% endif %} Universe
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 l8 offset-l2">
+        <div class="card">
+            <div class="card-content">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!-- Universe Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">title</i>
+                        <input type="text" id="universe_name" name="universe_name"
+                               value="{{ form.universe_name.value|default:'' }}" required>
+                        <label for="universe_name" class="{% if form.universe_name.value %}active{% endif %}">Universe Name</label>
+                        {% if form.universe_name.errors %}
+                            <span class="helper-text red-text">{{ form.universe_name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Description -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                        <textarea id="description" name="description" class="materialize-textarea"
+                                  required>{{ form.description.value|default:'' }}</textarea>
+                        <label for="description" class="{% if form.description.value %}active{% endif %}">Description</label>
+                        {% if form.description.errors %}
+                            <span class="helper-text red-text">{{ form.description.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Purpose Category -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
+                        <select id="purpose_category" name="purpose_category">
+                            <option value="" disabled {% if not form.purpose_category.value %}selected{% endif %}>Choose Purpose/Category</option>
+                            <option value="family_friendly" {% if form.purpose_category.value == 'family_friendly' %}selected{% endif %}>Family-Friendly</option>
+                            <option value="educational" {% if form.purpose_category.value == 'educational' %}selected{% endif %}>Educational</option>
+                            <option value="competitive" {% if form.purpose_category.value == 'competitive' %}selected{% endif %}>Competitive</option>
+                            <option value="cooperative" {% if form.purpose_category.value == 'cooperative' %}selected{% endif %}>Cooperative</option>
+                            <option value="sandbox" {% if form.purpose_category.value == 'sandbox' %}selected{% endif %}>Sandbox/Creative</option>
+                            <option value="narrative" {% if form.purpose_category.value == 'narrative' %}selected{% endif %}>Narrative-Driven</option>
+                            <option value="beginner" {% if form.purpose_category.value == 'beginner' %}selected{% endif %}>Beginner-Friendly</option>
+                            <option value="advanced" {% if form.purpose_category.value == 'advanced' %}selected{% endif %}>Advanced/Expert</option>
+                        </select>
+                        <label>Universe Purpose</label>
+                        <span class="helper-text">What is the primary goal or intent of this universe?</span>
+                        {% if form.purpose_category.errors %}
+                            <span class="helper-text red-text">{{ form.purpose_category.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Target Age Group -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">group</i>
+                        <select id="target_age_group" name="target_age_group">
+                            <option value="" disabled {% if not form.target_age_group.value %}selected{% endif %}>Choose Target Age Group</option>
+                            <option value="children" {% if form.target_age_group.value == 'children' %}selected{% endif %}>Children (5-10)</option>
+                            <option value="teen" {% if form.target_age_group.value == 'teen' %}selected{% endif %}>Teen (11-17)</option>
+                            <option value="adult" {% if form.target_age_group.value == 'adult' %}selected{% endif %}>Adult (18+)</option>
+                            <option value="all_ages" {% if form.target_age_group.value == 'all_ages' %}selected{% endif %}>All Ages</option>
+                        </select>
+                        <label>Target Age Group</label>
+                        <span class="helper-text">Who is the primary audience?</span>
+                        {% if form.target_age_group.errors %}
+                            <span class="helper-text red-text">{{ form.target_age_group.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Max Content Rating -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">star</i>
+                        <select id="max_content_rating" name="max_content_rating" data-required="true">
+                            <option value="" disabled {% if not form.max_content_rating.value %}selected{% endif %}>Choose Content Rating</option>
+                            <option value="G" {% if form.max_content_rating.value == 'G' %}selected{% endif %}>G - General Audiences</option>
+                            <option value="PG" {% if form.max_content_rating.value == 'PG' %}selected{% endif %}>PG - Parental Guidance</option>
+                            <option value="PG-13" {% if form.max_content_rating.value == 'PG-13' %}selected{% endif %}>PG-13 - Parents Strongly Cautioned</option>
+                            <option value="R" {% if form.max_content_rating.value == 'R' %}selected{% endif %}>R - Restricted</option>
+                        </select>
+                        <label>Content Rating <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text" id="max_content_rating_error"></span>
+                        {% if form.max_content_rating.errors %}
+                            <span class="helper-text red-text">{{ form.max_content_rating.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Narrative Style -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">style</i>
+                        <select id="narrative_style" name="narrative_style" data-required="true">
+                            <option value="" disabled {% if not form.narrative_style.value %}selected{% endif %}>Choose Narrative Style</option>
+                            <option value="friendly" {% if form.narrative_style.value == 'friendly' %}selected{% endif %}>Friendly</option>
+                            <option value="serious" {% if form.narrative_style.value == 'serious' %}selected{% endif %}>Serious</option>
+                            <option value="humorous" {% if form.narrative_style.value == 'humorous' %}selected{% endif %}>Humorous</option>
+                        </select>
+                        <label>Narrative Style <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text" id="narrative_style_error"></span>
+                        {% if form.narrative_style.errors %}
+                            <span class="helper-text red-text">{{ form.narrative_style.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Humor Level -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">mood</i>
+                        <select id="humor_level" name="humor_level" data-required="true">
+                            <option value="" disabled {% if not form.humor_level.value %}selected{% endif %}>Choose Humor Level</option>
+                            <option value="none" {% if form.humor_level.value == 'none' %}selected{% endif %}>None</option>
+                            <option value="light" {% if form.humor_level.value == 'light' %}selected{% endif %}>Light</option>
+                            <option value="moderate" {% if form.humor_level.value == 'moderate' %}selected{% endif %}>Moderate</option>
+                            <option value="heavy" {% if form.humor_level.value == 'heavy' %}selected{% endif %}>Heavy</option>
+                        </select>
+                        <label>Humor Level <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text" id="humor_level_error"></span>
+                        {% if form.humor_level.errors %}
+                            <span class="helper-text red-text">{{ form.humor_level.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Reading Level -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">school</i>
+                        <select id="reading_level" name="reading_level" data-required="true">
+                            <option value="" disabled {% if not form.reading_level.value %}selected{% endif %}>Choose Reading Level</option>
+                            <option value="elementary" {% if form.reading_level.value == 'elementary' %}selected{% endif %}>Elementary</option>
+                            <option value="middle_school" {% if form.reading_level.value == 'middle_school' %}selected{% endif %}>Middle School</option>
+                            <option value="high_school" {% if form.reading_level.value == 'high_school' %}selected{% endif %}>High School</option>
+                            <option value="adult" {% if form.reading_level.value == 'adult' %}selected{% endif %}>Adult</option>
+                        </select>
+                        <label>Reading Level <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text" id="reading_level_error"></span>
+                        {% if form.reading_level.errors %}
+                            <span class="helper-text red-text">{{ form.reading_level.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Complexity -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">settings</i>
+                        <select id="complexity" name="complexity" data-required="true">
+                            <option value="" disabled {% if not form.complexity.value %}selected{% endif %}>Choose Complexity</option>
+                            <option value="simple" {% if form.complexity.value == 'simple' %}selected{% endif %}>Simple</option>
+                            <option value="moderate" {% if form.complexity.value == 'moderate' %}selected{% endif %}>Moderate</option>
+                            <option value="complex" {% if form.complexity.value == 'complex' %}selected{% endif %}>Complex</option>
+                        </select>
+                        <label>Complexity <span style="color: #ff6b6b;">*</span></label>
+                        <span class="helper-text" id="complexity_error"></span>
+                        {% if form.complexity.errors %}
+                            <span class="helper-text red-text">{{ form.complexity.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Checkboxes Section -->
+                    <div style="margin: 32px 0; padding: 20px; background: rgba(212, 175, 55, 0.05); border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 20px;">
+                            <i class="material-icons tiny">tune</i> Game Features
+                        </h6>
+
+                        <p>
+                            <label>
+                                <input type="checkbox" id="combat_enabled" name="combat_enabled"
+                                       {% if form.combat_enabled.value %}checked{% endif %} />
+                                <span>Combat Enabled</span>
+                            </label>
+                        </p>
+
+                        <p>
+                            <label>
+                                <input type="checkbox" id="romance_enabled" name="romance_enabled"
+                                       {% if form.romance_enabled.value %}checked{% endif %} />
+                                <span>Romance Enabled</span>
+                            </label>
+                        </p>
+
+                        <p>
+                            <label>
+                                <input type="checkbox" id="character_death" name="character_death"
+                                       {% if form.character_death.value %}checked{% endif %} />
+                                <span>Character Death Allowed</span>
+                            </label>
+                        </p>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="card-action center-align" style="background: transparent; border: none; padding-top: 20px;">
+                        <button type="submit" class="btn-large waves-effect waves-light">
+                            <i class="material-icons left">save</i>
+                            {% if form.instance %}Update{% else %}Create{% endif %} Universe
+                        </button>
+                        {% if form.instance %}
+                        <a href="{% url 'universe_detail' universe.universe_id %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                        {% else %}
+                        <a href="{% url 'universe_list' %}" class="btn-large waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize select dropdowns
+        var elems = document.querySelectorAll('select');
+        M.FormSelect.init(elems);
+
+        // Initialize textarea
+        M.textareaAutoResize(document.getElementById('description'));
+
+        // Form validation
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            let isValid = true;
+            const requiredSelects = document.querySelectorAll('select[data-required="true"]');
+
+            // Clear previous error messages
+            document.querySelectorAll('.helper-text').forEach(el => {
+                if (!el.classList.contains('red-text')) {
+                    el.textContent = '';
+                    el.style.color = '';
+                }
+            });
+
+            // Validate each required select
+            requiredSelects.forEach(select => {
+                if (!select.value || select.value === '') {
+                    isValid = false;
+                    const errorSpan = document.getElementById(select.id + '_error');
+                    if (errorSpan) {
+                        errorSpan.textContent = 'This field is required';
+                        errorSpan.style.color = '#ff6b6b';
+                    }
+
+                    // Scroll to first error
+                    if (isValid === false) {
+                        select.parentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+
+            // Validate text inputs
+            const requiredInputs = document.querySelectorAll('input[required]');
+            requiredInputs.forEach(input => {
+                if (!input.value.trim()) {
+                    isValid = false;
+                    const label = input.parentElement.querySelector('label');
+                    if (label && !label.textContent.includes('*')) {
+                        label.innerHTML += ' <span style="color: #ff6b6b;">*</span>';
+                    }
+
+                    // Show toast message
+                    M.toast({
+                        html: '<span style="color: white;">Please fill in all required fields</span>',
+                        classes: 'red darken-2',
+                        displayLength: 3000
+                    });
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                M.toast({
+                    html: '<span style="color: white;">Please complete all required fields marked with *</span>',
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+            }
+        });
+
+        // Real-time validation feedback
+        document.querySelectorAll('select[data-required="true"]').forEach(select => {
+            select.addEventListener('change', function() {
+                const errorSpan = document.getElementById(this.id + '_error');
+                if (errorSpan && this.value) {
+                    errorSpan.textContent = '';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

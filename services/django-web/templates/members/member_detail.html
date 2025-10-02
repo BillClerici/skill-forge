@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ member.display_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'member_list' %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Members
+        </a>
+    </div>
+</div>
+
+<!-- Member Header -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12 m8">
+                        <h4 style="color: var(--rpg-gold); margin-top: 0;">
+                            <i class="material-icons left" style="vertical-align: middle;">person</i>
+                            {{ member.display_name }}
+                        </h4>
+                        <div style="margin-top: 20px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px;">
+                                <i class="material-icons left" style="font-size: 1.2rem;">label</i>
+                                {{ member.role|default:"Member" }}
+                            </span>
+                            {% if member.is_active %}
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green);">
+                                <i class="material-icons left" style="font-size: 1.2rem;">check_circle</i>
+                                Active
+                            </span>
+                            {% else %}
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px;">
+                                <i class="material-icons left" style="font-size: 1.2rem;">cancel</i>
+                                Inactive
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col s12 m4 right-align">
+                        <a href="#" class="btn waves-effect waves-light">
+                            <i class="material-icons left">edit</i>Edit
+                        </a>
+                        <a href="#" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">delete</i>Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Member Details -->
+<div class="row">
+    <!-- Info Card -->
+    <div class="col s12 l4">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">info</i>Member Information
+                </span>
+
+                <div style="margin-top: 20px;">
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Member ID:</strong><br>
+                        <code style="color: var(--rpg-silver); font-size: 0.85rem; word-break: break-all;">{{ member.member_id }}</code>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Display Name:</strong><br>
+                        <span style="color: white;">{{ member.display_name }}</span>
+                    </p>
+
+                    {% if member.email %}
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Email:</strong><br>
+                        <span style="color: white;">{{ member.email }}</span>
+                    </p>
+                    {% endif %}
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Account:</strong><br>
+                        {% if member.account %}
+                        <a href="{% url 'account_detail' member.account.account_id %}" style="color: var(--rpg-gold);">
+                            {{ member.account.name }}
+                        </a>
+                        {% else %}
+                        <span class="grey-text">N/A</span>
+                        {% endif %}
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Role:</strong><br>
+                        <span style="color: white;">{{ member.role|default:"Member" }}</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Status:</strong><br>
+                        {% if member.is_active %}
+                        <span style="color: var(--rpg-green);">Active</span>
+                        {% else %}
+                        <span class="grey-text">Inactive</span>
+                        {% endif %}
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Joined:</strong><br>
+                        <span style="color: white;">{{ member.created_at|date:"F d, Y" }}</span><br>
+                        <small class="grey-text">({{ member.created_at|timesince }} ago)</small>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Last Updated:</strong><br>
+                        <span style="color: white;">{{ member.updated_at|date:"F d, Y" }}</span><br>
+                        <small class="grey-text">({{ member.updated_at|timesince }} ago)</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Family Relationships Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">people</i>Family Relationships
+                </span>
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">account_tree</i>
+                    <p class="grey-text" style="margin-top: 15px;">Family tree visualization coming soon</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Profiles & Characters -->
+    <div class="col s12 l8">
+        <!-- Player Profiles Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">sports_esports</i>Player Profiles</span>
+                    <a href="#" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">add</i>Create Profile
+                    </a>
+                </span>
+
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">videogame_asset</i>
+                    <p class="grey-text" style="margin-top: 15px;">No player profiles yet</p>
+                    <a href="#" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">add</i>Create First Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Characters Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">face</i>Characters</span>
+                    <a href="#" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">add</i>Create Character
+                    </a>
+                </span>
+
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-purple); opacity: 0.3;">groups</i>
+                    <p class="grey-text" style="margin-top: 15px;">No characters created yet</p>
+                    <a href="#" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">add</i>Create First Character
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Timeline Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">timeline</i>Activity Timeline
+                </span>
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">history</i>
+                    <p class="grey-text" style="margin-top: 15px;">Activity tracking coming soon</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">bar_chart</i>Statistics
+                </span>
+
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col s6 m3 center-align">
+                        <h5 style="color: var(--rpg-gold); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Profiles</p>
+                    </div>
+                    <div class="col s6 m3 center-align">
+                        <h5 style="color: var(--rpg-purple); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Characters</p>
+                    </div>
+                    <div class="col s6 m3 center-align">
+                        <h5 style="color: var(--rpg-blue); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Campaigns</p>
+                    </div>
+                    <div class="col s6 m3 center-align">
+                        <h5 style="color: var(--rpg-green); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Achievements</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

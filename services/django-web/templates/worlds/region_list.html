@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Regions - {{ world.world_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">terrain</i>
+            Regions in {{ world.world_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'world_detail' world.world_id %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to World
+        </a>
+        <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="margin-left: 10px; background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+            <i class="material-icons left">add</i>Create New Region
+        </a>
+    </div>
+</div>
+
+{% if regions %}
+<div class="row">
+    {% for region in regions %}
+    <div class="col s12 m6 l4">
+        <div class="card hoverable" style="transition: all 0.3s ease;">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); font-weight: 600;">
+                    <i class="material-icons left">terrain</i>
+                    {{ region.region_name }}
+                </span>
+
+                <div style="margin: 15px 0;">
+                    <div class="chip" style="background-color: rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny">category</i>
+                        {{ region.region_type }}
+                    </div>
+                    <div class="chip" style="background-color: rgba(33, 150, 243, 0.3);">
+                        <i class="material-icons tiny">thermostat</i>
+                        {{ region.climate }}
+                    </div>
+                </div>
+
+                {% if region.terrain %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); font-size: 0.9rem; margin-bottom: 8px;">
+                        <i class="material-icons tiny">landscape</i> Terrain
+                    </h6>
+                    {% for terrain_type in region.terrain %}
+                        <span class="chip" style="background-color: rgba(76, 175, 80, 0.3); font-size: 0.85rem;">
+                            {{ terrain_type }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if region.description %}
+                <p style="color: #b8b8d1; margin-top: 15px; font-size: 0.95rem;">
+                    {{ region.description|truncatewords:20 }}
+                </p>
+                {% endif %}
+
+                <div style="margin-top: 15px;">
+                    <p style="color: #b8b8d1; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">location_on</i>
+                        {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <div class="card-action" style="background-color: rgba(30, 30, 46, 0.5);">
+                <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold);">
+                    <i class="material-icons tiny">visibility</i> View
+                </a>
+                <a href="{% url 'region_update' world.world_id region.region_id %}" style="color: #64b5f6;">
+                    <i class="material-icons tiny">edit</i> Edit
+                </a>
+                <a href="{% url 'region_delete' world.world_id region.region_id %}" style="color: #ef5350;">
+                    <i class="material-icons tiny">delete</i> Delete
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">terrain</i>
+                <h5 style="color: var(--rpg-gold);">No Regions Yet</h5>
+                <p style="color: #b8b8d1; margin-bottom: 20px;">Create your first region to start building your world.</p>
+                <a href="{% url 'region_create' world.world_id %}" class="btn-large waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                    <i class="material-icons left">add</i>Create First Region
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

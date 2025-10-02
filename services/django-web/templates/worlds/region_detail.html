@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}{{ region.region_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">terrain</i>
+            {{ region.region_name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'world_detail' world.world_id %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to World
+        </a>
+        <a href="{% url 'region_update' world.world_id region.region_id %}" class="btn waves-effect waves-light" style="margin-left: 10px;">
+            <i class="material-icons left">edit</i>Edit Region
+        </a>
+        <a href="{% url 'region_delete' world.world_id region.region_id %}" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+            <i class="material-icons left">delete</i>Delete Region
+        </a>
+    </div>
+</div>
+
+<!-- World Context -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">map</i>
+                    World
+                </span>
+                <div style="margin-top: 15px;">
+                    <a href="{% url 'world_detail' world.world_id %}" style="text-decoration: none;">
+                        <h5 style="color: var(--rpg-gold); margin: 10px 0;">{{ world.world_name }}</h5>
+                    </a>
+                    <div style="margin-top: 10px;">
+                        <span class="chip" style="background-color: rgba(212, 175, 55, 0.3);">
+                            <i class="material-icons tiny">category</i>
+                            {{ world.genre }}
+                        </span>
+                        {% if world.setting %}
+                        <span class="chip" style="background-color: rgba(76, 175, 80, 0.3);">
+                            <i class="material-icons tiny">landscape</i>
+                            {{ world.setting|truncatewords:3 }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Region Overview -->
+<div class="row">
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">info</i>
+                    Region Overview
+                </span>
+
+                <!-- Region Type & Climate -->
+                <div style="margin: 20px 0;">
+                    <div class="chip" style="background-color: rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny">category</i>
+                        {{ region.region_type }}
+                    </div>
+                    <div class="chip" style="background-color: rgba(33, 150, 243, 0.3);">
+                        <i class="material-icons tiny">thermostat</i>
+                        {{ region.climate }}
+                    </div>
+                </div>
+
+                <!-- Terrain Features -->
+                {% if region.terrain %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">landscape</i> Terrain Features
+                    </h6>
+                    {% for terrain_type in region.terrain %}
+                        <span class="chip" style="background-color: rgba(76, 175, 80, 0.3); margin: 4px;">
+                            {{ terrain_type }}
+                        </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Description -->
+                {% if region.description %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">description</i> Description
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ region.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col s12 l4">
+        <div class="card stat-card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">terrain</i>
+                <h5 style="margin: 10px 0; color: white;">Region Details</h5>
+                <p style="color: white;">
+                    {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI-Generated Backstory -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">auto_awesome</i>
+                    AI-Generated Backstory
+                </span>
+
+                <div id="backstory-display" style="margin-top: 20px;">
+                    {% if region.backstory %}
+                        <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap; margin-bottom: 20px;">{{ region.backstory }}</p>
+                        <button id="regenerate-btn" class="btn waves-effect waves-light" style="margin-right: 10px;">
+                            <i class="material-icons left">refresh</i>Regenerate
+                        </button>
+                        <button id="edit-btn" class="btn waves-effect waves-light grey darken-1">
+                            <i class="material-icons left">edit</i>Edit
+                        </button>
+                    {% else %}
+                        <p style="color: #b8b8d1; margin-bottom: 20px;">Generate a creative AI backstory for this region based on its properties.</p>
+                        <button id="generate-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                            <i class="material-icons left">auto_awesome</i>Generate Backstory
+                        </button>
+                    {% endif %}
+                </div>
+
+                <!-- Edit Form (hidden by default) -->
+                <div id="backstory-edit-form" style="display: none; margin-top: 20px;">
+                    <div class="input-field">
+                        <textarea id="backstory-textarea" class="materialize-textarea" style="color: #e0e0e0; min-height: 200px;">{{ region.backstory }}</textarea>
+                        <label for="backstory-textarea" class="active">Edit Backstory</label>
+                    </div>
+                    <button id="save-btn" class="btn waves-effect waves-light green darken-1">
+                        <i class="material-icons left">save</i>Save
+                    </button>
+                    <button id="cancel-btn" class="btn waves-effect waves-light grey darken-1">
+                        <i class="material-icons left">cancel</i>Cancel
+                    </button>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="backstory-loading" style="display: none; margin-top: 20px;">
+                    <div class="progress" style="background-color: rgba(212, 175, 55, 0.2);">
+                        <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
+                    </div>
+                    <p style="color: #b8b8d1; text-align: center;">Generating backstory with AI...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Locations in Region -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">location_on</i>
+                    Locations in this Region
+                </span>
+
+                {% if locations %}
+                <div class="row" style="margin-top: 20px;">
+                    {% for location in locations %}
+                    <div class="col s12 m6">
+                        <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5);">
+                            <div class="card-content">
+                                <span class="card-title" style="color: var(--rpg-gold); font-size: 1.2rem;">
+                                    <i class="material-icons left">location_on</i>
+                                    {{ location.location_name }}
+                                </span>
+                                <p style="color: #b8b8d1; margin-top: 10px;">
+                                    <span class="chip" style="background-color: rgba(156, 39, 176, 0.3); font-size: 0.85rem;">
+                                        {{ location.location_type }}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
+                                <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="color: var(--rpg-gold);">
+                                    <i class="material-icons tiny">visibility</i> View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="margin-top: 20px; text-align: center;">
+                    <i class="material-icons" style="font-size: 60px; color: var(--rpg-gold); opacity: 0.5;">location_off</i>
+                    <p style="color: #b8b8d1; margin: 15px 0;">No locations in this region yet.</p>
+                    <a href="{% url 'location_create' world.world_id region.region_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                        <i class="material-icons left">add</i>Create First Location
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generate-btn');
+        const regenerateBtn = document.getElementById('regenerate-btn');
+        const editBtn = document.getElementById('edit-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const backstoryDisplay = document.getElementById('backstory-display');
+        const backstoryEditForm = document.getElementById('backstory-edit-form');
+        const backstoryLoading = document.getElementById('backstory-loading');
+        const backstoryTextarea = document.getElementById('backstory-textarea');
+
+        // Generate backstory
+        async function generateBackstory() {
+            backstoryDisplay.style.display = 'none';
+            backstoryLoading.style.display = 'block';
+
+            try {
+                const response = await fetch('{% url "region_generate_backstory" world.world_id region.region_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    backstoryTextarea.value = data.backstory;
+                    M.textareaAutoResize(backstoryTextarea);
+                    backstoryLoading.style.display = 'none';
+                    backstoryEditForm.style.display = 'block';
+                    M.toast({
+                        html: `<span>Backstory generated! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
+                        classes: 'green darken-2',
+                        displayLength: 4000
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to generate backstory');
+                }
+            } catch (error) {
+                backstoryLoading.style.display = 'none';
+                backstoryDisplay.style.display = 'block';
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+            }
+        }
+
+        // Save backstory
+        async function saveBackstory() {
+            const formData = new FormData();
+            formData.append('backstory', backstoryTextarea.value);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            try {
+                const response = await fetch('{% url "region_save_backstory" world.world_id region.region_id %}', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: '<span>Backstory saved successfully!</span>',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    // Reload page to show updated backstory
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to save backstory');
+                }
+            } catch (error) {
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+            }
+        }
+
+        // Event listeners
+        if (generateBtn) {
+            generateBtn.addEventListener('click', generateBackstory);
+        }
+
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', generateBackstory);
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', function() {
+                backstoryDisplay.style.display = 'none';
+                backstoryEditForm.style.display = 'block';
+                M.textareaAutoResize(backstoryTextarea);
+            });
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener('click', saveBackstory);
+        }
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                backstoryEditForm.style.display = 'none';
+                backstoryDisplay.style.display = 'block';
+            });
+        }
+
+        // Initialize textarea auto-resize
+        M.textareaAutoResize(backstoryTextarea);
+    });
+</script>
+{% endblock %}

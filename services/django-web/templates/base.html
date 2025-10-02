@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SkillForge RPG{% endblock %}</title>
+
+    <!-- Material Design CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+    <style>
+        /* RPG Fantasy Theme */
+        :root {
+            --rpg-dark: #1a1a2e;
+            --rpg-darker: #0f0f1e;
+            --rpg-gold: #d4af37;
+            --rpg-silver: #c0c0c0;
+            --rpg-bronze: #cd7f32;
+            --rpg-purple: #6a4c93;
+            --rpg-blue: #4c6ef5;
+            --rpg-red: #c92a2a;
+            --rpg-green: #2f9e44;
+        }
+
+        body {
+            display: flex;
+            min-height: 100vh;
+            flex-direction: column;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            background-attachment: fixed;
+            font-family: 'Roboto', sans-serif;
+            color: #e0e0e0;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⚔️</text></svg>'),
+                url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🛡️</text></svg>');
+            background-size: 200px 200px, 180px 180px;
+            background-position: 0 0, 100px 100px;
+            opacity: 0.02;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        main {
+            flex: 1 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Navigation Bar - Fantasy themed */
+        nav {
+            background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+            border-bottom: 2px solid var(--rpg-gold);
+        }
+
+        .brand-logo {
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+            letter-spacing: 1px;
+        }
+
+        .brand-logo i {
+            color: var(--rpg-gold);
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.8);
+        }
+
+        /* Sidebar - Dark fantasy theme */
+        .sidenav {
+            width: 280px;
+            background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
+            border-right: 2px solid rgba(212, 175, 55, 0.2);
+            box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidenav .user-view {
+            background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%) !important;
+            border-bottom: 2px solid var(--rpg-gold);
+        }
+
+        .sidenav li>a {
+            color: #b8b8d1;
+            font-weight: 400;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .sidenav li>a:hover {
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+            border-left-color: var(--rpg-gold);
+            color: var(--rpg-gold);
+        }
+
+        .sidenav li>a.active {
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.2) 0%, rgba(106, 76, 147, 0.1) 100%);
+            border-left-color: var(--rpg-gold);
+            color: var(--rpg-gold);
+            font-weight: 600;
+            box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.1);
+        }
+
+        .sidenav li>a>i.material-icons {
+            color: #8b8bae;
+            margin-right: 32px;
+        }
+
+        .sidenav li>a.active>i.material-icons,
+        .sidenav li>a:hover>i.material-icons {
+            color: var(--rpg-gold);
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        }
+
+        .sidenav .subheader {
+            color: var(--rpg-silver);
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .sidenav .divider {
+            background-color: rgba(212, 175, 55, 0.2);
+        }
+
+        /* Cards - RPG themed */
+        .card {
+            border-radius: 12px;
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            color: #e0e0e0;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2), 0 0 30px rgba(212, 175, 55, 0.1);
+            border-color: var(--rpg-gold);
+        }
+
+        .card .card-content {
+            padding: 24px;
+        }
+
+        .card .card-title {
+            font-weight: 600;
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            color: var(--rpg-gold);
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Stat Cards - Glowing effect */
+        .stat-card {
+            background: linear-gradient(135deg, #2d1b69 0%, #6a4c93 100%);
+            border: 2px solid var(--rpg-gold);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+            color: white !important;
+        }
+
+        .stat-card .card-content {
+            color: white;
+        }
+
+        .stat-card .material-icons {
+            font-size: 48px;
+            opacity: 0.9;
+            color: var(--rpg-gold);
+            text-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+        }
+
+        /* Badges & Chips - Fantasy themed */
+        .badge,
+        .new.badge {
+            background-color: var(--rpg-gold);
+            color: #1a1a2e;
+            font-weight: 600;
+            border-radius: 12px;
+        }
+
+        .chip {
+            font-weight: 500;
+            background-color: rgba(212, 175, 55, 0.2);
+            color: var(--rpg-gold);
+            border: 1px solid rgba(212, 175, 55, 0.4);
+        }
+
+        /* Buttons - Magical glow */
+        .btn, .btn-large, .btn-small {
+            background: linear-gradient(135deg, var(--rpg-purple) 0%, var(--rpg-blue) 100%);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            box-shadow: 0 2px 8px rgba(106, 76, 147, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover, .btn-large:hover {
+            background: linear-gradient(135deg, #3d2b7f 0%, #5c7cfa 100%);
+            box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4), 0 0 20px rgba(106, 76, 147, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-floating {
+            background: linear-gradient(135deg, var(--rpg-gold) 0%, var(--rpg-bronze) 100%);
+        }
+
+        /* Collections */
+        .collection {
+            border-radius: 12px;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+        }
+
+        .collection .collection-item {
+            background-color: transparent;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            color: #e0e0e0;
+        }
+
+        .collection .collection-item:hover {
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+        }
+
+        /* Table styling */
+        table {
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        table thead {
+            background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
+            border-bottom: 2px solid var(--rpg-gold);
+        }
+
+        table thead th {
+            color: var(--rpg-gold);
+            font-weight: 600;
+        }
+
+        table tbody tr {
+            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+        }
+
+        table tbody tr:hover {
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        /* Scrollbar - Fantasy themed */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--rpg-darker);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--rpg-gold) 0%, var(--rpg-bronze) 100%);
+            border-radius: 6px;
+            border: 2px solid var(--rpg-darker);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--rpg-gold);
+        }
+
+        /* Dropdown styling */
+        .dropdown-content {
+            background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%) !important;
+            border: 1px solid rgba(212, 175, 55, 0.3) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+        }
+
+        .dropdown-content li>a,
+        .dropdown-content li>span {
+            color: #e0e0e0 !important;
+        }
+
+        .dropdown-content li>a:hover,
+        .dropdown-content li>span:hover {
+            background: linear-gradient(90deg, rgba(212, 175, 55, 0.15) 0%, transparent 100%) !important;
+        }
+
+        /* Select dropdown trigger text */
+        .select-wrapper input.select-dropdown {
+            color: #e0e0e0 !important;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3) !important;
+        }
+
+        .select-wrapper input.select-dropdown:focus {
+            border-bottom: 1px solid var(--rpg-gold) !important;
+        }
+
+        /* Disabled/placeholder color for selects */
+        .select-wrapper input.select-dropdown option[disabled] {
+            color: #888 !important;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="deep-purple darken-1">
+        <div class="nav-wrapper container">
+            <a href="{% url 'dashboard' %}" class="brand-logo">
+                <i class="material-icons left">casino</i>SkillForge RPG
+            </a>
+            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <ul class="right hide-on-med-and-down">
+                <li><a href="{% url 'admin:index' %}"><i class="material-icons left">settings</i>Admin</a></li>
+                <li><a href="/graphql/"><i class="material-icons left">code</i>GraphQL</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <ul id="slide-out" class="sidenav sidenav-fixed">
+        <li>
+            <div class="user-view deep-purple darken-1 white-text">
+                <div class="background">
+                    <img src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366" style="opacity: 0.3;">
+                </div>
+                <a href="#user"><i class="material-icons large white-text">account_circle</i></a>
+                <a href="#name"><span class="white-text name">SkillForge Admin</span></a>
+                <a href="#email"><span class="white-text email">admin@skillforge.com</span></a>
+            </div>
+        </li>
+        <li><a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+        <li><a class="{% if 'account' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'account_list' %}"><i class="material-icons">group</i>Accounts</a></li>
+        <li><a class="{% if 'member' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'member_list' %}"><i class="material-icons">person</i>Members</a></li>
+        <li><div class="divider"></div></li>
+        <li><a class="subheader">Content</a></li>
+        <li><a class="{% if 'universe' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'universe_list' %}"><i class="material-icons">public</i>Universes</a></li>
+        <li><a class="{% if 'world' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'world_list' %}"><i class="material-icons">map</i>Worlds</a></li>
+        <li><a class="{% if 'campaign' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'campaign_list' %}"><i class="material-icons">book</i>Campaigns</a></li>
+        <li><div class="divider"></div></li>
+        <li><a class="subheader">Services</a></li>
+        <li><a href="http://localhost:4000/graphql" target="_blank"><i class="material-icons">cloud</i>API Gateway</a></li>
+        <li><a href="http://localhost:7474" target="_blank"><i class="material-icons">device_hub</i>Neo4j</a></li>
+        <li><a href="http://localhost:15672" target="_blank"><i class="material-icons">inbox</i>RabbitMQ</a></li>
+    </ul>
+
+    <!-- Mobile Navigation -->
+    <ul class="sidenav" id="mobile-nav">
+        <li><a href="{% url 'dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+        <li><a href="{% url 'account_list' %}"><i class="material-icons">group</i>Accounts</a></li>
+        <li><a href="{% url 'member_list' %}"><i class="material-icons">person</i>Members</a></li>
+        <li><a href="{% url 'admin:index' %}"><i class="material-icons">settings</i>Admin</a></li>
+        <li><a href="/graphql/"><i class="material-icons">code</i>GraphQL</a></li>
+    </ul>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container" style="margin-left: 320px; padding: 24px;">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize sidenav
+            var elems = document.querySelectorAll('.sidenav');
+            M.Sidenav.init(elems);
+
+            // Initialize tooltips
+            var tooltips = document.querySelectorAll('.tooltipped');
+            M.Tooltip.init(tooltips);
+
+            // Initialize dropdowns
+            var dropdowns = document.querySelectorAll('.dropdown-trigger');
+            M.Dropdown.init(dropdowns);
+
+            // Initialize modals
+            var modals = document.querySelectorAll('.modal');
+            M.Modal.init(modals);
+
+            // Display toast messages from Django messages
+            {% if messages %}
+                {% for message in messages %}
+                    var messageType = '{{ message.tags }}';
+                    var messageText = '{{ message|escapejs }}';
+                    var toastClass = '';
+
+                    // Map Django message types to Materialize toast classes
+                    if (messageType.includes('success')) {
+                        toastClass = 'green darken-2';
+                    } else if (messageType.includes('error')) {
+                        toastClass = 'red darken-2';
+                    } else if (messageType.includes('warning')) {
+                        toastClass = 'orange darken-2';
+                    } else if (messageType.includes('info')) {
+                        toastClass = 'blue darken-2';
+                    } else {
+                        toastClass = 'grey darken-3';
+                    }
+
+                    M.toast({
+                        html: '<span style="color: white;">' + messageText + '</span>',
+                        classes: toastClass,
+                        displayLength: 4000  // 4 seconds
+                    });
+                {% endfor %}
+            {% endif %}
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
