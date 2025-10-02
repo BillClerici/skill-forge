@@ -367,6 +367,23 @@ class GenerateLocationBackstoryRequest(BaseModel):
     region_name: Optional[str] = None
     world_name: Optional[str] = None
 
+class GenerateRegionsRequest(BaseModel):
+    world_context: Dict[str, Any]
+    num_regions: int
+    num_locations_per_region: int
+
+class GenerateLocationsRequest(BaseModel):
+    world_name: str
+    world_genre: str
+    world_backstory: str
+    region_name: str
+    region_type: str
+    climate: str
+    terrain: List[str]
+    region_description: str
+    region_backstory: str
+    num_locations: int
+
 @app.get("/")
 async def root():
     return {
@@ -650,6 +667,187 @@ Write the backstory now:"""
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating backstory: {str(e)}")
+
+@app.post("/generate-regions")
+async def generate_regions(request: GenerateRegionsRequest):
+    """Generate multiple regions with locations and backstories"""
+
+    world_context = request.world_context
+    num_regions = request.num_regions
+    num_locations_per_region = request.num_locations_per_region
+
+    # Build the prompt
+    prompt = f"""You are a creative world-builder for an RPG game. Generate {num_regions} unique and diverse regions for this world.
+
+World Context:
+- Name: {world_context.get('world_name')}
+- Genre: {world_context.get('genre')}
+- Setting: {world_context.get('setting')}
+- Power System: {world_context.get('power_system')}
+- Backstory: {world_context.get('backstory', 'No backstory provided')}
+
+For each region, generate:
+1. A unique region_name (creative, evocative, fits the world's genre)
+2. A region_type from: Mountain, Forest, Desert, Coastal, Urban, Rural, Wasteland, Tundra, Swamp, Underground, Island, Volcanic, Mystical
+3. A climate from: Tropical, Temperate, Arctic, Arid, Mediterranean, Continental, Oceanic, Subarctic, Subtropical, Monsoon
+4. An array of terrain features from: Mountains, Hills, Plains, Forests, Jungles, Swamps, Rivers, Lakes, Oceans, Beaches, Cliffs, Canyons, Caves, Glaciers, Deserts, Dunes, Valleys, Plateaus
+5. A 1-2 sentence description of the region
+6. A compelling 2-3 paragraph backstory (150-250 words) that incorporates the world's context
+7. {num_locations_per_region} locations within the region, each with:
+   - location_name (creative, specific to the region)
+   - location_type from: City, Town, Village, Fortress, Castle, Temple, Dungeon, Cave, Ruins, Market, Port, Inn/Tavern, Guild Hall, Academy, Library, Landmark, Wilderness
+   - description (1-2 sentences)
+   - features array from: Trading Post, Blacksmith, Magic Shop, Quest Board, Safe Haven, Dangerous, Hidden, Magical, Ancient, Cursed, Sacred, Abandoned, Thriving, Under Siege, Mysterious, Fortified, Underground, Floating
+   - backstory (2-3 paragraphs, 150-250 words, that ties into the region and world)
+
+Make each region and location feel distinct, memorable, and interconnected with the world's lore and backstory.
+
+Return the result as a JSON array of regions. Each region should have this structure:
+{{
+  "region_name": "string",
+  "region_type": "string",
+  "climate": "string",
+  "terrain": ["string"],
+  "description": "string",
+  "backstory": "string",
+  "locations": [
+    {{
+      "location_name": "string",
+      "location_type": "string",
+      "description": "string",
+      "features": ["string"],
+      "backstory": "string"
+    }}
+  ]
+}}
+
+Return ONLY the JSON array, no preamble or explanation."""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-20250514",
+            anthropic_api_key=ANTHROPIC_API_KEY,
+            temperature=0.8,
+            max_tokens=8000  # Large token limit for batch generation
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = await llm.ainvoke(messages)
+
+        # Parse JSON from response
+        content = response.content.strip()
+
+        # Remove markdown code blocks if present
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        regions_data = json.loads(content)
+
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "regions": regions_data,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating regions: {str(e)}")
+
+@app.post("/generate-locations")
+async def generate_locations(request: GenerateLocationsRequest):
+    """Generate multiple locations for a region"""
+
+    # Build the prompt
+    prompt = f"""You are a creative world-builder for an RPG game. Generate {request.num_locations} unique and diverse locations for this region.
+
+World Context:
+- World Name: {request.world_name}
+- Genre: {request.world_genre}
+- World Backstory: {request.world_backstory}
+
+Region Context:
+- Region Name: {request.region_name}
+- Region Type: {request.region_type}
+- Climate: {request.climate}
+- Terrain: {', '.join(request.terrain)}
+- Description: {request.region_description}
+- Backstory: {request.region_backstory}
+
+For each location, generate:
+1. A unique location_name (creative, evocative, fits the region and world)
+2. A location_type from: City, Town, Village, Fortress, Castle, Temple, Dungeon, Cave, Ruins, Market, Port, Inn/Tavern, Guild Hall, Academy, Library, Landmark, Wilderness
+3. A 1-2 sentence description
+4. An array of features from: Trading Post, Blacksmith, Magic Shop, Quest Board, Safe Haven, Dangerous, Hidden, Magical, Ancient, Cursed, Sacred, Abandoned, Thriving, Under Siege, Mysterious, Fortified, Underground, Floating
+5. A compelling 2-3 paragraph backstory (150-250 words) that:
+   - Ties into the region's characteristics and backstory
+   - Connects to the world's lore and genre
+   - Makes the location feel distinct and memorable
+   - Hints at potential adventures or encounters
+
+Make each location feel unique and interconnected with both the region and world.
+
+Return the result as a JSON array of locations. Each location should have this structure:
+{{
+  "location_name": "string",
+  "location_type": "string",
+  "description": "string",
+  "features": ["string"],
+  "backstory": "string"
+}}
+
+Return ONLY the JSON array, no preamble or explanation."""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-20250514",
+            anthropic_api_key=ANTHROPIC_API_KEY,
+            temperature=0.8,
+            max_tokens=6000  # Large token limit for multiple locations
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = await llm.ainvoke(messages)
+
+        # Parse JSON from response
+        content = response.content.strip()
+
+        # Remove markdown code blocks if present
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        locations_data = json.loads(content)
+
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "locations": locations_data,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating locations: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

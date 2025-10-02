@@ -275,6 +275,9 @@
                     <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="margin-left: 10px; background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
                         <i class="material-icons left">add</i>Create New Region
                     </a>
+                    <button id="generate-regions-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                        <i class="material-icons left">auto_awesome</i>Generate Regions with AI
+                    </button>
                 </div>
                 {% else %}
                 <div style="margin-top: 20px; text-align: center;">
@@ -283,6 +286,22 @@
                     <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
                         <i class="material-icons left">add</i>Create First Region
                     </a>
+                    <button id="generate-regions-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                        <i class="material-icons left">auto_awesome</i>Generate with AI
+                    </button>
+                </div>
+
+                <!-- AI Generation Loading -->
+                <div id="ai-generation-loading" style="display: none; margin-top: 20px;">
+                    <div class="card" style="background-color: rgba(103, 58, 183, 0.1);">
+                        <div class="card-content center-align">
+                            <div class="progress" style="background-color: rgba(103, 58, 183, 0.2);">
+                                <div class="indeterminate" style="background-color: #673ab7;"></div>
+                            </div>
+                            <p style="color: #b8b8d1; margin-top: 15px;" id="generation-status">Generating regions with AI...</p>
+                            <p style="color: #888; font-size: 0.9rem;" id="generation-details">This may take a few moments</p>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
             </div>
@@ -423,6 +442,125 @@
 
         // Initialize textarea auto-resize
         M.textareaAutoResize(backstoryTextarea);
+
+        // AI Region Generation
+        const generateRegionsBtn = document.getElementById('generate-regions-btn');
+        const aiGenerationModal = document.getElementById('ai-generation-modal');
+        const confirmGenerateBtn = document.getElementById('confirm-generate-btn');
+        const aiGenerationLoading = document.getElementById('ai-generation-loading');
+        const numRegionsInput = document.getElementById('num-regions');
+        const numLocationsInput = document.getElementById('num-locations-per-region');
+        const generationStatus = document.getElementById('generation-status');
+        const generationDetails = document.getElementById('generation-details');
+
+        // Initialize modal
+        const modalInstances = M.Modal.init(aiGenerationModal, {
+            dismissible: true,
+            opacity: 0.7,
+            inDuration: 250,
+            outDuration: 250,
+            preventScrolling: true
+        });
+
+        // Open modal when button clicked
+        if (generateRegionsBtn) {
+            generateRegionsBtn.addEventListener('click', function() {
+                modalInstances.open();
+            });
+        }
+
+        // Generate regions with AI
+        if (confirmGenerateBtn) {
+            confirmGenerateBtn.addEventListener('click', async function() {
+                const numRegions = parseInt(numRegionsInput.value);
+                const numLocations = parseInt(numLocationsInput.value);
+
+                if (numRegions < 1 || numRegions > 10 || numLocations < 1 || numLocations > 10) {
+                    M.toast({
+                        html: '<span>Please enter valid numbers (1-10 for each)</span>',
+                        classes: 'red darken-2',
+                        displayLength: 3000
+                    });
+                    return;
+                }
+
+                // Close modal
+                modalInstances.close();
+
+                // Show loading indicator
+                aiGenerationLoading.style.display = 'block';
+                generationStatus.textContent = 'Generating regions with AI...';
+                generationDetails.textContent = `Creating ${numRegions} regions with ${numLocations} locations each`;
+
+                try {
+                    const response = await fetch('{% url "world_generate_regions" world.world_id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            num_regions: numRegions,
+                            num_locations_per_region: numLocations
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        aiGenerationLoading.style.display = 'none';
+                        M.toast({
+                            html: `<span>Successfully generated ${data.regions_created} regions with ${data.locations_created} locations! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
+                            classes: 'green darken-2',
+                            displayLength: 5000
+                        });
+                        // Reload page to show new regions
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        throw new Error(data.error || 'Failed to generate regions');
+                    }
+                } catch (error) {
+                    aiGenerationLoading.style.display = 'none';
+                    M.toast({
+                        html: `<span>Error: ${error.message}</span>`,
+                        classes: 'red darken-2',
+                        displayLength: 4000
+                    });
+                }
+            });
+        }
     });
 </script>
+
+<!-- AI Generation Modal (Page Level) -->
+<div id="ai-generation-modal" class="modal" style="max-width: 600px; height: 450px; top: 10% !important; position: fixed;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); padding-bottom: 80px;">
+        <h4 style="color: var(--rpg-gold);">
+            <i class="material-icons left">auto_awesome</i>
+            Generate Regions with AI
+        </h4>
+        <p style="color: #b8b8d1;">How many regions would you like to generate?</p>
+
+        <div class="input-field">
+            <input id="num-regions" type="number" min="1" max="10" value="3" style="color: #e0e0e0;">
+            <label for="num-regions" class="active">Number of Regions (1-10)</label>
+        </div>
+
+        <div class="input-field">
+            <input id="num-locations-per-region" type="number" min="1" max="10" value="3" style="color: #e0e0e0;">
+            <label for="num-locations-per-region" class="active">Locations per Region (1-10)</label>
+        </div>
+
+        <p style="color: #888; font-size: 0.9rem; margin-top: 20px;">
+            <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+            The AI will generate regions with backstories and locations based on your world's properties and backstory.
+        </p>
+    </div>
+    <div class="modal-footer" style="background-color: rgba(20, 20, 36, 0.8);">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: #b8b8d1;">Cancel</a>
+        <a href="#!" id="confirm-generate-btn" class="waves-effect waves-light btn purple darken-2">
+            <i class="material-icons left">auto_awesome</i>Generate
+        </a>
+    </div>
+</div>
 {% endblock %}

@@ -4,6 +4,7 @@ Uses MongoDB for definitions and Neo4j for relationships
 """
 import uuid
 import httpx
+import requests
 from django.shortcuts import render, redirect
 from django.views import View
 from django.contrib import messages
@@ -847,6 +848,22 @@ class RegionUpdateView(View):
 class RegionDeleteView(View):
     """Delete a region"""
 
+    def get(self, request, world_id, region_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        region = db.region_definitions.find_one({'_id': region_id})
+
+        if not world or not region:
+            messages.error(request, 'World or region not found')
+            return redirect('world_list')
+
+        world['world_id'] = world['_id']
+        region['region_id'] = region['_id']
+
+        return render(request, 'worlds/region_confirm_delete.html', {
+            'world': world,
+            'region': region
+        })
+
     def post(self, request, world_id, region_id):
         region = db.region_definitions.find_one({'_id': region_id})
         if not region:
@@ -1233,3 +1250,233 @@ class LocationSaveBackstoryView(View):
 
         except Exception as e:
             return JsonResponse({'error': f'Failed to save backstory: {str(e)}'}, status=500)
+
+
+class WorldGenerateRegionsView(View):
+    """Generate multiple regions with backstories and locations using AI"""
+
+    def post(self, request, world_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({'error': 'World not found'}, status=404)
+
+        try:
+            data = json.loads(request.body)
+            num_regions = data.get('num_regions', 3)
+            num_locations_per_region = data.get('num_locations_per_region', 3)
+
+            # Validate input
+            if not isinstance(num_regions, int) or num_regions < 1 or num_regions > 10:
+                return JsonResponse({'error': 'num_regions must be between 1 and 10'}, status=400)
+            if not isinstance(num_locations_per_region, int) or num_locations_per_region < 1 or num_locations_per_region > 10:
+                return JsonResponse({'error': 'num_locations_per_region must be between 1 and 10'}, status=400)
+
+            # Prepare world context
+            world_context = {
+                'world_name': world.get('world_name'),
+                'genre': world.get('genre'),
+                'setting': world.get('setting'),
+                'power_system': world.get('power_system'),
+                'backstory': world.get('backstory', ''),
+                'lore': world.get('lore', {})
+            }
+
+            # Call orchestrator to generate regions with locations
+            orchestrator_url = f'{ORCHESTRATOR_URL}/api/generate-regions'
+            response = requests.post(
+                orchestrator_url,
+                json={
+                    'world_context': world_context,
+                    'num_regions': num_regions,
+                    'num_locations_per_region': num_locations_per_region
+                },
+                timeout=300  # 5 minute timeout for batch generation
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                regions_data = result.get('regions', [])
+
+                regions_created = 0
+                locations_created = 0
+
+                # Create each region and its locations
+                for region_data in regions_data:
+                    # Create region
+                    region_id = str(uuid.uuid4())
+                    region_doc = {
+                        '_id': region_id,
+                        'region_name': region_data.get('region_name'),
+                        'region_type': region_data.get('region_type'),
+                        'climate': region_data.get('climate'),
+                        'terrain': region_data.get('terrain', []),
+                        'description': region_data.get('description', ''),
+                        'backstory': region_data.get('backstory', ''),
+                        'world_id': world_id,
+                        'locations': []
+                    }
+
+                    # Create locations for this region
+                    location_ids = []
+                    for location_data in region_data.get('locations', []):
+                        location_id = str(uuid.uuid4())
+                        location_doc = {
+                            '_id': location_id,
+                            'location_name': location_data.get('location_name'),
+                            'location_type': location_data.get('location_type'),
+                            'description': location_data.get('description', ''),
+                            'features': location_data.get('features', []),
+                            'backstory': location_data.get('backstory', ''),
+                            'region_id': region_id,
+                            'world_id': world_id
+                        }
+                        db.location_definitions.insert_one(location_doc)
+                        location_ids.append(location_id)
+                        locations_created += 1
+
+                    # Add location IDs to region
+                    region_doc['locations'] = location_ids
+
+                    # Insert region
+                    db.region_definitions.insert_one(region_doc)
+                    regions_created += 1
+
+                    # Add region to world
+                    db.world_definitions.update_one(
+                        {'_id': world_id},
+                        {'$push': {'regions': region_id}}
+                    )
+
+                    # Create region node in Neo4j
+                    with neo4j_driver.session() as session:
+                        session.run("""
+                            MATCH (w:World {id: $world_id})
+                            MERGE (r:Region {id: $region_id})
+                            ON CREATE SET r.name = $region_name, r.type = $region_type
+                            MERGE (r)-[:IN_WORLD]->(w)
+                        """, world_id=world_id, region_id=region_id,
+                           region_name=region_doc['region_name'],
+                           region_type=region_doc['region_type'])
+
+                    # Create location nodes in Neo4j
+                    for location_id in location_ids:
+                        location = db.location_definitions.find_one({'_id': location_id})
+                        if location:
+                            with neo4j_driver.session() as session:
+                                session.run("""
+                                    MATCH (r:Region {id: $region_id})
+                                    MERGE (l:Location {id: $location_id})
+                                    ON CREATE SET l.name = $location_name, l.type = $location_type
+                                    MERGE (l)-[:IN_REGION]->(r)
+                                """, region_id=region_id, location_id=location_id,
+                                   location_name=location['location_name'],
+                                   location_type=location['location_type'])
+
+                return JsonResponse({
+                    'success': True,
+                    'regions_created': regions_created,
+                    'locations_created': locations_created,
+                    'tokens_used': result.get('tokens_used', 0),
+                    'cost_usd': result.get('cost_usd', 0)
+                })
+            else:
+                return JsonResponse({'error': f'Orchestrator error: {response.text}'}, status=response.status_code)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to generate regions: {str(e)}'}, status=500)
+
+
+class RegionGenerateLocationsView(View):
+    """Generate multiple locations for a region using AI"""
+
+    def post(self, request, world_id, region_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        region = db.region_definitions.find_one({'_id': region_id})
+
+        if not world or not region:
+            return JsonResponse({'error': 'World or region not found'}, status=404)
+
+        try:
+            data = json.loads(request.body)
+            num_locations = data.get('num_locations', 3)
+
+            # Validate input
+            if not isinstance(num_locations, int) or num_locations < 1 or num_locations > 10:
+                return JsonResponse({'error': 'num_locations must be between 1 and 10'}, status=400)
+
+            # Prepare context
+            context = {
+                'world_name': world.get('world_name'),
+                'world_genre': world.get('genre'),
+                'world_backstory': world.get('backstory', ''),
+                'region_name': region.get('region_name'),
+                'region_type': region.get('region_type'),
+                'climate': region.get('climate'),
+                'terrain': region.get('terrain', []),
+                'region_description': region.get('description', ''),
+                'region_backstory': region.get('backstory', ''),
+                'num_locations': num_locations
+            }
+
+            # Call orchestrator to generate locations
+            orchestrator_url = f'{ORCHESTRATOR_URL}/api/generate-locations'
+            response = requests.post(
+                orchestrator_url,
+                json=context,
+                timeout=180  # 3 minute timeout
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                locations_data = result.get('locations', [])
+
+                locations_created = 0
+
+                # Create each location
+                for location_data in locations_data:
+                    location_id = str(uuid.uuid4())
+                    location_doc = {
+                        '_id': location_id,
+                        'location_name': location_data.get('location_name'),
+                        'location_type': location_data.get('location_type'),
+                        'description': location_data.get('description', ''),
+                        'features': location_data.get('features', []),
+                        'backstory': location_data.get('backstory', ''),
+                        'region_id': region_id,
+                        'world_id': world_id
+                    }
+                    db.location_definitions.insert_one(location_doc)
+                    locations_created += 1
+
+                    # Add location to region
+                    db.region_definitions.update_one(
+                        {'_id': region_id},
+                        {'$push': {'locations': location_id}}
+                    )
+
+                    # Create location node in Neo4j
+                    with neo4j_driver.session() as session:
+                        session.run("""
+                            MATCH (r:Region {id: $region_id})
+                            MERGE (l:Location {id: $location_id})
+                            ON CREATE SET l.name = $location_name, l.type = $location_type
+                            MERGE (l)-[:IN_REGION]->(r)
+                        """, region_id=region_id, location_id=location_id,
+                           location_name=location_doc['location_name'],
+                           location_type=location_doc['location_type'])
+
+                return JsonResponse({
+                    'success': True,
+                    'locations_created': locations_created,
+                    'tokens_used': result.get('tokens_used', 0),
+                    'cost_usd': result.get('cost_usd', 0)
+                })
+            else:
+                return JsonResponse({'error': f'Orchestrator error: {response.text}'}, status=response.status_code)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to generate locations: {str(e)}'}, status=500)

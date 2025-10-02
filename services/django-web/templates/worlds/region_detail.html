@@ -183,6 +183,14 @@
                 </span>
 
                 {% if locations %}
+                <div style="margin-top: 20px; margin-bottom: 20px;">
+                    <a href="{% url 'location_create' world.world_id region.region_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                        <i class="material-icons left">add</i>Create New Location
+                    </a>
+                    <button id="generate-locations-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                        <i class="material-icons left">auto_awesome</i>Generate Locations with AI
+                    </button>
+                </div>
                 <div class="row" style="margin-top: 20px;">
                     {% for location in locations %}
                     <div class="col s12 m6">
@@ -214,6 +222,49 @@
                     <a href="{% url 'location_create' world.world_id region.region_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
                         <i class="material-icons left">add</i>Create First Location
                     </a>
+                    <button id="generate-locations-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                        <i class="material-icons left">auto_awesome</i>Generate with AI
+                    </button>
+                </div>
+
+                <!-- AI Generation Modal -->
+                <div id="ai-generation-modal" class="modal" style="max-width: 600px;">
+                    <div class="modal-content" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);">
+                        <h4 style="color: var(--rpg-gold);">
+                            <i class="material-icons left">auto_awesome</i>
+                            Generate Locations with AI
+                        </h4>
+                        <p style="color: #b8b8d1;">How many locations would you like to generate for this region?</p>
+
+                        <div class="input-field">
+                            <input id="num-locations" type="number" min="1" max="10" value="3" style="color: #e0e0e0;">
+                            <label for="num-locations" class="active">Number of Locations (1-10)</label>
+                        </div>
+
+                        <p style="color: #888; font-size: 0.9rem; margin-top: 20px;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                            The AI will generate locations with backstories based on this region's properties and context.
+                        </p>
+                    </div>
+                    <div class="modal-footer" style="background-color: rgba(20, 20, 36, 0.8);">
+                        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: #b8b8d1;">Cancel</a>
+                        <a href="#!" id="confirm-generate-btn" class="waves-effect waves-light btn purple darken-2">
+                            <i class="material-icons left">auto_awesome</i>Generate
+                        </a>
+                    </div>
+                </div>
+
+                <!-- AI Generation Loading -->
+                <div id="ai-generation-loading" style="display: none; margin-top: 20px;">
+                    <div class="card" style="background-color: rgba(103, 58, 183, 0.1);">
+                        <div class="card-content center-align">
+                            <div class="progress" style="background-color: rgba(103, 58, 183, 0.2);">
+                                <div class="indeterminate" style="background-color: #673ab7;"></div>
+                            </div>
+                            <p style="color: #b8b8d1; margin-top: 15px;" id="generation-status">Generating locations with AI...</p>
+                            <p style="color: #888; font-size: 0.9rem;" id="generation-details">This may take a few moments</p>
+                        </div>
+                    </div>
                 </div>
                 {% endif %}
             </div>
@@ -339,6 +390,88 @@
 
         // Initialize textarea auto-resize
         M.textareaAutoResize(backstoryTextarea);
+
+        // AI Location Generation
+        const generateLocationsBtn = document.getElementById('generate-locations-btn');
+        const aiGenerationModal = document.getElementById('ai-generation-modal');
+        const confirmGenerateBtn = document.getElementById('confirm-generate-btn');
+        const aiGenerationLoading = document.getElementById('ai-generation-loading');
+        const numLocationsInput = document.getElementById('num-locations');
+        const generationStatus = document.getElementById('generation-status');
+        const generationDetails = document.getElementById('generation-details');
+
+        // Initialize modal
+        if (aiGenerationModal) {
+            const modalInstance = M.Modal.init(aiGenerationModal, {
+                dismissible: true
+            });
+
+            // Open modal when button clicked
+            if (generateLocationsBtn) {
+                generateLocationsBtn.addEventListener('click', function() {
+                    modalInstance.open();
+                });
+            }
+
+            // Generate locations with AI
+            if (confirmGenerateBtn) {
+                confirmGenerateBtn.addEventListener('click', async function() {
+                    const numLocations = parseInt(numLocationsInput.value);
+
+                    if (numLocations < 1 || numLocations > 10) {
+                        M.toast({
+                            html: '<span>Please enter a valid number (1-10)</span>',
+                            classes: 'red darken-2',
+                            displayLength: 3000
+                        });
+                        return;
+                    }
+
+                    // Close modal
+                    modalInstance.close();
+
+                    // Show loading indicator
+                    aiGenerationLoading.style.display = 'block';
+                    generationStatus.textContent = 'Generating locations with AI...';
+                    generationDetails.textContent = `Creating ${numLocations} locations for this region`;
+
+                    try {
+                        const response = await fetch('{% url "region_generate_locations" world.world_id region.region_id %}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                num_locations: numLocations
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            aiGenerationLoading.style.display = 'none';
+                            M.toast({
+                                html: `<span>Successfully generated ${data.locations_created} locations! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
+                                classes: 'green darken-2',
+                                displayLength: 5000
+                            });
+                            // Reload page to show new locations
+                            setTimeout(() => window.location.reload(), 2000);
+                        } else {
+                            throw new Error(data.error || 'Failed to generate locations');
+                        }
+                    } catch (error) {
+                        aiGenerationLoading.style.display = 'none';
+                        M.toast({
+                            html: `<span>Error: ${error.message}</span>`,
+                            classes: 'red darken-2',
+                            displayLength: 4000
+                        });
+                    }
+                });
+            }
+        }
     });
 </script>
 {% endblock %}

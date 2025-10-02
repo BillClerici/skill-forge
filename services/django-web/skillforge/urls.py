@@ -14,10 +14,10 @@ from worlds.views import (
     UniverseUpdateView, UniverseDeleteView,
     WorldListView, WorldCreateView, WorldDetailView,
     WorldUpdateView, WorldDeleteView,
-    WorldGenerateBackstoryView, WorldSaveBackstoryView,
+    WorldGenerateBackstoryView, WorldSaveBackstoryView, WorldGenerateRegionsView,
     RegionListView, RegionCreateView, RegionDetailView,
     RegionUpdateView, RegionDeleteView,
-    RegionGenerateBackstoryView, RegionSaveBackstoryView,
+    RegionGenerateBackstoryView, RegionSaveBackstoryView, RegionGenerateLocationsView,
     LocationListView, LocationCreateView, LocationDetailView,
     LocationUpdateView, LocationDeleteView,
     LocationGenerateBackstoryView, LocationSaveBackstoryView
@@ -55,6 +55,7 @@ urlpatterns = [
     path('worlds/<str:world_id>/delete/', WorldDeleteView.as_view(), name='world_delete'),
     path('worlds/<str:world_id>/generate-backstory/', WorldGenerateBackstoryView.as_view(), name='world_generate_backstory'),
     path('worlds/<str:world_id>/save-backstory/', WorldSaveBackstoryView.as_view(), name='world_save_backstory'),
+    path('worlds/<str:world_id>/generate-regions/', WorldGenerateRegionsView.as_view(), name='world_generate_regions'),
 
     # Regions
     path('worlds/<str:world_id>/regions/', RegionListView.as_view(), name='region_list'),
@@ -64,6 +65,7 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/delete/', RegionDeleteView.as_view(), name='region_delete'),
     path('worlds/<str:world_id>/regions/<str:region_id>/generate-backstory/', RegionGenerateBackstoryView.as_view(), name='region_generate_backstory'),
     path('worlds/<str:world_id>/regions/<str:region_id>/save-backstory/', RegionSaveBackstoryView.as_view(), name='region_save_backstory'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/generate-locations/', RegionGenerateLocationsView.as_view(), name='region_generate_locations'),
 
     # Locations
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/', LocationListView.as_view(), name='location_list'),
