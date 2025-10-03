@@ -12,7 +12,9 @@
       "Bash(docker exec:*)",
       "Bash(docker ps:*)",
       "Bash(awk:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

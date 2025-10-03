@@ -16,6 +16,11 @@ from langchain_anthropic import ChatAnthropic
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolExecutor
 from langchain.schema import HumanMessage, SystemMessage
+from fastapi.responses import StreamingResponse
+
+# Local imports
+from memory_manager import MemoryManager
+from analytics_tracker import AnalyticsTracker
 
 # ============================================
 # Configuration
@@ -24,7 +29,14 @@ from langchain.schema import HumanMessage, SystemMessage
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 MCP_PLAYER_DATA_URL = os.getenv("MCP_PLAYER_DATA_URL", "http://mcp-player-data:8001")
 MCP_WORLD_UNIVERSE_URL = os.getenv("MCP_WORLD_UNIVERSE_URL", "http://mcp-world-universe:8002")
+MCP_QUEST_MISSION_URL = os.getenv("MCP_QUEST_MISSION_URL", "http://mcp-quest-mission:8003")
+MCP_NPC_PERSONALITY_URL = os.getenv("MCP_NPC_PERSONALITY_URL", "http://mcp-npc-personality:8004")
+MCP_ITEM_EQUIPMENT_URL = os.getenv("MCP_ITEM_EQUIPMENT_URL", "http://mcp-item-equipment:8005")
 MCP_AUTH_TOKEN = os.getenv("MCP_AUTH_TOKEN", "mcp_dev_token_2024")
+
+# Initialize memory and analytics
+memory_manager = MemoryManager()
+analytics_tracker = AnalyticsTracker()
 
 # Claude pricing (input/output per million tokens)
 CLAUDE_PRICING = {
@@ -124,12 +136,29 @@ mcp_client = MCPClient()
 # LangGraph Agent Implementation
 # ============================================
 
-# Initialize Claude
+# Initialize Claude models
 llm = ChatAnthropic(
     model="claude-sonnet-4-20250514",
     anthropic_api_key=ANTHROPIC_API_KEY if ANTHROPIC_API_KEY else None,
     temperature=0.7,
     max_tokens=4096
+)
+
+# Smaller model for simple interactions (cost optimization)
+llm_haiku = ChatAnthropic(
+    model="claude-3-5-haiku-20241022",
+    anthropic_api_key=ANTHROPIC_API_KEY if ANTHROPIC_API_KEY else None,
+    temperature=0.7,
+    max_tokens=2048
+)
+
+# Streaming model
+llm_streaming = ChatAnthropic(
+    model="claude-sonnet-4-20250514",
+    anthropic_api_key=ANTHROPIC_API_KEY if ANTHROPIC_API_KEY else None,
+    temperature=0.7,
+    max_tokens=4096,
+    streaming=True
 )
 
 async def gather_context(state: AgentState) -> AgentState:
@@ -341,9 +370,16 @@ class GenerateWorldBackstoryRequest(BaseModel):
     world_id: str
     world_name: str
     genre: str
-    setting: str
+    setting: str = ""
     themes: List[str]
     visual_style: List[str]
+    power_system: Optional[str] = None
+    physical_properties: Optional[dict] = None
+    biological_properties: Optional[dict] = None
+    technological_properties: Optional[dict] = None
+    societal_properties: Optional[dict] = None
+    historical_properties: Optional[dict] = None
+    # Legacy fields for backward compatibility
     history: Optional[str] = None
     geography: Optional[str] = None
     culture: Optional[str] = None
@@ -482,43 +518,70 @@ async def process_action(request: ProcessActionRequest):
 
 @app.post("/generate-world-backstory")
 async def generate_world_backstory(request: GenerateWorldBackstoryRequest):
-    """Generate creative backstory for a world using Claude"""
+    """Generate creative backstory for a world using Claude with full MCP context"""
 
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
 
-    # Build context from world properties
+    # Build context from ALL world properties
     themes_str = ", ".join(request.themes) if request.themes else "adventure"
     styles_str = ", ".join(request.visual_style) if request.visual_style else "classic fantasy"
 
-    # Build prompt for Claude
-    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Generate an engaging backstory for a world based on the following properties:
+    # Build comprehensive prompt using all new properties
+    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Generate an engaging, comprehensive backstory for a world based on ALL the following properties:
 
-WORLD NAME: {request.world_name}
-GENRE: {request.genre}
-SETTING: {request.setting}
-THEMES: {themes_str}
-VISUAL STYLE: {styles_str}"""
+BASIC INFORMATION:
+- World Name: {request.world_name}
+- Genre: {request.genre}
+- Setting: {request.setting}
+- Themes: {themes_str}
+- Visual Style: {styles_str}
+- Power System: {request.power_system if hasattr(request, 'power_system') else 'N/A'}
 
-    if request.history:
-        prompt += f"\nEXISTING HISTORY: {request.history}"
-    if request.geography:
-        prompt += f"\nEXISTING GEOGRAPHY: {request.geography}"
-    if request.culture:
-        prompt += f"\nEXISTING CULTURE: {request.culture}"
+PHYSICAL PROPERTIES:
+- Star System: {request.physical_properties.get('star_system', 'N/A') if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
+- Planetary Classification: {request.physical_properties.get('planetary_classification', 'N/A') if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
+- World Features: {', '.join(request.physical_properties.get('world_features', [])) if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
+- Resources: {', '.join(request.physical_properties.get('resources', [])) if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
+- Terrain: {', '.join(request.physical_properties.get('terrain', [])) if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
+- Climate: {request.physical_properties.get('climate', 'N/A') if hasattr(request, 'physical_properties') and request.physical_properties else 'N/A'}
 
-    prompt += """
+BIOLOGICAL PROPERTIES:
+- Habitability: {request.biological_properties.get('habitability', 'N/A') if hasattr(request, 'biological_properties') and request.biological_properties else 'N/A'}
+- Flora: {', '.join(request.biological_properties.get('flora', [])) if hasattr(request, 'biological_properties') and request.biological_properties else 'N/A'}
+- Fauna: {', '.join(request.biological_properties.get('fauna', [])) if hasattr(request, 'biological_properties') and request.biological_properties else 'N/A'}
+- Native Species: {', '.join(request.biological_properties.get('native_species', [])) if hasattr(request, 'biological_properties') and request.biological_properties else 'N/A'}
+
+TECHNOLOGICAL PROPERTIES:
+- Technology Level: {request.technological_properties.get('technology_level', 'N/A') if hasattr(request, 'technological_properties') and request.technological_properties else 'N/A'}
+- Technology History: {request.technological_properties.get('technology_history', 'N/A') if hasattr(request, 'technological_properties') and request.technological_properties else 'N/A'}
+- Automation: {request.technological_properties.get('automation', 'N/A') if hasattr(request, 'technological_properties') and request.technological_properties else 'N/A'}
+- Weapons & Tools: {', '.join(request.technological_properties.get('weapons_tools', [])) if hasattr(request, 'technological_properties') and request.technological_properties else 'N/A'}
+
+SOCIETAL & CULTURAL PROPERTIES:
+- Government: {request.societal_properties.get('government', 'N/A') if hasattr(request, 'societal_properties') and request.societal_properties else 'N/A'}
+- Culture & Traditions: {', '.join(request.societal_properties.get('culture_traditions', [])) if hasattr(request, 'societal_properties') and request.societal_properties else 'N/A'}
+- Inhabitants: {', '.join(request.societal_properties.get('inhabitants', [])) if hasattr(request, 'societal_properties') and request.societal_properties else 'N/A'}
+- Social Issues: {', '.join(request.societal_properties.get('social_issues', [])) if hasattr(request, 'societal_properties') and request.societal_properties else 'N/A'}
+
+HISTORICAL PROPERTIES:
+- Major Events: {', '.join(request.historical_properties.get('major_events', [])) if hasattr(request, 'historical_properties') and request.historical_properties else 'N/A'}
+- Significant Sites: {', '.join(request.historical_properties.get('significant_sites', [])) if hasattr(request, 'historical_properties') and request.historical_properties else 'N/A'}
+- Timeline: {request.historical_properties.get('timeline', 'N/A') if hasattr(request, 'historical_properties') and request.historical_properties else 'N/A'}
+- Myths & Origin Stories: {request.historical_properties.get('myths_origin', 'N/A') if hasattr(request, 'historical_properties') and request.historical_properties else 'N/A'}
 
 INSTRUCTIONS:
-1. Write a creative and immersive backstory that brings this world to life
-2. Keep it to 2-3 compelling paragraphs (150-250 words)
-3. Incorporate the genre, themes, and visual style naturally
-4. Make it feel alive and inspire adventure
-5. If existing lore exists, build upon it and enhance it
-6. Use vivid, evocative language that matches the genre
-7. Return ONLY the backstory text, no preamble or explanation
+1. Write a creative and immersive backstory that weaves together ALL these world properties
+2. Create a rich narrative of 3-4 compelling paragraphs (250-400 words)
+3. Incorporate physical, biological, technological, societal, and historical elements naturally
+4. Address the native species, technological development, cultural traditions, and major historical events
+5. Reference the world's resources, terrain, climate, and how they shaped civilization
+6. Include hints about the power system and how it influenced society
+7. Make the world feel alive, complex, and ready for adventure
+8. Use vivid, evocative language that matches the genre and visual style
+9. Return ONLY the backstory text, no preamble or explanation
 
-Write the backstory now:"""
+Write the comprehensive backstory now:"""
 
     try:
         # Use Claude via LangChain
@@ -676,31 +739,82 @@ async def generate_regions(request: GenerateRegionsRequest):
     num_regions = request.num_regions
     num_locations_per_region = request.num_locations_per_region
 
-    # Build the prompt
-    prompt = f"""You are a creative world-builder for an RPG game. Generate {num_regions} unique and diverse regions for this world.
+    # Build comprehensive prompt with ALL world properties
+    physical = world_context.get('physical_properties', {})
+    biological = world_context.get('biological_properties', {})
+    technological = world_context.get('technological_properties', {})
+    societal = world_context.get('societal_properties', {})
+    historical = world_context.get('historical_properties', {})
 
-World Context:
+    prompt = f"""You are a creative world-builder for an RPG game. Generate {num_regions} unique and diverse regions for this world that align with ALL of its established properties.
+
+WORLD CONTEXT:
+Basic Information:
 - Name: {world_context.get('world_name')}
 - Genre: {world_context.get('genre')}
-- Setting: {world_context.get('setting')}
+- Themes: {', '.join(world_context.get('themes', []))}
+- Visual Style: {', '.join(world_context.get('visual_style', []))}
 - Power System: {world_context.get('power_system')}
-- Backstory: {world_context.get('backstory', 'No backstory provided')}
 
+Physical Properties:
+- Star System: {physical.get('star_system', 'N/A')}
+- Planetary Classification: {physical.get('planetary_classification', 'N/A')}
+- World Features: {', '.join(physical.get('world_features', []))}
+- Resources: {', '.join(physical.get('resources', []))}
+- Terrain Types: {', '.join(physical.get('terrain', []))}
+- Climate: {physical.get('climate', 'N/A')}
+
+Biological Properties:
+- Habitability: {biological.get('habitability', 'N/A')}
+- Flora: {', '.join(biological.get('flora', []))}
+- Fauna: {', '.join(biological.get('fauna', []))}
+- Native Species: {', '.join(biological.get('native_species', []))}
+
+Technological Properties:
+- Technology Level: {technological.get('technology_level', 'N/A')}
+- Automation: {technological.get('automation', 'N/A')}
+- Weapons & Tools: {', '.join(technological.get('weapons_tools', []))}
+
+Societal & Cultural Properties:
+- Government: {societal.get('government', 'N/A')}
+- Culture & Traditions: {', '.join(societal.get('culture_traditions', []))}
+- Inhabitants: {', '.join(societal.get('inhabitants', []))}
+- Social Issues: {', '.join(societal.get('social_issues', []))}
+
+Historical Context:
+- Major Events: {', '.join(historical.get('major_events', []))}
+- Significant Sites: {', '.join(historical.get('significant_sites', []))}
+- Myths & Origin: {historical.get('myths_origin', 'N/A')}
+
+World Backstory:
+{world_context.get('backstory', 'No backstory provided')}
+
+GENERATION REQUIREMENTS:
 For each region, generate:
-1. A unique region_name (creative, evocative, fits the world's genre)
+1. A unique region_name (creative, evocative, fits the world's genre and themes)
 2. A region_type from: Mountain, Forest, Desert, Coastal, Urban, Rural, Wasteland, Tundra, Swamp, Underground, Island, Volcanic, Mystical
-3. A climate from: Tropical, Temperate, Arctic, Arid, Mediterranean, Continental, Oceanic, Subarctic, Subtropical, Monsoon
-4. An array of terrain features from: Mountains, Hills, Plains, Forests, Jungles, Swamps, Rivers, Lakes, Oceans, Beaches, Cliffs, Canyons, Caves, Glaciers, Deserts, Dunes, Valleys, Plateaus
-5. A 1-2 sentence description of the region
-6. A compelling 2-3 paragraph backstory (150-250 words) that incorporates the world's context
+3. A climate that aligns with the world's climate and planetary classification
+4. An array of terrain features consistent with the world's terrain types and world features
+5. A 1-2 sentence description highlighting how the region reflects the world's properties
+6. A compelling 2-3 paragraph backstory (150-250 words) that:
+   - Incorporates the world's backstory and major historical events
+   - References the native species, flora, or fauna found in the region
+   - Reflects the technological level and societal structure
+   - Connects to the power system and cultural traditions
+   - Addresses any relevant social issues or significant sites
 7. {num_locations_per_region} locations within the region, each with:
-   - location_name (creative, specific to the region)
+   - location_name (creative, specific to the region and world's inhabitants)
    - location_type from: City, Town, Village, Fortress, Castle, Temple, Dungeon, Cave, Ruins, Market, Port, Inn/Tavern, Guild Hall, Academy, Library, Landmark, Wilderness
-   - description (1-2 sentences)
+   - description (1-2 sentences) that incorporates world resources, technology, or culture
    - features array from: Trading Post, Blacksmith, Magic Shop, Quest Board, Safe Haven, Dangerous, Hidden, Magical, Ancient, Cursed, Sacred, Abandoned, Thriving, Under Siege, Mysterious, Fortified, Underground, Floating
-   - backstory (2-3 paragraphs, 150-250 words, that ties into the region and world)
+   - backstory (2-3 paragraphs, 150-250 words) that:
+     * Ties into the region, world backstory, and historical events
+     * Features the native species or inhabitants
+     * Reflects the technological level and weapons/tools
+     * Incorporates the power system if relevant
+     * References cultural traditions or government structure
 
-Make each region and location feel distinct, memorable, and interconnected with the world's lore and backstory.
+CRITICAL: Make each region and location feel distinct, memorable, and deeply interconnected with ALL the world's established properties, backstory, and lore. The regions should feel like natural extensions of the world, not generic fantasy locations.
 
 Return the result as a JSON array of regions. Each region should have this structure:
 {{
@@ -848,6 +962,82 @@ Return ONLY the JSON array, no preamble or explanation."""
         raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating locations: {str(e)}")
+
+@app.post("/start-campaign-stream")
+async def start_campaign_stream(request: StartCampaignRequest):
+    """Start a campaign with streaming narrative generation"""
+
+    async def generate_stream():
+        # Build context
+        system_prompt = f"You are an AI Game Master for SkillForge. Generate an engaging opening for a campaign."
+
+        user_prompt = f"""Begin a new adventure for {request.character_name} in world {request.world_id}.
+Campaign: {request.campaign_name}
+
+Generate an immersive opening scene."""
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt)
+        ]
+
+        # Stream response
+        async for chunk in llm_streaming.astream(messages):
+            if hasattr(chunk, 'content'):
+                yield f"data: {json.dumps({'text': chunk.content})}\n\n"
+
+        # Signal completion
+        yield f"data: {json.dumps({'done': True})}\n\n"
+
+    return StreamingResponse(generate_stream(), media_type="text/event-stream")
+
+@app.get("/analytics/cognitive-progression/{profile_id}")
+async def get_cognitive_progression(profile_id: str):
+    """Get cognitive skill progression data"""
+    progression = await analytics_tracker.get_cognitive_progression(profile_id)
+    return progression
+
+@app.get("/analytics/engagement/{profile_id}")
+async def get_engagement_metrics(profile_id: str, days: int = 30):
+    """Get engagement metrics"""
+    metrics = await analytics_tracker.get_engagement_metrics(profile_id, days)
+    return metrics
+
+@app.get("/analytics/learning-outcomes/{profile_id}")
+async def get_learning_outcomes(profile_id: str, days: int = 30):
+    """Get learning outcome summary"""
+    outcomes = await analytics_tracker.get_learning_outcome_summary(profile_id, days)
+    return outcomes
+
+@app.post("/memory/store-event")
+async def store_campaign_event(
+    campaign_id: str,
+    profile_id: str,
+    event_type: str,
+    event_description: str
+):
+    """Store a campaign event in long-term memory"""
+    await memory_manager.store_campaign_event(
+        campaign_id=campaign_id,
+        profile_id=profile_id,
+        event_type=event_type,
+        event_description=event_description
+    )
+    return {"status": "stored"}
+
+@app.get("/memory/retrieve/{campaign_id}")
+async def retrieve_campaign_memories(
+    campaign_id: str,
+    query: str,
+    n_results: int = 5
+):
+    """Retrieve relevant campaign memories"""
+    memories = await memory_manager.retrieve_relevant_memories(
+        campaign_id=campaign_id,
+        query=query,
+        n_results=n_results
+    )
+    return {"memories": memories}
 
 if __name__ == "__main__":
     import uvicorn

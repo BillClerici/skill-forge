@@ -3,10 +3,48 @@
 {% block title %}{{ world.world_name }} - SkillForge RPG{% endblock %}
 
 {% block content %}
+<style>
+    .tabs {
+        background-color: rgba(45, 45, 60, 0.9) !important;
+        box-shadow: none !important;
+        margin-bottom: 0 !important;
+    }
+    .tabs .tab a {
+        color: rgba(212, 175, 55, 0.7) !important;
+        font-weight: 500;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    .tabs .tab a i.material-icons {
+        margin-right: 4px;
+        vertical-align: middle;
+    }
+    .tabs .tab a:hover,
+    .tabs .tab a.active {
+        color: var(--rpg-gold) !important;
+        background-color: rgba(212, 175, 55, 0.1);
+    }
+    .tabs .indicator {
+        background-color: var(--rpg-gold) !important;
+        height: 3px;
+    }
+    /* Tab content container */
+    .tab-content-wrapper {
+        background-color: rgba(20, 20, 30, 0.8);
+        padding: 20px;
+        margin-top: 0 !important;
+        border: 2px solid rgba(212, 175, 55, 0.3);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        min-height: 400px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+</style>
 <div class="row">
     <div class="col s12">
-        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
-            <i class="material-icons left" style="font-size: 2.5rem;">map</i>
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); display: flex; align-items: center;">
+            <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">map</i>
             {{ world.world_name }}
         </h3>
     </div>
@@ -26,8 +64,41 @@
     </div>
 </div>
 
-<!-- World Overview -->
-<div class="row">
+<!-- Tabs -->
+<div class="row" style="margin-bottom: 0;">
+    <div class="col s12" style="padding: 0;">
+        <ul class="tabs">
+            <li class="tab"><a href="#overview" class="active">
+                <i class="material-icons left tiny">info</i>Overview
+            </a></li>
+            <li class="tab"><a href="#physical">
+                <i class="material-icons left tiny">public</i>Physical
+            </a></li>
+            <li class="tab"><a href="#biological">
+                <i class="material-icons left tiny">eco</i>Biological
+            </a></li>
+            <li class="tab"><a href="#technological">
+                <i class="material-icons left tiny">settings</i>Technological
+            </a></li>
+            <li class="tab"><a href="#societal">
+                <i class="material-icons left tiny">groups</i>Societal
+            </a></li>
+            <li class="tab"><a href="#historical">
+                <i class="material-icons left tiny">history</i>Historical
+            </a></li>
+            <li class="tab"><a href="#backstory">
+                <i class="material-icons left tiny">auto_awesome</i>Backstory
+            </a></li>
+            <li class="tab"><a href="#regions">
+                <i class="material-icons left tiny">terrain</i>Regions
+            </a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- Tab Content Wrapper -->
+<div class="tab-content-wrapper" style="margin-top: 0;">
+    <div id="overview" class="row">
     <div class="col s12 l8">
         <div class="card">
             <div class="card-content">
@@ -122,9 +193,8 @@
     </div>
 </div>
 
-<!-- World Properties -->
-<div class="row">
-    <!-- Physical Properties -->
+<!-- Physical Properties Tab -->
+<div id="physical" class="row">
     {% if world.physical_properties %}
     <div class="col s12">
         <div class="card">
@@ -197,8 +267,10 @@
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- Biological Properties -->
+<!-- Biological Properties Tab -->
+<div id="biological" class="row">
     {% if world.biological_properties %}
     <div class="col s12">
         <div class="card">
@@ -222,7 +294,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">local_florist</i> Flora
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.flora }}</p>
+                    {% for item in world.biological_properties.flora %}
+                        <span class="chip" style="background-color: rgba(139, 195, 74, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -231,7 +305,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">pets</i> Fauna
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.fauna }}</p>
+                    {% for item in world.biological_properties.fauna %}
+                        <span class="chip" style="background-color: rgba(255, 152, 0, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -240,15 +316,19 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">people</i> Native Species
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.native_species }}</p>
+                    {% for item in world.biological_properties.native_species %}
+                        <span class="chip" style="background-color: rgba(103, 58, 183, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- Technological Properties -->
+<!-- Technological Properties Tab -->
+<div id="technological" class="row">
     {% if world.technological_properties %}
     <div class="col s12">
         <div class="card">
@@ -290,15 +370,19 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">build</i> Weapons & Tools
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.weapons_tools }}</p>
+                    {% for item in world.technological_properties.weapons_tools %}
+                        <span class="chip" style="background-color: rgba(158, 158, 158, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- Societal Properties -->
+<!-- Societal Properties Tab -->
+<div id="societal" class="row">
     {% if world.societal_properties %}
     <div class="col s12">
         <div class="card">
@@ -322,7 +406,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">celebration</i> Culture & Traditions
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.culture_traditions }}</p>
+                    {% for item in world.societal_properties.culture_traditions %}
+                        <span class="chip" style="background-color: rgba(233, 30, 99, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -331,7 +417,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">diversity_3</i> Inhabitants & Demographics
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.inhabitants }}</p>
+                    {% for item in world.societal_properties.inhabitants %}
+                        <span class="chip" style="background-color: rgba(0, 150, 136, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -340,15 +428,19 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">warning</i> Social Issues
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.social_issues }}</p>
+                    {% for item in world.societal_properties.social_issues %}
+                        <span class="chip" style="background-color: rgba(244, 67, 54, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- Historical Properties -->
+<!-- Historical Properties Tab -->
+<div id="historical" class="row">
     {% if world.historical_properties %}
     <div class="col s12">
         <div class="card">
@@ -363,7 +455,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">event</i> Major Events
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.major_events }}</p>
+                    {% for item in world.historical_properties.major_events %}
+                        <span class="chip" style="background-color: rgba(63, 81, 181, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -372,7 +466,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">place</i> Significant Sites
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.significant_sites }}</p>
+                    {% for item in world.historical_properties.significant_sites %}
+                        <span class="chip" style="background-color: rgba(0, 188, 212, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -397,8 +493,10 @@
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- AI-Generated Backstory -->
+<!-- AI-Generated Backstory Tab -->
+<div id="backstory" class="row">
     <div class="col s12">
         <div class="card">
             <div class="card-content">
@@ -450,8 +548,8 @@
     </div>
 </div>
 
-<!-- Regions in World -->
-<div class="row">
+<!-- Regions Tab -->
+<div id="regions" class="row">
     <div class="col s12">
         <div class="card">
             <div class="card-content">
@@ -532,6 +630,8 @@
         </div>
     </div>
 </div>
+</div>
+<!-- End Tab Content Wrapper -->
 
 {% endblock %}
 
@@ -773,4 +873,12 @@
         </a>
     </div>
 </div>
+
+<script>
+    // Initialize tabs
+    document.addEventListener('DOMContentLoaded', function() {
+        const tabs = document.querySelectorAll('.tabs');
+        M.Tabs.init(tabs);
+    });
+</script>
 {% endblock %}

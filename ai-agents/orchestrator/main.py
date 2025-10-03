@@ -105,9 +105,16 @@ class GenerateBackstoryRequest(BaseModel):
     world_id: str
     world_name: str
     genre: str
-    setting: str
+    setting: str = ""
     themes: List[str]
     visual_style: List[str]
+    power_system: Optional[str] = None
+    physical_properties: Optional[dict] = None
+    biological_properties: Optional[dict] = None
+    technological_properties: Optional[dict] = None
+    societal_properties: Optional[dict] = None
+    historical_properties: Optional[dict] = None
+    # Legacy fields for backward compatibility
     history: Optional[str] = None
     geography: Optional[str] = None
     culture: Optional[str] = None
@@ -416,6 +423,13 @@ async def generate_backstory(request: GenerateBackstoryRequest):
                     "setting": request.setting,
                     "themes": request.themes,
                     "visual_style": request.visual_style,
+                    "power_system": request.power_system,
+                    "physical_properties": request.physical_properties,
+                    "biological_properties": request.biological_properties,
+                    "technological_properties": request.technological_properties,
+                    "societal_properties": request.societal_properties,
+                    "historical_properties": request.historical_properties,
+                    # Legacy fields
                     "history": request.history,
                     "geography": request.geography,
                     "culture": request.culture

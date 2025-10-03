@@ -64,6 +64,19 @@ services:
     networks:
       - skillforge-network
 
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: skillforge-chromadb
+    ports:
+      - "8006:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    networks:
+      - skillforge-network
+
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: skillforge-rabbitmq
@@ -129,6 +142,63 @@ services:
       - ./mcp-servers/world-universe:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8002 --reload
 
+  mcp-quest-mission:
+    build: ./mcp-servers/quest-mission
+    container_name: skillforge-mcp-quest-mission
+    ports:
+      - "8003:8003"
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - skillforge-network
+    volumes:
+      - ./mcp-servers/quest-mission:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8003 --reload
+
+  mcp-npc-personality:
+    build: ./mcp-servers/npc-personality
+    container_name: skillforge-mcp-npc-personality
+    ports:
+      - "8004:8004"
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - skillforge-network
+    volumes:
+      - ./mcp-servers/npc-personality:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8004 --reload
+
+  mcp-item-equipment:
+    build: ./mcp-servers/item-equipment
+    container_name: skillforge-mcp-item-equipment
+    ports:
+      - "8005:8005"
+    environment:
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - skillforge-network
+    volumes:
+      - ./mcp-servers/item-equipment:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8005 --reload
+
   # ============================================
   # AI Agents
   # ============================================
@@ -164,16 +234,46 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
       - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
+      - MCP_QUEST_MISSION_URL=http://mcp-quest-mission:8003
+      - MCP_NPC_PERSONALITY_URL=http://mcp-npc-personality:8004
+      - MCP_ITEM_EQUIPMENT_URL=http://mcp-item-equipment:8005
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - CHROMADB_URL=http://chromadb:8000
       - PYTHONUNBUFFERED=1
     depends_on:
       - mcp-player-data
       - mcp-world-universe
+      - mcp-quest-mission
+      - mcp-npc-personality
+      - mcp-item-equipment
+      - chromadb
     networks:
       - skillforge-network
     volumes:
       - ./ai-agents/game-master:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  agent-quest-designer:
+    build: ./ai-agents/quest-designer
+    container_name: skillforge-agent-quest-designer
+    ports:
+      - "8100:8100"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MCP_QUEST_MISSION_URL=http://mcp-quest-mission:8003
+      - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
+      - MCP_NPC_PERSONALITY_URL=http://mcp-npc-personality:8004
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mcp-quest-mission
+      - mcp-world-universe
+      - mcp-npc-personality
+    networks:
+      - skillforge-network
+    volumes:
+      - ./ai-agents/quest-designer:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8100 --reload
 
   # ============================================
   # API Gateway
@@ -275,6 +375,7 @@ volumes:
   mongodb_data:
   redis_data:
   rabbitmq_data:
+  chroma_data:
 
 networks:
   skillforge-network:
