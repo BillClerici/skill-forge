@@ -91,6 +91,16 @@
                     {% endif %}
                 </div>
                 {% endif %}
+
+                <!-- Power System -->
+                {% if world.power_system %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">flash_on</i> Power System
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.power_system }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -112,63 +122,277 @@
     </div>
 </div>
 
-<!-- Lore Sections -->
+<!-- World Properties -->
 <div class="row">
-    <!-- Setting -->
-    {% if world.setting %}
+    <!-- Physical Properties -->
+    {% if world.physical_properties %}
     <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">landscape</i>
-                    Setting
+                    <i class="material-icons left">public</i>
+                    Physical Properties
                 </span>
-                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.setting }}</p>
+
+                {% if world.physical_properties.star_system %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">brightness_5</i> Star System
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.physical_properties.star_system }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.physical_properties.planetary_classification %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">language</i> Planetary Classification
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.physical_properties.planetary_classification }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.physical_properties.world_features %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">landscape</i> World Features
+                    </h6>
+                    {% for feature in world.physical_properties.world_features %}
+                        <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); margin: 4px;">{{ feature }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if world.physical_properties.resources %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">diamond</i> Resources
+                    </h6>
+                    {% for resource in world.physical_properties.resources %}
+                        <span class="chip" style="background-color: rgba(76, 175, 80, 0.3); margin: 4px;">{{ resource }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if world.physical_properties.terrain %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">terrain</i> Terrain
+                    </h6>
+                    {% for terrain_type in world.physical_properties.terrain %}
+                        <span class="chip" style="background-color: rgba(121, 85, 72, 0.3); margin: 4px;">{{ terrain_type }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if world.physical_properties.climate %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">wb_sunny</i> Climate
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.physical_properties.climate }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- History -->
-    {% if world.lore.history %}
+    <!-- Biological Properties -->
+    {% if world.biological_properties %}
     <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">history</i>
-                    History
+                    <i class="material-icons left">eco</i>
+                    Biological Properties
                 </span>
-                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.history }}</p>
+
+                {% if world.biological_properties.habitability %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">home</i> Habitability
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.habitability }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.biological_properties.flora %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">local_florist</i> Flora
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.flora }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.biological_properties.fauna %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">pets</i> Fauna
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.fauna }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.biological_properties.native_species %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">people</i> Native Species
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.biological_properties.native_species }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Geography -->
-    {% if world.lore.geography %}
+    <!-- Technological Properties -->
+    {% if world.technological_properties %}
     <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">terrain</i>
-                    Geography
+                    <i class="material-icons left">settings</i>
+                    Technological Properties
                 </span>
-                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.geography }}</p>
+
+                {% if world.technological_properties.technology_level %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">memory</i> Technology Level
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.technology_level }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.technological_properties.technology_history %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">history_edu</i> Technology History
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.technology_history }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.technological_properties.automation %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">precision_manufacturing</i> Automation
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.automation }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.technological_properties.weapons_tools %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">build</i> Weapons & Tools
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.weapons_tools }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
     {% endif %}
 
-    <!-- Culture -->
-    {% if world.lore.culture %}
+    <!-- Societal Properties -->
+    {% if world.societal_properties %}
     <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
                     <i class="material-icons left">groups</i>
-                    Culture
+                    Societal & Cultural Properties
                 </span>
-                <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ world.lore.culture }}</p>
+
+                {% if world.societal_properties.government %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">account_balance</i> Government & Politics
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.government }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.societal_properties.culture_traditions %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">celebration</i> Culture & Traditions
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.culture_traditions }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.societal_properties.inhabitants %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">diversity_3</i> Inhabitants & Demographics
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.inhabitants }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.societal_properties.social_issues %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">warning</i> Social Issues
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.social_issues }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historical Properties -->
+    {% if world.historical_properties %}
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">history</i>
+                    Historical Properties
+                </span>
+
+                {% if world.historical_properties.major_events %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">event</i> Major Events
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.major_events }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.historical_properties.significant_sites %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">place</i> Significant Sites
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.significant_sites }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.historical_properties.timeline %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">timeline</i> Timeline
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.timeline }}</p>
+                </div>
+                {% endif %}
+
+                {% if world.historical_properties.myths_origin %}
+                <div style="margin: 15px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
+                        <i class="material-icons tiny">auto_stories</i> Myths & Origin Stories
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.myths_origin }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -309,20 +533,6 @@
     </div>
 </div>
 
-<!-- Empty State if no lore -->
-{% if not world.setting and not world.lore.history and not world.lore.geography and not world.lore.culture %}
-<div class="row">
-    <div class="col s12">
-        <div class="card">
-            <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">book</i>
-                <h5 style="color: var(--rpg-gold);">No Lore Added Yet</h5>
-                <p style="color: #b8b8d1;">Add lore to this world by editing its details.</p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block extra_js %}

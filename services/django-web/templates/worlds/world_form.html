@@ -180,52 +180,492 @@
                         {% endif %}
                     </div>
 
+                    <!-- Power System -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">flash_on</i>
+                        <textarea id="power_system" name="power_system" class="materialize-textarea">{{ form.power_system.value|default:'' }}</textarea>
+                        <label for="power_system" class="{% if form.power_system.value %}active{% endif %}">Power System</label>
+                        <span class="helper-text">Magic systems, technology, or special abilities</span>
+                    </div>
+
                     <div class="divider" style="background-color: rgba(212, 175, 55, 0.2); margin: 32px 0;"></div>
 
-                    <!-- Setting -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">landscape</i>
-                        <textarea id="setting" name="setting" class="materialize-textarea"
-                                  required>{{ form.setting.value|default:'' }}</textarea>
-                        <label for="setting" class="{% if form.setting.value %}active{% endif %}">Setting</label>
-                        <span class="helper-text">Brief description of the world's setting</span>
-                        {% if form.setting.errors %}
-                            <span class="helper-text red-text">{{ form.setting.errors.0 }}</span>
-                        {% endif %}
-                    </div>
+                    <!-- Physical Properties Section -->
+                    <ul class="collapsible" style="border: none; box-shadow: none;">
+                        <li>
+                            <div class="collapsible-header" style="background-color: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);">
+                                <i class="material-icons" style="color: var(--rpg-gold);">public</i>
+                                Physical Properties
+                            </div>
+                            <div class="collapsible-body" style="background-color: rgba(42, 42, 62, 0.5); border: 1px solid rgba(212, 175, 55, 0.2);">
+                                <!-- Star System -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">brightness_5</i>
+                                    <select id="star_system" name="star_system">
+                                        <option value="" {% if not form.star_system.value %}selected{% endif %}>Choose Star System</option>
+                                        <option value="Single-Star" {% if form.star_system.value == 'Single-Star' %}selected{% endif %}>Single Star</option>
+                                        <option value="Binary-Star" {% if form.star_system.value == 'Binary-Star' %}selected{% endif %}>Binary Star</option>
+                                        <option value="Trinary-Star" {% if form.star_system.value == 'Trinary-Star' %}selected{% endif %}>Trinary Star</option>
+                                        <option value="Red-Giant" {% if form.star_system.value == 'Red-Giant' %}selected{% endif %}>Red Giant</option>
+                                        <option value="White-Dwarf" {% if form.star_system.value == 'White-Dwarf' %}selected{% endif %}>White Dwarf</option>
+                                        <option value="Neutron-Star" {% if form.star_system.value == 'Neutron-Star' %}selected{% endif %}>Neutron Star</option>
+                                        <option value="Black-Hole" {% if form.star_system.value == 'Black-Hole' %}selected{% endif %}>Black Hole System</option>
+                                        <option value="No-Star" {% if form.star_system.value == 'No-Star' %}selected{% endif %}>Rogue Planet (No Star)</option>
+                                    </select>
+                                    <label>Star System</label>
+                                    <span class="helper-text">Type of star system</span>
+                                </div>
 
-                    <!-- History -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">history</i>
-                        <textarea id="history" name="history" class="materialize-textarea">{{ form.history.value|default:'' }}</textarea>
-                        <label for="history" class="{% if form.history.value %}active{% endif %}">History</label>
-                        <span class="helper-text">Historical background and major events</span>
-                        {% if form.history.errors %}
-                            <span class="helper-text red-text">{{ form.history.errors.0 }}</span>
-                        {% endif %}
-                    </div>
+                                <!-- Planetary Classification -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">language</i>
+                                    <select id="planetary_classification" name="planetary_classification">
+                                        <option value="" {% if not form.planetary_classification.value %}selected{% endif %}>Choose Classification</option>
+                                        <option value="Terrestrial" {% if form.planetary_classification.value == 'Terrestrial' %}selected{% endif %}>Terrestrial (Rocky)</option>
+                                        <option value="Gas-Giant" {% if form.planetary_classification.value == 'Gas-Giant' %}selected{% endif %}>Gas Giant</option>
+                                        <option value="Ice-Giant" {% if form.planetary_classification.value == 'Ice-Giant' %}selected{% endif %}>Ice Giant</option>
+                                        <option value="Ocean-World" {% if form.planetary_classification.value == 'Ocean-World' %}selected{% endif %}>Ocean World</option>
+                                        <option value="Desert-World" {% if form.planetary_classification.value == 'Desert-World' %}selected{% endif %}>Desert World</option>
+                                        <option value="Ice-World" {% if form.planetary_classification.value == 'Ice-World' %}selected{% endif %}>Ice World</option>
+                                        <option value="Lava-World" {% if form.planetary_classification.value == 'Lava-World' %}selected{% endif %}>Lava World</option>
+                                        <option value="Forest-World" {% if form.planetary_classification.value == 'Forest-World' %}selected{% endif %}>Forest World</option>
+                                        <option value="Jungle-World" {% if form.planetary_classification.value == 'Jungle-World' %}selected{% endif %}>Jungle World</option>
+                                        <option value="Artificial" {% if form.planetary_classification.value == 'Artificial' %}selected{% endif %}>Artificial World</option>
+                                        <option value="Ringworld" {% if form.planetary_classification.value == 'Ringworld' %}selected{% endif %}>Ringworld</option>
+                                        <option value="Dyson-Sphere" {% if form.planetary_classification.value == 'Dyson-Sphere' %}selected{% endif %}>Dyson Sphere</option>
+                                    </select>
+                                    <label>Planetary Classification</label>
+                                    <span class="helper-text">Planet type</span>
+                                </div>
 
-                    <!-- Geography -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">terrain</i>
-                        <textarea id="geography" name="geography" class="materialize-textarea">{{ form.geography.value|default:'' }}</textarea>
-                        <label for="geography" class="{% if form.geography.value %}active{% endif %}">Geography</label>
-                        <span class="helper-text">Geographic features, regions, and locations</span>
-                        {% if form.geography.errors %}
-                            <span class="helper-text red-text">{{ form.geography.errors.0 }}</span>
-                        {% endif %}
-                    </div>
+                                <!-- World Features -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">landscape</i>
+                                    <select id="world_features" name="world_features" multiple>
+                                        <option value="Oceans" {% if 'Oceans' in form.world_features.value %}selected{% endif %}>Oceans</option>
+                                        <option value="Mountains" {% if 'Mountains' in form.world_features.value %}selected{% endif %}>Mountains</option>
+                                        <option value="Deserts" {% if 'Deserts' in form.world_features.value %}selected{% endif %}>Deserts</option>
+                                        <option value="Forests" {% if 'Forests' in form.world_features.value %}selected{% endif %}>Forests</option>
+                                        <option value="Tundra" {% if 'Tundra' in form.world_features.value %}selected{% endif %}>Tundra</option>
+                                        <option value="Volcanoes" {% if 'Volcanoes' in form.world_features.value %}selected{% endif %}>Volcanoes</option>
+                                        <option value="Islands" {% if 'Islands' in form.world_features.value %}selected{% endif %}>Islands</option>
+                                        <option value="Canyons" {% if 'Canyons' in form.world_features.value %}selected{% endif %}>Canyons</option>
+                                        <option value="Plains" {% if 'Plains' in form.world_features.value %}selected{% endif %}>Plains</option>
+                                        <option value="Swamps" {% if 'Swamps' in form.world_features.value %}selected{% endif %}>Swamps</option>
+                                    </select>
+                                    <label>World Features</label>
+                                    <span class="helper-text">Select all major geographical features</span>
+                                </div>
 
-                    <!-- Culture -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">groups</i>
-                        <textarea id="culture" name="culture" class="materialize-textarea">{{ form.culture.value|default:'' }}</textarea>
-                        <label for="culture" class="{% if form.culture.value %}active{% endif %}">Culture</label>
-                        <span class="helper-text">Cultural aspects, societies, and customs</span>
-                        {% if form.culture.errors %}
-                            <span class="helper-text red-text">{{ form.culture.errors.0 }}</span>
-                        {% endif %}
-                    </div>
+                                <!-- Resources -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">diamond</i>
+                                    <select id="resources" name="resources" multiple>
+                                        <option value="Minerals" {% if 'Minerals' in form.resources.value %}selected{% endif %}>Minerals</option>
+                                        <option value="Precious-Metals" {% if 'Precious-Metals' in form.resources.value %}selected{% endif %}>Precious Metals</option>
+                                        <option value="Magical-Crystals" {% if 'Magical-Crystals' in form.resources.value %}selected{% endif %}>Magical Crystals</option>
+                                        <option value="Rare-Elements" {% if 'Rare-Elements' in form.resources.value %}selected{% endif %}>Rare Elements</option>
+                                        <option value="Fossil-Fuels" {% if 'Fossil-Fuels' in form.resources.value %}selected{% endif %}>Fossil Fuels</option>
+                                        <option value="Water" {% if 'Water' in form.resources.value %}selected{% endif %}>Water</option>
+                                        <option value="Timber" {% if 'Timber' in form.resources.value %}selected{% endif %}>Timber</option>
+                                        <option value="Exotic-Materials" {% if 'Exotic-Materials' in form.resources.value %}selected{% endif %}>Exotic Materials</option>
+                                    </select>
+                                    <label>Resources</label>
+                                    <span class="helper-text">Available natural resources</span>
+                                </div>
+
+                                <!-- Terrain -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">terrain</i>
+                                    <select id="terrain" name="terrain" multiple>
+                                        <option value="Rocky" {% if 'Rocky' in form.terrain.value %}selected{% endif %}>Rocky</option>
+                                        <option value="Sandy" {% if 'Sandy' in form.terrain.value %}selected{% endif %}>Sandy</option>
+                                        <option value="Grassy" {% if 'Grassy' in form.terrain.value %}selected{% endif %}>Grassy</option>
+                                        <option value="Icy" {% if 'Icy' in form.terrain.value %}selected{% endif %}>Icy</option>
+                                        <option value="Forested" {% if 'Forested' in form.terrain.value %}selected{% endif %}>Forested</option>
+                                        <option value="Volcanic" {% if 'Volcanic' in form.terrain.value %}selected{% endif %}>Volcanic</option>
+                                        <option value="Wetlands" {% if 'Wetlands' in form.terrain.value %}selected{% endif %}>Wetlands</option>
+                                        <option value="Urban" {% if 'Urban' in form.terrain.value %}selected{% endif %}>Urban</option>
+                                    </select>
+                                    <label>Terrain Types</label>
+                                    <span class="helper-text">Predominant terrain types</span>
+                                </div>
+
+                                <!-- Climate -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">wb_sunny</i>
+                                    <select id="climate" name="climate">
+                                        <option value="" {% if not form.climate.value %}selected{% endif %}>Choose Climate</option>
+                                        <option value="Tropical" {% if form.climate.value == 'Tropical' %}selected{% endif %}>Tropical</option>
+                                        <option value="Temperate" {% if form.climate.value == 'Temperate' %}selected{% endif %}>Temperate</option>
+                                        <option value="Arid" {% if form.climate.value == 'Arid' %}selected{% endif %}>Arid</option>
+                                        <option value="Arctic" {% if form.climate.value == 'Arctic' %}selected{% endif %}>Arctic</option>
+                                        <option value="Continental" {% if form.climate.value == 'Continental' %}selected{% endif %}>Continental</option>
+                                        <option value="Mediterranean" {% if form.climate.value == 'Mediterranean' %}selected{% endif %}>Mediterranean</option>
+                                        <option value="Monsoon" {% if form.climate.value == 'Monsoon' %}selected{% endif %}>Monsoon</option>
+                                        <option value="Polar" {% if form.climate.value == 'Polar' %}selected{% endif %}>Polar</option>
+                                        <option value="Volcanic" {% if form.climate.value == 'Volcanic' %}selected{% endif %}>Volcanic</option>
+                                        <option value="Varied" {% if form.climate.value == 'Varied' %}selected{% endif %}>Varied</option>
+                                        <option value="Extreme" {% if form.climate.value == 'Extreme' %}selected{% endif %}>Extreme</option>
+                                    </select>
+                                    <label>Climate</label>
+                                    <span class="helper-text">Overall climate patterns</span>
+                                </div>
+                            </div>
+                        </li>
+
+                        <!-- Biological Properties Section -->
+                        <li>
+                            <div class="collapsible-header" style="background-color: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);">
+                                <i class="material-icons" style="color: var(--rpg-gold);">eco</i>
+                                Biological Properties
+                            </div>
+                            <div class="collapsible-body" style="background-color: rgba(42, 42, 62, 0.5); border: 1px solid rgba(212, 175, 55, 0.2);">
+                                <!-- Habitability -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">home</i>
+                                    <select id="habitability" name="habitability">
+                                        <option value="" {% if not form.habitability.value %}selected{% endif %}>Choose Habitability</option>
+                                        <option value="Perfectly-Habitable" {% if form.habitability.value == 'Perfectly-Habitable' %}selected{% endif %}>Perfectly Habitable</option>
+                                        <option value="Highly-Habitable" {% if form.habitability.value == 'Highly-Habitable' %}selected{% endif %}>Highly Habitable</option>
+                                        <option value="Moderately-Habitable" {% if form.habitability.value == 'Moderately-Habitable' %}selected{% endif %}>Moderately Habitable</option>
+                                        <option value="Marginally-Habitable" {% if form.habitability.value == 'Marginally-Habitable' %}selected{% endif %}>Marginally Habitable</option>
+                                        <option value="Requires-Life-Support" {% if form.habitability.value == 'Requires-Life-Support' %}selected{% endif %}>Requires Life Support</option>
+                                        <option value="Hostile" {% if form.habitability.value == 'Hostile' %}selected{% endif %}>Hostile</option>
+                                        <option value="Deadly" {% if form.habitability.value == 'Deadly' %}selected{% endif %}>Deadly</option>
+                                        <option value="Terraformed" {% if form.habitability.value == 'Terraformed' %}selected{% endif %}>Terraformed</option>
+                                    </select>
+                                    <label>Habitability</label>
+                                    <span class="helper-text">How habitable is the world</span>
+                                </div>
+
+                                <!-- Flora -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">local_florist</i>
+                                    <select id="flora" name="flora" multiple>
+                                        <option value="Abundant" {% if 'Abundant' in form.flora.value %}selected{% endif %}>Abundant</option>
+                                        <option value="Sparse" {% if 'Sparse' in form.flora.value %}selected{% endif %}>Sparse</option>
+                                        <option value="Exotic" {% if 'Exotic' in form.flora.value %}selected{% endif %}>Exotic</option>
+                                        <option value="Bioluminescent" {% if 'Bioluminescent' in form.flora.value %}selected{% endif %}>Bioluminescent</option>
+                                        <option value="Carnivorous" {% if 'Carnivorous' in form.flora.value %}selected{% endif %}>Carnivorous</option>
+                                        <option value="Sentient" {% if 'Sentient' in form.flora.value %}selected{% endif %}>Sentient</option>
+                                        <option value="Giant" {% if 'Giant' in form.flora.value %}selected{% endif %}>Giant</option>
+                                        <option value="Crystalline" {% if 'Crystalline' in form.flora.value %}selected{% endif %}>Crystalline</option>
+                                        <option value="Fungal" {% if 'Fungal' in form.flora.value %}selected{% endif %}>Fungal</option>
+                                        <option value="Aquatic" {% if 'Aquatic' in form.flora.value %}selected{% endif %}>Aquatic</option>
+                                        <option value="None" {% if 'None' in form.flora.value %}selected{% endif %}>None</option>
+                                    </select>
+                                    <label>Flora</label>
+                                    <span class="helper-text">Plant life characteristics</span>
+                                </div>
+
+                                <!-- Fauna -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">pets</i>
+                                    <select id="fauna" name="fauna" multiple>
+                                        <option value="Abundant" {% if 'Abundant' in form.fauna.value %}selected{% endif %}>Abundant</option>
+                                        <option value="Sparse" {% if 'Sparse' in form.fauna.value %}selected{% endif %}>Sparse</option>
+                                        <option value="Megafauna" {% if 'Megafauna' in form.fauna.value %}selected{% endif %}>Megafauna</option>
+                                        <option value="Predatory" {% if 'Predatory' in form.fauna.value %}selected{% endif %}>Predatory</option>
+                                        <option value="Docile" {% if 'Docile' in form.fauna.value %}selected{% endif %}>Docile</option>
+                                        <option value="Exotic" {% if 'Exotic' in form.fauna.value %}selected{% endif %}>Exotic</option>
+                                        <option value="Intelligent" {% if 'Intelligent' in form.fauna.value %}selected{% endif %}>Intelligent</option>
+                                        <option value="Flying" {% if 'Flying' in form.fauna.value %}selected{% endif %}>Flying</option>
+                                        <option value="Aquatic" {% if 'Aquatic' in form.fauna.value %}selected{% endif %}>Aquatic</option>
+                                        <option value="Subterranean" {% if 'Subterranean' in form.fauna.value %}selected{% endif %}>Subterranean</option>
+                                        <option value="None" {% if 'None' in form.fauna.value %}selected{% endif %}>None</option>
+                                    </select>
+                                    <label>Fauna</label>
+                                    <span class="helper-text">Animal life characteristics</span>
+                                </div>
+
+                                <!-- Native Species -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">people</i>
+                                    <select id="native_species" name="native_species" multiple>
+                                        <option value="Humans" {% if 'Humans' in form.native_species.value %}selected{% endif %}>Humans</option>
+                                        <option value="Elves" {% if 'Elves' in form.native_species.value %}selected{% endif %}>Elves</option>
+                                        <option value="Dwarves" {% if 'Dwarves' in form.native_species.value %}selected{% endif %}>Dwarves</option>
+                                        <option value="Orcs" {% if 'Orcs' in form.native_species.value %}selected{% endif %}>Orcs</option>
+                                        <option value="Reptilian" {% if 'Reptilian' in form.native_species.value %}selected{% endif %}>Reptilian</option>
+                                        <option value="Insectoid" {% if 'Insectoid' in form.native_species.value %}selected{% endif %}>Insectoid</option>
+                                        <option value="Avian" {% if 'Avian' in form.native_species.value %}selected{% endif %}>Avian</option>
+                                        <option value="Aquatic" {% if 'Aquatic' in form.native_species.value %}selected{% endif %}>Aquatic</option>
+                                        <option value="Silicon-Based" {% if 'Silicon-Based' in form.native_species.value %}selected{% endif %}>Silicon-Based</option>
+                                        <option value="Energy-Beings" {% if 'Energy-Beings' in form.native_species.value %}selected{% endif %}>Energy Beings</option>
+                                        <option value="Artificial-Intelligence" {% if 'Artificial-Intelligence' in form.native_species.value %}selected{% endif %}>Artificial Intelligence</option>
+                                        <option value="None" {% if 'None' in form.native_species.value %}selected{% endif %}>None</option>
+                                    </select>
+                                    <label>Native Species</label>
+                                    <span class="helper-text">Intelligent species</span>
+                                </div>
+                            </div>
+                        </li>
+
+                        <!-- Technological Properties Section -->
+                        <li>
+                            <div class="collapsible-header" style="background-color: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);">
+                                <i class="material-icons" style="color: var(--rpg-gold);">settings</i>
+                                Technological Properties
+                            </div>
+                            <div class="collapsible-body" style="background-color: rgba(42, 42, 62, 0.5); border: 1px solid rgba(212, 175, 55, 0.2);">
+                                <!-- Technology Level -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">memory</i>
+                                    <select id="technology_level" name="technology_level">
+                                        <option value="" {% if not form.technology_level.value %}selected{% endif %}>Choose Tech Level</option>
+                                        <option value="Stone-Age" {% if form.technology_level.value == 'Stone-Age' %}selected{% endif %}>Stone Age</option>
+                                        <option value="Bronze-Age" {% if form.technology_level.value == 'Bronze-Age' %}selected{% endif %}>Bronze Age</option>
+                                        <option value="Iron-Age" {% if form.technology_level.value == 'Iron-Age' %}selected{% endif %}>Iron Age</option>
+                                        <option value="Medieval" {% if form.technology_level.value == 'Medieval' %}selected{% endif %}>Medieval</option>
+                                        <option value="Renaissance" {% if form.technology_level.value == 'Renaissance' %}selected{% endif %}>Renaissance</option>
+                                        <option value="Industrial" {% if form.technology_level.value == 'Industrial' %}selected{% endif %}>Industrial</option>
+                                        <option value="Modern" {% if form.technology_level.value == 'Modern' %}selected{% endif %}>Modern</option>
+                                        <option value="Near-Future" {% if form.technology_level.value == 'Near-Future' %}selected{% endif %}>Near Future</option>
+                                        <option value="Advanced" {% if form.technology_level.value == 'Advanced' %}selected{% endif %}>Advanced</option>
+                                        <option value="Post-Scarcity" {% if form.technology_level.value == 'Post-Scarcity' %}selected{% endif %}>Post-Scarcity</option>
+                                        <option value="Transcendent" {% if form.technology_level.value == 'Transcendent' %}selected{% endif %}>Transcendent</option>
+                                    </select>
+                                    <label>Technology Level</label>
+                                    <span class="helper-text">Overall technological advancement</span>
+                                </div>
+
+                                <!-- Technology History -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">history_edu</i>
+                                    <select id="technology_history" name="technology_history" multiple>
+                                        <option value="Gradual-Evolution" {% if 'Gradual-Evolution' in form.technology_history.value %}selected{% endif %}>Gradual Evolution</option>
+                                        <option value="Rapid-Advancement" {% if 'Rapid-Advancement' in form.technology_history.value %}selected{% endif %}>Rapid Advancement</option>
+                                        <option value="Stagnation" {% if 'Stagnation' in form.technology_history.value %}selected{% endif %}>Stagnation</option>
+                                        <option value="Lost-Technology" {% if 'Lost-Technology' in form.technology_history.value %}selected{% endif %}>Lost Technology</option>
+                                        <option value="Alien-Influenced" {% if 'Alien-Influenced' in form.technology_history.value %}selected{% endif %}>Alien Influenced</option>
+                                        <option value="Magic-Tech-Hybrid" {% if 'Magic-Tech-Hybrid' in form.technology_history.value %}selected{% endif %}>Magic-Tech Hybrid</option>
+                                        <option value="Reverse-Engineered" {% if 'Reverse-Engineered' in form.technology_history.value %}selected{% endif %}>Reverse Engineered</option>
+                                        <option value="Post-Apocalyptic-Recovery" {% if 'Post-Apocalyptic-Recovery' in form.technology_history.value %}selected{% endif %}>Post-Apocalyptic Recovery</option>
+                                    </select>
+                                    <label>Technology History</label>
+                                    <span class="helper-text">Evolution of technology</span>
+                                </div>
+
+                                <!-- Automation -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">precision_manufacturing</i>
+                                    <select id="automation" name="automation">
+                                        <option value="" {% if not form.automation.value %}selected{% endif %}>Choose Automation Level</option>
+                                        <option value="None" {% if form.automation.value == 'None' %}selected{% endif %}>None</option>
+                                        <option value="Minimal" {% if form.automation.value == 'Minimal' %}selected{% endif %}>Minimal</option>
+                                        <option value="Moderate" {% if form.automation.value == 'Moderate' %}selected{% endif %}>Moderate</option>
+                                        <option value="High" {% if form.automation.value == 'High' %}selected{% endif %}>High</option>
+                                        <option value="Fully-Automated" {% if form.automation.value == 'Fully-Automated' %}selected{% endif %}>Fully Automated</option>
+                                        <option value="AI-Controlled" {% if form.automation.value == 'AI-Controlled' %}selected{% endif %}>AI Controlled</option>
+                                        <option value="Robot-Labor" {% if form.automation.value == 'Robot-Labor' %}selected{% endif %}>Robot Labor</option>
+                                        <option value="Drone-Swarms" {% if form.automation.value == 'Drone-Swarms' %}selected{% endif %}>Drone Swarms</option>
+                                    </select>
+                                    <label>Automation</label>
+                                    <span class="helper-text">Level of automation</span>
+                                </div>
+
+                                <!-- Weapons & Tools -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">build</i>
+                                    <select id="weapons_tools" name="weapons_tools" multiple>
+                                        <option value="Melee-Weapons" {% if 'Melee-Weapons' in form.weapons_tools.value %}selected{% endif %}>Melee Weapons</option>
+                                        <option value="Firearms" {% if 'Firearms' in form.weapons_tools.value %}selected{% endif %}>Firearms</option>
+                                        <option value="Energy-Weapons" {% if 'Energy-Weapons' in form.weapons_tools.value %}selected{% endif %}>Energy Weapons</option>
+                                        <option value="Plasma-Weapons" {% if 'Plasma-Weapons' in form.weapons_tools.value %}selected{% endif %}>Plasma Weapons</option>
+                                        <option value="Explosives" {% if 'Explosives' in form.weapons_tools.value %}selected{% endif %}>Explosives</option>
+                                        <option value="Power-Armor" {% if 'Power-Armor' in form.weapons_tools.value %}selected{% endif %}>Power Armor</option>
+                                        <option value="Shields" {% if 'Shields' in form.weapons_tools.value %}selected{% endif %}>Shields</option>
+                                        <option value="Cybernetic-Enhancements" {% if 'Cybernetic-Enhancements' in form.weapons_tools.value %}selected{% endif %}>Cybernetic Enhancements</option>
+                                        <option value="Nanotechnology" {% if 'Nanotechnology' in form.weapons_tools.value %}selected{% endif %}>Nanotechnology</option>
+                                        <option value="Vehicles" {% if 'Vehicles' in form.weapons_tools.value %}selected{% endif %}>Vehicles</option>
+                                        <option value="Spacecraft" {% if 'Spacecraft' in form.weapons_tools.value %}selected{% endif %}>Spacecraft</option>
+                                    </select>
+                                    <label>Weapons & Tools</label>
+                                    <span class="helper-text">Common weapons and equipment</span>
+                                </div>
+                            </div>
+                        </li>
+
+                        <!-- Societal Properties Section -->
+                        <li>
+                            <div class="collapsible-header" style="background-color: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);">
+                                <i class="material-icons" style="color: var(--rpg-gold);">groups</i>
+                                Societal & Cultural Properties
+                            </div>
+                            <div class="collapsible-body" style="background-color: rgba(42, 42, 62, 0.5); border: 1px solid rgba(212, 175, 55, 0.2);">
+                                <!-- Government & Politics -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">account_balance</i>
+                                    <select id="government" name="government" multiple>
+                                        <option value="Democracy" {% if 'Democracy' in form.government.value %}selected{% endif %}>Democracy</option>
+                                        <option value="Monarchy" {% if 'Monarchy' in form.government.value %}selected{% endif %}>Monarchy</option>
+                                        <option value="Oligarchy" {% if 'Oligarchy' in form.government.value %}selected{% endif %}>Oligarchy</option>
+                                        <option value="Theocracy" {% if 'Theocracy' in form.government.value %}selected{% endif %}>Theocracy</option>
+                                        <option value="Dictatorship" {% if 'Dictatorship' in form.government.value %}selected{% endif %}>Dictatorship</option>
+                                        <option value="Anarchy" {% if 'Anarchy' in form.government.value %}selected{% endif %}>Anarchy</option>
+                                        <option value="Technocracy" {% if 'Technocracy' in form.government.value %}selected{% endif %}>Technocracy</option>
+                                        <option value="Corporate-State" {% if 'Corporate-State' in form.government.value %}selected{% endif %}>Corporate State</option>
+                                        <option value="Feudalism" {% if 'Feudalism' in form.government.value %}selected{% endif %}>Feudalism</option>
+                                        <option value="Tribal" {% if 'Tribal' in form.government.value %}selected{% endif %}>Tribal</option>
+                                        <option value="AI-Governance" {% if 'AI-Governance' in form.government.value %}selected{% endif %}>AI Governance</option>
+                                        <option value="Federation" {% if 'Federation' in form.government.value %}selected{% endif %}>Federation</option>
+                                    </select>
+                                    <label>Government & Politics</label>
+                                    <span class="helper-text">Political systems</span>
+                                </div>
+
+                                <!-- Culture & Traditions -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">celebration</i>
+                                    <select id="culture_traditions" name="culture_traditions" multiple>
+                                        <option value="Honor-Based" {% if 'Honor-Based' in form.culture_traditions.value %}selected{% endif %}>Honor-Based</option>
+                                        <option value="Artistic" {% if 'Artistic' in form.culture_traditions.value %}selected{% endif %}>Artistic</option>
+                                        <option value="Warrior-Culture" {% if 'Warrior-Culture' in form.culture_traditions.value %}selected{% endif %}>Warrior Culture</option>
+                                        <option value="Scholarly" {% if 'Scholarly' in form.culture_traditions.value %}selected{% endif %}>Scholarly</option>
+                                        <option value="Religious" {% if 'Religious' in form.culture_traditions.value %}selected{% endif %}>Religious</option>
+                                        <option value="Merchant" {% if 'Merchant' in form.culture_traditions.value %}selected{% endif %}>Merchant</option>
+                                        <option value="Nomadic" {% if 'Nomadic' in form.culture_traditions.value %}selected{% endif %}>Nomadic</option>
+                                        <option value="Isolationist" {% if 'Isolationist' in form.culture_traditions.value %}selected{% endif %}>Isolationist</option>
+                                        <option value="Expansionist" {% if 'Expansionist' in form.culture_traditions.value %}selected{% endif %}>Expansionist</option>
+                                        <option value="Collectivist" {% if 'Collectivist' in form.culture_traditions.value %}selected{% endif %}>Collectivist</option>
+                                        <option value="Individualist" {% if 'Individualist' in form.culture_traditions.value %}selected{% endif %}>Individualist</option>
+                                        <option value="Hedonistic" {% if 'Hedonistic' in form.culture_traditions.value %}selected{% endif %}>Hedonistic</option>
+                                    </select>
+                                    <label>Culture & Traditions</label>
+                                    <span class="helper-text">Cultural characteristics</span>
+                                </div>
+
+                                <!-- Inhabitants & Demographics -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">diversity_3</i>
+                                    <select id="inhabitants" name="inhabitants" multiple>
+                                        <option value="Sparse" {% if 'Sparse' in form.inhabitants.value %}selected{% endif %}>Sparse Population</option>
+                                        <option value="Moderate" {% if 'Moderate' in form.inhabitants.value %}selected{% endif %}>Moderate Population</option>
+                                        <option value="Dense" {% if 'Dense' in form.inhabitants.value %}selected{% endif %}>Dense Population</option>
+                                        <option value="Overpopulated" {% if 'Overpopulated' in form.inhabitants.value %}selected{% endif %}>Overpopulated</option>
+                                        <option value="Diverse" {% if 'Diverse' in form.inhabitants.value %}selected{% endif %}>Diverse Species</option>
+                                        <option value="Homogeneous" {% if 'Homogeneous' in form.inhabitants.value %}selected{% endif %}>Homogeneous</option>
+                                        <option value="Urban-Concentrated" {% if 'Urban-Concentrated' in form.inhabitants.value %}selected{% endif %}>Urban Concentrated</option>
+                                        <option value="Rural-Distributed" {% if 'Rural-Distributed' in form.inhabitants.value %}selected{% endif %}>Rural Distributed</option>
+                                        <option value="Class-Divided" {% if 'Class-Divided' in form.inhabitants.value %}selected{% endif %}>Class Divided</option>
+                                        <option value="Egalitarian" {% if 'Egalitarian' in form.inhabitants.value %}selected{% endif %}>Egalitarian</option>
+                                    </select>
+                                    <label>Inhabitants & Demographics</label>
+                                    <span class="helper-text">Population characteristics</span>
+                                </div>
+
+                                <!-- Social Issues -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">warning</i>
+                                    <select id="social_issues" name="social_issues" multiple>
+                                        <option value="Inequality" {% if 'Inequality' in form.social_issues.value %}selected{% endif %}>Inequality</option>
+                                        <option value="Poverty" {% if 'Poverty' in form.social_issues.value %}selected{% endif %}>Poverty</option>
+                                        <option value="Crime" {% if 'Crime' in form.social_issues.value %}selected{% endif %}>Crime</option>
+                                        <option value="Corruption" {% if 'Corruption' in form.social_issues.value %}selected{% endif %}>Corruption</option>
+                                        <option value="Racism" {% if 'Racism' in form.social_issues.value %}selected{% endif %}>Racism</option>
+                                        <option value="Religious-Conflict" {% if 'Religious-Conflict' in form.social_issues.value %}selected{% endif %}>Religious Conflict</option>
+                                        <option value="War" {% if 'War' in form.social_issues.value %}selected{% endif %}>War</option>
+                                        <option value="Rebellion" {% if 'Rebellion' in form.social_issues.value %}selected{% endif %}>Rebellion</option>
+                                        <option value="Environmental-Crisis" {% if 'Environmental-Crisis' in form.social_issues.value %}selected{% endif %}>Environmental Crisis</option>
+                                        <option value="Resource-Scarcity" {% if 'Resource-Scarcity' in form.social_issues.value %}selected{% endif %}>Resource Scarcity</option>
+                                        <option value="Plague" {% if 'Plague' in form.social_issues.value %}selected{% endif %}>Plague</option>
+                                        <option value="Technological-Divide" {% if 'Technological-Divide' in form.social_issues.value %}selected{% endif %}>Technological Divide</option>
+                                    </select>
+                                    <label>Social Issues</label>
+                                    <span class="helper-text">Current challenges</span>
+                                </div>
+                            </div>
+                        </li>
+
+                        <!-- Historical Properties Section -->
+                        <li>
+                            <div class="collapsible-header" style="background-color: rgba(212, 175, 55, 0.1); border: 1px solid rgba(212, 175, 55, 0.3);">
+                                <i class="material-icons" style="color: var(--rpg-gold);">history</i>
+                                Historical Properties
+                            </div>
+                            <div class="collapsible-body" style="background-color: rgba(42, 42, 62, 0.5); border: 1px solid rgba(212, 175, 55, 0.2);">
+                                <!-- Major Events -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">event</i>
+                                    <select id="major_events" name="major_events" multiple>
+                                        <option value="Great-War" {% if 'Great-War' in form.major_events.value %}selected{% endif %}>Great War</option>
+                                        <option value="Revolution" {% if 'Revolution' in form.major_events.value %}selected{% endif %}>Revolution</option>
+                                        <option value="Golden-Age" {% if 'Golden-Age' in form.major_events.value %}selected{% endif %}>Golden Age</option>
+                                        <option value="Dark-Age" {% if 'Dark-Age' in form.major_events.value %}selected{% endif %}>Dark Age</option>
+                                        <option value="Extinction-Event" {% if 'Extinction-Event' in form.major_events.value %}selected{% endif %}>Extinction Event</option>
+                                        <option value="First-Contact" {% if 'First-Contact' in form.major_events.value %}selected{% endif %}>First Contact</option>
+                                        <option value="Technological-Singularity" {% if 'Technological-Singularity' in form.major_events.value %}selected{% endif %}>Technological Singularity</option>
+                                        <option value="Plague" {% if 'Plague' in form.major_events.value %}selected{% endif %}>Plague</option>
+                                        <option value="Discovery" {% if 'Discovery' in form.major_events.value %}selected{% endif %}>Major Discovery</option>
+                                        <option value="Colonization" {% if 'Colonization' in form.major_events.value %}selected{% endif %}>Colonization</option>
+                                        <option value="Apocalypse" {% if 'Apocalypse' in form.major_events.value %}selected{% endif %}>Apocalypse</option>
+                                        <option value="Unification" {% if 'Unification' in form.major_events.value %}selected{% endif %}>Unification</option>
+                                    </select>
+                                    <label>Major Events</label>
+                                    <span class="helper-text">Significant historical events</span>
+                                </div>
+
+                                <!-- Significant Sites -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">place</i>
+                                    <select id="significant_sites" name="significant_sites" multiple>
+                                        <option value="Ancient-Ruins" {% if 'Ancient-Ruins' in form.significant_sites.value %}selected{% endif %}>Ancient Ruins</option>
+                                        <option value="Sacred-Temple" {% if 'Sacred-Temple' in form.significant_sites.value %}selected{% endif %}>Sacred Temple</option>
+                                        <option value="Battlefield" {% if 'Battlefield' in form.significant_sites.value %}selected{% endif %}>Historic Battlefield</option>
+                                        <option value="Monument" {% if 'Monument' in form.significant_sites.value %}selected{% endif %}>Monument</option>
+                                        <option value="Tomb" {% if 'Tomb' in form.significant_sites.value %}selected{% endif %}>Royal Tomb</option>
+                                        <option value="Library" {% if 'Library' in form.significant_sites.value %}selected{% endif %}>Great Library</option>
+                                        <option value="Observatory" {% if 'Observatory' in form.significant_sites.value %}selected{% endif %}>Observatory</option>
+                                        <option value="Portal" {% if 'Portal' in form.significant_sites.value %}selected{% endif %}>Portal/Gateway</option>
+                                        <option value="Crashed-Ship" {% if 'Crashed-Ship' in form.significant_sites.value %}selected{% endif %}>Crashed Ship</option>
+                                        <option value="Vault" {% if 'Vault' in form.significant_sites.value %}selected{% endif %}>Ancient Vault</option>
+                                    </select>
+                                    <label>Significant Sites</label>
+                                    <span class="helper-text">Important locations</span>
+                                </div>
+
+                                <!-- Timeline -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">timeline</i>
+                                    <select id="timeline" name="timeline">
+                                        <option value="" {% if not form.timeline.value %}selected{% endif %}>Choose Timeline Era</option>
+                                        <option value="Prehistoric" {% if form.timeline.value == 'Prehistoric' %}selected{% endif %}>Prehistoric</option>
+                                        <option value="Ancient" {% if form.timeline.value == 'Ancient' %}selected{% endif %}>Ancient</option>
+                                        <option value="Classical" {% if form.timeline.value == 'Classical' %}selected{% endif %}>Classical</option>
+                                        <option value="Medieval" {% if form.timeline.value == 'Medieval' %}selected{% endif %}>Medieval</option>
+                                        <option value="Renaissance" {% if form.timeline.value == 'Renaissance' %}selected{% endif %}>Renaissance</option>
+                                        <option value="Industrial" {% if form.timeline.value == 'Industrial' %}selected{% endif %}>Industrial</option>
+                                        <option value="Modern" {% if form.timeline.value == 'Modern' %}selected{% endif %}>Modern</option>
+                                        <option value="Future" {% if form.timeline.value == 'Future' %}selected{% endif %}>Future</option>
+                                        <option value="Far-Future" {% if form.timeline.value == 'Far-Future' %}selected{% endif %}>Far Future</option>
+                                        <option value="Post-Apocalyptic" {% if form.timeline.value == 'Post-Apocalyptic' %}selected{% endif %}>Post-Apocalyptic</option>
+                                    </select>
+                                    <label>Timeline Era</label>
+                                    <span class="helper-text">Current era</span>
+                                </div>
+
+                                <!-- Myths & Origin Stories -->
+                                <div class="input-field">
+                                    <i class="material-icons prefix" style="color: var(--rpg-gold);">auto_stories</i>
+                                    <select id="myths_origin" name="myths_origin" multiple>
+                                        <option value="Divine-Creation" {% if 'Divine-Creation' in form.myths_origin.value %}selected{% endif %}>Divine Creation</option>
+                                        <option value="Ancient-Gods" {% if 'Ancient-Gods' in form.myths_origin.value %}selected{% endif %}>Ancient Gods</option>
+                                        <option value="Cosmic-Event" {% if 'Cosmic-Event' in form.myths_origin.value %}selected{% endif %}>Cosmic Event</option>
+                                        <option value="Primordial-Beings" {% if 'Primordial-Beings' in form.myths_origin.value %}selected{% endif %}>Primordial Beings</option>
+                                        <option value="World-Tree" {% if 'World-Tree' in form.myths_origin.value %}selected{% endif %}>World Tree</option>
+                                        <option value="Dragon-Myth" {% if 'Dragon-Myth' in form.myths_origin.value %}selected{% endif %}>Dragon Myths</option>
+                                        <option value="Prophecy" {% if 'Prophecy' in form.myths_origin.value %}selected{% endif %}>Ancient Prophecy</option>
+                                        <option value="Hero-Legend" {% if 'Hero-Legend' in form.myths_origin.value %}selected{% endif %}>Hero Legends</option>
+                                        <option value="Alien-Seeding" {% if 'Alien-Seeding' in form.myths_origin.value %}selected{% endif %}>Alien Seeding</option>
+                                        <option value="Lost-Civilization" {% if 'Lost-Civilization' in form.myths_origin.value %}selected{% endif %}>Lost Civilization</option>
+                                    </select>
+                                    <label>Myths & Origin Stories</label>
+                                    <span class="helper-text">Creation myths and legends</span>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
 
                     <!-- Form Actions -->
                     <div class="card-action center-align" style="background: transparent; border: none; padding-top: 20px;">
@@ -256,6 +696,12 @@
         // Initialize select dropdowns
         var elems = document.querySelectorAll('select');
         M.FormSelect.init(elems);
+
+        // Initialize collapsible sections
+        var collapsibles = document.querySelectorAll('.collapsible');
+        M.Collapsible.init(collapsibles, {
+            accordion: false
+        });
 
         // Initialize all textareas
         var textareas = document.querySelectorAll('textarea');

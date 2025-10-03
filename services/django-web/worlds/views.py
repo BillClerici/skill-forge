@@ -190,15 +190,42 @@ class WorldCreateView(View):
         world_data = {
             '_id': world_id,
             'world_name': request.POST.get('world_name'),
-            'universe_ids': universe_ids,  # Now stores array of universe IDs
+            'universe_ids': universe_ids,
             'genre': request.POST.get('genre'),
-            'setting': request.POST.get('setting', ''),
-            'themes': themes,  # Now array from multi-select
-            'visual_style': visual_styles,  # Now array from multi-select
-            'lore': {
-                'history': request.POST.get('history', ''),
-                'geography': request.POST.get('geography', ''),
-                'culture': request.POST.get('culture', '')
+            'themes': themes,
+            'visual_style': visual_styles,
+            'power_system': request.POST.get('power_system', ''),
+            'physical_properties': {
+                'star_system': request.POST.get('star_system', ''),
+                'planetary_classification': request.POST.get('planetary_classification', ''),
+                'world_features': request.POST.getlist('world_features'),
+                'resources': request.POST.getlist('resources'),
+                'terrain': request.POST.getlist('terrain'),
+                'climate': request.POST.get('climate', '')
+            },
+            'biological_properties': {
+                'habitability': request.POST.get('habitability', ''),
+                'flora': request.POST.getlist('flora'),
+                'fauna': request.POST.getlist('fauna'),
+                'native_species': request.POST.getlist('native_species')
+            },
+            'technological_properties': {
+                'technology_level': request.POST.get('technology_level', ''),
+                'technology_history': request.POST.getlist('technology_history'),
+                'automation': request.POST.get('automation', ''),
+                'weapons_tools': request.POST.getlist('weapons_tools')
+            },
+            'societal_properties': {
+                'government': request.POST.getlist('government'),
+                'culture_traditions': request.POST.getlist('culture_traditions'),
+                'inhabitants': request.POST.getlist('inhabitants'),
+                'social_issues': request.POST.getlist('social_issues')
+            },
+            'historical_properties': {
+                'major_events': request.POST.getlist('major_events'),
+                'significant_sites': request.POST.getlist('significant_sites'),
+                'timeline': request.POST.get('timeline', ''),
+                'myths_origin': request.POST.getlist('myths_origin')
             },
             'regions': [],
             'npcs': []
@@ -426,26 +453,26 @@ class WorldUpdateView(View):
         for universe in universes:
             universe['id'] = universe['_id']
 
-        # Extract lore fields
-        lore = world.get('lore', {})
+        # Get property groups
+        physical = world.get('physical_properties', {})
+        biological = world.get('biological_properties', {})
+        technological = world.get('technological_properties', {})
+        societal = world.get('societal_properties', {})
+        historical = world.get('historical_properties', {})
 
         # Get arrays for multi-select fields (support both old and new format)
         universe_ids = world.get('universe_ids', [])
         if not universe_ids and world.get('universe_id'):
-            # Legacy support: convert single universe_id to array
             universe_ids = [world.get('universe_id')]
 
         themes = world.get('themes', [])
         if isinstance(themes, str):
-            # Legacy support: convert comma-separated to array
             themes = [t.strip() for t in themes.split(',') if t.strip()]
 
         visual_styles = world.get('visual_style', [])
         if isinstance(visual_styles, str):
-            # Legacy support: convert string to array
             visual_styles = [visual_styles] if visual_styles else []
 
-        # Add world_id field for template
         world['world_id'] = world['_id']
 
         # Create form-compatible dict structure
@@ -454,12 +481,36 @@ class WorldUpdateView(View):
             'world_name': {'value': world.get('world_name', '')},
             'universe_ids': {'value': universe_ids},
             'genre': {'value': world.get('genre', '')},
-            'setting': {'value': world.get('setting', '')},
             'themes': {'value': themes},
             'visual_style': {'value': visual_styles},
-            'history': {'value': lore.get('history', '')},
-            'geography': {'value': lore.get('geography', '')},
-            'culture': {'value': lore.get('culture', '')}
+            'power_system': {'value': world.get('power_system', '')},
+            # Physical Properties
+            'star_system': {'value': physical.get('star_system', '')},
+            'planetary_classification': {'value': physical.get('planetary_classification', '')},
+            'world_features': {'value': physical.get('world_features', [])},
+            'resources': {'value': physical.get('resources', [])},
+            'terrain': {'value': physical.get('terrain', [])},
+            'climate': {'value': physical.get('climate', '')},
+            # Biological Properties
+            'habitability': {'value': biological.get('habitability', '')},
+            'flora': {'value': biological.get('flora', [])},
+            'fauna': {'value': biological.get('fauna', [])},
+            'native_species': {'value': biological.get('native_species', [])},
+            # Technological Properties
+            'technology_level': {'value': technological.get('technology_level', '')},
+            'technology_history': {'value': technological.get('technology_history', [])},
+            'automation': {'value': technological.get('automation', '')},
+            'weapons_tools': {'value': technological.get('weapons_tools', [])},
+            # Societal Properties
+            'government': {'value': societal.get('government', [])},
+            'culture_traditions': {'value': societal.get('culture_traditions', [])},
+            'inhabitants': {'value': societal.get('inhabitants', [])},
+            'social_issues': {'value': societal.get('social_issues', [])},
+            # Historical Properties
+            'major_events': {'value': historical.get('major_events', [])},
+            'significant_sites': {'value': historical.get('significant_sites', [])},
+            'timeline': {'value': historical.get('timeline', '')},
+            'myths_origin': {'value': historical.get('myths_origin', [])}
         }
 
         return render(request, 'worlds/world_form.html', {
@@ -483,13 +534,40 @@ class WorldUpdateView(View):
             'world_name': request.POST.get('world_name'),
             'universe_ids': universe_ids,
             'genre': request.POST.get('genre'),
-            'setting': request.POST.get('setting', ''),
             'themes': themes,
             'visual_style': visual_styles,
-            'lore': {
-                'history': request.POST.get('history', ''),
-                'geography': request.POST.get('geography', ''),
-                'culture': request.POST.get('culture', '')
+            'power_system': request.POST.get('power_system', ''),
+            'physical_properties': {
+                'star_system': request.POST.get('star_system', ''),
+                'planetary_classification': request.POST.get('planetary_classification', ''),
+                'world_features': request.POST.getlist('world_features'),
+                'resources': request.POST.getlist('resources'),
+                'terrain': request.POST.getlist('terrain'),
+                'climate': request.POST.get('climate', '')
+            },
+            'biological_properties': {
+                'habitability': request.POST.get('habitability', ''),
+                'flora': request.POST.getlist('flora'),
+                'fauna': request.POST.getlist('fauna'),
+                'native_species': request.POST.getlist('native_species')
+            },
+            'technological_properties': {
+                'technology_level': request.POST.get('technology_level', ''),
+                'technology_history': request.POST.getlist('technology_history'),
+                'automation': request.POST.get('automation', ''),
+                'weapons_tools': request.POST.getlist('weapons_tools')
+            },
+            'societal_properties': {
+                'government': request.POST.getlist('government'),
+                'culture_traditions': request.POST.getlist('culture_traditions'),
+                'inhabitants': request.POST.getlist('inhabitants'),
+                'social_issues': request.POST.getlist('social_issues')
+            },
+            'historical_properties': {
+                'major_events': request.POST.getlist('major_events'),
+                'significant_sites': request.POST.getlist('significant_sites'),
+                'timeline': request.POST.get('timeline', ''),
+                'myths_origin': request.POST.getlist('myths_origin')
             }
         }
 
@@ -596,19 +674,27 @@ class WorldGenerateBackstoryView(View):
         # Call orchestrator to generate backstory
         try:
             with httpx.Client() as client:
-                lore = world.get('lore', {})
+                # Get property groups
+                physical = world.get('physical_properties', {})
+                biological = world.get('biological_properties', {})
+                technological = world.get('technological_properties', {})
+                societal = world.get('societal_properties', {})
+                historical = world.get('historical_properties', {})
+
                 response = client.post(
                     f"{ORCHESTRATOR_URL}/generate-backstory",
                     json={
                         'world_id': world_id,
                         'world_name': world.get('world_name', ''),
                         'genre': world.get('genre', ''),
-                        'setting': world.get('setting', ''),
                         'themes': world.get('themes', []),
                         'visual_style': world.get('visual_style', []),
-                        'history': lore.get('history'),
-                        'geography': lore.get('geography'),
-                        'culture': lore.get('culture')
+                        'power_system': world.get('power_system', ''),
+                        'physical_properties': physical,
+                        'biological_properties': biological,
+                        'technological_properties': technological,
+                        'societal_properties': societal,
+                        'historical_properties': historical
                     },
                     timeout=60.0
                 )
@@ -1271,14 +1357,19 @@ class WorldGenerateRegionsView(View):
             if not isinstance(num_locations_per_region, int) or num_locations_per_region < 1 or num_locations_per_region > 10:
                 return JsonResponse({'error': 'num_locations_per_region must be between 1 and 10'}, status=400)
 
-            # Prepare world context
+            # Prepare world context with new properties
             world_context = {
                 'world_name': world.get('world_name'),
                 'genre': world.get('genre'),
-                'setting': world.get('setting'),
-                'power_system': world.get('power_system'),
+                'themes': world.get('themes', []),
+                'visual_style': world.get('visual_style', []),
+                'power_system': world.get('power_system', ''),
                 'backstory': world.get('backstory', ''),
-                'lore': world.get('lore', {})
+                'physical_properties': world.get('physical_properties', {}),
+                'biological_properties': world.get('biological_properties', {}),
+                'technological_properties': world.get('technological_properties', {}),
+                'societal_properties': world.get('societal_properties', {}),
+                'historical_properties': world.get('historical_properties', {})
             }
 
             # Call orchestrator to generate regions with locations
