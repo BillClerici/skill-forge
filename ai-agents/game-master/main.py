@@ -612,6 +612,89 @@ Write the comprehensive backstory now:"""
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating backstory: {str(e)}")
 
+@app.post("/generate-world-timeline")
+async def generate_world_timeline(request: dict):
+    """Generate historical timeline for a world based on its backstory"""
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    world_name = request.get('world_name', 'Unknown World')
+    genre = request.get('genre', 'Fantasy')
+    backstory = request.get('backstory', '')
+    historical_properties = request.get('historical_properties', {})
+
+    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Based on the world's backstory, create a detailed historical timeline of major events.
+
+WORLD NAME: {world_name}
+GENRE: {genre}
+
+BACKSTORY:
+{backstory}
+
+HISTORICAL CONTEXT:
+- Major Events: {', '.join(historical_properties.get('major_events', [])) if historical_properties.get('major_events') else 'To be determined'}
+- Timeline Info: {historical_properties.get('timeline', 'N/A') if historical_properties else 'N/A'}
+- Myths & Origins: {historical_properties.get('myths_origin', 'N/A') if historical_properties else 'N/A'}
+
+INSTRUCTIONS:
+Create 5-8 major historical events that shaped this world. For each event, provide:
+1. A date or time period (be creative with the dating system based on the genre)
+2. A clear title/name for the event
+3. A description (2-3 sentences) explaining what happened
+4. The significance/impact of the event on the world
+
+Format your response as a JSON array with this exact structure:
+[
+  {{
+    "date": "Year 0 / The Beginning",
+    "title": "The Creation",
+    "description": "Description of the event...",
+    "significance": "Why this event matters..."
+  }},
+  ...
+]
+
+IMPORTANT: Return ONLY the JSON array, no other text, no markdown formatting, no explanation. Just the raw JSON array."""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-3-5-sonnet-20241022",
+            temperature=0.8,
+            max_tokens=2000,
+            api_key=ANTHROPIC_API_KEY
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = llm.invoke(messages)
+
+        # Parse the JSON response
+        import json
+        timeline_json = response.content.strip()
+
+        # Remove markdown code blocks if present
+        if timeline_json.startswith('```'):
+            timeline_json = '\n'.join(timeline_json.split('\n')[1:-1])
+
+        timeline = json.loads(timeline_json)
+
+        # Calculate costs
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "timeline": timeline,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse timeline JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating timeline: {str(e)}")
+
 @app.post("/generate-region-backstory")
 async def generate_region_backstory(request: GenerateRegionBackstoryRequest):
     """Generate creative backstory for a region using Claude"""

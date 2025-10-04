@@ -29,6 +29,102 @@
         background-color: var(--rpg-gold) !important;
         height: 3px;
     }
+
+    /* Timeline Styles */
+    .timeline-container {
+        position: relative;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px 0;
+    }
+
+    .timeline-event {
+        display: flex;
+        margin-bottom: 40px;
+        position: relative;
+    }
+
+    .timeline-marker {
+        flex-shrink: 0;
+        width: 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+    }
+
+    .timeline-dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);
+        border: 3px solid #1a1a2e;
+        box-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        z-index: 2;
+    }
+
+    .timeline-line {
+        width: 3px;
+        flex-grow: 1;
+        background: linear-gradient(180deg, var(--rpg-gold) 0%, rgba(212, 175, 55, 0.3) 100%);
+        margin-top: 5px;
+        min-height: 40px;
+    }
+
+    .timeline-content {
+        flex: 1;
+        margin-left: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(45, 45, 60, 0.5) 0%, rgba(30, 30, 46, 0.5) 100%);
+        border-radius: 8px;
+        border-left: 3px solid var(--rpg-gold);
+        transition: all 0.3s ease;
+    }
+
+    .timeline-content:hover {
+        background: linear-gradient(135deg, rgba(45, 45, 60, 0.7) 0%, rgba(30, 30, 46, 0.7) 100%);
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
+    }
+
+    .timeline-date {
+        color: var(--rpg-gold);
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+    }
+
+    .timeline-date::before {
+        content: '📅';
+        margin-right: 8px;
+    }
+
+    .timeline-title {
+        color: #e0e0e0;
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    .timeline-description {
+        color: #b8b8d1;
+        line-height: 1.6;
+        margin-bottom: 10px;
+    }
+
+    .timeline-significance {
+        color: var(--rpg-gold);
+        font-size: 0.9rem;
+        font-style: italic;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(212, 175, 55, 0.3);
+    }
     /* Tab content container */
     .tab-content-wrapper {
         background-color: rgba(20, 20, 30, 0.8);
@@ -461,7 +557,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">history_edu</i> Technology History
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.technological_properties.technology_history }}</p>
+                    {% for item in world.technological_properties.technology_history %}
+                        <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
@@ -595,7 +693,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">auto_stories</i> Myths & Origin Stories
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.historical_properties.myths_origin }}</p>
+                    {% for item in world.historical_properties.myths_origin %}
+                        <span class="chip" style="background-color: rgba(156, 39, 176, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
@@ -650,7 +750,48 @@
                     <div class="progress" style="background-color: rgba(212, 175, 55, 0.2);">
                         <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
                     </div>
-                    <p style="color: #b8b8d1; text-align: center;">Generating backstory with AI...</p>
+                    <p style="color: #b8b8d1; text-align: center;">Generating backstory and timeline with AI...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Card -->
+    <div class="col s12" id="timeline-section" style="margin-top: 20px; {% if not world.timeline %}display: none;{% endif %}">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">timeline</i>
+                    Historical Timeline
+                </span>
+
+                <div id="timeline-display" style="margin-top: 30px;">
+                    <!-- Timeline will be rendered here -->
+                    <div class="timeline-container">
+                        {% if world.timeline %}
+                        {% for event in world.timeline %}
+                        <div class="timeline-event" data-index="{{ forloop.counter0 }}">
+                            <div class="timeline-marker">
+                                <div class="timeline-dot"></div>
+                                {% if not forloop.last %}
+                                <div class="timeline-line"></div>
+                                {% endif %}
+                            </div>
+                            <div class="timeline-content">
+                                <div class="timeline-date">{{ event.date }}</div>
+                                <div class="timeline-title">{{ event.title }}</div>
+                                <div class="timeline-description">{{ event.description }}</div>
+                                {% if event.significance %}
+                                <div class="timeline-significance">
+                                    <i class="material-icons tiny">star</i>
+                                    {{ event.significance }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -773,6 +914,9 @@
         const backstoryTextarea = document.getElementById('backstory-textarea');
 
         // Generate backstory
+        // Store timeline data globally
+        let currentTimeline = [];
+
         async function generateBackstory() {
             backstoryDisplay.style.display = 'none';
             backstoryLoading.style.display = 'block';
@@ -793,8 +937,16 @@
                     M.textareaAutoResize(backstoryTextarea);
                     backstoryLoading.style.display = 'none';
                     backstoryEditForm.style.display = 'block';
+
+                    // Store timeline data
+                    if (data.timeline && data.timeline.length > 0) {
+                        currentTimeline = data.timeline;
+                        renderTimeline(data.timeline);
+                        document.getElementById('timeline-section').style.display = 'block';
+                    }
+
                     M.toast({
-                        html: `<span>Backstory generated! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
+                        html: `<span>Backstory and timeline generated! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
                         classes: 'green darken-2',
                         displayLength: 4000
                     });
@@ -812,10 +964,36 @@
             }
         }
 
+        // Render timeline dynamically
+        function renderTimeline(timeline) {
+            const container = document.querySelector('.timeline-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+            timeline.forEach((event, index) => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'timeline-event';
+                eventDiv.innerHTML = `
+                    <div class="timeline-marker">
+                        <div class="timeline-dot"></div>
+                        ${index < timeline.length - 1 ? '<div class="timeline-line"></div>' : ''}
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-date">${event.date || 'Unknown Date'}</div>
+                        <div class="timeline-title">${event.title || 'Untitled Event'}</div>
+                        <div class="timeline-description">${event.description || ''}</div>
+                        ${event.significance ? `<div class="timeline-significance"><i class="material-icons tiny">star</i>${event.significance}</div>` : ''}
+                    </div>
+                `;
+                container.appendChild(eventDiv);
+            });
+        }
+
         // Save backstory
         async function saveBackstory() {
             const formData = new FormData();
             formData.append('backstory', backstoryTextarea.value);
+            formData.append('timeline', JSON.stringify(currentTimeline));
             formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
 
             try {

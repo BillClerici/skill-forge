@@ -732,11 +732,40 @@ class WorldGenerateBackstoryView(View):
 
                 if response.status_code == 200:
                     result = response.json()
+                    backstory = result.get('backstory', '')
+                    tokens_used = result.get('tokens_used', 0)
+                    cost_usd = result.get('cost_usd', 0)
+
+                    # Generate timeline after backstory is created
+                    timeline = []
+                    try:
+                        timeline_response = client.post(
+                            f"{ORCHESTRATOR_URL}/generate-timeline",
+                            json={
+                                'world_id': world_id,
+                                'world_name': world.get('world_name', ''),
+                                'genre': world.get('genre', ''),
+                                'backstory': backstory,
+                                'historical_properties': historical
+                            },
+                            timeout=60.0
+                        )
+
+                        if timeline_response.status_code == 200:
+                            timeline_result = timeline_response.json()
+                            timeline = timeline_result.get('timeline', [])
+                            tokens_used += timeline_result.get('tokens_used', 0)
+                            cost_usd += timeline_result.get('cost_usd', 0)
+                    except Exception as timeline_error:
+                        print(f"Timeline generation failed: {timeline_error}")
+                        # Continue without timeline if it fails
+
                     return JsonResponse({
                         'success': True,
-                        'backstory': result.get('backstory', ''),
-                        'tokens_used': result.get('tokens_used', 0),
-                        'cost_usd': result.get('cost_usd', 0)
+                        'backstory': backstory,
+                        'timeline': timeline,
+                        'tokens_used': tokens_used,
+                        'cost_usd': cost_usd
                     })
                 else:
                     return JsonResponse({'error': f'Agent error: {response.text}'}, status=response.status_code)
@@ -748,7 +777,7 @@ class WorldGenerateBackstoryView(View):
 
 
 class WorldSaveBackstoryView(View):
-    """Save the backstory to the world"""
+    """Save the backstory and timeline to the world"""
 
     def post(self, request, world_id):
         world = db.world_definitions.find_one({'_id': world_id})
@@ -756,15 +785,26 @@ class WorldSaveBackstoryView(View):
             return JsonResponse({'error': 'World not found'}, status=404)
 
         try:
+            import json
             backstory = request.POST.get('backstory', '')
+            timeline_json = request.POST.get('timeline', '[]')
 
-            # Save backstory to MongoDB
+            # Parse timeline JSON
+            try:
+                timeline = json.loads(timeline_json)
+            except:
+                timeline = []
+
+            # Save backstory and timeline to MongoDB
             db.world_definitions.update_one(
                 {'_id': world_id},
-                {'$set': {'backstory': backstory}}
+                {'$set': {
+                    'backstory': backstory,
+                    'timeline': timeline
+                }}
             )
 
-            messages.success(request, 'Backstory saved successfully!')
+            messages.success(request, 'Backstory and timeline saved successfully!')
             return JsonResponse({'success': True})
 
         except Exception as e:
