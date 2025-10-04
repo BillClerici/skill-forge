@@ -5,6 +5,7 @@ Uses MongoDB for definitions
 import uuid
 import httpx
 import requests
+import sys
 from django.shortcuts import render, redirect
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -205,7 +206,7 @@ class SpeciesEditView(View):
         )
 
         messages.success(request, f'Species "{species_name}" updated successfully!')
-        return redirect('world_detail', world_id=world_id)
+        return redirect('species_detail', world_id=world_id, species_id=species_id)
 
 
 class SpeciesDeleteView(View):
@@ -495,23 +496,74 @@ class SpeciesGenerateImageView(View):
                 perspective_index = len(current_images) + i
                 perspective = perspectives[perspective_index] if perspective_index < len(perspectives) else perspectives[0]
 
-                # Build comprehensive prompt
-                traits_str = ', '.join(species.get('character_traits', [])[:5]) if species.get('character_traits') else 'unique characteristics'
+                # Build safe prompt focusing on visual aspects only
+                # Avoid backstory, lore, or anything that might trigger content filters
+                species_name = species.get('species_name', 'Fantasy Creature')
+                species_type = species.get('species_type', 'Creature')
 
-                dalle_prompt = f"""Create a detailed character portrait of the {species.get('species_name')} species from the fantasy world: {world.get('world_name')}
+                # Get description but remove potentially problematic content
+                original_desc = species.get('description', '')
 
-World Genre: {world.get('genre', 'Fantasy')}
-Species: {species.get('species_name')}
-Type: {species.get('species_type', 'Fantasy creature')}
-Key Traits: {traits_str}
+                # Remove references to violence, history, or conflict
+                safe_desc = original_desc
+                problem_phrases = [
+                    'war', 'War', 'battle', 'Battle', 'killed', 'kill', 'death', 'Death',
+                    'scorched', 'spawned', 'Spawned', 'blood', 'corpse', 'dead', 'dying',
+                    'destroyed', 'attacking', 'aggressive'
+                ]
 
-{species.get('description', '')[:200] if species.get('description') else ''}
+                # Split description into sentences and keep only physical descriptions
+                sentences = [s.strip() for s in safe_desc.split('.') if s.strip()]
+                safe_sentences = []
+                for sentence in sentences:
+                    # Check if sentence contains problematic words
+                    has_problem = any(word.lower() in sentence.lower() for word in problem_phrases)
+                    if not has_problem and len(sentence) > 10:
+                        safe_sentences.append(sentence)
+
+                # If we have safe sentences, use them, otherwise extract visual keywords
+                if safe_sentences:
+                    visual_desc = '. '.join(safe_sentences[:2])  # Use first 2 safe sentences
+                else:
+                    visual_desc = f"A {species_type.lower()} with unique fantasy features"
+
+                # Add traits if they're safe
+                traits = species.get('character_traits', [])[:3]
+                safe_traits = []
+                trait_replacements = {
+                    'aggressive': 'fierce', 'violent': 'intense', 'deadly': 'formidable',
+                    'killer': 'hunter', 'murderous': 'dangerous', 'evil': 'dark'
+                }
+                for trait in traits:
+                    trait_lower = trait.lower()
+                    replaced = False
+                    for bad, good in trait_replacements.items():
+                        if bad in trait_lower:
+                            safe_traits.append(good.capitalize())
+                            replaced = True
+                            break
+                    if not replaced:
+                        safe_traits.append(trait)
+
+                traits_str = ', '.join(safe_traits) if safe_traits else ''
+
+                dalle_prompt = f"""A {species_type.lower()} called {species_name}.
+
+{visual_desc}
+
+{f'Characteristics: {traits_str}' if traits_str else ''}
 
 Perspective: {perspective}
 
-Art Direction: Highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics
+Style: Detailed fantasy art, dramatic lighting, professional digital illustration, epic scale
 
 IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+
+                # Log the prompt for debugging
+                print(f"=== DALL-E PROMPT FOR {species.get('species_name')} ===", file=sys.stderr)
+                print(dalle_prompt, file=sys.stderr)
+                print("=" * 60, file=sys.stderr)
+                sys.stderr.flush()
 
                 # Generate image with DALL-E 3
                 response = openai_client.images.generate(
@@ -570,7 +622,18 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
             })
 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"ERROR generating species image: {str(e)}", file=sys.stderr)
+            print(f"Full traceback:\n{error_details}", file=sys.stderr)
+            sys.stderr.flush()
+
+            # Check if it's a content policy violation
+            error_message = str(e)
+            if 'content_policy_violation' in error_message or 'safety system' in error_message:
+                error_message = "The species description contains content that violates OpenAI's safety policies. Please try editing the species description, traits, or backstory to use less explicit or sensitive language."
+
             return JsonResponse({
                 'success': False,
-                'error': str(e)
+                'error': error_message
             }, status=500)

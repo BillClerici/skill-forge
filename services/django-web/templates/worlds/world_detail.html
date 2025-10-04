@@ -814,16 +814,16 @@
                 </span>
 
                 <!-- Search and Filter -->
-                <div class="row" style="margin-top: 20px;">
+                <div class="row" style="margin-top: 20px; margin-bottom: 0;">
                     <div class="col s12 m6">
-                        <div class="input-field" style="margin-top: 0;">
+                        <div class="input-field" style="margin-top: 0; margin-bottom: 0;">
                             <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
                             <input type="text" id="species-search" placeholder="Search species..." style="margin-bottom: 0; color: white;">
                             <label for="species-search" style="color: var(--rpg-gold);">Search Species</label>
                         </div>
                     </div>
                     <div class="col s12 m3">
-                        <div class="input-field">
+                        <div class="input-field" style="margin-top: 0; margin-bottom: 0;">
                             <select id="species-type-filter">
                                 <option value="">All Types</option>
                                 <option value="Humanoid">Humanoid</option>
@@ -839,7 +839,7 @@
                         </div>
                     </div>
                     <div class="col s12 m3">
-                        <div class="input-field">
+                        <div class="input-field" style="margin-top: 0; margin-bottom: 0;">
                             <select id="species-category-filter">
                                 <option value="">All Categories</option>
                                 <option value="Sentient">Sentient</option>
@@ -938,14 +938,14 @@
                             </div>
 
                             <div class="card-action" style="padding: 8px 12px; background-color: rgba(20, 20, 36, 0.5);">
-                                <a href="{% url 'species_detail' world.world_id s.species_id %}" style="color: #64b5f6; font-size: 0.85rem;">
-                                    <i class="material-icons tiny">visibility</i> View
+                                <a href="{% url 'species_detail' world.world_id s.species_id %}" style="color: var(--rpg-gold); font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="material-icons tiny">visibility</i> <span>View</span>
                                 </a>
-                                <a href="{% url 'species_edit' world.world_id s.species_id %}" style="color: var(--rpg-gold); font-size: 0.85rem;">
-                                    <i class="material-icons tiny">edit</i> Edit
+                                <a href="{% url 'species_edit' world.world_id s.species_id %}" style="color: #64b5f6; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="material-icons tiny">edit</i> <span>Edit</span>
                                 </a>
-                                <a href="#" class="generate-species-image-btn" data-species-id="{{ s.species_id }}" style="color: #9c27b0; font-size: 0.85rem;">
-                                    <i class="material-icons tiny">auto_awesome</i> {% if s.species_image %}Regenerate{% else %}Generate{% endif %} Image
+                                <a href="#" class="generate-species-image-btn" data-species-id="{{ s.species_id }}" style="color: #9c27b0; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="material-icons tiny">auto_awesome</i> <span>{% if s.species_image %}Regen{% else %}Gen{% endif %} Image</span>
                                 </a>
                             </div>
                         </div>
@@ -1042,8 +1042,11 @@
                             </p>
                         </div>
                         <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
-                            <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold);">
-                                <i class="material-icons tiny">visibility</i> View Details
+                            <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny">visibility</i> <span>View Details</span>
+                            </a>
+                            <a href="{% url 'region_update' world.world_id region.region_id %}" style="color: #64b5f6; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny">edit</i> <span>Edit</span>
                             </a>
                         </div>
                     </div>

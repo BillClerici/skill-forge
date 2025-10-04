@@ -160,7 +160,7 @@
                                 </div>
                             </div>
                             <div class="card-action" style="padding: 8px 12px; background-color: rgba(20, 20, 36, 0.5);">
-                                <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: #64b5f6; font-size: 0.85rem;">
+                                <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold); font-size: 0.85rem;">
                                     <i class="material-icons tiny">visibility</i> View Region
                                 </a>
                             </div>
@@ -348,7 +348,7 @@
                         M.toast({
                             html: `Error: ${data.error}`,
                             classes: 'red darken-2',
-                            displayLength: 4000
+                            displayLength: 8000
                         });
                         imageGenLoading.style.display = 'none';
                         generateImagesBtn.disabled = false;

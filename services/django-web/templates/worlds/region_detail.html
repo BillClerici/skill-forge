@@ -423,8 +423,11 @@
                         </div>
 
                         <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
-                            <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="color: var(--rpg-gold);">
-                                <i class="material-icons tiny">visibility</i> View Details
+                            <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny">visibility</i> <span>View Details</span>
+                            </a>
+                            <a href="{% url 'location_update' world.world_id region.region_id location.location_id %}" style="color: #64b5f6; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny">edit</i> <span>Edit</span>
                             </a>
                         </div>
                     </div>

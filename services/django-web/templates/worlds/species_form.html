@@ -130,9 +130,15 @@
                             <i class="material-icons left">save</i>
                             {% if species %}Update Species{% else %}Create Species{% endif %}
                         </button>
+                        {% if species %}
+                        <a href="{% url 'species_detail' world.world_id species.species_id %}" class="btn waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                        {% else %}
                         <a href="{% url 'world_detail' world.world_id %}" class="btn waves-effect waves-light grey darken-2" style="margin-left: 10px;">
                             <i class="material-icons left">cancel</i>Cancel
                         </a>
+                        {% endif %}
                     </div>
                 </form>
             </div>
