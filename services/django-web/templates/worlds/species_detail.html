@@ -175,8 +175,18 @@
 
     <!-- Sidebar -->
     <div class="col s12 l4">
-        <!-- Species Image -->
-        {% if species.species_image %}
+        <!-- Species Portrait (Primary Image) -->
+        {% if primary_image %}
+        <div class="card" style="height: 100%;">
+            <div class="card-image">
+                <img src="{{ primary_image.url }}" alt="{{ species.species_name }}" class="materialboxed" style="width: 100%;">
+            </div>
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">Species Portrait</span>
+                <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">{{ primary_image.perspective|title }}</p>
+            </div>
+        </div>
+        {% elif species.species_image %}
         <div class="card" style="height: 100%;">
             <div class="card-image">
                 <img src="{{ species.species_image }}" alt="{{ species.species_name }}" class="materialboxed" style="width: 100%;">

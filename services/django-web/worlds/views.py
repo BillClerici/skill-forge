@@ -1859,7 +1859,7 @@ Art Direction: Atmospheric environmental scene, highly detailed digital concept 
                     # All types exist, shouldn't happen but fallback to first type
                     image_type_config = image_types[0]
 
-                dalle_prompt = image_type_config['prompt_template']
+                dalle_prompt = f"{image_type_config['prompt_template']}. IMPORTANT: No text, letters, words, or symbols of any kind in the image."
 
                 # Generate image with DALL-E 3
                 response = client.images.generate(
@@ -2083,7 +2083,9 @@ Environment:
 
 {region.get('description', '')[:150] if region.get('description') else ''}
 
-Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration"""
+Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
 
                 response = client.images.generate(
                     model="dall-e-3",

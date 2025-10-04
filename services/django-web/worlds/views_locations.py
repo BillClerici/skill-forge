@@ -73,7 +73,9 @@ Environment:
 
 {location.get('description', '')[:150] if location.get('description') else ''}
 
-Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration"""
+Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
 
                 response = client_openai.images.generate(
                     model="dall-e-3",

@@ -129,10 +129,19 @@ class SpeciesDetailView(View):
         world['world_id'] = world['_id']
         species['species_id'] = species['_id']
 
+        # Get primary image for display
+        primary_image = None
+        if species.get('species_images') and species.get('primary_image_index') is not None:
+            images = species.get('species_images', [])
+            primary_idx = species.get('primary_image_index')
+            if 0 <= primary_idx < len(images):
+                primary_image = images[primary_idx]
+
         return render(request, 'worlds/species_detail.html', {
             'world': world,
             'species': species,
-            'species_regions': species_regions
+            'species_regions': species_regions,
+            'primary_image': primary_image
         })
 
 
@@ -302,7 +311,9 @@ Key Traits: {traits_str}
 
 {species['description'][:200] if species['description'] else ''}
 
-Art Direction: Full body or portrait view, highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics"""
+Art Direction: Full body or portrait view, highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
 
                                 # Generate image with DALL-E 3
                                 dalle_response = openai_client.images.generate(
@@ -498,7 +509,9 @@ Key Traits: {traits_str}
 
 Perspective: {perspective}
 
-Art Direction: Highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics"""
+Art Direction: Highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
 
                 # Generate image with DALL-E 3
                 response = openai_client.images.generate(
