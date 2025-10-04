@@ -5,6 +5,7 @@ import graphene
 from graphene_django import DjangoObjectType
 from accounts.models import Account
 from members.models import Player
+from characters.models import Character
 from pymongo import MongoClient
 import os
 
@@ -31,6 +32,17 @@ class PlayerType(DjangoObjectType):
 
     def resolve_age(self, info):
         return self.age
+
+
+class CharacterType(DjangoObjectType):
+    full_name = graphene.String()
+
+    class Meta:
+        model = Character
+        fields = '__all__'
+
+    def resolve_full_name(self, info):
+        return self.full_name
 
 
 # MongoDB Object Types for World Building
@@ -90,6 +102,12 @@ class Query(graphene.ObjectType):
     player = graphene.Field(PlayerType, player_id=graphene.UUID(required=True))
     players_by_account = graphene.List(PlayerType, account_id=graphene.UUID(required=True))
 
+    # Character queries
+    all_characters = graphene.List(CharacterType)
+    character = graphene.Field(CharacterType, character_id=graphene.UUID(required=True))
+    characters_by_player = graphene.List(CharacterType, player_id=graphene.UUID(required=True))
+    characters_by_world = graphene.List(CharacterType, world_id=graphene.String(required=True))
+
     # Universe queries
     all_universes = graphene.List(UniverseType)
     universe = graphene.Field(UniverseType, universe_id=graphene.String(required=True))
@@ -135,6 +153,21 @@ class Query(graphene.ObjectType):
 
     def resolve_players_by_account(root, info, account_id):
         return Player.objects.filter(account_id=account_id)
+
+    def resolve_all_characters(root, info):
+        return Character.objects.all()
+
+    def resolve_character(root, info, character_id):
+        try:
+            return Character.objects.get(character_id=character_id)
+        except Character.DoesNotExist:
+            return None
+
+    def resolve_characters_by_player(root, info, player_id):
+        return Character.objects.filter(player_id=player_id)
+
+    def resolve_characters_by_world(root, info, world_id):
+        return Character.objects.filter(world_id=world_id)
 
     # Universe resolvers
     def resolve_all_universes(root, info):
@@ -275,9 +308,115 @@ class CreatePlayer(graphene.Mutation):
         return CreatePlayer(player=player)
 
 
+class CreateCharacter(graphene.Mutation):
+    class Arguments:
+        player_id = graphene.UUID(required=True)
+        name = graphene.String(required=True)
+        title = graphene.String()
+        description = graphene.String()
+        backstory = graphene.String()
+        age = graphene.Int()
+        height = graphene.String()
+        appearance = graphene.String()
+
+    character = graphene.Field(CharacterType)
+
+    @staticmethod
+    def mutate(root, info, player_id, name, title=None, description=None,
+               backstory=None, age=None, height=None, appearance=None):
+        from characters.neo4j_utils import (
+            create_character_node,
+            create_character_player_relationship
+        )
+
+        # Create character in PostgreSQL
+        character = Character(
+            player_id=player_id,
+            name=name,
+            title=title,
+            description=description,
+            backstory=backstory,
+            age=age,
+            height=height,
+            appearance=appearance
+        )
+        character.save()
+
+        # Create character node in Neo4j
+        create_character_node(
+            character.character_id,
+            name,
+            player_id
+        )
+
+        # Create relationships in Neo4j
+        create_character_player_relationship(character.character_id, player_id)
+
+        return CreateCharacter(character=character)
+
+
+class UpdateCharacter(graphene.Mutation):
+    class Arguments:
+        character_id = graphene.UUID(required=True)
+        name = graphene.String()
+        title = graphene.String()
+        description = graphene.String()
+        backstory = graphene.String()
+        age = graphene.Int()
+        height = graphene.String()
+        appearance = graphene.String()
+        blooms_level = graphene.String()
+        is_active = graphene.Boolean()
+        is_alive = graphene.Boolean()
+
+    character = graphene.Field(CharacterType)
+
+    @staticmethod
+    def mutate(root, info, character_id, **kwargs):
+        try:
+            character = Character.objects.get(character_id=character_id)
+
+            # Update fields if provided
+            for key, value in kwargs.items():
+                if value is not None:
+                    setattr(character, key, value)
+
+            character.save()
+            return UpdateCharacter(character=character)
+        except Character.DoesNotExist:
+            return None
+
+
+class DeleteCharacter(graphene.Mutation):
+    class Arguments:
+        character_id = graphene.UUID(required=True)
+
+    success = graphene.Boolean()
+
+    @staticmethod
+    def mutate(root, info, character_id):
+        from characters.neo4j_utils import delete_character_node
+
+        try:
+            character = Character.objects.get(character_id=character_id)
+
+            # Delete from Neo4j first
+            delete_character_node(character_id)
+
+            # Delete from PostgreSQL
+            character.delete()
+
+            return DeleteCharacter(success=True)
+        except Character.DoesNotExist:
+            return DeleteCharacter(success=False)
+
+
 class Mutation(graphene.ObjectType):
     create_account = CreateAccount.Field()
     create_player = CreatePlayer.Field()
+    create_character = CreateCharacter.Field()
+    update_character = UpdateCharacter.Field()
+    delete_character = DeleteCharacter.Field()
 
 
 # Schema

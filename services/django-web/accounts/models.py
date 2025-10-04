@@ -9,6 +9,7 @@ from django.db import models
 class Account(models.Model):
     """Account model - maps to existing accounts table"""
     account_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=255, null=True, blank=True)
     account_owner_player_id = models.UUIDField(null=True, blank=True)
     account_type = models.CharField(
         max_length=50,

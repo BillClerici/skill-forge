@@ -4,6 +4,7 @@ Using existing PostgreSQL tables with managed=False
 """
 import uuid
 from django.db import models
+from .models_profile import PlayerProfile
 
 
 class Player(models.Model):
@@ -15,6 +16,9 @@ class Player(models.Model):
     display_name = models.CharField(max_length=100)
     email = models.EmailField(null=True, blank=True)
     date_of_birth = models.DateField()
+
+    # Primary player flag
+    is_primary = models.BooleanField(default=False, help_text="Primary players can manage account and other players")
 
     # Role & Permissions
     role = models.CharField(

@@ -5,9 +5,15 @@
 {% block content %}
 <div class="row">
     <div class="col s12">
+        {% if account %}
+        <a href="{% url 'account_detail' account.account_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Account
+        </a>
+        {% else %}
         <a href="{% url 'player_list' %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
             <i class="material-icons left">arrow_back</i>Back to Players
         </a>
+        {% endif %}
     </div>
 </div>
 
@@ -22,31 +28,33 @@
                             <i class="material-icons left" style="vertical-align: middle;">person</i>
                             {{ player.display_name }}
                         </h4>
-                        <div style="margin-top: 20px;">
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">label</i>
+                        <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">label</i>
                                 {{ player.role|default:"Player" }}
                             </span>
                             {% if player.is_active %}
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green);">
-                                <i class="material-icons left" style="font-size: 1.2rem;">check_circle</i>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green); display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">check_circle</i>
                                 Active
                             </span>
                             {% else %}
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">cancel</i>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">cancel</i>
                                 Inactive
                             </span>
                             {% endif %}
                         </div>
                     </div>
                     <div class="col s12 m4 right-align">
-                        <a href="#" class="btn waves-effect waves-light">
+                        {% if account %}
+                        <a href="{% url 'account_player_edit' account.account_id player.player_id %}" class="btn waves-effect waves-light">
                             <i class="material-icons left">edit</i>Edit
                         </a>
-                        <a href="#" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+                        <a href="#delete-player-modal" class="btn waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 10px;">
                             <i class="material-icons left">delete</i>Delete
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -84,9 +92,9 @@
 
                     <p style="margin: 15px 0;">
                         <strong class="grey-text">Account:</strong><br>
-                        {% if player.account %}
-                        <a href="{% url 'account_detail' player.account.account_id %}" style="color: var(--rpg-gold);">
-                            {{ player.account.name }}
+                        {% if account %}
+                        <a href="{% url 'account_detail' account.account_id %}" style="color: var(--rpg-gold);">
+                            {{ account.name }}
                         </a>
                         {% else %}
                         <span class="grey-text">N/A</span>
@@ -136,25 +144,95 @@
         </div>
     </div>
 
-    <!-- Game Profiles & Characters -->
+    <!-- Player Profile & Characters -->
     <div class="col s12 l8">
-        <!-- Game Profiles Card -->
+        <!-- Stats Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">bar_chart</i>Statistics
+                </span>
+
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col s6 m4 center-align">
+                        <h5 style="color: var(--rpg-purple); margin: 0;">{{ characters|length }}</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Characters</p>
+                    </div>
+                    <div class="col s6 m4 center-align">
+                        <h5 style="color: var(--rpg-blue); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Campaigns</p>
+                    </div>
+                    <div class="col s6 m4 center-align">
+                        <h5 style="color: var(--rpg-green); margin: 0;">0</h5>
+                        <p class="grey-text" style="font-size: 0.9rem;">Achievements</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Profile Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="material-icons left">sports_esports</i>Game Profiles</span>
-                    <a href="#" class="btn-small waves-effect waves-light">
-                        <i class="material-icons left">add</i>Create Profile
+                    <span><i class="material-icons left">account_circle</i>Player Profile</span>
+                    <a href="{% url 'player_profile_config' player.player_id %}" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">{% if profile %}edit{% else %}add{% endif %}</i>
+                        {% if profile %}Edit Profile{% else %}Configure Profile{% endif %}
                     </a>
                 </span>
 
+                {% if profile %}
+                <div style="margin-top: 20px;">
+                    <div class="row" style="margin-bottom: 0;">
+                        <div class="col s12 m6">
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Favorite Genres:</strong><br>
+                                <span style="color: white;">
+                                    {% if profile.favorite_genres %}
+                                        {{ profile.favorite_genres|join:", "|title }}
+                                    {% else %}
+                                        Not specified
+                                    {% endif %}
+                                </span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Session Duration:</strong><br>
+                                <span style="color: white;">{{ profile.get_session_duration_display }}</span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Play Style:</strong><br>
+                                <span style="color: white;">{{ profile.get_play_style_display }}</span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Difficulty:</strong><br>
+                                <span style="color: white;">{{ profile.get_difficulty_preference_display }}</span>
+                            </p>
+                        </div>
+                        <div class="col s12 m6">
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">AI Guidance:</strong><br>
+                                <span style="color: white;">{{ profile.get_ai_guidance_level_display }}</span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Narrative Depth:</strong><br>
+                                <span style="color: white;">{{ profile.get_narrative_depth_display }}</span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Content Maturity:</strong><br>
+                                <span style="color: white;">{{ profile.get_content_maturity_display }}</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
                 <div class="center-align" style="padding: 40px 20px;">
-                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">videogame_asset</i>
-                    <p class="grey-text" style="margin-top: 15px;">No game profiles yet</p>
-                    <a href="#" class="btn waves-effect waves-light" style="margin-top: 20px;">
-                        <i class="material-icons left">add</i>Create First Profile
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">assignment</i>
+                    <p class="grey-text" style="margin-top: 15px;">Player profile not configured</p>
+                    <a href="{% url 'player_profile_config' player.player_id %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">add</i>Configure Profile
                     </a>
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -163,18 +241,64 @@
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
                     <span><i class="material-icons left">face</i>Characters</span>
-                    <a href="#" class="btn-small waves-effect waves-light">
+                    <a href="{% url 'character_create' player.player_id %}" class="btn-small waves-effect waves-light">
                         <i class="material-icons left">add</i>Create Character
                     </a>
                 </span>
 
+                {% if characters %}
+                <div style="margin-top: 20px;">
+                    {% for character in characters %}
+                    <div class="card" style="background-color: rgba(212, 175, 55, 0.05); margin: 10px 0;">
+                        <div class="card-content" style="padding: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="flex: 1;">
+                                    <h6 style="margin: 0; color: var(--rpg-gold);">
+                                        <a href="{% url 'character_detail' character.character_id %}" style="color: var(--rpg-gold);">
+                                            {{ character.full_name }}
+                                        </a>
+                                    </h6>
+                                    <div style="margin-top: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
+                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">stars</i>
+                                            Level {{ character.level }}
+                                        </span>
+                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple); display: inline-flex; align-items: center;">
+                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">school</i>
+                                            {{ character.get_blooms_level_display|truncatewords:1 }}
+                                        </span>
+                                        {% if character.is_alive %}
+                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green); display: inline-flex; align-items: center;">
+                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">favorite</i>
+                                            Alive
+                                        </span>
+                                        {% else %}
+                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; background-color: rgba(211, 47, 47, 0.2); color: #f44336; border: 1px solid #f44336; display: inline-flex; align-items: center;">
+                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">heart_broken</i>
+                                            Deceased
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{% url 'character_detail' character.character_id %}" class="btn-small waves-effect waves-light">
+                                        <i class="material-icons">visibility</i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
                 <div class="center-align" style="padding: 40px 20px;">
                     <i class="material-icons" style="font-size: 80px; color: var(--rpg-purple); opacity: 0.3;">groups</i>
                     <p class="grey-text" style="margin-top: 15px;">No characters created yet</p>
-                    <a href="#" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                    <a href="{% url 'character_create' player.player_id %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
                         <i class="material-icons left">add</i>Create First Character
                     </a>
                 </div>
+                {% endif %}
             </div>
         </div>
 
@@ -190,34 +314,71 @@
                 </div>
             </div>
         </div>
-
-        <!-- Stats Card -->
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">bar_chart</i>Statistics
-                </span>
-
-                <div class="row" style="margin-top: 20px;">
-                    <div class="col s6 m3 center-align">
-                        <h5 style="color: var(--rpg-gold); margin: 0;">0</h5>
-                        <p class="grey-text" style="font-size: 0.9rem;">Profiles</p>
-                    </div>
-                    <div class="col s6 m3 center-align">
-                        <h5 style="color: var(--rpg-purple); margin: 0;">0</h5>
-                        <p class="grey-text" style="font-size: 0.9rem;">Characters</p>
-                    </div>
-                    <div class="col s6 m3 center-align">
-                        <h5 style="color: var(--rpg-blue); margin: 0;">0</h5>
-                        <p class="grey-text" style="font-size: 0.9rem;">Campaigns</p>
-                    </div>
-                    <div class="col s6 m3 center-align">
-                        <h5 style="color: var(--rpg-green); margin: 0;">0</h5>
-                        <p class="grey-text" style="font-size: 0.9rem;">Achievements</p>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
+
+<!-- Delete Player Modal -->
+{% if account %}
+<div id="delete-player-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid #d32f2f; max-width: 600px;">
+    <div class="modal-content">
+        <h4 style="color: #d32f2f;">
+            <i class="material-icons left">warning</i>Remove Player from Account
+        </h4>
+
+        <p class="grey-text" style="font-size: 1.1rem; margin-top: 20px;">
+            Are you sure you want to permanently remove <strong style="color: var(--rpg-gold);">{{ player.display_name }}</strong> from the account <strong style="color: var(--rpg-gold);">{{ account.name }}</strong>?
+        </p>
+
+        <div class="card-panel red lighten-5" style="border-left: 4px solid #d32f2f; margin-top: 20px;">
+            <p style="color: #d32f2f; margin: 0;">
+                <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+                <strong>Warning:</strong> This action cannot be undone.
+            </p>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.05); border-radius: 8px;">
+            <h6 style="color: var(--rpg-silver); margin-top: 0;">What will be removed:</h6>
+            <ul style="color: #b8b8d1; margin: 10px 0 0 20px;">
+                <li>Player profile and personal information</li>
+                <li>All game profiles associated with this player</li>
+                <li>All characters created by this player</li>
+                <li>Campaign progress and achievements</li>
+                <li>Activity history and statistics</li>
+            </ul>
+        </div>
+
+        {% if player.is_primary %}
+        <div class="card-panel orange lighten-5" style="border-left: 4px solid #ff9800; margin-top: 20px;">
+            <p style="color: #f57c00; margin: 0;">
+                <i class="material-icons tiny" style="vertical-align: middle;">star</i>
+                <strong>Primary Player Notice:</strong> This is a primary player with account management permissions. Ensure at least one other primary player exists before removing, or you may lose access to account management.
+            </p>
+        </div>
+        {% endif %}
+
+        <p class="grey-text" style="margin-top: 20px; font-size: 0.95rem;">
+            <strong>Note:</strong> The player's data will be removed from this account, but can be re-added later if needed.
+        </p>
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">
+            <i class="material-icons left">close</i>Cancel
+        </a>
+        <form method="post" action="{% url 'account_player_delete' account.account_id player.player_id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="waves-effect waves-light btn red darken-2">
+                <i class="material-icons left">delete_forever</i>Yes, Remove Player
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    var elems = document.querySelectorAll('.modal');
+    M.Modal.init(elems);
+});
+</script>
 {% endblock %}

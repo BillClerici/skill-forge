@@ -1,0 +1,535 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ character.full_name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Player
+        </a>
+    </div>
+</div>
+
+<!-- Character Header -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div class="row" style="margin-bottom: 0;">
+                    <div class="col s12 m8">
+                        <h4 style="color: var(--rpg-gold); margin-top: 0;">
+                            <i class="material-icons left" style="vertical-align: middle;">face</i>
+                            {{ character.full_name }}
+                        </h4>
+                        <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">stars</i>
+                                Level {{ character.level }}
+                            </span>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple); display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">school</i>
+                                {{ character.get_blooms_level_display|truncatewords:1 }}
+                            </span>
+                            {% if character.is_alive %}
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green); display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">favorite</i>
+                                Alive
+                            </span>
+                            {% else %}
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(211, 47, 47, 0.2); color: #f44336; border: 1px solid #f44336; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">heart_broken</i>
+                                Deceased
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col s12 m4 right-align">
+                        <a href="{% url 'character_edit' character.character_id %}" class="btn waves-effect waves-light">
+                            <i class="material-icons left">edit</i>Edit
+                        </a>
+                        <a href="#delete-character-modal" class="btn waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 10px;">
+                            <i class="material-icons left">delete</i>Delete
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Character Details -->
+<div class="row">
+    <!-- Info Card -->
+    <div class="col s12 l4">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">info</i>Character Information
+                </span>
+
+                <div style="margin-top: 20px;">
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Name:</strong><br>
+                        <span style="color: white;">{{ character.name }}</span>
+                    </p>
+
+                    {% if character.title %}
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Title:</strong><br>
+                        <span style="color: white;">{{ character.title }}</span>
+                    </p>
+                    {% endif %}
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Level:</strong><br>
+                        <span style="color: white;">{{ character.level }}</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Experience:</strong><br>
+                        <span style="color: white;">{{ character.experience_points }} XP</span>
+                    </p>
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Bloom's Taxonomy Level:</strong><br>
+                        <span style="color: var(--rpg-purple);">{{ character.get_blooms_level_display }}</span>
+                    </p>
+
+                    {% if character.age %}
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Age:</strong><br>
+                        <span style="color: white;">{{ character.age }}</span>
+                    </p>
+                    {% endif %}
+
+                    {% if character.height %}
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Height:</strong><br>
+                        <span style="color: white;">{{ character.height }}</span>
+                    </p>
+                    {% endif %}
+
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Player:</strong><br>
+                        {% if player %}
+                        <a href="{% url 'player_detail' player.player_id %}" style="color: var(--rpg-gold);">
+                            {{ player.display_name }}
+                        </a>
+                        {% else %}
+                        <span class="grey-text">N/A</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Character Images Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">image</i>Character Images</span>
+                    {% if character.images|length < 4 %}
+                    <button id="generate-image-btn" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">auto_fix_high</i>Generate
+                    </button>
+                    {% endif %}
+                </span>
+
+                <div style="margin-top: 20px;">
+                    {% if character.images %}
+                    <div class="row">
+                        {% for image_url in character.images %}
+                        <div class="col s6 m3">
+                            <div class="card" style="margin: 5px;">
+                                <div class="card-image">
+                                    <img src="{{ image_url }}" alt="{{ character.name }}" style="width: 100%; height: 150px; object-fit: cover;">
+                                    {% if forloop.counter0 == character.primary_image_index %}
+                                    <span class="badge" style="position: absolute; top: 5px; right: 5px; background-color: var(--rpg-gold); color: #1a1a2e; padding: 5px 10px; border-radius: 3px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle;">star</i> Primary
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="card-action" style="padding: 10px; text-align: center;">
+                                    {% if forloop.counter0 != character.primary_image_index %}
+                                    <a href="#!" class="set-primary-btn" data-index="{{ forloop.counter0 }}" style="color: var(--rpg-gold); margin-right: 10px;">
+                                        <i class="material-icons tiny">star_border</i> Set Primary
+                                    </a>
+                                    {% endif %}
+                                    <a href="#!" class="delete-image-btn" data-index="{{ forloop.counter0 }}" style="color: #f44336;">
+                                        <i class="material-icons tiny">delete</i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="grey-text center-align" style="margin-top: 10px;">{{ character.images|length }}/4 images generated</p>
+                    {% else %}
+                    <div class="center-align" style="padding: 20px;">
+                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-gold); opacity: 0.3;">add_photo_alternate</i>
+                        <p class="grey-text" style="margin-top: 10px;">No character images yet</p>
+                        <button id="generate-first-image-btn" class="btn waves-effect waves-light" style="margin-top: 15px;">
+                            <i class="material-icons left">auto_fix_high</i>Generate First Image
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="col s12 l8">
+        <!-- Backstory Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">auto_stories</i>Character Backstory</span>
+                    <button id="generate-backstory-btn" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">auto_fix_high</i>Generate
+                    </button>
+                </span>
+
+                <div id="backstory-container" style="margin-top: 20px;">
+                    {% if character.backstory %}
+                    <p id="backstory-text" style="color: white; white-space: pre-wrap;">{{ character.backstory }}</p>
+                    {% else %}
+                    <div id="no-backstory" class="center-align" style="padding: 40px 20px;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">menu_book</i>
+                        <p class="grey-text" style="margin-top: 15px;">No backstory generated yet</p>
+                        {% if not character.description %}
+                        <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Add a description to your character to generate a backstory</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div id="backstory-loading" style="display: none; text-align: center; padding: 20px;">
+                    <div class="preloader-wrapper small active">
+                        <div class="spinner-layer spinner-gold-only">
+                            <div class="circle-clipper left">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="gap-patch">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="circle-clipper right">
+                                <div class="circle"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="grey-text" style="margin-top: 10px;">Generating backstory...</p>
+                </div>
+
+                <div id="generated-backstory" style="display: none; margin-top: 20px;">
+                    <h6 style="color: var(--rpg-silver);">Generated Backstory</h6>
+                    <p id="generated-backstory-text" style="color: white; white-space: pre-wrap; margin: 15px 0;"></p>
+                    <div style="margin-top: 20px;">
+                        <button id="save-backstory-btn" class="btn waves-effect waves-light">
+                            <i class="material-icons left">save</i>Save Backstory
+                        </button>
+                        <button id="cancel-backstory-btn" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appearance Card -->
+        {% if character.appearance %}
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">face</i>Physical Appearance
+                </span>
+                <p style="color: white; white-space: pre-wrap; margin-top: 20px;">{{ character.appearance }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Stats Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">bar_chart</i>Attributes & Skills
+                </span>
+
+                <div style="margin-top: 20px;">
+                    {% if character.attributes %}
+                    <h6 style="color: var(--rpg-silver);">Attributes</h6>
+                    <div class="row">
+                        {% for key, value in character.attributes.items %}
+                        <div class="col s6 m4">
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">{{ key|title }}:</strong>
+                                <span style="color: white;">{{ value }}</span>
+                            </p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if character.skills %}
+                    <h6 style="color: var(--rpg-silver); margin-top: 20px;">Skills</h6>
+                    <div style="margin-top: 10px;">
+                        {% for skill in character.skills %}
+                        <span class="chip" style="margin: 5px;">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if not character.attributes and not character.skills %}
+                    <div class="center-align" style="padding: 40px 20px;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">trending_up</i>
+                        <p class="grey-text" style="margin-top: 15px;">No attributes or skills configured</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">backpack</i>Inventory
+                </span>
+
+                {% if character.inventory %}
+                <div style="margin-top: 20px;">
+                    <ul class="collection" style="border: none;">
+                        {% for item in character.inventory %}
+                        <li class="collection-item" style="background-color: rgba(212, 175, 55, 0.05); border-bottom: 1px solid rgba(212, 175, 55, 0.2);">
+                            <span style="color: white;">{{ item }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">shopping_bag</i>
+                    <p class="grey-text" style="margin-top: 15px;">Inventory is empty</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Character Modal -->
+<div id="delete-character-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid #d32f2f; max-width: 600px;">
+    <div class="modal-content">
+        <h4 style="color: #d32f2f;">
+            <i class="material-icons left">warning</i>Delete Character
+        </h4>
+
+        <p class="grey-text" style="font-size: 1.1rem; margin-top: 20px;">
+            Are you sure you want to permanently delete <strong style="color: var(--rpg-gold);">{{ character.full_name }}</strong>?
+        </p>
+
+        <div class="card-panel red lighten-5" style="border-left: 4px solid #d32f2f; margin-top: 20px;">
+            <p style="color: #d32f2f; margin: 0;">
+                <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+                <strong>Warning:</strong> This action cannot be undone.
+            </p>
+        </div>
+
+        <div style="margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.05); border-radius: 8px;">
+            <h6 style="color: var(--rpg-silver); margin-top: 0;">What will be deleted:</h6>
+            <ul style="color: #b8b8d1; margin: 10px 0 0 20px;">
+                <li>Character profile and information</li>
+                <li>All attributes and skills</li>
+                <li>Inventory items</li>
+                <li>Campaign progress</li>
+                <li>All relationships in the game world</li>
+            </ul>
+        </div>
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">
+            <i class="material-icons left">close</i>Cancel
+        </a>
+        <form method="post" action="{% url 'character_delete' character.character_id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="waves-effect waves-light btn red darken-2">
+                <i class="material-icons left">delete_forever</i>Yes, Delete Character
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    var elems = document.querySelectorAll('.modal');
+    M.Modal.init(elems);
+
+    const characterId = '{{ character.character_id }}';
+
+    // Backstory generation
+    const generateBackstoryBtn = document.getElementById('generate-backstory-btn');
+    const generateFirstImageBtn = document.getElementById('generate-first-image-btn');
+    const generateImageBtn = document.getElementById('generate-image-btn');
+    const saveBackstoryBtn = document.getElementById('save-backstory-btn');
+    const cancelBackstoryBtn = document.getElementById('cancel-backstory-btn');
+
+    if (generateBackstoryBtn) {
+        generateBackstoryBtn.addEventListener('click', function() {
+            document.getElementById('backstory-container').style.display = 'none';
+            document.getElementById('backstory-loading').style.display = 'block';
+            document.getElementById('generated-backstory').style.display = 'none';
+
+            fetch(`/characters/${characterId}/generate-backstory/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('backstory-loading').style.display = 'none';
+                if (data.success) {
+                    document.getElementById('generated-backstory-text').textContent = data.backstory;
+                    document.getElementById('generated-backstory').style.display = 'block';
+                } else {
+                    M.toast({html: 'Error generating backstory: ' + data.error, classes: 'red'});
+                    document.getElementById('backstory-container').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('backstory-loading').style.display = 'none';
+                M.toast({html: 'Error generating backstory', classes: 'red'});
+                document.getElementById('backstory-container').style.display = 'block';
+            });
+        });
+    }
+
+    if (saveBackstoryBtn) {
+        saveBackstoryBtn.addEventListener('click', function() {
+            const backstory = document.getElementById('generated-backstory-text').textContent;
+
+            fetch(`/characters/${characterId}/save-backstory/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ backstory: backstory })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({html: 'Backstory saved successfully!', classes: 'green'});
+                    location.reload();
+                } else {
+                    M.toast({html: 'Error saving backstory: ' + data.error, classes: 'red'});
+                }
+            })
+            .catch(error => {
+                M.toast({html: 'Error saving backstory', classes: 'red'});
+            });
+        });
+    }
+
+    if (cancelBackstoryBtn) {
+        cancelBackstoryBtn.addEventListener('click', function() {
+            document.getElementById('generated-backstory').style.display = 'none';
+            document.getElementById('backstory-container').style.display = 'block';
+        });
+    }
+
+    // Image generation
+    function generateImage() {
+        M.toast({html: 'Generating character image...', classes: 'blue'});
+
+        fetch(`/characters/${characterId}/generate-image/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                M.toast({html: 'Image generated successfully!', classes: 'green'});
+                location.reload();
+            } else {
+                M.toast({html: 'Error: ' + data.error, classes: 'red'});
+            }
+        })
+        .catch(error => {
+            M.toast({html: 'Error generating image', classes: 'red'});
+        });
+    }
+
+    if (generateFirstImageBtn) {
+        generateFirstImageBtn.addEventListener('click', generateImage);
+    }
+
+    if (generateImageBtn) {
+        generateImageBtn.addEventListener('click', generateImage);
+    }
+
+    // Set primary image
+    document.querySelectorAll('.set-primary-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const imageIndex = parseInt(this.dataset.index);
+
+            fetch(`/characters/${characterId}/set-primary-image/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ image_index: imageIndex })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({html: 'Primary image set!', classes: 'green'});
+                    location.reload();
+                } else {
+                    M.toast({html: 'Error: ' + data.error, classes: 'red'});
+                }
+            });
+        });
+    });
+
+    // Delete image
+    document.querySelectorAll('.delete-image-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (!confirm('Are you sure you want to delete this image?')) return;
+
+            const imageIndex = parseInt(this.dataset.index);
+
+            fetch(`/characters/${characterId}/delete-image/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ image_index: imageIndex })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({html: 'Image deleted!', classes: 'green'});
+                    location.reload();
+                } else {
+                    M.toast({html: 'Error: ' + data.error, classes: 'red'});
+                }
+            });
+        });
+    });
+});
+</script>
+<style>
+.spinner-gold-only {
+    border-color: var(--rpg-gold);
+}
+</style>
+{% endblock %}

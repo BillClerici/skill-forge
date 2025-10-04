@@ -31,8 +31,10 @@ INSTALLED_APPS = [
     # Local apps
     'accounts',
     'members',
+    'subscriptions',
     'worlds',
     'campaigns',
+    'characters',
 ]
 
 MIDDLEWARE = [

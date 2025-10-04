@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Create Account{% else %}Edit Account{% endif %} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% if is_create %}{% url 'account_list' %}{% else %}{% url 'account_detail' account.account_id %}{% endif %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 l8 offset-l2">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">{% if is_create %}add{% else %}edit{% endif %}</i>
+                    {% if is_create %}Create New Account{% else %}Edit Account{% endif %}
+                </span>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="card-panel {{ message.tags }} white-text" style="margin-top: 20px;">
+                        <i class="material-icons left">{% if message.tags == 'error' %}error{% else %}check_circle{% endif %}</i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" style="margin-top: 30px;">
+                    {% csrf_token %}
+
+                    <!-- Account Details Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">group</i> Account Details
+                    </h6>
+
+                    <!-- Account Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">label</i>
+                        {{ form.name }}
+                        <label for="{{ form.name.id_for_label }}">Account Name</label>
+                        {% if form.name.help_text %}
+                        <span class="helper-text grey-text">{{ form.name.help_text }}</span>
+                        {% endif %}
+                        {% if form.name.errors %}
+                        <span class="helper-text red-text">{{ form.name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Account Type -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
+                        {{ form.account_type }}
+                        <label for="{{ form.account_type.id_for_label }}">Account Type</label>
+                        {% if form.account_type.help_text %}
+                        <span class="helper-text grey-text">{{ form.account_type.help_text }}</span>
+                        {% endif %}
+                        {% if form.account_type.errors %}
+                        <span class="helper-text red-text">{{ form.account_type.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if not is_create %}
+                    <!-- Max Players (Edit only) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">people</i>
+                        {{ form.max_players }}
+                        <label for="{{ form.max_players.id_for_label }}">Maximum Players</label>
+                        {% if form.max_players.help_text %}
+                        <span class="helper-text grey-text">{{ form.max_players.help_text }}</span>
+                        {% endif %}
+                        {% if form.max_players.errors %}
+                        <span class="helper-text red-text">{{ form.max_players.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if is_create %}
+                    <!-- Primary Player Section (Create only) -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">star</i> Primary Player
+                    </h6>
+
+                    <div class="card-panel" style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold);">
+                        <i class="material-icons left" style="color: var(--rpg-gold);">info</i>
+                        <span class="grey-text">The primary player will have full account management permissions and can add/remove other players.</span>
+                    </div>
+
+                    <!-- Primary Player Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">person</i>
+                        {{ form.primary_player_name }}
+                        <label for="{{ form.primary_player_name.id_for_label }}">Primary Player Name *</label>
+                        {% if form.primary_player_name.help_text %}
+                        <span class="helper-text grey-text">{{ form.primary_player_name.help_text }}</span>
+                        {% endif %}
+                        {% if form.primary_player_name.errors %}
+                        <span class="helper-text red-text">{{ form.primary_player_name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Primary Player Email -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">email</i>
+                        {{ form.primary_player_email }}
+                        <label for="{{ form.primary_player_email.id_for_label }}">Primary Player Email</label>
+                        {% if form.primary_player_email.help_text %}
+                        <span class="helper-text grey-text">{{ form.primary_player_email.help_text }}</span>
+                        {% endif %}
+                        {% if form.primary_player_email.errors %}
+                        <span class="helper-text red-text">{{ form.primary_player_email.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Primary Player Date of Birth -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">cake</i>
+                        {{ form.primary_player_dob }}
+                        <label for="{{ form.primary_player_dob.id_for_label }}">Primary Player Date of Birth *</label>
+                        {% if form.primary_player_dob.help_text %}
+                        <span class="helper-text grey-text">{{ form.primary_player_dob.help_text }}</span>
+                        {% endif %}
+                        {% if form.primary_player_dob.errors %}
+                        <span class="helper-text red-text">{{ form.primary_player_dob.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Submit Buttons -->
+                    <div class="row" style="margin-top: 40px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold); color: #1a1a2e;">
+                                <i class="material-icons left">save</i>
+                                {% if is_create %}Create Account{% else %}Save Changes{% endif %}
+                            </button>
+                            <a href="{% if is_create %}{% url 'account_list' %}{% else %}{% url 'account_detail' account.account_id %}{% endif %}" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                                Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize select elements
+    var elems = document.querySelectorAll('select');
+    M.FormSelect.init(elems);
+
+    // Update labels for pre-filled fields
+    M.updateTextFields();
+
+    // Fix validation for Materialize selects
+    // Remove tabindex=-1 from required selects to allow browser validation
+    document.querySelectorAll('select[required]').forEach(function(select) {
+        select.removeAttribute('tabindex');
+    });
+
+    // Handle form submission - ensure selects are validated
+    var form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var isValid = true;
+
+            // Check all required selects
+            document.querySelectorAll('select[required]').forEach(function(select) {
+                if (!select.value) {
+                    isValid = false;
+                    // Trigger Materialize validation
+                    var wrapper = select.closest('.input-field');
+                    if (wrapper) {
+                        var helper = wrapper.querySelector('.helper-text');
+                        if (!helper) {
+                            helper = document.createElement('span');
+                            helper.className = 'helper-text red-text';
+                            wrapper.appendChild(helper);
+                        }
+                        helper.textContent = 'This field is required.';
+                        helper.style.display = 'block';
+                    }
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                // Scroll to first error
+                var firstError = document.querySelector('.helper-text.red-text');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

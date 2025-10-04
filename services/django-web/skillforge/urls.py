@@ -9,8 +9,13 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from .views import dashboard
-from accounts.views import AccountListView, AccountDetailView
+from accounts.views import (
+    AccountListView, AccountDetailView, AccountCreateView, AccountUpdateView, AccountDeleteView,
+    PlayerCreateView as AccountPlayerCreateView, PlayerUpdateView as AccountPlayerUpdateView,
+    PlayerDeleteView as AccountPlayerDeleteView
+)
 from members.views import PlayerListView, PlayerDetailView
+from members.views_profile import PlayerProfileConfigView
 from worlds.views import (
     UniverseListView, UniverseCreateView, UniverseDetailView,
     UniverseUpdateView, UniverseDeleteView,
@@ -36,6 +41,11 @@ from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView
 )
+from characters.views import (
+    CharacterCreateView, CharacterDetailView, CharacterEditView, CharacterDeleteView,
+    CharacterGenerateBackstoryView, CharacterSaveBackstoryView,
+    CharacterGenerateImageView, CharacterDeleteImageView, CharacterSetPrimaryImageView
+)
 
 urlpatterns = [
     path('', dashboard, name='dashboard'),
@@ -44,11 +54,20 @@ urlpatterns = [
 
     # Accounts
     path('accounts/', AccountListView.as_view(), name='account_list'),
+    path('accounts/create/', AccountCreateView.as_view(), name='account_create'),
     path('accounts/<uuid:account_id>/', AccountDetailView.as_view(), name='account_detail'),
+    path('accounts/<uuid:account_id>/edit/', AccountUpdateView.as_view(), name='account_edit'),
+    path('accounts/<uuid:account_id>/delete/', AccountDeleteView.as_view(), name='account_delete'),
+
+    # Account Players
+    path('accounts/<uuid:account_id>/players/add/', AccountPlayerCreateView.as_view(), name='account_player_add'),
+    path('accounts/<uuid:account_id>/players/<uuid:player_id>/edit/', AccountPlayerUpdateView.as_view(), name='account_player_edit'),
+    path('accounts/<uuid:account_id>/players/<uuid:player_id>/delete/', AccountPlayerDeleteView.as_view(), name='account_player_delete'),
 
     # Players
     path('players/', PlayerListView.as_view(), name='player_list'),
     path('players/<uuid:player_id>/', PlayerDetailView.as_view(), name='player_detail'),
+    path('players/<uuid:player_id>/profile/config/', PlayerProfileConfigView.as_view(), name='player_profile_config'),
 
     # Universes
     path('universes/', UniverseListView.as_view(), name='universe_list'),
@@ -112,6 +131,17 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
+
+    # Characters
+    path('players/<uuid:player_id>/characters/create/', CharacterCreateView.as_view(), name='character_create'),
+    path('characters/<uuid:character_id>/', CharacterDetailView.as_view(), name='character_detail'),
+    path('characters/<uuid:character_id>/edit/', CharacterEditView.as_view(), name='character_edit'),
+    path('characters/<uuid:character_id>/delete/', CharacterDeleteView.as_view(), name='character_delete'),
+    path('characters/<uuid:character_id>/generate-backstory/', CharacterGenerateBackstoryView.as_view(), name='character_generate_backstory'),
+    path('characters/<uuid:character_id>/save-backstory/', CharacterSaveBackstoryView.as_view(), name='character_save_backstory'),
+    path('characters/<uuid:character_id>/generate-image/', CharacterGenerateImageView.as_view(), name='character_generate_image'),
+    path('characters/<uuid:character_id>/delete-image/', CharacterDeleteImageView.as_view(), name='character_delete_image'),
+    path('characters/<uuid:character_id>/set-primary-image/', CharacterSetPrimaryImageView.as_view(), name='character_set_primary_image'),
 ]
 
 # Serve media files in development

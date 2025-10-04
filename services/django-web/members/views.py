@@ -4,6 +4,7 @@ Player views for SkillForge
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, DetailView
 from .models import Player
+from .models_profile import PlayerProfile
 from accounts.models import Account
 
 
@@ -32,3 +33,21 @@ class PlayerDetailView(DetailView):
     context_object_name = 'player'
     slug_field = 'player_id'
     slug_url_kwarg = 'player_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        player = self.get_object()
+        # Get the account for the back link
+        try:
+            context['account'] = Account.objects.get(account_id=player.account_id)
+        except Account.DoesNotExist:
+            context['account'] = None
+        # Get the player profile if it exists
+        try:
+            context['profile'] = PlayerProfile.objects.get(player_id=player.player_id)
+        except PlayerProfile.DoesNotExist:
+            context['profile'] = None
+        # Get characters for this player
+        from characters.models import Character
+        context['characters'] = Character.objects.filter(player_id=player.player_id)
+        return context

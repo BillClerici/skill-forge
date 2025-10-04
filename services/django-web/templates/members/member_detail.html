@@ -22,19 +22,19 @@
                             <i class="material-icons left" style="vertical-align: middle;">person</i>
                             {{ member.display_name }}
                         </h4>
-                        <div style="margin-top: 20px;">
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">label</i>
+                        <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">label</i>
                                 {{ member.role|default:"Member" }}
                             </span>
                             {% if member.is_active %}
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green);">
-                                <i class="material-icons left" style="font-size: 1.2rem;">check_circle</i>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green); display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">check_circle</i>
                                 Active
                             </span>
                             {% else %}
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">cancel</i>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">cancel</i>
                                 Inactive
                             </span>
                             {% endif %}

@@ -22,22 +22,22 @@
                             <i class="material-icons left" style="vertical-align: middle;">group</i>
                             {{ account.name }}
                         </h4>
-                        <div style="margin-top: 20px;">
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">label</i>
+                        <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">label</i>
                                 {{ account.account_type|title }}
                             </span>
-                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; margin-left: 10px;">
-                                <i class="material-icons left" style="font-size: 1.2rem;">star</i>
+                            <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">star</i>
                                 {{ account.subscription_tier|default:"Free" }}
                             </span>
                         </div>
                     </div>
                     <div class="col s12 m4 right-align">
-                        <a href="#" class="btn waves-effect waves-light">
+                        <a href="{% url 'account_edit' account.account_id %}" class="btn waves-effect waves-light">
                             <i class="material-icons left">edit</i>Edit
                         </a>
-                        <a href="#" class="btn waves-effect waves-light red darken-2" style="margin-left: 10px;">
+                        <a href="#delete-account-modal" class="btn waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 10px;">
                             <i class="material-icons left">delete</i>Delete
                         </a>
                     </div>
@@ -74,8 +74,8 @@
                     </p>
 
                     <p style="margin: 15px 0;">
-                        <strong class="grey-text">Members:</strong><br>
-                        <span style="color: white;">{{ account.current_member_count|default:0 }} / {{ account.max_members|default:"∞" }}</span>
+                        <strong class="grey-text">Players:</strong><br>
+                        <span style="color: white;">{{ account.current_player_count|default:0 }} / {{ account.max_players|default:"∞" }}</span>
                     </p>
 
                     <p style="margin: 15px 0;">
@@ -94,18 +94,18 @@
         </div>
     </div>
 
-    <!-- Members Card -->
+    <!-- Players Card -->
     <div class="col s12 l8">
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="material-icons left">person</i>Members</span>
-                    <a href="{% url 'member_list' %}?account={{ account.account_id }}" class="btn-small waves-effect waves-light">
-                        <i class="material-icons left">add</i>Add Member
+                    <span><i class="material-icons left">people</i>Players</span>
+                    <a href="{% url 'account_player_add' account.account_id %}" class="btn-small waves-effect waves-light">
+                        <i class="material-icons left">person_add</i>Add Player
                     </a>
                 </span>
 
-                {% if account.member_set.exists %}
+                {% if players %}
                 <table class="highlight responsive-table" style="margin-top: 20px;">
                     <thead>
                         <tr>
@@ -117,18 +117,21 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for member in account.member_set.all %}
+                        {% for player in players %}
                         <tr>
                             <td>
-                                <a href="{% url 'member_detail' member.member_id %}" style="color: var(--rpg-gold); font-weight: 500;">
-                                    {{ member.display_name }}
+                                <a href="{% url 'player_detail' player.player_id %}" style="color: var(--rpg-gold); font-weight: 500;">
+                                    {{ player.display_name }}
+                                    {% if player.is_primary %}
+                                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);" title="Primary Player">star</i>
+                                    {% endif %}
                                 </a>
                             </td>
                             <td>
-                                <span class="chip" style="margin: 0;">{{ member.role|default:"Member" }}</span>
+                                <span class="chip" style="margin: 0;">{{ player.role|title }}</span>
                             </td>
                             <td>
-                                {% if member.is_active %}
+                                {% if player.is_active %}
                                 <span style="color: var(--rpg-green);">
                                     <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i> Active
                                 </span>
@@ -138,13 +141,16 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>{{ member.created_at|date:"M d, Y" }}</td>
+                            <td>{{ player.created_at|date:"M d, Y" }}</td>
                             <td>
-                                <a href="{% url 'member_detail' member.member_id %}" class="btn-small waves-effect waves-light" style="margin-right: 5px;">
+                                <a href="{% url 'player_detail' player.player_id %}" class="btn-small waves-effect waves-light" style="margin-right: 5px;">
                                     <i class="material-icons">visibility</i>
                                 </a>
-                                <a href="#" class="btn-small waves-effect waves-light blue">
+                                <a href="{% url 'account_player_edit' account.account_id player.player_id %}" class="btn-small waves-effect waves-light blue" style="margin-right: 5px;">
                                     <i class="material-icons">edit</i>
+                                </a>
+                                <a href="#delete-player-{{ player.player_id }}-modal" class="btn-small waves-effect waves-light red darken-2 modal-trigger">
+                                    <i class="material-icons">delete</i>
                                 </a>
                             </td>
                         </tr>
@@ -154,27 +160,213 @@
                 {% else %}
                 <div class="center-align" style="padding: 40px 20px;">
                     <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">person_outline</i>
-                    <p class="grey-text" style="margin-top: 15px;">No members in this account yet</p>
-                    <a href="{% url 'member_list' %}?account={{ account.account_id }}" class="btn waves-effect waves-light" style="margin-top: 20px;">
-                        <i class="material-icons left">add</i>Add First Member
+                    <p class="grey-text" style="margin-top: 15px;">No players in this account yet</p>
+                    <a href="{% url 'account_player_add' account.account_id %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
+                        <i class="material-icons left">person_add</i>Add First Player
                     </a>
                 </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Activity Card -->
+        <!-- Subscription Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">timeline</i>Recent Activity
+                    <i class="material-icons left">payment</i>Subscription
                 </span>
-                <div class="center-align" style="padding: 40px 20px;">
-                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">history</i>
-                    <p class="grey-text" style="margin-top: 15px;">Activity tracking coming soon</p>
+
+                {% if active_subscription %}
+                <div style="margin-top: 20px;">
+                    <div class="row" style="margin-bottom: 0;">
+                        <div class="col s12 m6">
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Tier:</strong><br>
+                                <span style="color: var(--rpg-gold); font-size: 1.2rem;">{{ active_subscription.tier|title }}</span>
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Status:</strong><br>
+                                <span class="chip {% if active_subscription.status == 'active' %}green{% elif active_subscription.status == 'past_due' %}orange{% else %}red{% endif %} white-text">
+                                    {{ active_subscription.status|title }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col s12 m6">
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Max Players:</strong> {{ active_subscription.max_players }}
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Characters per Player:</strong> {{ active_subscription.max_characters_per_player }}
+                            </p>
+                            <p style="margin: 10px 0;">
+                                <strong class="grey-text">Next Billing:</strong><br>
+                                {{ active_subscription.current_period_end|date:"F d, Y" }}
+                            </p>
+                        </div>
+                    </div>
                 </div>
+                {% else %}
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">card_membership</i>
+                    <p class="grey-text" style="margin-top: 15px;">No active subscription</p>
+                    <div style="margin-top: 20px;">
+                        <a href="#stripe-placeholder-modal" class="btn waves-effect waves-light modal-trigger">
+                            <i class="material-icons left">add</i>Subscribe Now
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
+
+        <!-- Subscription History -->
+        {% if subscriptions %}
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">history</i>Subscription History
+                </span>
+                <table class="highlight responsive-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Tier</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Ended</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in subscriptions %}
+                        <tr>
+                            <td>{{ sub.tier|title }}</td>
+                            <td>
+                                <span class="chip {% if sub.status == 'active' %}green{% elif sub.status == 'past_due' %}orange{% else %}grey{% endif %} white-text">
+                                    {{ sub.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ sub.current_period_start|date:"M d, Y" }}</td>
+                            <td>{% if sub.current_period_end %}{{ sub.current_period_end|date:"M d, Y" }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Invoices -->
+        {% if invoices %}
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">receipt</i>Recent Invoices
+                </span>
+                <table class="highlight responsive-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td><code>{{ invoice.invoice_number }}</code></td>
+                            <td>${{ invoice.amount }}</td>
+                            <td>
+                                <span class="chip {% if invoice.status == 'paid' %}green{% elif invoice.status == 'pending' %}orange{% else %}red{% endif %} white-text">
+                                    {{ invoice.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ invoice.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
+
+<!-- Delete Account Modal -->
+<div id="delete-account-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid #d32f2f;">
+    <div class="modal-content">
+        <h4 style="color: #d32f2f;">
+            <i class="material-icons left">warning</i>Delete Account
+        </h4>
+        <p class="grey-text">Are you sure you want to delete this account? This will also delete all associated players and cannot be undone.</p>
+        <div class="card-panel red lighten-5" style="border-left: 4px solid #d32f2f;">
+            <p style="color: #d32f2f; margin: 0;">
+                <strong>Warning:</strong> This action is permanent and cannot be reversed.
+            </p>
+        </div>
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">Cancel</a>
+        <form method="post" action="{% url 'account_delete' account.account_id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="waves-effect waves-light btn red darken-2">
+                <i class="material-icons left">delete_forever</i>Delete Account
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Player Modals -->
+{% for player in players %}
+<div id="delete-player-{{ player.player_id }}-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid #d32f2f;">
+    <div class="modal-content">
+        <h4 style="color: #d32f2f;">
+            <i class="material-icons left">warning</i>Remove Player
+        </h4>
+        <p class="grey-text">Are you sure you want to remove <strong>{{ player.display_name }}</strong> from this account?</p>
+        {% if player.is_primary %}
+        <div class="card-panel orange lighten-5" style="border-left: 4px solid #ff9800;">
+            <p style="color: #f57c00; margin: 0;">
+                <strong>Note:</strong> This is a primary player. Make sure at least one other primary player exists before removing.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">Cancel</a>
+        <form method="post" action="{% url 'account_player_delete' account.account_id player.player_id %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="waves-effect waves-light btn red darken-2">
+                <i class="material-icons left">person_remove</i>Remove Player
+            </button>
+        </form>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Stripe Placeholder Modal -->
+<div id="stripe-placeholder-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid var(--rpg-gold);">
+    <div class="modal-content">
+        <h4 style="color: var(--rpg-gold);">
+            <i class="material-icons left">payment</i>Stripe Integration
+        </h4>
+        <p class="grey-text">Stripe subscription management will be integrated here.</p>
+        <div class="card-panel" style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold);">
+            <p style="color: var(--rpg-gold); margin: 0;">
+                <i class="material-icons left">construction</i>
+                <strong>Coming Soon:</strong> Full Stripe integration for subscription management, billing, and payment processing.
+            </p>
+        </div>
+    </div>
+    <div class="modal-footer" style="background-color: transparent;">
+        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">Close</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    var elems = document.querySelectorAll('.modal');
+    M.Modal.init(elems);
+});
+</script>
 {% endblock %}

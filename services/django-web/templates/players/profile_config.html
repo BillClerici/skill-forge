@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Configure{% else %}Edit{% endif %} Player Profile - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Player
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">account_circle</i>
+                    {% if is_create %}Configure{% else %}Edit{% endif %} Player Profile for {{ player.display_name }}
+                </span>
+
+                <p class="grey-text" style="margin-top: 15px;">
+                    Customize the gaming experience by setting preferences that will help the AI tailor campaigns, difficulty, and storytelling to match this player's style.
+                </p>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="card-panel {{ message.tags }} white-text" style="margin-top: 20px;">
+                        <i class="material-icons left">{% if message.tags == 'error' %}error{% else %}check_circle{% endif %}</i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" style="margin-top: 30px;">
+                    {% csrf_token %}
+
+                    <!-- Favorite Genres Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">category</i> Favorite Genres
+                    </h6>
+
+                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
+                        Select all the genres you enjoy playing:
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for value, label in form.favorite_genres_field.field.choices %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                <input type="checkbox" name="favorite_genres_field" value="{{ value }}"
+                                       {% if value in form.favorite_genres_field.value %}checked{% endif %}>
+                                <span>{{ label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Session Duration Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">schedule</i> Session Duration
+                    </h6>
+
+                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
+                        {{ form.session_duration.help_text }}
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for radio in form.session_duration %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                {{ radio.tag }}
+                                <span>{{ radio.choice_label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Play Style Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">sports_esports</i> Play Style
+                    </h6>
+
+                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
+                        {{ form.play_style.help_text }}
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for radio in form.play_style %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                {{ radio.tag }}
+                                <span>{{ radio.choice_label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Difficulty Preference Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">fitness_center</i> Difficulty Preference
+                    </h6>
+
+                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
+                        {{ form.difficulty_preference.help_text }}
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for radio in form.difficulty_preference %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                {{ radio.tag }}
+                                <span>{{ radio.choice_label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- AI & Narrative Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">psychology</i> AI & Narrative Preferences
+                    </h6>
+
+                    <!-- AI Guidance Level -->
+                    <p class="grey-text" style="font-size: 0.95rem; margin: 20px 0 15px 0;">
+                        <strong>AI Guidance Level:</strong> {{ form.ai_guidance_level.help_text }}
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for radio in form.ai_guidance_level %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                {{ radio.tag }}
+                                <span>{{ radio.choice_label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Narrative Depth -->
+                    <p class="grey-text" style="font-size: 0.95rem; margin: 30px 0 15px 0;">
+                        <strong>Narrative Depth:</strong> {{ form.narrative_depth.help_text }}
+                    </p>
+
+                    <div style="margin: 20px 0;">
+                        {% for radio in form.narrative_depth %}
+                        <p style="margin: 10px 0;">
+                            <label>
+                                {{ radio.tag }}
+                                <span>{{ radio.choice_label }}</span>
+                            </label>
+                        </p>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Content & Accessibility Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">settings</i> Content & Accessibility
+                    </h6>
+
+                    <!-- Content Maturity -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">verified_user</i>
+                        {{ form.content_maturity }}
+                        <label for="{{ form.content_maturity.id_for_label }}">Content Maturity Level</label>
+                        {% if form.content_maturity.help_text %}
+                        <span class="helper-text grey-text">{{ form.content_maturity.help_text }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Text Size -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">text_fields</i>
+                        {{ form.text_size }}
+                        <label for="{{ form.text_size.id_for_label }}">Text Size</label>
+                    </div>
+
+                    <!-- Audio & Visual Options -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">volume_up</i> Audio & Visual Options
+                    </h6>
+
+                    <div style="margin: 20px 0;">
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.enable_voice_narration }}
+                                <span>Enable Voice Narration</span>
+                            </label>
+                        </p>
+
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.enable_background_music }}
+                                <span>Enable Background Music</span>
+                            </label>
+                        </p>
+
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.enable_sound_effects }}
+                                <span>Enable Sound Effects</span>
+                            </label>
+                        </p>
+
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.enable_auto_save }}
+                                <span>Enable Auto-Save</span>
+                            </label>
+                        </p>
+
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.high_contrast_mode }}
+                                <span>High Contrast Mode</span>
+                            </label>
+                        </p>
+
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.reduce_motion }}
+                                <span>Reduce Motion</span>
+                            </label>
+                        </p>
+                    </div>
+
+                    <!-- Submit Buttons -->
+                    <div class="row" style="margin-top: 40px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold); color: #1a1a2e;">
+                                <i class="material-icons left">save</i>
+                                {% if is_create %}Create Profile{% else %}Save Changes{% endif %}
+                            </button>
+                            <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                                Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Materialize select dropdowns
+    var elems = document.querySelectorAll('select');
+    M.FormSelect.init(elems);
+});
+</script>
+{% endblock %}

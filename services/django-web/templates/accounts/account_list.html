@@ -27,7 +27,7 @@
                         <p class="grey-text">Showing</p>
                     </div>
                     <div class="col s12 m4 center-align">
-                        <a href="#create-modal" class="btn waves-effect waves-light modal-trigger">
+                        <a href="{% url 'account_create' %}" class="btn waves-effect waves-light">
                             <i class="material-icons left">add</i>Create Account
                         </a>
                     </div>
@@ -53,9 +53,9 @@
 
                 <div style="margin-top: 15px;">
                     <p style="margin: 8px 0;">
-                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">person</i>
-                        <span class="grey-text">Members: </span>
-                        <strong>{{ account.current_member_count|default:0 }}/{{ account.max_members|default:"∞" }}</strong>
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">people</i>
+                        <span class="grey-text">Players: </span>
+                        <strong>{{ account.current_player_count|default:0 }}/{{ account.max_players|default:"∞" }}</strong>
                     </p>
 
                     <p style="margin: 8px 0;">
@@ -76,7 +76,7 @@
                 <a href="{% url 'account_detail' account.account_id %}" style="color: var(--rpg-gold);">
                     <i class="material-icons tiny" style="vertical-align: middle;">visibility</i> View Details
                 </a>
-                <a href="#" style="color: var(--rpg-blue);">
+                <a href="{% url 'account_edit' account.account_id %}" style="color: var(--rpg-blue);">
                     <i class="material-icons tiny" style="vertical-align: middle;">edit</i> Edit
                 </a>
             </div>
@@ -156,7 +156,7 @@
                 <h5 class="grey-text">No Accounts Found</h5>
                 <p class="grey-text">Start by creating your first account</p>
                 <div style="margin-top: 30px;">
-                    <a href="#create-modal" class="btn-large waves-effect waves-light modal-trigger">
+                    <a href="{% url 'account_create' %}" class="btn-large waves-effect waves-light">
                         <i class="material-icons left">add</i>Create First Account
                     </a>
                 </div>
@@ -166,17 +166,4 @@
 </div>
 {% endif %}
 
-<!-- Create Modal (placeholder) -->
-<div id="create-modal" class="modal" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); border: 2px solid var(--rpg-gold);">
-    <div class="modal-content">
-        <h4 style="color: var(--rpg-gold);">
-            <i class="material-icons left">add</i>Create New Account
-        </h4>
-        <p class="grey-text">Account creation form will be implemented here</p>
-    </div>
-    <div class="modal-footer" style="background-color: transparent;">
-        <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-gold);">Close</a>
-        <a href="#!" class="waves-effect waves-light btn">Create Account</a>
-    </div>
-</div>
 {% endblock %}

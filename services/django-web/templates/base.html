@@ -327,6 +327,79 @@
         .select-wrapper svg.caret {
             fill: white !important;
         }
+
+        /* Form input fields - white text */
+        input:not([type]):not(.browser-default),
+        input[type=text]:not(.browser-default),
+        input[type=password]:not(.browser-default),
+        input[type=email]:not(.browser-default),
+        input[type=url]:not(.browser-default),
+        input[type=time]:not(.browser-default),
+        input[type=date]:not(.browser-default),
+        input[type=datetime]:not(.browser-default),
+        input[type=datetime-local]:not(.browser-default),
+        input[type=tel]:not(.browser-default),
+        input[type=number]:not(.browser-default),
+        input[type=search]:not(.browser-default),
+        textarea.materialize-textarea {
+            color: #e0e0e0 !important;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3) !important;
+        }
+
+        /* Input focus state */
+        input:not([type]):not(.browser-default):focus,
+        input[type=text]:not(.browser-default):focus,
+        input[type=password]:not(.browser-default):focus,
+        input[type=email]:not(.browser-default):focus,
+        input[type=url]:not(.browser-default):focus,
+        input[type=time]:not(.browser-default):focus,
+        input[type=date]:not(.browser-default):focus,
+        input[type=datetime]:not(.browser-default):focus,
+        input[type=datetime-local]:not(.browser-default):focus,
+        input[type=tel]:not(.browser-default):focus,
+        input[type=number]:not(.browser-default):focus,
+        input[type=search]:not(.browser-default):focus,
+        textarea.materialize-textarea:focus {
+            border-bottom: 1px solid var(--rpg-gold) !important;
+            box-shadow: 0 1px 0 0 var(--rpg-gold) !important;
+        }
+
+        /* Input labels */
+        label {
+            color: #b8b8d1 !important;
+        }
+
+        label.active {
+            color: var(--rpg-gold) !important;
+        }
+
+        /* Helper text */
+        .helper-text {
+            color: #8b8bae !important;
+        }
+
+        /* Placeholder text */
+        ::-webkit-input-placeholder {
+            color: #6b6b8b !important;
+        }
+        ::-moz-placeholder {
+            color: #6b6b8b !important;
+        }
+        :-ms-input-placeholder {
+            color: #6b6b8b !important;
+        }
+        ::placeholder {
+            color: #6b6b8b !important;
+        }
+
+        /* Prefix icons in input fields */
+        .input-field .prefix {
+            color: var(--rpg-gold) !important;
+        }
+
+        .input-field .prefix.active {
+            color: var(--rpg-gold) !important;
+        }
     </style>
 
     {% block extra_css %}{% endblock %}

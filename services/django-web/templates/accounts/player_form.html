@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_create %}Add Player{% else %}Edit Player{% endif %} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'account_detail' account.account_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Account
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12 l8 offset-l2">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">{% if is_create %}person_add{% else %}edit{% endif %}</i>
+                    {% if is_create %}Add Player to {{ account.name }}{% else %}Edit Player{% endif %}
+                </span>
+
+                {% if messages %}
+                    {% for message in messages %}
+                    <div class="card-panel {{ message.tags }} white-text" style="margin-top: 20px;">
+                        <i class="material-icons left">{% if message.tags == 'error' %}error{% else %}check_circle{% endif %}</i>
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" style="margin-top: 30px;">
+                    {% csrf_token %}
+
+                    <!-- Player Identity Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">person</i> Player Identity
+                    </h6>
+
+                    <!-- Display Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">badge</i>
+                        {{ form.display_name }}
+                        <label for="{{ form.display_name.id_for_label }}">Display Name *</label>
+                        {% if form.display_name.errors %}
+                        <span class="helper-text red-text">{{ form.display_name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Email -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">email</i>
+                        {{ form.email }}
+                        <label for="{{ form.email.id_for_label }}">Email</label>
+                        {% if form.email.errors %}
+                        <span class="helper-text red-text">{{ form.email.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Date of Birth -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">cake</i>
+                        {{ form.date_of_birth }}
+                        <label for="{{ form.date_of_birth.id_for_label }}">Date of Birth *</label>
+                        {% if form.date_of_birth.errors %}
+                        <span class="helper-text red-text">{{ form.date_of_birth.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Role & Permissions Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">shield</i> Role & Permissions
+                    </h6>
+
+                    <!-- Role -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">work</i>
+                        {{ form.role }}
+                        <label for="{{ form.role.id_for_label }}">Role *</label>
+                        {% if form.role.help_text %}
+                        <span class="helper-text grey-text">{{ form.role.help_text }}</span>
+                        {% endif %}
+                        {% if form.role.errors %}
+                        <span class="helper-text red-text">{{ form.role.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Primary Player Checkbox -->
+                    <div style="margin: 20px 0;">
+                        <label>
+                            {{ form.is_primary }}
+                            <span style="color: var(--rpg-gold);">Primary Player</span>
+                        </label>
+                        {% if form.is_primary.help_text %}
+                        <div class="helper-text grey-text" style="margin-left: 30px;">{{ form.is_primary.help_text }}</div>
+                        {% endif %}
+                        {% if form.is_primary.errors %}
+                        <div class="helper-text red-text" style="margin-left: 30px;">{{ form.is_primary.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Permissions Checkboxes -->
+                    <div class="card-panel" style="background: rgba(212, 175, 55, 0.05); margin: 20px 0;">
+                        <h6 class="grey-text" style="margin-top: 0;">Account Permissions</h6>
+
+                        <div style="margin: 15px 0;">
+                            <label>
+                                {{ form.can_manage_account }}
+                                <span>Can Manage Account Settings</span>
+                            </label>
+                        </div>
+
+                        <div style="margin: 15px 0;">
+                            <label>
+                                {{ form.can_manage_players }}
+                                <span>Can Manage Other Players</span>
+                            </label>
+                        </div>
+
+                        <div style="margin: 15px 0;">
+                            <label>
+                                {{ form.can_view_billing }}
+                                <span>Can View Billing Information</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Content Restrictions Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">security</i> Content Restrictions
+                    </h6>
+
+                    <!-- Content Restriction Level -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">verified_user</i>
+                        {{ form.content_restriction_level }}
+                        <label for="{{ form.content_restriction_level.id_for_label }}">Content Restriction Level</label>
+                        {% if form.content_restriction_level.errors %}
+                        <span class="helper-text red-text">{{ form.content_restriction_level.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if not is_create %}
+                    <!-- Status Section (Edit only) -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">toggle_on</i> Status
+                    </h6>
+
+                    <div style="margin: 20px 0;">
+                        <label>
+                            {{ form.is_active }}
+                            <span style="color: var(--rpg-gold);">Player is Active</span>
+                        </label>
+                        <div class="helper-text grey-text" style="margin-left: 30px;">Inactive players cannot access the system</div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Submit Buttons -->
+                    <div class="row" style="margin-top: 40px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold); color: #1a1a2e;">
+                                <i class="material-icons left">save</i>
+                                {% if is_create %}Add Player{% else %}Save Changes{% endif %}
+                            </button>
+                            {% if is_create %}
+                            <a href="{% url 'account_detail' account.account_id %}" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                                Cancel
+                            </a>
+                            {% else %}
+                            <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                                Cancel
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize select elements
+    var elems = document.querySelectorAll('select');
+    M.FormSelect.init(elems);
+
+    // Update labels for pre-filled fields
+    M.updateTextFields();
+
+    // Fix validation for Materialize selects
+    // Remove tabindex=-1 from required selects to allow browser validation
+    document.querySelectorAll('select[required]').forEach(function(select) {
+        select.removeAttribute('tabindex');
+    });
+
+    // Handle form submission - ensure selects are validated
+    var form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            var isValid = true;
+
+            // Check all required selects
+            document.querySelectorAll('select[required]').forEach(function(select) {
+                if (!select.value) {
+                    isValid = false;
+                    // Trigger Materialize validation
+                    var wrapper = select.closest('.input-field');
+                    if (wrapper) {
+                        var helper = wrapper.querySelector('.helper-text');
+                        if (!helper) {
+                            helper = document.createElement('span');
+                            helper.className = 'helper-text red-text';
+                            wrapper.appendChild(helper);
+                        }
+                        helper.textContent = 'This field is required.';
+                        helper.style.display = 'block';
+                    }
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                // Scroll to first error
+                var firstError = document.querySelector('.helper-text.red-text');
+                if (firstError) {
+                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

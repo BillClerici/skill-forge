@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Player
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">face</i>{{ page_title }}
+                </span>
+
+                <form method="post" style="margin-top: 30px;">
+                    {% csrf_token %}
+
+                    <!-- Basic Information Section -->
+                    <h6 style="color: var(--rpg-silver); margin-top: 30px; margin-bottom: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 10px;">
+                        <i class="material-icons left" style="font-size: 1.2rem;">badge</i>Basic Information
+                    </h6>
+
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">person</i>
+                                {{ form.name }}
+                                <label for="{{ form.name.id_for_label }}">Character Name*</label>
+                                {% if form.name.errors %}
+                                    <span class="helper-text" style="color: #f44336;">{{ form.name.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">military_tech</i>
+                                {{ form.title }}
+                                <label for="{{ form.title.id_for_label }}">Title</label>
+                                {% if form.title.errors %}
+                                    <span class="helper-text" style="color: #f44336;">{{ form.title.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                                {{ form.description }}
+                                <label for="{{ form.description.id_for_label }}">Description</label>
+                                <span class="helper-text">Brief description used for AI backstory generation</span>
+                                {% if form.description.errors %}
+                                    <span class="helper-text" style="color: #f44336;">{{ form.description.errors.0 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Character Details Section -->
+                    <h6 style="color: var(--rpg-silver); margin-top: 30px; margin-bottom: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 10px;">
+                        <i class="material-icons left" style="font-size: 1.2rem;">info</i>Character Details
+                    </h6>
+
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">cake</i>
+                                {{ form.age }}
+                                <label for="{{ form.age.id_for_label }}">Age</label>
+                            </div>
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">height</i>
+                                {{ form.height }}
+                                <label for="{{ form.height.id_for_label }}">Height</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">face</i>
+                                {{ form.appearance }}
+                                <label for="{{ form.appearance.id_for_label }}">Physical Appearance</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="row" style="margin-top: 30px;">
+                        <div class="col s12">
+                            <button type="submit" class="btn waves-effect waves-light" style="margin-right: 10px;">
+                                <i class="material-icons left">save</i>Save Character
+                            </button>
+                            <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold);">
+                                Cancel
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Materialize components
+    M.updateTextFields();
+});
+</script>
+{% endblock %}
