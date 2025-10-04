@@ -439,6 +439,93 @@ class CharacterDeleteImageView(View):
             }, status=500)
 
 
+class CharacterTextToSpeechView(View):
+    """Generate TTS audio for character backstory using ElevenLabs"""
+
+    def post(self, request, character_id):
+        character = get_object_or_404(Character, character_id=character_id)
+
+        try:
+            from elevenlabs import ElevenLabs
+            from django.http import HttpResponse
+            import traceback
+
+            print(f"DEBUG: TTS request for character {character_id}")
+
+            elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
+            print(f"DEBUG: API key exists: {bool(elevenlabs_api_key)}")
+
+            if not elevenlabs_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'ElevenLabs API key not configured'
+                }, status=500)
+
+            if not character.backstory:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No backstory to read'
+                }, status=400)
+
+            print(f"DEBUG: Creating ElevenLabs client")
+            client = ElevenLabs(api_key=elevenlabs_api_key)
+            print(f"DEBUG: Client created successfully")
+
+            # Select voice based on character's voice profile
+            # Using premade voices from ElevenLabs - default to Old British Male
+            voice_id = "iOVaF08dLdP3q4lSrs5M"  # Default: Old British Male
+
+            # Voice mapping based on character profile
+            if character.voice_profile and isinstance(character.voice_profile, dict):
+                accent = character.voice_profile.get('accent', '')
+                voice_type = character.voice_profile.get('voice_type', '')
+
+                # Map to ElevenLabs premade voice IDs
+                # British/Scottish male voices as default
+                if accent == 'scottish':
+                    voice_id = "nPczCjzI2devNBz1zQrb"  # Brian (calm Scottish-ish male)
+                elif accent == 'british':
+                    voice_id = "iOVaF08dLdP3q4lSrs5M"  # Old British Male
+                elif accent == 'australian':
+                    voice_id = "pFZP5JQG7iQjIQuC4Bku"  # Lily (warm, pleasant)
+                elif accent == 'irish':
+                    voice_id = "nPczCjzI2devNBz1zQrb"  # Brian (closest to Irish male)
+
+                # Voice type overrides (male voices)
+                if voice_type == 'deep' or voice_type == 'booming' or voice_type == 'gravelly':
+                    voice_id = "TxGEqnHWrfWFTfGW9XjX"  # Josh (deep, resonant male)
+                elif voice_type == 'smooth' or voice_type == 'melodic':
+                    voice_id = "iOVaF08dLdP3q4lSrs5M"  # Old British Male (smooth)
+                elif voice_type == 'commanding':
+                    voice_id = "TxGEqnHWrfWFTfGW9XjX"  # Josh (strong, commanding)
+                elif voice_type == 'high':
+                    voice_id = "EXAVITQu4vr4xnSDxMaL"  # Bella (light female - for high voices)
+
+            # Generate audio
+            audio_generator = client.text_to_speech.convert(
+                text=character.backstory,
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2"
+            )
+
+            # Stream audio as response
+            audio_data = b''.join(audio_generator)
+
+            response = HttpResponse(audio_data, content_type='audio/mpeg')
+            response['Content-Disposition'] = f'inline; filename="character_{character.character_id}_backstory.mp3"'
+            return response
+
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"ERROR: TTS generation failed: {str(e)}")
+            print(f"TRACEBACK: {error_trace}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Error generating audio: {str(e)}'
+            }, status=500)
+
+
 class CharacterSetPrimaryImageView(View):
     """Set primary image for character"""
 

@@ -2203,6 +2203,170 @@ class RegionSetPrimaryImageView(View):
             return JsonResponse({'error': f'Failed to set primary image: {str(e)}'}, status=500)
 
 
+class WorldTextToSpeechView(View):
+    """Generate TTS audio for world backstory using ElevenLabs"""
+
+    def post(self, request, world_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({
+                'success': False,
+                'error': 'World not found'
+            }, status=404)
+
+        try:
+            from elevenlabs import ElevenLabs
+            from django.http import HttpResponse
+
+            elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
+            if not elevenlabs_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'ElevenLabs API key not configured'
+                }, status=500)
+
+            backstory = world.get('backstory', '')
+            if not backstory:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No backstory to read'
+                }, status=400)
+
+            client = ElevenLabs(api_key=elevenlabs_api_key)
+
+            # Use Old British Male voice for world backstories
+            voice_id = "iOVaF08dLdP3q4lSrs5M"
+
+            # Generate audio
+            audio_generator = client.text_to_speech.convert(
+                text=backstory,
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2"
+            )
+
+            # Stream audio as response
+            audio_data = b''.join(audio_generator)
+
+            response = HttpResponse(audio_data, content_type='audio/mpeg')
+            response['Content-Disposition'] = f'inline; filename="world_{world_id}_backstory.mp3"'
+            return response
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error generating audio: {str(e)}'
+            }, status=500)
+
+
+class RegionTextToSpeechView(View):
+    """Generate TTS audio for region backstory using ElevenLabs"""
+
+    def post(self, request, world_id, region_id):
+        region = db.region_definitions.find_one({'_id': region_id})
+        if not region:
+            return JsonResponse({
+                'success': False,
+                'error': 'Region not found'
+            }, status=404)
+
+        try:
+            from elevenlabs import ElevenLabs
+            from django.http import HttpResponse
+
+            elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
+            if not elevenlabs_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'ElevenLabs API key not configured'
+                }, status=500)
+
+            backstory = region.get('backstory', '')
+            if not backstory:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No backstory to read'
+                }, status=400)
+
+            client = ElevenLabs(api_key=elevenlabs_api_key)
+
+            # Use Old British Male voice for region backstories
+            voice_id = "iOVaF08dLdP3q4lSrs5M"
+
+            # Generate audio
+            audio_generator = client.text_to_speech.convert(
+                text=backstory,
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2"
+            )
+
+            # Stream audio as response
+            audio_data = b''.join(audio_generator)
+
+            response = HttpResponse(audio_data, content_type='audio/mpeg')
+            response['Content-Disposition'] = f'inline; filename="region_{region_id}_backstory.mp3"'
+            return response
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error generating audio: {str(e)}'
+            }, status=500)
+
+
+class LocationTextToSpeechView(View):
+    """Generate TTS audio for location backstory using ElevenLabs"""
+
+    def post(self, request, world_id, region_id, location_id):
+        location = db.location_definitions.find_one({'_id': location_id})
+        if not location:
+            return JsonResponse({
+                'success': False,
+                'error': 'Location not found'
+            }, status=404)
+
+        try:
+            from elevenlabs import ElevenLabs
+            from django.http import HttpResponse
+
+            elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
+            if not elevenlabs_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'ElevenLabs API key not configured'
+                }, status=500)
+
+            backstory = location.get('backstory', '')
+            if not backstory:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No backstory to read'
+                }, status=400)
+
+            client = ElevenLabs(api_key=elevenlabs_api_key)
+
+            # Use Old British Male voice for location backstories
+            voice_id = "iOVaF08dLdP3q4lSrs5M"
+
+            # Generate audio
+            audio_generator = client.text_to_speech.convert(
+                text=backstory,
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2"
+            )
+
+            # Stream audio as response
+            audio_data = b''.join(audio_generator)
+
+            response = HttpResponse(audio_data, content_type='audio/mpeg')
+            response['Content-Disposition'] = f'inline; filename="location_{location_id}_backstory.mp3"'
+            return response
+
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error generating audio: {str(e)}'
+            }, status=500)
+
 
 # Import Location Image Views
 from .views_locations import LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView

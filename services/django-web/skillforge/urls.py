@@ -22,15 +22,15 @@ from worlds.views import (
     WorldListView, WorldCreateView, WorldDetailView,
     WorldUpdateView, WorldDeleteView,
     WorldGenerateBackstoryView, WorldSaveBackstoryView, WorldGenerateRegionsView,
-    WorldGenerateImageView, WorldDeleteImageView, WorldSetPrimaryImageView,
+    WorldGenerateImageView, WorldDeleteImageView, WorldSetPrimaryImageView, WorldTextToSpeechView,
     RegionListView, RegionCreateView, RegionDetailView,
     RegionUpdateView, RegionDeleteView,
     RegionGenerateBackstoryView, RegionSaveBackstoryView, RegionGenerateLocationsView,
-    RegionGenerateImageView, RegionDeleteImageView, RegionSetPrimaryImageView,
+    RegionGenerateImageView, RegionDeleteImageView, RegionSetPrimaryImageView, RegionTextToSpeechView,
     LocationListView, LocationCreateView, LocationDetailView,
     LocationUpdateView, LocationDeleteView,
     LocationGenerateBackstoryView, LocationSaveBackstoryView,
-    LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView
+    LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView, LocationTextToSpeechView
 )
 from worlds.views_species import (
     SpeciesCreateView, SpeciesDetailView, SpeciesEditView, SpeciesDeleteView,
@@ -44,7 +44,8 @@ from campaigns.views import (
 from characters.views import (
     CharacterCreateView, CharacterDetailView, CharacterSheetView, CharacterEditView, CharacterDeleteView,
     CharacterGenerateBackstoryView, CharacterSaveBackstoryView,
-    CharacterGenerateImageView, CharacterDeleteImageView, CharacterSetPrimaryImageView
+    CharacterGenerateImageView, CharacterDeleteImageView, CharacterSetPrimaryImageView,
+    CharacterTextToSpeechView
 )
 
 urlpatterns = [
@@ -88,6 +89,7 @@ urlpatterns = [
     path('worlds/<str:world_id>/generate-image/', WorldGenerateImageView.as_view(), name='world_generate_image'),
     path('worlds/<str:world_id>/delete-image/', WorldDeleteImageView.as_view(), name='world_delete_image'),
     path('worlds/<str:world_id>/set-primary-image/', WorldSetPrimaryImageView.as_view(), name='world_set_primary_image'),
+    path('worlds/<str:world_id>/tts-backstory/', WorldTextToSpeechView.as_view(), name='world_tts_backstory'),
 
     # Species
     path('worlds/<str:world_id>/species/create/', SpeciesCreateView.as_view(), name='species_create'),
@@ -111,6 +113,7 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/generate-image/', RegionGenerateImageView.as_view(), name='region_generate_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/delete-image/', RegionDeleteImageView.as_view(), name='region_delete_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/set-primary-image/', RegionSetPrimaryImageView.as_view(), name='region_set_primary_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/tts-backstory/', RegionTextToSpeechView.as_view(), name='region_tts_backstory'),
 
     # Locations
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/', LocationListView.as_view(), name='location_list'),
@@ -123,6 +126,7 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/generate-image/', LocationGenerateImageView.as_view(), name='location_generate_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/delete-image/', LocationDeleteImageView.as_view(), name='location_delete_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/set-primary-image/', LocationSetPrimaryImageView.as_view(), name='location_set_primary_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/tts-backstory/', LocationTextToSpeechView.as_view(), name='location_tts_backstory'),
 
     # Campaigns
     path('campaigns/', CampaignListView.as_view(), name='campaign_list'),
@@ -143,6 +147,7 @@ urlpatterns = [
     path('characters/<uuid:character_id>/generate-image/', CharacterGenerateImageView.as_view(), name='character_generate_image'),
     path('characters/<uuid:character_id>/delete-image/', CharacterDeleteImageView.as_view(), name='character_delete_image'),
     path('characters/<uuid:character_id>/set-primary-image/', CharacterSetPrimaryImageView.as_view(), name='character_set_primary_image'),
+    path('characters/<uuid:character_id>/tts-backstory/', CharacterTextToSpeechView.as_view(), name='character_tts_backstory'),
 ]
 
 # Serve media files in development

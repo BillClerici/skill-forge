@@ -371,6 +371,7 @@ services:
       - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - ORCHESTRATOR_URL=http://agent-orchestrator:9000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

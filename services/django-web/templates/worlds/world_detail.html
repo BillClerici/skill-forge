@@ -712,17 +712,26 @@
                 <div id="backstory-display" style="margin-top: 20px;">
                     {% if world.backstory %}
                         <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap; margin-bottom: 20px;">{{ world.backstory }}</p>
-                        <button id="regenerate-btn" class="btn waves-effect waves-light" style="margin-right: 10px;">
-                            <i class="material-icons left">refresh</i>Regenerate
-                        </button>
-                        <button id="edit-btn" class="btn waves-effect waves-light grey darken-1">
-                            <i class="material-icons left">edit</i>Edit
-                        </button>
+
+                        <!-- Action Buttons (Centered at Bottom) -->
+                        <div class="center-align" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(212, 175, 55, 0.2);">
+                            <button id="read-backstory-btn" class="btn-small waves-effect waves-light" style="margin: 0 4px;">
+                                <i class="material-icons left">volume_up</i><span id="read-backstory-text">Read</span>
+                            </button>
+                            <button id="edit-btn" class="btn-small waves-effect waves-light grey darken-1" style="margin: 0 4px;">
+                                <i class="material-icons left">edit</i>Edit
+                            </button>
+                            <button id="regenerate-btn" class="btn-small waves-effect waves-light" style="margin: 0 4px;">
+                                <i class="material-icons left">refresh</i>Regenerate
+                            </button>
+                        </div>
                     {% else %}
                         <p style="color: #b8b8d1; margin-bottom: 20px;">Generate a creative AI backstory for this world based on its properties.</p>
-                        <button id="generate-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
-                            <i class="material-icons left">auto_awesome</i>Generate Backstory
-                        </button>
+                        <div class="center-align">
+                            <button id="generate-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                                <i class="material-icons left">auto_awesome</i>Generate Backstory
+                            </button>
+                        </div>
                     {% endif %}
                 </div>
 
@@ -1209,6 +1218,83 @@
                     displayLength: 4000
                 });
             }
+        }
+
+        // Text-to-Speech for Backstory using ElevenLabs
+        const readBackstoryBtn = document.getElementById('read-backstory-btn');
+        const readBackstoryText = document.getElementById('read-backstory-text');
+        let currentAudio = null;
+        let isPlaying = false;
+
+        if (readBackstoryBtn) {
+            readBackstoryBtn.addEventListener('click', async function() {
+                const backstoryElement = document.querySelector('#backstory-display p');
+                if (!backstoryElement || !backstoryElement.textContent.trim()) {
+                    M.toast({html: 'No backstory to read', classes: 'orange'});
+                    return;
+                }
+
+                // If already playing, stop
+                if (isPlaying && currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                    isPlaying = false;
+                    readBackstoryText.textContent = 'Read';
+                    readBackstoryBtn.querySelector('.material-icons').textContent = 'volume_up';
+                    readBackstoryBtn.disabled = false;
+                    return;
+                }
+
+                try {
+                    // Disable button and show loading
+                    readBackstoryBtn.disabled = true;
+                    readBackstoryText.textContent = 'Loading...';
+
+                    // Fetch audio from ElevenLabs
+                    const response = await fetch('{% url "world_tts_backstory" world.world_id %}', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to generate audio');
+                    }
+
+                    // Create audio element from response
+                    const audioBlob = await response.blob();
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    currentAudio = new Audio(audioUrl);
+
+                    // Event handlers
+                    currentAudio.onplay = function() {
+                        isPlaying = true;
+                        readBackstoryText.textContent = 'Stop';
+                        readBackstoryBtn.querySelector('.material-icons').textContent = 'stop';
+                        readBackstoryBtn.disabled = false;
+                    };
+
+                    currentAudio.onended = function() {
+                        isPlaying = false;
+                        readBackstoryText.textContent = 'Read';
+                        readBackstoryBtn.querySelector('.material-icons').textContent = 'volume_up';
+                        readBackstoryBtn.disabled = false;
+                        URL.revokeObjectURL(audioUrl);
+                    };
+
+                    // Play audio
+                    currentAudio.play();
+
+                } catch (error) {
+                    console.error('TTS Error:', error);
+                    M.toast({html: 'Error generating audio: ' + error.message, classes: 'red'});
+                    isPlaying = false;
+                    readBackstoryText.textContent = 'Read';
+                    readBackstoryBtn.querySelector('.material-icons').textContent = 'volume_up';
+                    readBackstoryBtn.disabled = false;
+                }
+            });
         }
 
         // Event listeners
