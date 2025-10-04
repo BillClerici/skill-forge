@@ -24,26 +24,59 @@
     {% if universes %}
         {% for universe in universes %}
         <div class="col s12 m6 l4">
-            <div class="card hoverable">
+            <div class="card hoverable" style="height: 100%;">
                 <div class="card-content">
-                    <span class="card-title">{{ universe.universe_name }}</span>
-                    <p style="margin-bottom: 16px; min-height: 60px; color: #b8b8d1;">
+                    <span class="card-title" style="margin-bottom: 10px;">{{ universe.universe_name }}</span>
+
+                    <p style="margin-bottom: 16px; min-height: 60px; color: #b8b8d1; font-size: 0.95rem;">
                         {{ universe.description|truncatewords:20 }}
                     </p>
-                    <div class="chip">
-                        <i class="material-icons tiny">star</i>
-                        {{ universe.max_content_rating }}
+
+                    <!-- World Count Badge -->
+                    <div style="margin-bottom: 12px; padding: 8px 12px; background: rgba(212, 175, 55, 0.1); border-radius: 4px;">
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">map</i>
+                        <span style="color: var(--rpg-gold); font-weight: 500;">{{ universe.world_count }} World{% if universe.world_count != 1 %}s{% endif %}</span>
                     </div>
-                    <div class="chip">
-                        <i class="material-icons tiny">style</i>
-                        {{ universe.narrative_style|title }}
-                    </div>
-                    {% if universe.humor_level and universe.humor_level != 'none' %}
-                    <div class="chip">
-                        <i class="material-icons tiny">mood</i>
-                        {{ universe.humor_level|title }}
+
+                    <!-- Purpose & Target Age -->
+                    {% if universe.purpose_display or universe.target_age_group %}
+                    <div style="margin-bottom: 12px;">
+                        {% if universe.purpose_display %}
+                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); margin-bottom: 4px;">
+                            <i class="material-icons tiny">category</i>
+                            {{ universe.purpose_display }}
+                        </div>
+                        {% endif %}
                     </div>
                     {% endif %}
+
+                    <!-- Ratings & Features -->
+                    <div style="margin-bottom: 8px;">
+                        <div class="chip" style="background-color: rgba(106, 76, 147, 0.2);">
+                            <i class="material-icons tiny">star</i>
+                            {{ universe.max_content_rating }}
+                        </div>
+                        {% if universe.reading_level %}
+                        <div class="chip" style="background-color: rgba(76, 147, 106, 0.2);">
+                            <i class="material-icons tiny">book</i>
+                            {{ universe.reading_level }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Game Features -->
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        {% if universe.combat_enabled %}
+                        <span class="chip" style="background-color: rgba(229, 57, 53, 0.2); font-size: 0.8rem;">
+                            <i class="material-icons tiny">sports_kabaddi</i> Combat
+                        </span>
+                        {% endif %}
+                        {% if universe.romance_enabled %}
+                        <span class="chip" style="background-color: rgba(233, 30, 99, 0.2); font-size: 0.8rem;">
+                            <i class="material-icons tiny">favorite</i> Romance
+                        </span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="card-action" style="background: rgba(212, 175, 55, 0.05); border-top: 1px solid rgba(212, 175, 55, 0.2);">
                     <a href="{% url 'universe_detail' universe.universe_id %}" style="color: var(--rpg-gold);">

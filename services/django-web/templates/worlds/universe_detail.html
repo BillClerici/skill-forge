@@ -141,16 +141,21 @@
                         {% for world in worlds %}
                         <div class="col s12 m6 l4">
                             <div class="card hoverable" style="margin-top: 20px;">
+                                {% if world.primary_image_url %}
+                                <div class="card-image">
+                                    <img src="{{ world.primary_image_url }}" alt="{{ world.world_name }}" style="height: 200px; object-fit: cover;">
+                                </div>
+                                {% endif %}
                                 <div class="card-content">
                                     <span class="card-title" style="font-size: 1.3rem;">{{ world.world_name }}</span>
+                                    {% if world.description %}
+                                    <p style="color: #b8b8d1; margin-top: 10px; margin-bottom: 10px;">
+                                        {{ world.description|truncatewords:20 }}
+                                    </p>
+                                    {% endif %}
                                     <p style="color: #b8b8d1;">
                                         <strong>Genre:</strong> {{ world.genre }}
                                     </p>
-                                    {% if world.setting %}
-                                    <p style="margin-top: 10px; color: #b8b8d1; min-height: 60px;">
-                                        {{ world.setting|truncatewords:15 }}
-                                    </p>
-                                    {% endif %}
                                 </div>
                                 <div class="card-action" style="background: rgba(212, 175, 55, 0.05); border-top: 1px solid rgba(212, 175, 55, 0.2);">
                                     <a href="{% url 'world_detail' world.world_id %}" style="color: var(--rpg-gold);">

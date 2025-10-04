@@ -112,6 +112,51 @@ def sync_species_to_neo4j(entity_id, entity_data, action, max_retries=3):
                 return False
 
 
+def sync_universe_to_neo4j(entity_id, entity_data, action, max_retries=3):
+    """Sync universe to Neo4j with retry logic"""
+    for attempt in range(max_retries):
+        try:
+            with neo4j_driver.session() as session:
+                if action == 'created':
+                    session.run("""
+                        CREATE (u:Universe {
+                            id: $universe_id,
+                            name: $universe_name,
+                            content_rating: $content_rating
+                        })
+                    """, universe_id=entity_id,
+                       universe_name=entity_data.get('universe_name', ''),
+                       content_rating=entity_data.get('max_content_rating', 'PG'))
+                    logger.info(f"Created Universe in Neo4j: {entity_id}")
+
+                elif action == 'updated':
+                    session.run("""
+                        MATCH (u:Universe {id: $universe_id})
+                        SET u.name = $universe_name,
+                            u.content_rating = $content_rating
+                    """, universe_id=entity_id,
+                       universe_name=entity_data.get('universe_name', ''),
+                       content_rating=entity_data.get('max_content_rating', 'PG'))
+                    logger.info(f"Updated Universe in Neo4j: {entity_id}")
+
+                elif action == 'deleted':
+                    session.run("""
+                        MATCH (u:Universe {id: $universe_id})
+                        DETACH DELETE u
+                    """, universe_id=entity_id)
+                    logger.info(f"Deleted Universe from Neo4j: {entity_id}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Neo4j sync attempt {attempt + 1}/{max_retries} failed for Universe {entity_id}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                logger.error(f"Failed to sync Universe {entity_id} to Neo4j after {max_retries} attempts")
+                return False
+
+
 def sync_world_to_neo4j(entity_id, entity_data, action, max_retries=3):
     """Sync world to Neo4j with retry logic"""
     for attempt in range(max_retries):
@@ -285,7 +330,9 @@ def handle_entity_event(ch, method, properties, body):
         logger.info(f"Processing {action} event for {entity_type}: {entity_id}")
 
         # Route to appropriate handler
-        if entity_type == 'species':
+        if entity_type == 'universe':
+            success = sync_universe_to_neo4j(entity_id, entity_data, action)
+        elif entity_type == 'species':
             success = sync_species_to_neo4j(entity_id, entity_data, action)
         elif entity_type == 'world':
             success = sync_world_to_neo4j(entity_id, entity_data, action)

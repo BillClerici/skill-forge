@@ -41,6 +41,26 @@ class UniverseListView(View):
         # Add universe_id field for template (Django doesn't allow _id)
         for universe in universes:
             universe['universe_id'] = universe['_id']
+
+            # Extract nested fields for easier template access
+            narrative_tone = universe.get('narrative_tone', {})
+            universe['narrative_style'] = narrative_tone.get('style', '')
+            universe['humor_level'] = narrative_tone.get('humor_level', '')
+
+            vocab_style = universe.get('vocabulary_style', {})
+            universe['reading_level'] = vocab_style.get('reading_level', '').replace('_', ' ').title()
+
+            features = universe.get('features', {})
+            universe['combat_enabled'] = features.get('combat_enabled', False)
+            universe['romance_enabled'] = features.get('romance_enabled', False)
+
+            # Get world count for this universe
+            universe['world_count'] = db.world_definitions.count_documents({'universe_ids': universe['_id']})
+
+            # Format purpose category
+            if universe.get('purpose_category'):
+                universe['purpose_display'] = universe['purpose_category'].replace('_', ' ').title()
+
         return render(request, 'worlds/universe_list.html', {'universes': universes})
 
 
@@ -77,17 +97,11 @@ class UniverseCreateView(View):
         # Store in MongoDB
         db.universe_definitions.insert_one(universe_data)
 
-        # Create node in Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                CREATE (u:Universe {
-                    id: $universe_id,
-                    name: $universe_name,
-                    content_rating: $content_rating
-                })
-            """, universe_id=universe_id,
-               universe_name=universe_data['universe_name'],
-               content_rating=universe_data['max_content_rating'])
+        # Publish event to sync to Neo4j
+        publish_entity_event('universe', 'created', universe_id, {
+            'universe_name': universe_data['universe_name'],
+            'max_content_rating': universe_data['max_content_rating']
+        })
 
         messages.success(request, f'Universe "{universe_data["universe_name"]}" created successfully!')
         return redirect('universe_list')
@@ -98,11 +112,19 @@ class UniverseDetailView(View):
 
     def get(self, request, universe_id):
         universe = db.universe_definitions.find_one({'_id': universe_id})
-        worlds = list(db.world_definitions.find({'universe_id': universe_id}))
+        worlds = list(db.world_definitions.find({'universe_ids': universe_id}))
 
         # Add world_id field for template (Django doesn't allow _id)
         for world in worlds:
             world['world_id'] = world['_id']
+
+            # Get primary image URL
+            world['primary_image_url'] = None
+            if world.get('world_images') and world.get('primary_image_index') is not None:
+                images = world.get('world_images', [])
+                primary_idx = world.get('primary_image_index')
+                if 0 <= primary_idx < len(images):
+                    world['primary_image_url'] = images[primary_idx].get('url')
 
         # Process data for template display
         if universe:
@@ -422,15 +444,11 @@ class UniverseUpdateView(View):
         # Update in MongoDB
         db.universe_definitions.update_one({'_id': universe_id}, {'$set': universe_data})
 
-        # Update node in Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (u:Universe {id: $universe_id})
-                SET u.name = $universe_name,
-                    u.content_rating = $content_rating
-            """, universe_id=universe_id,
-               universe_name=universe_data['universe_name'],
-               content_rating=universe_data['max_content_rating'])
+        # Publish event to sync to Neo4j
+        publish_entity_event('universe', 'updated', universe_id, {
+            'universe_name': universe_data['universe_name'],
+            'max_content_rating': universe_data['max_content_rating']
+        })
 
         messages.success(request, f'Universe "{universe_data["universe_name"]}" updated successfully!')
         return redirect('universe_detail', universe_id=universe_id)
@@ -480,14 +498,11 @@ class UniverseDeleteView(View):
                 messages.error(request, f'Cannot delete universe "{universe["universe_name"]}". It has {world_count} related world(s). Delete those first.')
                 return redirect('universe_detail', universe_id=universe_id)
 
-            # Delete from Neo4j
-            session.run("""
-                MATCH (u:Universe {id: $universe_id})
-                DELETE u
-            """, universe_id=universe_id)
-
         # Delete from MongoDB
         db.universe_definitions.delete_one({'_id': universe_id})
+
+        # Publish event to sync deletion to Neo4j
+        publish_entity_event('universe', 'deleted', universe_id, {})
 
         messages.success(request, f'Universe "{universe["universe_name"]}" deleted successfully!')
         return redirect('universe_list')
