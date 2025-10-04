@@ -1,6 +1,6 @@
 """
 Views for Species management
-Uses MongoDB for definitions
+Uses MongoDB for definitions and Neo4j for relationships
 """
 import uuid
 import httpx
@@ -16,12 +16,19 @@ from pymongo import MongoClient
 import os
 import json
 from openai import OpenAI
+from neo4j import GraphDatabase
 
 
 # MongoDB connection
 MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mongodb:27017')
 mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client['skillforge']
+
+# Neo4j connection
+NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://neo4j:7687')
+NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
+NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'neo4j_dev_pass_2024')
+neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 # Orchestrator URL
 ORCHESTRATOR_URL = os.getenv('ORCHESTRATOR_URL', 'http://agent-orchestrator:9000')
@@ -100,6 +107,29 @@ class SpeciesCreateView(View):
             {'_id': world_id},
             {'$addToSet': {'species': species_id}}
         )
+
+        # Create Species node in Neo4j and link to World
+        with neo4j_driver.session() as session:
+            session.run("""
+                MATCH (w:World {id: $world_id})
+                MERGE (s:Species {id: $species_id})
+                ON CREATE SET s.name = $species_name,
+                             s.type = $species_type,
+                             s.category = $category
+                MERGE (s)-[:IN_WORLD]->(w)
+            """, world_id=world_id,
+               species_id=species_id,
+               species_name=species_name,
+               species_type=species_type,
+               category=category)
+
+            # Link to regions if specified
+            for region_id in region_ids:
+                session.run("""
+                    MATCH (s:Species {id: $species_id})
+                    MATCH (r:Region {id: $region_id})
+                    MERGE (s)-[:INHABITS]->(r)
+                """, species_id=species_id, region_id=region_id)
 
         messages.success(request, f'Species "{species_name}" created successfully!')
         return redirect('world_detail', world_id=world_id)
@@ -205,6 +235,32 @@ class SpeciesEditView(View):
             }}
         )
 
+        # Update Species node in Neo4j
+        with neo4j_driver.session() as session:
+            session.run("""
+                MATCH (s:Species {id: $species_id})
+                SET s.name = $species_name,
+                    s.type = $species_type,
+                    s.category = $category
+            """, species_id=species_id,
+               species_name=species_name,
+               species_type=species_type,
+               category=category)
+
+            # Remove old region relationships
+            session.run("""
+                MATCH (s:Species {id: $species_id})-[r:INHABITS]->()
+                DELETE r
+            """, species_id=species_id)
+
+            # Create new region relationships
+            for region_id in region_ids:
+                session.run("""
+                    MATCH (s:Species {id: $species_id})
+                    MATCH (r:Region {id: $region_id})
+                    MERGE (s)-[:INHABITS]->(r)
+                """, species_id=species_id, region_id=region_id)
+
         messages.success(request, f'Species "{species_name}" updated successfully!')
         return redirect('species_detail', world_id=world_id, species_id=species_id)
 
@@ -213,6 +269,13 @@ class SpeciesDeleteView(View):
     """Delete a species"""
 
     def post(self, request, world_id, species_id):
+        # Delete from Neo4j
+        with neo4j_driver.session() as session:
+            session.run("""
+                MATCH (s:Species {id: $species_id})
+                DETACH DELETE s
+            """, species_id=species_id)
+
         # Delete species from MongoDB
         db.species_definitions.delete_one({'_id': species_id})
 

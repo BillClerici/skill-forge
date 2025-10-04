@@ -287,13 +287,17 @@ services:
       - "4000:8000"
     environment:
       - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET}
+      - ACCOUNT_SERVICE_URL=http://account-service:8000
       - PYTHONUNBUFFERED=1
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+      mongodb:
         condition: service_started
     networks:
       - skillforge-network
