@@ -209,6 +209,7 @@ services:
     ports:
       - "9000:9000"
     environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_URL=redis://redis:6379
       - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
       - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
@@ -359,9 +360,18 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - NEO4J_URL=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - ORCHESTRATOR_URL=http://agent-orchestrator:9000
     depends_on:
       postgres:
         condition: service_healthy
+      mongodb:
+        condition: service_started
+      neo4j:
+        condition: service_started
     networks:
       - skillforge-network
     volumes:

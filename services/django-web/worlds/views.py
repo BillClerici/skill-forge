@@ -7,6 +7,8 @@ import httpx
 import requests
 from django.shortcuts import render, redirect
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.contrib import messages
 from django.http import JsonResponse
 from pymongo import MongoClient
@@ -663,6 +665,7 @@ class WorldDeleteView(View):
         return redirect('world_list')
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class WorldGenerateBackstoryView(View):
     """Generate AI backstory for a world"""
 
@@ -984,6 +987,7 @@ class RegionDeleteView(View):
         return redirect('region_list', world_id=world_id)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegionGenerateBackstoryView(View):
     """Generate AI backstory for a region"""
 
@@ -1273,6 +1277,7 @@ class LocationDeleteView(View):
         return redirect('region_detail', world_id=world_id, region_id=region_id)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class LocationGenerateBackstoryView(View):
     """Generate backstory for a location using AI"""
 
@@ -1338,6 +1343,7 @@ class LocationSaveBackstoryView(View):
             return JsonResponse({'error': f'Failed to save backstory: {str(e)}'}, status=500)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class WorldGenerateRegionsView(View):
     """Generate multiple regions with backstories and locations using AI"""
 
@@ -1479,6 +1485,7 @@ class WorldGenerateRegionsView(View):
             return JsonResponse({'error': f'Failed to generate regions: {str(e)}'}, status=500)
 
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegionGenerateLocationsView(View):
     """Generate multiple locations for a region using AI"""
 

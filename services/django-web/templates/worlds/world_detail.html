@@ -559,33 +559,33 @@
                 </span>
 
                 {% if regions %}
-                <div class="row" style="margin-top: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 20px; margin-top: 20px;">
                     {% for region in regions %}
-                    <div class="col s12 m6 l4">
-                        <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5);">
-                            <div class="card-content">
-                                <span class="card-title" style="color: var(--rpg-gold); font-size: 1.2rem;">
-                                    <i class="material-icons left">terrain</i>
-                                    {{ region.region_name }}
+                    <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto;">
+                        <div class="card-content" style="display: flex; flex-direction: column;">
+                            <span class="card-title" style="color: var(--rpg-gold); font-size: 1.2rem; margin-bottom: 10px;">
+                                <i class="material-icons left">terrain</i>
+                                {{ region.region_name }}
+                            </span>
+                            <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
+                                <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); font-size: 0.85rem;">
+                                    {{ region.region_type }}
                                 </span>
-                                <div style="margin-top: 10px;">
-                                    <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); font-size: 0.85rem;">
-                                        {{ region.region_type }}
-                                    </span>
-                                    <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); font-size: 0.85rem;">
-                                        {{ region.climate }}
-                                    </span>
-                                </div>
-                                <p style="color: #b8b8d1; margin-top: 10px; font-size: 0.9rem;">
-                                    <i class="material-icons tiny" style="vertical-align: middle;">location_on</i>
-                                    {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
-                                </p>
+                                <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); font-size: 0.85rem;">
+                                    {{ region.climate }}
+                                </span>
                             </div>
-                            <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
-                                <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold);">
-                                    <i class="material-icons tiny">visibility</i> View
-                                </a>
-                            </div>
+                        </div>
+                        <div class="card-content" style="padding-top: 0;">
+                            <p style="color: #b8b8d1; font-size: 0.9rem; margin: 0;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">location_on</i>
+                                {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
+                            </p>
+                        </div>
+                        <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
+                            <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold);">
+                                <i class="material-icons tiny">visibility</i> View
+                            </a>
                         </div>
                     </div>
                     {% endfor %}
@@ -597,7 +597,7 @@
                     <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="margin-left: 10px; background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
                         <i class="material-icons left">add</i>Create New Region
                     </a>
-                    <button id="generate-regions-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                    <button class="generate-regions-btn btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
                         <i class="material-icons left">auto_awesome</i>Generate Regions with AI
                     </button>
                 </div>
@@ -608,7 +608,7 @@
                     <a href="{% url 'region_create' world.world_id %}" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
                         <i class="material-icons left">add</i>Create First Region
                     </a>
-                    <button id="generate-regions-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                    <button class="generate-regions-btn btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
                         <i class="material-icons left">auto_awesome</i>Generate with AI
                     </button>
                 </div>
@@ -754,7 +754,7 @@
         M.textareaAutoResize(backstoryTextarea);
 
         // AI Region Generation
-        const generateRegionsBtn = document.getElementById('generate-regions-btn');
+        const generateRegionsBtns = document.querySelectorAll('.generate-regions-btn');
         const aiGenerationModal = document.getElementById('ai-generation-modal');
         const confirmGenerateBtn = document.getElementById('confirm-generate-btn');
         const aiGenerationLoading = document.getElementById('ai-generation-loading');
@@ -764,26 +764,33 @@
         const generationDetails = document.getElementById('generation-details');
 
         // Initialize modal
-        const modalInstances = M.Modal.init(aiGenerationModal, {
-            dismissible: true,
-            opacity: 0.7,
-            inDuration: 250,
-            outDuration: 250,
-            preventScrolling: true
-        });
-
-        // Open modal when button clicked
-        if (generateRegionsBtn) {
-            generateRegionsBtn.addEventListener('click', function() {
-                modalInstances.open();
+        let modalInstances = null;
+        if (aiGenerationModal) {
+            modalInstances = M.Modal.init(aiGenerationModal, {
+                dismissible: true,
+                opacity: 0.7,
+                inDuration: 250,
+                outDuration: 250,
+                preventScrolling: true
             });
         }
+
+        // Open modal when any generate button clicked
+        generateRegionsBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                if (modalInstances) {
+                    modalInstances.open();
+                }
+            });
+        });
 
         // Generate regions with AI
         if (confirmGenerateBtn) {
             confirmGenerateBtn.addEventListener('click', async function() {
                 const numRegions = parseInt(numRegionsInput.value);
                 const numLocations = parseInt(numLocationsInput.value);
+
+                console.log('Generate button clicked!', { numRegions, numLocations });
 
                 if (numRegions < 1 || numRegions > 10 || numLocations < 1 || numLocations > 10) {
                     M.toast({
@@ -795,14 +802,25 @@
                 }
 
                 // Close modal
-                modalInstances.close();
+                if (modalInstances) {
+                    console.log('Closing modal');
+                    modalInstances.close();
+                }
 
                 // Show loading indicator
-                aiGenerationLoading.style.display = 'block';
-                generationStatus.textContent = 'Generating regions with AI...';
-                generationDetails.textContent = `Creating ${numRegions} regions with ${numLocations} locations each`;
+                if (aiGenerationLoading) {
+                    console.log('Showing loading indicator');
+                    aiGenerationLoading.style.display = 'block';
+                }
+                if (generationStatus) {
+                    generationStatus.textContent = 'Generating regions with AI...';
+                }
+                if (generationDetails) {
+                    generationDetails.textContent = `Creating ${numRegions} regions with ${numLocations} locations each`;
+                }
 
                 try {
+                    console.log('Starting fetch request...');
                     const response = await fetch('{% url "world_generate_regions" world.world_id %}', {
                         method: 'POST',
                         headers: {
@@ -815,10 +833,14 @@
                         })
                     });
 
+                    console.log('Response status:', response.status);
                     const data = await response.json();
+                    console.log('Response data:', data);
 
                     if (data.success) {
-                        aiGenerationLoading.style.display = 'none';
+                        if (aiGenerationLoading) {
+                            aiGenerationLoading.style.display = 'none';
+                        }
                         M.toast({
                             html: `<span>Successfully generated ${data.regions_created} regions with ${data.locations_created} locations! (${data.tokens_used} tokens, $${data.cost_usd.toFixed(4)})</span>`,
                             classes: 'green darken-2',
@@ -830,7 +852,9 @@
                         throw new Error(data.error || 'Failed to generate regions');
                     }
                 } catch (error) {
-                    aiGenerationLoading.style.display = 'none';
+                    if (aiGenerationLoading) {
+                        aiGenerationLoading.style.display = 'none';
+                    }
                     M.toast({
                         html: `<span>Error: ${error.message}</span>`,
                         classes: 'red darken-2',
