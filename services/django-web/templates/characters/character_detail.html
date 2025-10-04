@@ -17,7 +17,7 @@
         <div class="card">
             <div class="card-content">
                 <div class="row" style="margin-bottom: 0;">
-                    <div class="col s12 m8">
+                    <div class="col s12 m7">
                         <h4 style="color: var(--rpg-gold); margin-top: 0;">
                             <i class="material-icons left" style="vertical-align: middle;">face</i>
                             {{ character.full_name }}
@@ -44,15 +44,15 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="col s12 m4 right-align">
-                        <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
-                            <i class="material-icons left">description</i>Sheet
+                    <div class="col s12 m5" style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: nowrap; gap: 5px;">
+                        <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple); font-size: 0.7rem; padding: 0 10px;">
+                            <i class="material-icons left" style="font-size: 1rem; margin-right: 3px;">description</i>Character Sheet
                         </a>
-                        <a href="{% url 'character_edit' character.character_id %}" class="btn-small waves-effect waves-light" style="margin-left: 8px;">
-                            <i class="material-icons left">edit</i>Edit
+                        <a href="{% url 'character_edit' character.character_id %}" class="btn-small waves-effect waves-light" style="font-size: 0.7rem; padding: 0 10px;">
+                            <i class="material-icons left" style="font-size: 1rem; margin-right: 3px;">edit</i>Edit
                         </a>
-                        <a href="#delete-character-modal" class="btn-small waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 8px;">
-                            <i class="material-icons left">delete</i>Delete
+                        <a href="#delete-character-modal" class="btn-small waves-effect waves-light red darken-2 modal-trigger" style="font-size: 0.7rem; padding: 0 10px;">
+                            <i class="material-icons left" style="font-size: 1rem; margin-right: 3px;">delete</i>Delete
                         </a>
                     </div>
                 </div>
