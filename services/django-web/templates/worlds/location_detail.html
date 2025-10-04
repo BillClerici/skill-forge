@@ -26,6 +26,95 @@
     </div>
 </div>
 
+<!-- Region Context -->
+<div class="row">
+    <div class="col s12">
+        <div class="card hoverable">
+            <div class="card-content" style="padding: 20px;">
+                <div style="display: flex; gap: 20px;">
+                    <!-- Thumbnail Image on Left -->
+                    {% if region.primary_image_url %}
+                    <div style="flex-shrink: 0;">
+                        <a href="{% url 'region_detail' world.world_id region.region_id %}"
+                           style="display: block;"
+                           class="tooltipped"
+                           data-position="bottom"
+                           data-tooltip="Click to view region details">
+                            <img src="{{ region.primary_image_url }}"
+                                 alt="{{ region.region_name }}"
+                                 style="width: 200px; height: 200px; object-fit: cover; display: block; border-radius: 4px; cursor: pointer; transition: opacity 0.3s;"
+                                 onmouseover="this.style.opacity='0.8'"
+                                 onmouseout="this.style.opacity='1'">
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    <!-- Region Details on Right -->
+                    <div style="flex: 1;">
+                        <span class="card-title" style="color: var(--rpg-gold); font-size: 1.5rem; display: block; margin-bottom: 12px;">
+                            Region: {{ region.region_name }}
+                        </span>
+
+                        <!-- World Link -->
+                        <div style="margin-bottom: 12px;">
+                            <a href="{% url 'world_detail' world.world_id %}" style="text-decoration: none;">
+                                <div class="chip hoverable" style="margin: 2px;">
+                                    <i class="material-icons tiny">map</i>
+                                    {{ world.world_name }}
+                                </div>
+                            </a>
+                        </div>
+
+                        <!-- Region Type & Climate -->
+                        <div style="margin-bottom: 12px;">
+                            {% if region.region_type %}
+                            <div class="chip" style="margin: 2px;">
+                                <i class="material-icons tiny">category</i>
+                                {{ region.region_type }}
+                            </div>
+                            {% endif %}
+                            {% if region.climate %}
+                            <div class="chip" style="margin: 2px;">
+                                <i class="material-icons tiny">thermostat</i>
+                                {{ region.climate }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Description -->
+                        {% if region.description %}
+                        <p style="margin: 8px 0; color: #b8b8d1; font-size: 0.95rem;">
+                            {{ region.description|truncatewords:20 }}
+                        </p>
+                        {% endif %}
+
+                        <!-- Stats -->
+                        <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                            {% if region.location_count %}
+                            <div class="chip" style="background-color: rgba(156, 39, 176, 0.2); margin: 2px; font-size: 0.85rem;">
+                                <i class="material-icons tiny">location_on</i>
+                                {{ region.location_count }} Location{{ region.location_count|pluralize }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Terrain -->
+                        {% if region.terrain %}
+                        <div style="margin-top: 8px;">
+                            {% for terrain_type in region.terrain %}
+                                <span class="chip" style="background-color: rgba(76, 175, 80, 0.3); margin: 2px; font-size: 0.8rem;">
+                                    {{ terrain_type }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Location Overview -->
 <div class="row">
     <div class="col s12 l8">
@@ -35,24 +124,6 @@
                     <i class="material-icons left">info</i>
                     Location Overview
                 </span>
-
-                <!-- Breadcrumb -->
-                <div style="margin: 20px 0;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">map</i> Location
-                    </h6>
-                    <a href="{% url 'world_detail' world.world_id %}" style="text-decoration: none;">
-                        <span class="chip hoverable" style="background-color: rgba(212, 175, 55, 0.3);">
-                            {{ world.world_name }}
-                        </span>
-                    </a>
-                    <span style="color: #b8b8d1;"> &raquo; </span>
-                    <a href="{% url 'region_detail' world.world_id region.region_id %}" style="text-decoration: none;">
-                        <span class="chip hoverable" style="background-color: rgba(76, 175, 80, 0.3);">
-                            {{ region.region_name }}
-                        </span>
-                    </a>
-                </div>
 
                 <!-- Location Type -->
                 <div style="margin: 20px 0;">
@@ -153,6 +224,115 @@
                         <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
                     </div>
                     <p style="color: #b8b8d1; text-align: center;">Generating backstory with AI...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Location Images -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">image</i>
+                    Location Images
+                </span>
+
+                <!-- Image Grid Display -->
+                <div id="location-images-grid" style="margin-top: 20px;">
+                    {% if location.location_images %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        {% for image in location.location_images %}
+                        <div class="image-thumbnail-wrapper" data-index="{{ forloop.counter0 }}" style="position: relative;">
+                            <img src="{{ image.url }}"
+                                 alt="{{ location.location_name }}"
+                                 class="location-image-thumbnail materialboxed"
+                                 style="width: 100%; height: 180px; object-fit: cover; border-radius: 8px; cursor: pointer; display: block;">
+
+                            <!-- Primary Badge -->
+                            {% if location.primary_image_index == forloop.counter0 %}
+                            <div class="primary-badge" style="position: absolute; top: 8px; left: 8px; background: var(--rpg-gold); color: #1a1a2e; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; z-index: 2;">
+                                <i class="material-icons" style="font-size: 16px;">star</i>
+                                PRIMARY
+                            </div>
+                            {% endif %}
+
+                            <!-- Action Buttons -->
+                            <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 5px; z-index: 2;">
+                                {% if location.primary_image_index != forloop.counter0 %}
+                                <button class="btn-floating btn-small purple darken-2 set-primary-btn tooltipped"
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-position="bottom"
+                                        data-tooltip="Set as Primary">
+                                    <i class="material-icons">star_border</i>
+                                </button>
+                                {% endif %}
+                                <button class="btn-floating btn-small red delete-image-btn tooltipped"
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-position="bottom"
+                                        data-tooltip="Delete Image">
+                                    <i class="material-icons">delete</i>
+                                </button>
+                            </div>
+
+                            <!-- Image Type Label -->
+                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7)); color: white; padding: 8px; border-radius: 0 0 8px 8px; z-index: 1;">
+                                <div style="font-size: 0.85rem; font-weight: 600; text-align: center;">
+                                    {% if image.perspective %}
+                                        {{ image.perspective|title }}
+                                    {% else %}
+                                        Location Image
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div id="no-images-placeholder" style="background-color: rgba(30, 30, 46, 0.5); border-radius: 8px; padding: 60px 20px; text-align: center; margin-bottom: 15px;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">landscape</i>
+                        <p style="color: #b8b8d1; margin-top: 10px;">No location images generated yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="text-align: center;">
+                    <button id="generate-location-images-btn" class="btn waves-effect waves-light purple darken-2">
+                        <i class="material-icons left">auto_awesome</i>
+                        <span id="generate-btn-text">
+                            {% if location.location_images %}
+                                {% if location.location_images|length == 0 %}
+                                    Generate 4 Location Images with AI
+                                {% elif location.location_images|length == 1 %}
+                                    Generate 3 More Images
+                                {% elif location.location_images|length == 2 %}
+                                    Generate 2 More Images
+                                {% elif location.location_images|length == 3 %}
+                                    Generate 1 More Image
+                                {% else %}
+                                    Delete images to generate more
+                                {% endif %}
+                            {% else %}
+                                Generate 4 Location Images with AI
+                            {% endif %}
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Image Generation Loading -->
+                <div id="image-generation-loading" style="display: none; margin-top: 20px;">
+                    <div class="progress" style="background-color: rgba(103, 58, 183, 0.2);">
+                        <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
+                    </div>
+                    <p id="image-generation-status" class="center-align" style="color: var(--rpg-gold); margin-top: 10px;">
+                        Generating location images with AI...
+                    </p>
+                    <p id="image-generation-details" class="center-align" style="color: #b8b8d1; font-size: 0.9rem;">
+                        This may take 2-4 minutes for multiple images
+                    </p>
                 </div>
             </div>
         </div>
@@ -277,6 +457,178 @@
 
         // Initialize textarea auto-resize
         M.textareaAutoResize(backstoryTextarea);
+
+        // Initialize Materialbox for image lightbox
+        const materialboxElems = document.querySelectorAll('.materialboxed');
+        M.Materialbox.init(materialboxElems, {
+            onOpenStart: function(el) {
+                setTimeout(() => {
+                    const overlay = document.getElementById('materialbox-overlay');
+                    if (overlay) {
+                        overlay.style.zIndex = '10000';
+                        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+
+                        if (!overlay.querySelector('.materialbox-close-btn')) {
+                            const closeBtn = document.createElement('button');
+                            closeBtn.className = 'materialbox-close-btn btn-floating btn-large red';
+                            closeBtn.innerHTML = '<i class="material-icons">close</i>';
+                            closeBtn.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10001;';
+                            closeBtn.onclick = function() {
+                                const instance = M.Materialbox.getInstance(el);
+                                if (instance) instance.close();
+                            };
+                            overlay.appendChild(closeBtn);
+                        }
+                    }
+
+                    const activeImg = document.querySelector('.materialboxed.active');
+                    if (activeImg) {
+                        activeImg.style.zIndex = '10002';
+                    }
+
+                    document.body.style.overflow = 'hidden';
+                    const activeImageCard = el.closest('.card');
+                    document.querySelectorAll('.card').forEach(card => {
+                        if (card !== activeImageCard) {
+                            card.style.visibility = 'hidden';
+                        }
+                    });
+                }, 100);
+            },
+            onCloseEnd: function(el) {
+                const overlay = document.getElementById('materialbox-overlay');
+                if (overlay) {
+                    overlay.style.zIndex = '';
+                    overlay.style.backgroundColor = '';
+                }
+                el.style.zIndex = '';
+
+                document.body.style.overflow = '';
+                document.querySelectorAll('.card').forEach(card => {
+                    card.style.visibility = '';
+                });
+            }
+        });
+
+        // Initialize Tooltips
+        const tooltipElems = document.querySelectorAll('.tooltipped');
+        M.Tooltip.init(tooltipElems);
+
+        // Location Images Generation
+        const generateLocationImagesBtn = document.getElementById('generate-location-images-btn');
+        const imageGenLoading = document.getElementById('image-generation-loading');
+
+        if (generateLocationImagesBtn) {
+            generateLocationImagesBtn.addEventListener('click', async function() {
+                if (imageGenLoading) {
+                    imageGenLoading.style.display = 'block';
+                }
+                generateLocationImagesBtn.disabled = true;
+
+                try {
+                    const response = await fetch('{% url "location_generate_image" world.world_id region.region_id location.location_id %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success && data.images) {
+                        location.reload();
+                    } else {
+                        throw new Error(data.error || 'Failed to generate images');
+                    }
+                } catch (error) {
+                    console.error('Image generation error:', error);
+                    M.toast({
+                        html: `<span>Error: ${error.message}</span>`,
+                        classes: 'red darken-2',
+                        displayLength: 5000
+                    });
+                    if (imageGenLoading) {
+                        imageGenLoading.style.display = 'none';
+                    }
+                    generateLocationImagesBtn.disabled = false;
+                }
+            });
+        }
+
+        // Delete and set primary image buttons
+        document.addEventListener('click', async function(e) {
+            if (e.target.closest('.delete-image-btn')) {
+                const btn = e.target.closest('.delete-image-btn');
+                const imageIndex = parseInt(btn.dataset.index);
+
+                if (confirm('Delete this location image?')) {
+                    try {
+                        const response = await fetch('{% url "location_delete_image" world.world_id region.region_id location.location_id %}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ image_index: imageIndex })
+                        });
+
+                        const data = await response.json();
+
+                        if (data.success) {
+                            M.toast({
+                                html: `<span>Image deleted successfully!</span>`,
+                                classes: 'green darken-2',
+                                displayLength: 3000
+                            });
+                            location.reload();
+                        } else {
+                            throw new Error(data.error || 'Failed to delete image');
+                        }
+                    } catch (error) {
+                        console.error('Delete image error:', error);
+                        M.toast({
+                            html: `<span>Error: ${error.message}</span>`,
+                            classes: 'red darken-2',
+                            displayLength: 4000
+                        });
+                    }
+                }
+            }
+
+            if (e.target.closest('.set-primary-btn')) {
+                const btn = e.target.closest('.set-primary-btn');
+                const imageIndex = parseInt(btn.dataset.index);
+
+                try {
+                    const response = await fetch('{% url "location_set_primary_image" world.world_id region.region_id location.location_id %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ image_index: imageIndex })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        M.toast({
+                            html: `<span>Primary image updated!</span>`,
+                            classes: 'green darken-2',
+                            displayLength: 3000
+                        });
+                        location.reload();
+                    } else {
+                        throw new Error(data.error || 'Failed to set primary image');
+                    }
+                } catch (error) {
+                    console.error('Set primary image error:', error);
+                    M.toast({
+                        html: `<span>Error: ${error.message}</span>`,
+                        classes: 'red darken-2',
+                        displayLength: 4000
+                    });
+                }
+            }
+        });
     });
 </script>
 {% endblock %}

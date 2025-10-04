@@ -13,26 +13,90 @@
 </div>
 
 <div class="row">
-    <div class="col s12">
-        <a href="{% url 'world_create' %}" class="btn-large waves-effect waves-light">
+    <div class="col s12 m8">
+        <div class="input-field">
+            <i class="material-icons prefix">search</i>
+            <input id="world-search" type="text" placeholder="Search by name, genre, theme, or setting..." style="color: #e0e0e0;">
+            <label for="world-search" class="active">Search Worlds</label>
+        </div>
+    </div>
+    <div class="col s12 m4">
+        <a href="{% url 'world_create' %}" class="btn-large waves-effect waves-light" style="width: 100%;">
             <i class="material-icons left">add</i>Create World
         </a>
+    </div>
+</div>
+
+<!-- Filter Row -->
+<div class="row">
+    <div class="col s12 m4">
+        <div class="input-field">
+            <select id="filter-genre">
+                <option value="">All Genres</option>
+                {% for world in worlds %}
+                    {% if world.genre %}
+                        <option value="{{ world.genre }}">{{ world.genre }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+            <label>Filter by Genre</label>
+        </div>
+    </div>
+    <div class="col s12 m4">
+        <div class="input-field">
+            <select id="filter-has-image">
+                <option value="">All Worlds</option>
+                <option value="with-image">With Primary Image</option>
+                <option value="without-image">Without Primary Image</option>
+            </select>
+            <label>Filter by Image</label>
+        </div>
+    </div>
+    <div class="col s12 m4">
+        <div class="input-field">
+            <select id="sort-by">
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="regions-desc">Most Regions</option>
+                <option value="regions-asc">Fewest Regions</option>
+            </select>
+            <label>Sort By</label>
+        </div>
     </div>
 </div>
 
 <div class="row">
     {% if worlds %}
         {% for world in worlds %}
-        <div class="col s12 m6 l4">
-            <div class="card hoverable">
-                <div class="card-content">
-                    <span class="card-title">{{ world.world_name }}</span>
+        <div class="col s12 m6">
+            <div class="card hoverable" style="display: grid; grid-template-rows: auto 1fr auto;">
+                <!-- Primary Image Header -->
+                {% if world.primary_image_url %}
+                <div class="card-image" style="margin: 0; padding: 0; position: relative; height: 250px;">
+                    <img src="{{ world.primary_image_url }}"
+                         alt="{{ world.world_name }}"
+                         style="height: 250px; width: 100%; object-fit: cover; display: block; margin: 0;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.5), transparent); display: flex; align-items: flex-end;">
+                        <span class="card-title" style="padding: 20px; margin: 0;">
+                            {{ world.world_name }}
+                        </span>
+                    </div>
+                </div>
+                {% endif %}
 
+                <div class="card-content">
+                    {% if not world.primary_image_url %}
+                    <span class="card-title">{{ world.world_name }}</span>
+                    {% endif %}
+
+                    <!-- Universe and Genre -->
                     <div style="margin: 16px 0;">
+                        {% if world.universe %}
                         <div class="chip">
                             <i class="material-icons tiny">public</i>
                             {{ world.universe.universe_name }}
                         </div>
+                        {% endif %}
                         {% if world.genre %}
                         <div class="chip">
                             <i class="material-icons tiny">category</i>
@@ -41,25 +105,54 @@
                         {% endif %}
                     </div>
 
+                    <!-- Setting/Description -->
                     {% if world.setting %}
-                    <p style="margin-top: 16px; min-height: 60px; color: #b8b8d1;">
-                        {{ world.setting|truncatewords:20 }}
+                    <p style="margin-top: 16px; color: #b8b8d1;">
+                        {{ world.setting|truncatewords:30 }}
                     </p>
                     {% endif %}
 
+                    <!-- Backstory Preview -->
+                    {% if world.backstory %}
+                    <p style="margin-top: 12px; color: #9898b1; font-size: 0.9rem; font-style: italic;">
+                        {{ world.backstory|truncatewords:25 }}
+                    </p>
+                    {% endif %}
+
+                    <!-- Stats -->
+                    <div style="margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        {% if world.region_count %}
+                        <div class="chip" style="background-color: rgba(103, 58, 183, 0.2);">
+                            <i class="material-icons tiny">terrain</i>
+                            {{ world.region_count }} Region{{ world.region_count|pluralize }}
+                        </div>
+                        {% endif %}
+                        {% if world.power_system %}
+                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.2);">
+                            <i class="material-icons tiny">flash_on</i>
+                            {{ world.power_system }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Themes -->
                     {% if world.themes %}
                     <div style="margin-top: 12px;">
                         {% for theme in world.themes %}
-                            <span class="chip" style="background-color: rgba(106, 76, 147, 0.3); margin: 2px;">
+                            <span class="chip" style="background-color: rgba(106, 76, 147, 0.3); margin: 2px; font-size: 0.85rem;">
                                 {{ theme }}
                             </span>
                         {% endfor %}
                     </div>
                     {% endif %}
                 </div>
+
                 <div class="card-action" style="background: rgba(212, 175, 55, 0.05); border-top: 1px solid rgba(212, 175, 55, 0.2);">
                     <a href="{% url 'world_detail' world.world_id %}" style="color: var(--rpg-gold);">
                         <i class="material-icons tiny">visibility</i> View Details
+                    </a>
+                    <a href="{% url 'world_update' world.world_id %}" style="color: #b8b8d1; margin-left: 20px;">
+                        <i class="material-icons tiny">edit</i> Edit
                     </a>
                 </div>
             </div>
@@ -80,4 +173,145 @@
         </div>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Materialize selects
+    const selects = document.querySelectorAll('select');
+    M.FormSelect.init(selects);
+
+    const searchInput = document.getElementById('world-search');
+    const genreFilter = document.getElementById('filter-genre');
+    const imageFilter = document.getElementById('filter-has-image');
+    const sortBy = document.getElementById('sort-by');
+    const worldCards = document.querySelectorAll('.col.s12.m6');
+
+    // Store original order and data
+    const worldsData = Array.from(worldCards).map(card => {
+        const cardElement = card.querySelector('.card');
+
+        // Extract genre from chips
+        let genre = '';
+        const chips = cardElement.querySelectorAll('.chip');
+        chips.forEach(chip => {
+            const icon = chip.querySelector('.material-icons');
+            if (icon && icon.textContent.includes('category')) {
+                genre = chip.textContent.trim();
+            }
+        });
+
+        // Extract region count
+        let regionCount = 0;
+        chips.forEach(chip => {
+            const icon = chip.querySelector('.material-icons');
+            if (icon && icon.textContent.includes('terrain')) {
+                const match = chip.textContent.match(/(\d+)/);
+                if (match) regionCount = parseInt(match[1]);
+            }
+        });
+
+        return {
+            element: card,
+            name: cardElement.querySelector('.card-title')?.textContent.trim() || '',
+            genre: genre,
+            themes: Array.from(chips).map(c => c.textContent.toLowerCase()).join(' '),
+            text: cardElement.textContent.toLowerCase(),
+            hasImage: !!cardElement.querySelector('.card-image'),
+            regionCount: regionCount
+        };
+    });
+
+    function filterAndSort() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedGenre = genreFilter.value;
+        const selectedImageFilter = imageFilter.value;
+        const selectedSort = sortBy.value;
+
+        // Filter
+        let filtered = worldsData.filter(world => {
+            const matchesSearch = !searchTerm || world.text.includes(searchTerm);
+            const matchesGenre = !selectedGenre || world.genre.includes(selectedGenre);
+            let matchesImage = true;
+            if (selectedImageFilter === 'with-image') {
+                matchesImage = world.hasImage;
+            } else if (selectedImageFilter === 'without-image') {
+                matchesImage = !world.hasImage;
+            }
+            return matchesSearch && matchesGenre && matchesImage;
+        });
+
+        // Sort
+        filtered.sort((a, b) => {
+            switch(selectedSort) {
+                case 'name-asc':
+                    return a.name.localeCompare(b.name);
+                case 'name-desc':
+                    return b.name.localeCompare(a.name);
+                case 'regions-desc':
+                    return b.regionCount - a.regionCount;
+                case 'regions-asc':
+                    return a.regionCount - b.regionCount;
+                default:
+                    return 0;
+            }
+        });
+
+        // Hide all cards first
+        worldCards.forEach(card => card.style.display = 'none');
+
+        // Show and reorder filtered cards
+        const container = worldCards[0]?.parentElement;
+        if (container) {
+            filtered.forEach(world => {
+                world.element.style.display = 'block';
+                container.appendChild(world.element);
+            });
+        }
+
+        // Show no results message if needed
+        const noResults = document.getElementById('no-results-message');
+        if (filtered.length === 0) {
+            if (!noResults) {
+                const msg = document.createElement('div');
+                msg.id = 'no-results-message';
+                msg.className = 'col s12';
+                msg.innerHTML = `
+                    <div class="card">
+                        <div class="card-content center-align">
+                            <i class="material-icons large" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">search_off</i>
+                            <h5 style="color: var(--rpg-gold);">No Worlds Found</h5>
+                            <p style="color: #b8b8d1;">Try adjusting your search or filters.</p>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(msg);
+            }
+        } else {
+            if (noResults) {
+                noResults.remove();
+            }
+        }
+    }
+
+    // Event listeners
+    searchInput.addEventListener('input', filterAndSort);
+    genreFilter.addEventListener('change', filterAndSort);
+    imageFilter.addEventListener('change', filterAndSort);
+    sortBy.addEventListener('change', filterAndSort);
+
+    // Remove duplicate genres from dropdown
+    const genreOptions = Array.from(genreFilter.querySelectorAll('option:not(:first-child)'));
+    const uniqueGenres = [...new Set(genreOptions.map(o => o.value))];
+    genreOptions.forEach(o => o.remove());
+    uniqueGenres.sort().forEach(genre => {
+        if (genre) {
+            const option = document.createElement('option');
+            option.value = genre;
+            option.textContent = genre;
+            genreFilter.appendChild(option);
+        }
+    });
+    M.FormSelect.init(genreFilter);
+});
+</script>
 {% endblock %}

@@ -5,6 +5,8 @@ from django.contrib import admin
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 from graphene_django.views import GraphQLView
+from django.conf import settings
+from django.conf.urls.static import static
 
 from .views import dashboard
 from accounts.views import AccountListView, AccountDetailView
@@ -15,12 +17,15 @@ from worlds.views import (
     WorldListView, WorldCreateView, WorldDetailView,
     WorldUpdateView, WorldDeleteView,
     WorldGenerateBackstoryView, WorldSaveBackstoryView, WorldGenerateRegionsView,
+    WorldGenerateImageView, WorldDeleteImageView, WorldSetPrimaryImageView,
     RegionListView, RegionCreateView, RegionDetailView,
     RegionUpdateView, RegionDeleteView,
     RegionGenerateBackstoryView, RegionSaveBackstoryView, RegionGenerateLocationsView,
+    RegionGenerateImageView, RegionDeleteImageView, RegionSetPrimaryImageView,
     LocationListView, LocationCreateView, LocationDetailView,
     LocationUpdateView, LocationDeleteView,
-    LocationGenerateBackstoryView, LocationSaveBackstoryView
+    LocationGenerateBackstoryView, LocationSaveBackstoryView,
+    LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView
 )
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
@@ -56,6 +61,9 @@ urlpatterns = [
     path('worlds/<str:world_id>/generate-backstory/', WorldGenerateBackstoryView.as_view(), name='world_generate_backstory'),
     path('worlds/<str:world_id>/save-backstory/', WorldSaveBackstoryView.as_view(), name='world_save_backstory'),
     path('worlds/<str:world_id>/generate-regions/', WorldGenerateRegionsView.as_view(), name='world_generate_regions'),
+    path('worlds/<str:world_id>/generate-image/', WorldGenerateImageView.as_view(), name='world_generate_image'),
+    path('worlds/<str:world_id>/delete-image/', WorldDeleteImageView.as_view(), name='world_delete_image'),
+    path('worlds/<str:world_id>/set-primary-image/', WorldSetPrimaryImageView.as_view(), name='world_set_primary_image'),
 
     # Regions
     path('worlds/<str:world_id>/regions/', RegionListView.as_view(), name='region_list'),
@@ -66,6 +74,9 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/generate-backstory/', RegionGenerateBackstoryView.as_view(), name='region_generate_backstory'),
     path('worlds/<str:world_id>/regions/<str:region_id>/save-backstory/', RegionSaveBackstoryView.as_view(), name='region_save_backstory'),
     path('worlds/<str:world_id>/regions/<str:region_id>/generate-locations/', RegionGenerateLocationsView.as_view(), name='region_generate_locations'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/generate-image/', RegionGenerateImageView.as_view(), name='region_generate_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/delete-image/', RegionDeleteImageView.as_view(), name='region_delete_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/set-primary-image/', RegionSetPrimaryImageView.as_view(), name='region_set_primary_image'),
 
     # Locations
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/', LocationListView.as_view(), name='location_list'),
@@ -75,6 +86,9 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/delete/', LocationDeleteView.as_view(), name='location_delete'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/generate-backstory/', LocationGenerateBackstoryView.as_view(), name='location_generate_backstory'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/save-backstory/', LocationSaveBackstoryView.as_view(), name='location_save_backstory'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/generate-image/', LocationGenerateImageView.as_view(), name='location_generate_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/delete-image/', LocationDeleteImageView.as_view(), name='location_delete_image'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/set-primary-image/', LocationSetPrimaryImageView.as_view(), name='location_set_primary_image'),
 
     # Campaigns
     path('campaigns/', CampaignListView.as_view(), name='campaign_list'),
@@ -84,3 +98,7 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

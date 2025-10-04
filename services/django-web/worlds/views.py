@@ -155,9 +155,29 @@ class WorldListView(View):
 
     def get(self, request):
         worlds = list(db.world_definitions.find())
-        # Add world_id field for template (Django doesn't allow _id)
+
+        # Enrich world data for template
         for world in worlds:
             world['world_id'] = world['_id']
+
+            # Get universe data
+            if world.get('universe_ids'):
+                universe_id = world['universe_ids'][0]
+                universe = db.universe_definitions.find_one({'_id': universe_id})
+                if universe:
+                    world['universe'] = universe
+
+            # Get primary image URL
+            world['primary_image_url'] = None
+            if world.get('world_images') and world.get('primary_image_index') is not None:
+                images = world.get('world_images', [])
+                primary_idx = world.get('primary_image_index')
+                if 0 <= primary_idx < len(images):
+                    world['primary_image_url'] = images[primary_idx].get('url')
+
+            # Get region count
+            world['region_count'] = db.region_definitions.count_documents({'world_id': world['_id']})
+
         return render(request, 'worlds/world_list.html', {'worlds': worlds})
 
 
@@ -282,6 +302,14 @@ class WorldDetailView(View):
                 regions = list(db.region_definitions.find({'_id': {'$in': region_ids}}))
                 for r in regions:
                     r['region_id'] = r['_id']
+
+                    # Get primary image URL
+                    r['primary_image_url'] = None
+                    if r.get('region_images') and r.get('primary_image_index') is not None:
+                        images = r.get('region_images', [])
+                        primary_idx = r.get('primary_image_index')
+                        if 0 <= primary_idx < len(images):
+                            r['primary_image_url'] = images[primary_idx].get('url')
 
             # Format themes and visual styles for display
             if isinstance(world.get('themes'), list):
@@ -763,6 +791,14 @@ class RegionListView(View):
         for region in regions:
             region['region_id'] = region['_id']
 
+            # Get primary image URL
+            region['primary_image_url'] = None
+            if region.get('region_images') and region.get('primary_image_index') is not None:
+                images = region.get('region_images', [])
+                primary_idx = region.get('primary_image_index')
+                if 0 <= primary_idx < len(images):
+                    region['primary_image_url'] = images[primary_idx].get('url')
+
         return render(request, 'worlds/region_list.html', {
             'world': world,
             'regions': regions
@@ -854,11 +890,35 @@ class RegionDetailView(View):
         world['world_id'] = world['_id']
         region['region_id'] = region['_id']
 
+        # Get world primary image URL
+        world['primary_image_url'] = None
+        if world.get('world_images') and world.get('primary_image_index') is not None:
+            images = world.get('world_images', [])
+            primary_idx = world.get('primary_image_index')
+            if 0 <= primary_idx < len(images):
+                world['primary_image_url'] = images[primary_idx].get('url')
+
+        # Get region count for world
+        world['region_count'] = db.region_definitions.count_documents({'world_id': world_id})
+
+        # Get universe info for world
+        if world.get('universe_id'):
+            universe = db.universe_definitions.find_one({'_id': world.get('universe_id')})
+            world['universe'] = universe
+
         # Get all locations for this region
         location_ids = region.get('locations', [])
         locations = list(db.location_definitions.find({'_id': {'$in': location_ids}})) if location_ids else []
         for location in locations:
             location['location_id'] = location['_id']
+
+            # Get primary image URL
+            location['primary_image_url'] = None
+            if location.get('location_images') and location.get('primary_image_index') is not None:
+                images = location.get('location_images', [])
+                primary_idx = location.get('primary_image_index')
+                if 0 <= primary_idx < len(images):
+                    location['primary_image_url'] = images[primary_idx].get('url')
 
         return render(request, 'worlds/region_detail.html', {
             'world': world,
@@ -1171,6 +1231,17 @@ class LocationDetailView(View):
         world['world_id'] = world['_id']
         region['region_id'] = region['_id']
         location['location_id'] = location['_id']
+
+        # Get region primary image URL
+        region['primary_image_url'] = None
+        if region.get('region_images') and region.get('primary_image_index') is not None:
+            images = region.get('region_images', [])
+            primary_idx = region.get('primary_image_index')
+            if 0 <= primary_idx < len(images):
+                region['primary_image_url'] = images[primary_idx].get('url')
+
+        # Get location count for region
+        region['location_count'] = len(region.get('locations', []))
 
         return render(request, 'worlds/location_detail.html', {
             'world': world,
@@ -1578,3 +1649,506 @@ class RegionGenerateLocationsView(View):
             return JsonResponse({'error': 'Invalid JSON'}, status=400)
         except Exception as e:
             return JsonResponse({'error': f'Failed to generate locations: {str(e)}'}, status=500)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WorldGenerateImageView(View):
+    """Generate AI images for a world using DALL-E 3 API"""
+
+    def post(self, request, world_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({'error': 'World not found'}, status=404)
+
+        try:
+            # Get current image count to determine how many to generate
+            current_images = world.get('world_images', [])
+            images_to_generate = 4 - len(current_images)
+
+            if images_to_generate <= 0:
+                return JsonResponse({'error': 'Already have 4 images. Delete some first.'}, status=400)
+
+            # Get regions and locations for richer context
+            regions = list(db.region_definitions.find({'world_id': world_id}))
+            region_summary = []
+            for region in regions[:5]:  # Limit to top 5 regions for prompt
+                locations = list(db.location_definitions.find({'region_id': region['_id']}).limit(2))
+                region_info = f"{region.get('region_name')} ({region.get('region_type')})"
+                if locations:
+                    loc_names = ', '.join([loc.get('location_name', '') for loc in locations])
+                    region_info += f' with {loc_names}'
+                region_summary.append(region_info)
+
+            # Build comprehensive image prompt base
+            physical = world.get('physical_properties', {})
+            biological = world.get('biological_properties', {})
+            visual_styles = ', '.join(world.get('visual_style', []))
+            themes = ', '.join(world.get('themes', []))
+
+            # Use OpenAI DALL-E 3 for image generation
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            # Define 4 distinct image types
+            image_types = [
+                {
+                    'type': 'solar_system',
+                    'name': 'Solar System View',
+                    'prompt_template': f"""Create a cinematic view of the solar system containing the world: {world.get('world_name')}
+
+Show the {world.get('world_name')} world/planet in its orbital position within the solar system. Include:
+- The central star(s)
+- {world.get('world_name')} highlighted in its orbit
+- Other planets in the system
+- Any asteroid belts or cosmic features
+- Moons orbiting {world.get('world_name')}
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Space fantasy'}
+
+Art Direction: Wide-angle solar system diagram, professional space illustration, dramatic cosmic lighting, epic scale"""
+                },
+                {
+                    'type': 'full_planet',
+                    'name': 'Full Planet View',
+                    'prompt_template': f"""Create a cinematic full planet view of the fantasy world: {world.get('world_name')}
+
+Show the entire planet from space with:
+- Visible continents and oceans
+- Cloud formations
+- Terrain: {', '.join(physical.get('terrain', [])[:3])}
+- Climate patterns: {physical.get('climate', 'Varied')}
+- Any moons in orbit
+- Atmospheric effects
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+
+Art Direction: Full planetary view from space, highly detailed, professional space illustration, dramatic lighting, epic scale"""
+                },
+                {
+                    'type': 'region_1',
+                    'name': 'Primary Region View',
+                    'prompt_template': f"""Create a cinematic landscape view of the main region in the fantasy world: {world.get('world_name')}
+
+{f"Region: {region_summary[0]}" if region_summary else "Primary region of the world"}
+
+Environment:
+- Terrain: {', '.join(physical.get('terrain', [])[:3])}
+- Climate: {physical.get('climate', 'Varied')}
+- Notable Features: {', '.join(physical.get('world_features', [])[:3])}
+- Flora & Fauna: {', '.join(biological.get('flora', [])[:2])} vegetation, {', '.join(biological.get('fauna', [])[:2])} creatures
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+Themes: {themes if themes else 'Adventure and wonder'}
+
+Art Direction: Wide panoramic establishing shot, highly detailed digital concept art, dramatic lighting, epic scale"""
+                },
+                {
+                    'type': 'region_2',
+                    'name': 'Secondary Region View',
+                    'prompt_template': f"""Create a cinematic landscape view of a secondary region in the fantasy world: {world.get('world_name')}
+
+{f"Region: {region_summary[1]}" if len(region_summary) > 1 else f"Region: {region_summary[0]}" if region_summary else "Secondary region of the world"}
+
+Environment:
+- Terrain: {', '.join(physical.get('terrain', [])[:3])}
+- Climate: {physical.get('climate', 'Varied')}
+- Notable Features: {', '.join(physical.get('world_features', [])[:3])}
+- Flora & Fauna: {', '.join(biological.get('flora', [])[:2])} vegetation, {', '.join(biological.get('fauna', [])[:2])} creatures
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+Themes: {themes if themes else 'Adventure and wonder'}
+
+Art Direction: Atmospheric environmental scene, highly detailed digital concept art, dramatic lighting, epic scale"""
+                }
+            ]
+
+            # Determine which images to generate based on what's missing
+            new_images = []
+            existing_types = [img.get('image_type') for img in current_images]
+
+            for i in range(images_to_generate):
+                # Find the first missing image type
+                image_type_config = None
+                for img_type in image_types:
+                    if img_type['type'] not in existing_types:
+                        image_type_config = img_type
+                        existing_types.append(img_type['type'])  # Mark as being generated
+                        break
+
+                if not image_type_config:
+                    # All types exist, shouldn't happen but fallback to first type
+                    image_type_config = image_types[0]
+
+                dalle_prompt = image_type_config['prompt_template']
+
+                # Generate image with DALL-E 3
+                response = client.images.generate(
+                    model="dall-e-3",
+                    prompt=dalle_prompt[:4000],
+                    size="1792x1024",
+                    quality="standard",
+                    n=1,
+                )
+
+                # Download and save image locally
+                dalle_url = response.data[0].url
+
+                # Create directory structure: media/worlds/[world_id]/
+                world_media_dir = Path(settings.MEDIA_ROOT) / 'worlds' / world_id
+                world_media_dir.mkdir(parents=True, exist_ok=True)
+
+                # Generate unique filename
+                import uuid
+                filename = f"{uuid.uuid4()}.png"
+                filepath = world_media_dir / filename
+
+                # Download image from DALL-E URL
+                urllib.request.urlretrieve(dalle_url, filepath)
+
+                # Store relative path for URL generation
+                relative_path = f"worlds/{world_id}/{filename}"
+                local_url = f"{settings.MEDIA_URL}{relative_path}"
+
+                new_images.append({
+                    'url': local_url,
+                    'prompt': dalle_prompt[:500],
+                    'image_type': image_type_config['type'],
+                    'image_name': image_type_config['name'],
+                    'filepath': str(filepath)
+                })
+
+            # Add new images to existing array
+            all_images = current_images + new_images
+
+            # Set Full Planet as primary by default if it was just generated and no primary exists
+            update_data = {'world_images': all_images}
+            if world.get('primary_image_index') is None:
+                # Find the full_planet image index
+                for idx, img in enumerate(all_images):
+                    if img.get('image_type') == 'full_planet':
+                        update_data['primary_image_index'] = idx
+                        break
+
+            # Save images array to MongoDB
+            db.world_definitions.update_one(
+                {'_id': world_id},
+                {'$set': update_data}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'images': new_images,
+                'total_count': len(all_images)
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to generate images: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WorldDeleteImageView(View):
+    """Delete a specific world image by index"""
+
+    def post(self, request, world_id):
+        try:
+            data = json.loads(request.body)
+            image_index = data.get('image_index')
+
+            if image_index is None:
+                return JsonResponse({'error': 'image_index required'}, status=400)
+
+            world = db.world_definitions.find_one({'_id': world_id})
+            if not world:
+                return JsonResponse({'error': 'World not found'}, status=404)
+
+            current_images = world.get('world_images', [])
+
+            if image_index < 0 or image_index >= len(current_images):
+                return JsonResponse({'error': 'Invalid image index'}, status=400)
+
+            # Remove image at index
+            current_images.pop(image_index)
+
+            # Adjust primary_image_index if needed
+            primary_index = world.get('primary_image_index')
+            update_data = {'world_images': current_images}
+
+            if primary_index is not None:
+                if primary_index == image_index:
+                    # Deleted the primary image, reset to None
+                    update_data['primary_image_index'] = None
+                elif primary_index > image_index:
+                    # Primary image shifted down by 1
+                    update_data['primary_image_index'] = primary_index - 1
+
+            # Update MongoDB
+            db.world_definitions.update_one(
+                {'_id': world_id},
+                {'$set': update_data}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'remaining_count': len(current_images)
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to delete image: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WorldSetPrimaryImageView(View):
+    """Set a specific world image as the primary image"""
+
+    def post(self, request, world_id):
+        try:
+            data = json.loads(request.body)
+            image_index = data.get('image_index')
+
+            if image_index is None:
+                return JsonResponse({'error': 'image_index required'}, status=400)
+
+            world = db.world_definitions.find_one({'_id': world_id})
+            if not world:
+                return JsonResponse({'error': 'World not found'}, status=404)
+
+            current_images = world.get('world_images', [])
+
+            if image_index < 0 or image_index >= len(current_images):
+                return JsonResponse({'error': 'Invalid image index'}, status=400)
+
+            # Update MongoDB
+            db.world_definitions.update_one(
+                {'_id': world_id},
+                {'$set': {'primary_image_index': image_index}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'primary_image_index': image_index
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to set primary image: {str(e)}'}, status=500)
+
+
+# ============================================
+# Region Image Generation Views
+# ============================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionGenerateImageView(View):
+    """Generate AI images for a region using DALL-E 3 API"""
+
+    def post(self, request, world_id, region_id):
+        region = db.region_definitions.find_one({'_id': region_id})
+        if not region:
+            return JsonResponse({'error': 'Region not found'}, status=404)
+
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({'error': 'World not found'}, status=404)
+
+        try:
+            # Get current image count
+            current_images = region.get('region_images', [])
+            images_to_generate = 4 - len(current_images)
+
+            if images_to_generate <= 0:
+                return JsonResponse({'error': 'Already have 4 images. Delete some first.'}, status=400)
+
+            # Get locations for context
+            locations = list(db.location_definitions.find({'region_id': region_id}).limit(5))
+            location_summary = [loc.get('location_name', '') for loc in locations]
+
+            # Build comprehensive prompt
+            physical = region.get('physical_properties', {})
+            cultural = region.get('cultural_properties', {})
+            themes = ', '.join(region.get('themes', []))
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            new_images = []
+            perspectives = [
+                "wide panoramic vista",
+                "atmospheric environmental view",
+                "dramatic landscape perspective",
+                "detailed scenic composition"
+            ]
+
+            for i in range(images_to_generate):
+                perspective = perspectives[len(current_images) + i] if (len(current_images) + i) < len(perspectives) else perspectives[0]
+
+                dalle_prompt = f"""Create a cinematic, {perspective} of the fantasy RPG region: {region.get('region_name')}
+
+World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
+Region Type: {region.get('region_type', 'Fantasy region')}
+Themes: {themes if themes else 'Adventure'}
+
+Environment:
+- Climate: {physical.get('climate', 'Varied')}
+- Terrain: {', '.join(physical.get('terrain_types', [])[:3])}
+- Natural Features: {', '.join(physical.get('natural_features', [])[:3])}
+
+{f"Notable Locations: {', '.join(location_summary[:3])}" if location_summary else ''}
+
+{region.get('description', '')[:150] if region.get('description') else ''}
+
+Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration"""
+
+                response = client.images.generate(
+                    model="dall-e-3",
+                    prompt=dalle_prompt[:4000],
+                    size="1792x1024",
+                    quality="standard",
+                    n=1,
+                )
+
+                # Download and save image locally
+                dalle_url = response.data[0].url
+
+                # Create directory structure: media/regions/[region_id]/
+                region_media_dir = Path(settings.MEDIA_ROOT) / 'regions' / region_id
+                region_media_dir.mkdir(parents=True, exist_ok=True)
+
+                # Generate unique filename
+                import uuid
+                filename = f"{uuid.uuid4()}.png"
+                filepath = region_media_dir / filename
+
+                # Download image from DALL-E URL
+                urllib.request.urlretrieve(dalle_url, filepath)
+
+                # Store relative path for URL generation
+                relative_path = f"regions/{region_id}/{filename}"
+                local_url = f"{settings.MEDIA_URL}{relative_path}"
+
+                new_images.append({
+                    'url': local_url,
+                    'prompt': dalle_prompt[:500],
+                    'perspective': perspective,
+                    'filepath': str(filepath)
+                })
+
+            all_images = current_images + new_images
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$set': {'region_images': all_images}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'images': new_images,
+                'total_count': len(all_images)
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to generate images: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionDeleteImageView(View):
+    """Delete a specific region image by index"""
+
+    def post(self, request, world_id, region_id):
+        try:
+            data = json.loads(request.body)
+            image_index = data.get('image_index')
+
+            if image_index is None:
+                return JsonResponse({'error': 'image_index required'}, status=400)
+
+            region = db.region_definitions.find_one({'_id': region_id})
+            if not region:
+                return JsonResponse({'error': 'Region not found'}, status=404)
+
+            current_images = region.get('region_images', [])
+
+            if image_index < 0 or image_index >= len(current_images):
+                return JsonResponse({'error': 'Invalid image index'}, status=400)
+
+            current_images.pop(image_index)
+
+            # Adjust primary_image_index if needed
+            primary_index = region.get('primary_image_index')
+            update_data = {'region_images': current_images}
+
+            if primary_index is not None:
+                if primary_index == image_index:
+                    update_data['primary_image_index'] = None
+                elif primary_index > image_index:
+                    update_data['primary_image_index'] = primary_index - 1
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$set': update_data}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'remaining_count': len(current_images)
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to delete image: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionSetPrimaryImageView(View):
+    """Set a specific region image as the primary image"""
+
+    def post(self, request, world_id, region_id):
+        try:
+            data = json.loads(request.body)
+            image_index = data.get('image_index')
+
+            if image_index is None:
+                return JsonResponse({'error': 'image_index required'}, status=400)
+
+            region = db.region_definitions.find_one({'_id': region_id})
+            if not region:
+                return JsonResponse({'error': 'Region not found'}, status=404)
+
+            current_images = region.get('region_images', [])
+
+            if image_index < 0 or image_index >= len(current_images):
+                return JsonResponse({'error': 'Invalid image index'}, status=400)
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$set': {'primary_image_index': image_index}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'primary_image_index': image_index
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to set primary image: {str(e)}'}, status=500)
+
+
+
+# Import Location Image Views
+from .views_locations import LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView
