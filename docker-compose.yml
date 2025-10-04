@@ -368,6 +368,7 @@ services:
       - NEO4J_URL=bolt://neo4j:7687
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - ORCHESTRATOR_URL=http://agent-orchestrator:9000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
@@ -377,11 +378,40 @@ services:
         condition: service_started
       neo4j:
         condition: service_started
+      rabbitmq:
+        condition: service_started
     networks:
       - skillforge-network
     volumes:
       - ./services/django-web:/app
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+
+  # ============================================
+  # Background Worker
+  # ============================================
+
+  background-worker:
+    build: ./services/background-worker
+    container_name: skillforge-background-worker
+    environment:
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      neo4j:
+        condition: service_started
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/background-worker:/app
+    restart: unless-stopped
 
 volumes:
   postgres_data:

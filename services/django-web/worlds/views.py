@@ -15,6 +15,7 @@ from pymongo import MongoClient
 from neo4j import GraphDatabase
 import os
 import json
+from utils.rabbitmq import publish_entity_event
 
 
 # MongoDB connection
@@ -22,7 +23,7 @@ MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mong
 mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client['skillforge']
 
-# Neo4j connection
+# Neo4j connection (for READ operations only - writes go through RabbitMQ)
 NEO4J_URL = os.getenv('NEO4J_URL', 'bolt://neo4j:7687')
 NEO4J_USER = os.getenv('NEO4J_USER', 'neo4j')
 NEO4J_PASSWORD = os.getenv('NEO4J_PASSWORD', 'neo4j_dev_pass_2024')
@@ -256,18 +257,12 @@ class WorldCreateView(View):
         # Store in MongoDB
         db.world_definitions.insert_one(world_data)
 
-        # Create node and relationships in Neo4j for each universe
-        with neo4j_driver.session() as session:
-            for universe_id in universe_ids:
-                session.run("""
-                    MATCH (u:Universe {id: $universe_id})
-                    MERGE (w:World {id: $world_id})
-                    ON CREATE SET w.name = $world_name, w.genre = $genre
-                    MERGE (w)-[:IN_UNIVERSE]->(u)
-                """, universe_id=universe_id,
-                   world_id=world_id,
-                   world_name=world_data['world_name'],
-                   genre=world_data['genre'])
+        # Publish event to sync to Neo4j
+        publish_entity_event('world', 'created', world_id, {
+            'universe_ids': universe_ids,
+            'world_name': world_data['world_name'],
+            'genre': world_data['genre']
+        })
 
         messages.success(request, f'World "{world_data["world_name"]}" created successfully!')
         return redirect('world_list')
@@ -633,30 +628,12 @@ class WorldUpdateView(View):
         # Update in MongoDB
         db.world_definitions.update_one({'_id': world_id}, {'$set': world_data})
 
-        # Update node in Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (w:World {id: $world_id})
-                SET w.name = $world_name,
-                    w.genre = $genre
-            """, world_id=world_id,
-               world_name=world_data['world_name'],
-               genre=world_data['genre'])
-
-            # Update universe relationships - delete old, create new
-            session.run("""
-                MATCH (w:World {id: $world_id})
-                OPTIONAL MATCH (w)-[r:IN_UNIVERSE]->()
-                DELETE r
-            """, world_id=world_id)
-
-            # Create new relationships for each selected universe
-            for universe_id in universe_ids:
-                session.run("""
-                    MATCH (w:World {id: $world_id})
-                    MATCH (u:Universe {id: $universe_id})
-                    MERGE (w)-[:IN_UNIVERSE]->(u)
-                """, world_id=world_id, universe_id=universe_id)
+        # Publish event to sync to Neo4j
+        publish_entity_event('world', 'updated', world_id, {
+            'universe_ids': universe_ids,
+            'world_name': world_data['world_name'],
+            'genre': world_data['genre']
+        })
 
         messages.success(request, f'World "{world_data["world_name"]}" updated successfully!')
         return redirect('world_detail', world_id=world_id)
@@ -709,14 +686,11 @@ class WorldDeleteView(View):
                 messages.error(request, f'Cannot delete world "{world["world_name"]}". It has {campaign_count} related campaign(s). Delete those first.')
                 return redirect('world_detail', world_id=world_id)
 
-            # Delete from Neo4j
-            session.run("""
-                MATCH (w:World {id: $world_id})
-                DETACH DELETE w
-            """, world_id=world_id)
-
         # Delete from MongoDB
         db.world_definitions.delete_one({'_id': world_id})
+
+        # Publish event to sync deletion to Neo4j
+        publish_entity_event('world', 'deleted', world_id, {})
 
         messages.success(request, f'World "{world["world_name"]}" deleted successfully!')
         return redirect('world_list')
@@ -927,16 +901,13 @@ class RegionCreateView(View):
             {'$push': {'regions': region_id}}
         )
 
-        # Create node in Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (w:World {id: $world_id})
-                MERGE (r:Region {id: $region_id})
-                ON CREATE SET r.name = $region_name, r.type = $region_type
-                MERGE (r)-[:IN_WORLD]->(w)
-            """, world_id=world_id, region_id=region_id,
-               region_name=region_data['region_name'],
-               region_type=region_data['region_type'])
+        # Publish event to sync to Neo4j
+        publish_entity_event('region', 'created', region_id, {
+            'world_id': world_id,
+            'region_name': region_data['region_name'],
+            'region_type': region_data['region_type'],
+            'climate': region_data.get('climate', '')
+        })
 
         messages.success(request, f'Region "{region_data["region_name"]}" created successfully!')
         return redirect('region_detail', world_id=world_id, region_id=region_id)
@@ -1105,12 +1076,8 @@ class RegionDeleteView(View):
         # Delete from MongoDB
         db.region_definitions.delete_one({'_id': region_id})
 
-        # Delete from Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (r:Region {id: $region_id})
-                DETACH DELETE r
-            """, region_id=region_id)
+        # Publish event to sync deletion to Neo4j
+        publish_entity_event('region', 'deleted', region_id, {})
 
         messages.success(request, f'Region "{region_name}" deleted successfully!')
         return redirect('region_list', world_id=world_id)
@@ -1270,16 +1237,12 @@ class LocationCreateView(View):
             {'$push': {'locations': location_id}}
         )
 
-        # Create node in Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (r:Region {id: $region_id})
-                MERGE (l:Location {id: $location_id})
-                ON CREATE SET l.name = $location_name, l.type = $location_type
-                MERGE (l)-[:IN_REGION]->(r)
-            """, region_id=region_id, location_id=location_id,
-               location_name=location_data['location_name'],
-               location_type=location_data['location_type'])
+        # Publish event to sync to Neo4j
+        publish_entity_event('location', 'created', location_id, {
+            'region_id': region_id,
+            'location_name': location_data['location_name'],
+            'location_type': location_data['location_type']
+        })
 
         messages.success(request, f'Location "{location_data["location_name"]}" created successfully!')
         return redirect('location_detail', world_id=world_id, region_id=region_id, location_id=location_id)
@@ -1406,12 +1369,8 @@ class LocationDeleteView(View):
         # Delete from MongoDB
         db.location_definitions.delete_one({'_id': location_id})
 
-        # Delete from Neo4j
-        with neo4j_driver.session() as session:
-            session.run("""
-                MATCH (l:Location {id: $location_id})
-                DETACH DELETE l
-            """, location_id=location_id)
+        # Publish event to sync deletion to Neo4j
+        publish_entity_event('location', 'deleted', location_id, {})
 
         messages.success(request, 'Location deleted successfully!')
         return redirect('region_detail', world_id=world_id, region_id=region_id)
