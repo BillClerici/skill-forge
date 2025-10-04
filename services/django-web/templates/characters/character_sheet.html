@@ -1,0 +1,568 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ character.full_name }} - Character Sheet{% endblock %}
+
+{% block content %}
+<style>
+    .character-sheet {
+        background: linear-gradient(135deg, #2c1810 0%, #1a1a2e 100%);
+        border: 8px solid;
+        border-image: repeating-linear-gradient(
+            45deg,
+            var(--rpg-gold),
+            var(--rpg-gold) 10px,
+            #8b6914 10px,
+            #8b6914 20px
+        ) 8;
+        padding: 30px;
+        margin: 20px auto;
+        max-width: 900px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        position: relative;
+    }
+
+    .greek-border {
+        border: 3px solid var(--rpg-gold);
+        padding: 3px;
+        background: linear-gradient(90deg,
+            var(--rpg-gold) 0%, var(--rpg-gold) 2%, transparent 2%, transparent 8%,
+            var(--rpg-gold) 8%, var(--rpg-gold) 10%, transparent 10%, transparent 16%,
+            var(--rpg-gold) 16%, var(--rpg-gold) 18%, transparent 18%, transparent 24%,
+            var(--rpg-gold) 24%, var(--rpg-gold) 26%, transparent 26%, transparent 100%
+        );
+        background-size: 50px 100%;
+    }
+
+    .sheet-header {
+        text-align: center;
+        border-bottom: 3px solid var(--rpg-gold);
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+
+    .sheet-title {
+        font-size: 2.5rem;
+        color: var(--rpg-gold);
+        font-weight: bold;
+        letter-spacing: 3px;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .sheet-section {
+        margin-bottom: 25px;
+        background: rgba(212, 175, 55, 0.05);
+        border: 2px solid rgba(212, 175, 55, 0.3);
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .section-title {
+        color: var(--rpg-gold);
+        font-size: 1.3rem;
+        font-weight: 600;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .stat-label {
+        color: var(--rpg-silver);
+        font-weight: 500;
+    }
+
+    .stat-value {
+        color: white;
+        font-weight: 600;
+    }
+
+    .progress-tracker {
+        margin-top: 15px;
+    }
+
+    .progress-step {
+        display: flex;
+        align-items: center;
+        margin: 12px 0;
+        position: relative;
+    }
+
+    .progress-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .progress-icon.current {
+        background: var(--rpg-purple);
+        border: 3px solid var(--rpg-gold);
+        color: white;
+        box-shadow: 0 0 15px rgba(106, 90, 205, 0.6);
+    }
+
+    .progress-icon.completed {
+        background: var(--rpg-green);
+        border: 2px solid var(--rpg-gold);
+        color: white;
+    }
+
+    .progress-icon.locked {
+        background: rgba(255, 255, 255, 0.1);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .progress-label {
+        color: white;
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .progress-label.current {
+        color: var(--rpg-purple);
+        font-weight: 700;
+    }
+
+    .progress-label.locked {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .quest-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .quest-item {
+        background: rgba(106, 90, 205, 0.1);
+        border-left: 4px solid var(--rpg-purple);
+        padding: 12px 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+    }
+
+    .quest-name {
+        color: var(--rpg-gold);
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .quest-description {
+        color: var(--rpg-silver);
+        font-size: 0.9rem;
+        margin-top: 5px;
+    }
+
+    .skill-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .skill-card {
+        background: rgba(212, 175, 55, 0.1);
+        border: 1px solid rgba(212, 175, 55, 0.3);
+        border-radius: 6px;
+        padding: 12px;
+        text-align: center;
+    }
+
+    .skill-name {
+        color: var(--rpg-gold);
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .skill-level {
+        color: var(--rpg-silver);
+        font-size: 0.85rem;
+    }
+
+    .parchment-texture {
+        background-image:
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(212, 175, 55, 0.03) 2px,
+                rgba(212, 175, 55, 0.03) 4px
+            );
+    }
+
+    .print-button {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        z-index: 100;
+    }
+
+    @media print {
+        .print-button, nav, .btn, .waves-effect {
+            display: none !important;
+        }
+        .character-sheet {
+            max-width: 100%;
+            margin: 0;
+            page-break-inside: avoid;
+        }
+    }
+</style>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'character_detail' character.character_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold); margin-bottom: 20px;">
+            <i class="material-icons left">arrow_back</i>Back to Character
+        </a>
+        <button onclick="window.print()" class="btn waves-effect waves-light print-button">
+            <i class="material-icons left">print</i>Print Sheet
+        </button>
+    </div>
+</div>
+
+<div class="character-sheet greek-border parchment-texture">
+    <!-- Header -->
+    <div class="sheet-header">
+        <h1 class="sheet-title">SKILLFORGE RPG</h1>
+        <p style="color: var(--rpg-silver); font-size: 1.1rem; margin: 10px 0 0 0;">CHARACTER SHEET</p>
+    </div>
+
+    <!-- Character Info -->
+    <div class="row" style="margin-bottom: 30px;">
+        <div class="col s12 m6">
+            <div class="stat-row">
+                <span class="stat-label">Player Name</span>
+                <span class="stat-value">{{ player.display_name|upper }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Character Name</span>
+                <span class="stat-value">{{ character.full_name|upper }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Personal Evolution Arc</span>
+                <span class="stat-value" style="color: var(--rpg-purple);">{{ character.get_blooms_level_display }}</span>
+            </div>
+        </div>
+        <div class="col s12 m6">
+            <div class="stat-row">
+                <span class="stat-label">Character Level</span>
+                <span class="stat-value">{{ character.level }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Experience Points</span>
+                <span class="stat-value">{{ character.experience_points }} XP</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Status</span>
+                <span class="stat-value" style="color: {% if character.is_alive %}var(--rpg-green){% else %}#f44336{% endif %};">
+                    {% if character.is_alive %}ALIVE{% else %}DECEASED{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background & Description -->
+    <div class="sheet-section">
+        <div class="section-title">
+            <i class="material-icons">account_circle</i>
+            Background
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Role Archetype</span>
+            <span class="stat-value">{{ character.title|default:"Adventurer" }}</span>
+        </div>
+        {% if character.age %}
+        <div class="stat-row">
+            <span class="stat-label">Age</span>
+            <span class="stat-value">{{ character.age }}</span>
+        </div>
+        {% endif %}
+        {% if character.height %}
+        <div class="stat-row">
+            <span class="stat-label">Height</span>
+            <span class="stat-value">{{ character.height }}</span>
+        </div>
+        {% endif %}
+        {% if character.appearance %}
+        <div style="margin-top: 15px;">
+            <p class="stat-label">Appearance:</p>
+            <p style="color: white; margin-top: 5px; line-height: 1.6;">{{ character.appearance }}</p>
+        </div>
+        {% endif %}
+        {% if character.backstory %}
+        <div style="margin-top: 15px;">
+            <p class="stat-label">Backstory:</p>
+            <p style="color: white; margin-top: 5px; line-height: 1.6; white-space: pre-wrap;">{{ character.backstory }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Personal Evolution Arc Progress Tracker -->
+    <div class="sheet-section">
+        <div class="section-title">
+            <i class="material-icons">trending_up</i>
+            Personal Evolution Arc
+        </div>
+        <div class="progress-tracker">
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'remembering' %}current{% else %}completed{% endif %}">
+                    {% if character.blooms_level == 'remembering' %}●{% else %}✓{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'remembering' %}current{% endif %}">
+                    <strong>Novice</strong> - Recall facts and basic concepts
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Remember the names of regions, recall spell ingredients
+                    </div>
+                </div>
+            </div>
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'understanding' %}current{% elif character.blooms_level == 'remembering' %}locked{% else %}completed{% endif %}">
+                    {% if character.blooms_level == 'understanding' %}●{% elif character.blooms_level == 'remembering' %}○{% else %}✓{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'understanding' %}current{% elif character.blooms_level == 'remembering' %}locked{% endif %}">
+                    <strong>Apprentice</strong> - Explain ideas or concepts
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Explain why a faction acts a certain way, describe how magic works
+                    </div>
+                </div>
+            </div>
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'applying' %}current{% elif character.blooms_level == 'remembering' or character.blooms_level == 'understanding' %}locked{% else %}completed{% endif %}">
+                    {% if character.blooms_level == 'applying' %}●{% elif character.blooms_level == 'remembering' or character.blooms_level == 'understanding' %}○{% else %}✓{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'applying' %}current{% elif character.blooms_level == 'remembering' or character.blooms_level == 'understanding' %}locked{% endif %}">
+                    <strong>Journeyman</strong> - Use information in new situations
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Apply combat tactics to a new battle, use diplomacy in negotiations
+                    </div>
+                </div>
+            </div>
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'analyzing' %}current{% elif character.blooms_level == 'evaluating' or character.blooms_level == 'creating' %}completed{% else %}locked{% endif %}">
+                    {% if character.blooms_level == 'analyzing' %}●{% elif character.blooms_level == 'evaluating' or character.blooms_level == 'creating' %}✓{% else %}○{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'analyzing' %}current{% elif character.blooms_level == 'evaluating' or character.blooms_level == 'creating' %}{% else %}locked{% endif %}">
+                    <strong>Expert</strong> - Draw connections among ideas
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Connect political events to predict outcomes, analyze enemy weaknesses
+                    </div>
+                </div>
+            </div>
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'evaluating' %}current{% elif character.blooms_level == 'creating' %}completed{% else %}locked{% endif %}">
+                    {% if character.blooms_level == 'evaluating' %}●{% elif character.blooms_level == 'creating' %}✓{% else %}○{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'evaluating' %}current{% elif character.blooms_level == 'creating' %}{% else %}locked{% endif %}">
+                    <strong>Master</strong> - Justify a stand or decision
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Judge between two moral choices, defend a strategic plan
+                    </div>
+                </div>
+            </div>
+            <div class="progress-step">
+                <div class="progress-icon {% if character.blooms_level == 'creating' %}current{% else %}locked{% endif %}">
+                    {% if character.blooms_level == 'creating' %}●{% else %}○{% endif %}
+                </div>
+                <div class="progress-label {% if character.blooms_level == 'creating' %}current{% else %}locked{% endif %}">
+                    <strong>Grandmaster</strong> - Produce new or original work
+                    <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
+                        Example: Create a new spell, forge alliances, establish a new kingdom
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Quests -->
+    <div class="sheet-section">
+        <div class="section-title">
+            <i class="material-icons">assignment</i>
+            Active Quests
+        </div>
+        <ul class="quest-list">
+            <li class="quest-item" style="opacity: 0.5;">
+                <div class="quest-name">No Active Quests</div>
+                <div class="quest-description">Join a campaign to begin your adventures</div>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Attributes & Skills -->
+    <div class="row" style="margin-bottom: 0;">
+        <div class="col s12 m6">
+            <div class="sheet-section">
+                <div class="section-title">
+                    <i class="material-icons">sports_martial_arts</i>
+                    PRIMARY / SOFT SKILLS
+                </div>
+                {% if character.attributes %}
+                    {% for key, value in character.attributes.items %}
+                    <div class="stat-row">
+                        <span class="stat-label">{{ key|title }}</span>
+                        <span class="stat-value">{{ value }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--rpg-silver); text-align: center; padding: 20px;">No attributes configured</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col s12 m6">
+            <div class="sheet-section">
+                <div class="section-title">
+                    <i class="material-icons">auto_awesome</i>
+                    Skills & Abilities
+                </div>
+                {% if character.skills %}
+                <div class="skill-grid">
+                    {% for skill in character.skills %}
+                    <div class="skill-card">
+                        <div class="skill-name">{{ skill }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                    <p style="color: var(--rpg-silver); text-align: center; padding: 20px;">No skills acquired</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Growth Path -->
+    <div class="sheet-section">
+        <div class="section-title">
+            <i class="material-icons">timeline</i>
+            Growth Path & Personal Evolution
+        </div>
+
+        <p style="color: var(--rpg-silver); margin: 10px 0 20px 0;">
+            <strong style="color: var(--rpg-gold);">Current Focus:</strong>
+            {{ character.get_blooms_level_display }}
+        </p>
+
+        <div style="background: rgba(106, 90, 205, 0.1); border-left: 4px solid var(--rpg-purple); padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+            <h6 style="color: var(--rpg-purple); margin: 0 0 10px 0; font-weight: 600;">
+                <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                Beyond Dice & Chance: A Revolutionary Approach to Growth
+            </h6>
+            <p style="color: white; line-height: 1.7; margin: 0;">
+                Unlike traditional RPGs that rely on dice rolls and random chance to determine character progression,
+                <strong>SkillForge uses Bloom's Taxonomy</strong> - a proven educational framework that measures real cognitive development.
+                Your character doesn't advance by luck or grinding for XP. Instead, you progress by demonstrating increasingly sophisticated
+                thinking and problem-solving abilities through your choices and actions in the narrative.
+            </p>
+        </div>
+
+        <h6 style="color: var(--rpg-gold); margin: 20px 0 15px 0;">How Progression Works:</h6>
+
+        <div style="margin-left: 15px;">
+            <div style="margin-bottom: 15px;">
+                <p style="color: var(--rpg-silver); margin: 0; font-weight: 600;">
+                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">arrow_forward</i>
+                    To advance from <strong>Novice to Apprentice:</strong>
+                </p>
+                <p style="color: white; margin: 5px 0 0 20px; line-height: 1.6;">
+                    Demonstrate that you can not only recall information, but <em>explain and interpret</em> it. In quests, this means
+                    showing understanding of why things happen, explaining motivations of NPCs, or describing the implications of events.
+                    You move beyond memorization to comprehension.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <p style="color: var(--rpg-silver); margin: 0; font-weight: 600;">
+                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">arrow_forward</i>
+                    To advance from <strong>Apprentice to Journeyman:</strong>
+                </p>
+                <p style="color: white; margin: 5px 0 0 20px; line-height: 1.6;">
+                    Show that you can <em>apply your knowledge in new contexts</em>. When faced with novel situations, you use what you've
+                    learned to solve problems creatively. This might mean using diplomatic skills in an unexpected negotiation, or applying
+                    combat tactics to a puzzle challenge. Your decisions show practical application of understanding.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <p style="color: var(--rpg-silver); margin: 0; font-weight: 600;">
+                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">arrow_forward</i>
+                    To advance from <strong>Journeyman to Expert:</strong>
+                </p>
+                <p style="color: white; margin: 5px 0 0 20px; line-height: 1.6;">
+                    Demonstrate <em>analytical thinking</em> by breaking down complex situations, identifying patterns, and drawing connections
+                    between disparate elements. In gameplay, this means recognizing how political intrigue connects to economic factors,
+                    or how an enemy's past actions predict their future behavior. You see the bigger picture.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <p style="color: var(--rpg-silver); margin: 0; font-weight: 600;">
+                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">arrow_forward</i>
+                    To advance from <strong>Expert to Master:</strong>
+                </p>
+                <p style="color: white; margin: 5px 0 0 20px; line-height: 1.6;">
+                    Show the ability to <em>evaluate and make judgments</em> based on criteria and standards. Your choices reflect deep moral
+                    reasoning, strategic assessment, and the ability to defend your decisions with solid rationale. You weigh consequences,
+                    critique plans, and justify your stands on complex issues.
+                </p>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <p style="color: var(--rpg-silver); margin: 0; font-weight: 600;">
+                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">arrow_forward</i>
+                    To advance from <strong>Master to Grandmaster:</strong>
+                </p>
+                <p style="color: white; margin: 5px 0 0 20px; line-height: 1.6;">
+                    Achieve the highest level of cognitive development by <em>creating original solutions</em> and producing new works.
+                    This means designing new strategies, inventing spells or techniques, establishing institutions, forging new alliances,
+                    or fundamentally changing the game world through innovation. You become a world-shaper.
+                </p>
+            </div>
+        </div>
+
+        <h6 style="color: var(--rpg-gold); margin: 25px 0 15px 0;">Why This Matters for Real Personal Growth:</h6>
+
+        <div style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); padding: 15px; border-radius: 4px;">
+            <p style="color: white; line-height: 1.7; margin: 0 0 12px 0;">
+                <strong style="color: var(--rpg-gold);">Skill Transfer:</strong> Because progression is based on cognitive development
+                rather than random chance, the thinking skills you practice in SkillForge transfer directly to real life. Analyzing a
+                political conflict in-game strengthens the same neural pathways you use for critical thinking at work or school.
+            </p>
+            <p style="color: white; line-height: 1.7; margin: 0 0 12px 0;">
+                <strong style="color: var(--rpg-gold);">Intentional Practice:</strong> Every decision you make is an opportunity to
+                practice higher-order thinking. Unlike dice-based systems where outcomes are random, your growth is deterministic -
+                it depends entirely on the quality of your thinking and decision-making.
+            </p>
+            <p style="color: white; line-height: 1.7; margin: 0 0 12px 0;">
+                <strong style="color: var(--rpg-gold);">Measurable Progress:</strong> The Personal Evolution Arc provides clear milestones
+                that track genuine cognitive development. You can see exactly where you are and what skills you need to demonstrate next.
+            </p>
+            <p style="color: white; line-height: 1.7; margin: 0;">
+                <strong style="color: var(--rpg-gold);">Realistic Achievement:</strong> In traditional RPGs, "leveling up" often feels
+                arbitrary - you kill enough monsters and numbers go up. In SkillForge, advancement reflects actual mastery. When you reach
+                Master level, you've genuinely developed the ability to evaluate complex situations and make sound judgments - both in-game
+                and in real life.
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--rpg-gold);">
+        <p style="color: var(--rpg-silver); font-size: 0.9rem;">
+            Generated on {{ "now"|date:"F d, Y" }} • Last Updated {{ character.updated_at|date:"F d, Y" }}
+        </p>
+    </div>
+</div>
+{% endblock %}

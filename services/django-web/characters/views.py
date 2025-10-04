@@ -75,6 +75,26 @@ class CharacterDetailView(DetailView):
         return context
 
 
+class CharacterSheetView(DetailView):
+    """View for displaying character sheet"""
+    model = Character
+    template_name = 'characters/character_sheet.html'
+    context_object_name = 'character'
+    pk_url_kwarg = 'character_id'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        character = self.get_object()
+
+        # Get player
+        try:
+            context['player'] = Player.objects.get(player_id=character.player_id)
+        except Player.DoesNotExist:
+            context['player'] = None
+
+        return context
+
+
 class CharacterEditView(View):
     """View for editing an existing character"""
 

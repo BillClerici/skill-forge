@@ -45,10 +45,13 @@
                         </div>
                     </div>
                     <div class="col s12 m4 right-align">
-                        <a href="{% url 'character_edit' character.character_id %}" class="btn waves-effect waves-light">
+                        <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                            <i class="material-icons left">description</i>Sheet
+                        </a>
+                        <a href="{% url 'character_edit' character.character_id %}" class="btn-small waves-effect waves-light" style="margin-left: 8px;">
                             <i class="material-icons left">edit</i>Edit
                         </a>
-                        <a href="#delete-character-modal" class="btn waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 10px;">
+                        <a href="#delete-character-modal" class="btn-small waves-effect waves-light red darken-2 modal-trigger" style="margin-left: 8px;">
                             <i class="material-icons left">delete</i>Delete
                         </a>
                     </div>
@@ -107,6 +110,13 @@
                     <p style="margin: 15px 0;">
                         <strong class="grey-text">Height:</strong><br>
                         <span style="color: white;">{{ character.height }}</span>
+                    </p>
+                    {% endif %}
+
+                    {% if character.appearance %}
+                    <p style="margin: 15px 0;">
+                        <strong class="grey-text">Physical Appearance:</strong><br>
+                        <span style="color: white; white-space: pre-wrap;">{{ character.appearance }}</span>
                     </p>
                     {% endif %}
 
@@ -181,30 +191,126 @@
 
     <!-- Main Content -->
     <div class="col s12 l8">
+        <!-- Personal Evolution Arc Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">trending_up</i>Personal Evolution Arc
+                </span>
+
+                <div style="margin-top: 20px;">
+                    <p style="margin: 0 0 8px 0; color: var(--rpg-silver); font-size: 0.9rem; font-weight: 500;">
+                        Current Level
+                    </p>
+                    <p style="margin: 5px 0 20px 0; color: var(--rpg-purple); font-size: 1.3rem; font-weight: 600;">
+                        {{ character.get_blooms_level_display }}
+                    </p>
+
+                    <!-- Evolution Arc Progress Journey -->
+                    <div style="display: flex; align-items: center; gap: 4px; margin-top: 8px; padding-bottom: 25px;">
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'remembering' %}var(--rpg-purple){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'remembering' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'remembering' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Novice</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'understanding' %}var(--rpg-purple){% elif character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'understanding' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'understanding' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Apprentice</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'applying' %}var(--rpg-purple){% elif character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'applying' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'applying' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Journeyman</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'analyzing' %}var(--rpg-purple){% elif character.blooms_level == 'applying' or character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'analyzing' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'analyzing' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Expert</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'evaluating' %}var(--rpg-purple){% elif character.blooms_level == 'analyzing' or character.blooms_level == 'applying' or character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'evaluating' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'evaluating' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Master</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 8px; background-color: {% if character.blooms_level == 'creating' %}var(--rpg-purple){% elif character.blooms_level != 'creating' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                            {% if character.blooms_level == 'creating' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'creating' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Grandmaster</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
+                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">stars</i>
+                            Character Level {{ character.level }}
+                        </span>
+                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
+                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">military_tech</i>
+                            {{ character.experience_points }} XP
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Backstory Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
                     <span><i class="material-icons left">auto_stories</i>Character Backstory</span>
-                    <button id="generate-backstory-btn" class="btn-small waves-effect waves-light">
-                        <i class="material-icons left">auto_fix_high</i>Generate
-                    </button>
+                    <div>
+                        <button id="edit-backstory-btn" class="btn-small waves-effect waves-light" style="margin-right: 8px;">
+                            <i class="material-icons left">edit</i>Edit
+                        </button>
+                        <button id="generate-backstory-btn" class="btn-small waves-effect waves-light">
+                            <i class="material-icons left">auto_fix_high</i>Generate
+                        </button>
+                    </div>
                 </span>
 
-                <div id="backstory-container" style="margin-top: 20px;">
+                <!-- Display Mode -->
+                <div id="backstory-display" style="margin-top: 20px;">
                     {% if character.backstory %}
                     <p id="backstory-text" style="color: white; white-space: pre-wrap;">{{ character.backstory }}</p>
                     {% else %}
                     <div id="no-backstory" class="center-align" style="padding: 40px 20px;">
                         <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">menu_book</i>
-                        <p class="grey-text" style="margin-top: 15px;">No backstory generated yet</p>
-                        {% if not character.description %}
-                        <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Add a description to your character to generate a backstory</p>
-                        {% endif %}
+                        <p class="grey-text" style="margin-top: 15px;">No backstory yet</p>
+                        <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Write your own or generate one with AI</p>
                     </div>
                     {% endif %}
                 </div>
 
+                <!-- Edit Mode -->
+                <div id="backstory-edit" style="display: none; margin-top: 20px;">
+                    <div class="input-field">
+                        <textarea id="backstory-textarea" class="materialize-textarea" style="color: white; min-height: 200px;">{{ character.backstory }}</textarea>
+                        <label for="backstory-textarea" class="active">Backstory</label>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <button id="save-manual-backstory-btn" class="btn waves-effect waves-light">
+                            <i class="material-icons left">save</i>Save Backstory
+                        </button>
+                        <button id="cancel-edit-backstory-btn" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AI Generation Loading -->
                 <div id="backstory-loading" style="display: none; text-align: center; padding: 20px;">
                     <div class="preloader-wrapper small active">
                         <div class="spinner-layer spinner-gold-only">
@@ -222,14 +328,15 @@
                     <p class="grey-text" style="margin-top: 10px;">Generating backstory...</p>
                 </div>
 
+                <!-- AI Generated Backstory Preview -->
                 <div id="generated-backstory" style="display: none; margin-top: 20px;">
                     <h6 style="color: var(--rpg-silver);">Generated Backstory</h6>
                     <p id="generated-backstory-text" style="color: white; white-space: pre-wrap; margin: 15px 0;"></p>
                     <div style="margin-top: 20px;">
-                        <button id="save-backstory-btn" class="btn waves-effect waves-light">
+                        <button id="save-generated-backstory-btn" class="btn waves-effect waves-light">
                             <i class="material-icons left">save</i>Save Backstory
                         </button>
-                        <button id="cancel-backstory-btn" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
+                        <button id="cancel-generated-backstory-btn" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
                             Cancel
                         </button>
                     </div>
@@ -237,17 +344,20 @@
             </div>
         </div>
 
-        <!-- Appearance Card -->
-        {% if character.appearance %}
+        <!-- Campaign & Quest History Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">face</i>Physical Appearance
+                    <i class="material-icons left">history_edu</i>Campaign & Quest History
                 </span>
-                <p style="color: white; white-space: pre-wrap; margin-top: 20px;">{{ character.appearance }}</p>
+
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">map</i>
+                    <p class="grey-text" style="margin-top: 15px;">No campaign or quest participation yet</p>
+                    <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Join a campaign to begin your adventure!</p>
+                </div>
             </div>
         </div>
-        {% endif %}
 
         <!-- Stats Card -->
         <div class="card">
@@ -368,16 +478,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const characterId = '{{ character.character_id }}';
 
-    // Backstory generation
+    // Backstory Edit Mode
+    const editBackstoryBtn = document.getElementById('edit-backstory-btn');
+    const backstoryDisplay = document.getElementById('backstory-display');
+    const backstoryEdit = document.getElementById('backstory-edit');
+    const backstoryTextarea = document.getElementById('backstory-textarea');
+    const saveManualBackstoryBtn = document.getElementById('save-manual-backstory-btn');
+    const cancelEditBackstoryBtn = document.getElementById('cancel-edit-backstory-btn');
+
+    if (editBackstoryBtn) {
+        editBackstoryBtn.addEventListener('click', function() {
+            backstoryDisplay.style.display = 'none';
+            backstoryEdit.style.display = 'block';
+            document.getElementById('backstory-loading').style.display = 'none';
+            document.getElementById('generated-backstory').style.display = 'none';
+            M.textareaAutoResize(backstoryTextarea);
+        });
+    }
+
+    if (cancelEditBackstoryBtn) {
+        cancelEditBackstoryBtn.addEventListener('click', function() {
+            backstoryEdit.style.display = 'none';
+            backstoryDisplay.style.display = 'block';
+        });
+    }
+
+    if (saveManualBackstoryBtn) {
+        saveManualBackstoryBtn.addEventListener('click', function() {
+            const backstory = backstoryTextarea.value;
+
+            fetch(`/characters/${characterId}/save-backstory/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ backstory: backstory })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    M.toast({html: 'Backstory saved successfully!', classes: 'green'});
+                    location.reload();
+                } else {
+                    M.toast({html: 'Error saving backstory: ' + data.error, classes: 'red'});
+                }
+            })
+            .catch(error => {
+                M.toast({html: 'Error saving backstory', classes: 'red'});
+            });
+        });
+    }
+
+    // AI Backstory generation
     const generateBackstoryBtn = document.getElementById('generate-backstory-btn');
     const generateFirstImageBtn = document.getElementById('generate-first-image-btn');
     const generateImageBtn = document.getElementById('generate-image-btn');
-    const saveBackstoryBtn = document.getElementById('save-backstory-btn');
-    const cancelBackstoryBtn = document.getElementById('cancel-backstory-btn');
+    const saveGeneratedBackstoryBtn = document.getElementById('save-generated-backstory-btn');
+    const cancelGeneratedBackstoryBtn = document.getElementById('cancel-generated-backstory-btn');
 
     if (generateBackstoryBtn) {
         generateBackstoryBtn.addEventListener('click', function() {
-            document.getElementById('backstory-container').style.display = 'none';
+            backstoryDisplay.style.display = 'none';
+            backstoryEdit.style.display = 'none';
             document.getElementById('backstory-loading').style.display = 'block';
             document.getElementById('generated-backstory').style.display = 'none';
 
@@ -395,19 +558,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('generated-backstory').style.display = 'block';
                 } else {
                     M.toast({html: 'Error generating backstory: ' + data.error, classes: 'red'});
-                    document.getElementById('backstory-container').style.display = 'block';
+                    backstoryDisplay.style.display = 'block';
                 }
             })
             .catch(error => {
                 document.getElementById('backstory-loading').style.display = 'none';
                 M.toast({html: 'Error generating backstory', classes: 'red'});
-                document.getElementById('backstory-container').style.display = 'block';
+                backstoryDisplay.style.display = 'block';
             });
         });
     }
 
-    if (saveBackstoryBtn) {
-        saveBackstoryBtn.addEventListener('click', function() {
+    if (saveGeneratedBackstoryBtn) {
+        saveGeneratedBackstoryBtn.addEventListener('click', function() {
             const backstory = document.getElementById('generated-backstory-text').textContent;
 
             fetch(`/characters/${characterId}/save-backstory/`, {
@@ -433,10 +596,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (cancelBackstoryBtn) {
-        cancelBackstoryBtn.addEventListener('click', function() {
+    if (cancelGeneratedBackstoryBtn) {
+        cancelGeneratedBackstoryBtn.addEventListener('click', function() {
             document.getElementById('generated-backstory').style.display = 'none';
-            document.getElementById('backstory-container').style.display = 'block';
+            backstoryDisplay.style.display = 'block';
         });
     }
 

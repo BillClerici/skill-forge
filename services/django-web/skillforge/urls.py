@@ -42,7 +42,7 @@ from campaigns.views import (
     CampaignUpdateView, CampaignDeleteView
 )
 from characters.views import (
-    CharacterCreateView, CharacterDetailView, CharacterEditView, CharacterDeleteView,
+    CharacterCreateView, CharacterDetailView, CharacterSheetView, CharacterEditView, CharacterDeleteView,
     CharacterGenerateBackstoryView, CharacterSaveBackstoryView,
     CharacterGenerateImageView, CharacterDeleteImageView, CharacterSetPrimaryImageView
 )
@@ -135,6 +135,7 @@ urlpatterns = [
     # Characters
     path('players/<uuid:player_id>/characters/create/', CharacterCreateView.as_view(), name='character_create'),
     path('characters/<uuid:character_id>/', CharacterDetailView.as_view(), name='character_detail'),
+    path('characters/<uuid:character_id>/sheet/', CharacterSheetView.as_view(), name='character_sheet'),
     path('characters/<uuid:character_id>/edit/', CharacterEditView.as_view(), name='character_edit'),
     path('characters/<uuid:character_id>/delete/', CharacterDeleteView.as_view(), name='character_delete'),
     path('characters/<uuid:character_id>/generate-backstory/', CharacterGenerateBackstoryView.as_view(), name='character_generate_backstory'),
