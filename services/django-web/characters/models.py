@@ -23,20 +23,20 @@ class Character(models.Model):
         help_text="List of personality traits: brave, cunning, wise, etc."
     )
 
-    # Bloom's Taxonomy Skill Level
+    # Personal Evolution Arc (Bloom's Taxonomy Skill Level)
     BLOOMS_LEVEL_CHOICES = [
-        ('remembering', 'Remembering - Recall facts and basic concepts'),
-        ('understanding', 'Understanding - Explain ideas or concepts'),
-        ('applying', 'Applying - Use information in new situations'),
-        ('analyzing', 'Analyzing - Draw connections among ideas'),
-        ('evaluating', 'Evaluating - Justify a stand or decision'),
-        ('creating', 'Creating - Produce new or original work'),
+        ('remembering', 'Novice - Recall facts and basic concepts'),
+        ('understanding', 'Apprentice - Explain ideas or concepts'),
+        ('applying', 'Journeyman - Use information in new situations'),
+        ('analyzing', 'Expert - Draw connections among ideas'),
+        ('evaluating', 'Master - Justify a stand or decision'),
+        ('creating', 'Grandmaster - Produce new or original work'),
     ]
     blooms_level = models.CharField(
         max_length=20,
         choices=BLOOMS_LEVEL_CHOICES,
         default='remembering',
-        help_text="Character's current Bloom's Taxonomy skill/maturity level"
+        help_text="Character's Personal Evolution Arc level"
     )
 
     # Physical Characteristics

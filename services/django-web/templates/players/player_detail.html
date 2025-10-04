@@ -251,21 +251,76 @@
                     {% for character in characters %}
                     <div class="card" style="background-color: rgba(212, 175, 55, 0.05); margin: 10px 0;">
                         <div class="card-content" style="padding: 15px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="flex: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div style="flex: 1; margin-right: 15px;">
                                     <h6 style="margin: 0; color: var(--rpg-gold);">
                                         <a href="{% url 'character_detail' character.character_id %}" style="color: var(--rpg-gold);">
                                             {{ character.full_name }}
                                         </a>
                                     </h6>
-                                    <div style="margin-top: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                    <div style="margin-top: 10px;">
+                                        <p style="margin: 0; color: var(--rpg-silver); font-size: 0.9rem; font-weight: 500;">
+                                            <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-purple);">trending_up</i>
+                                            Personal Evolution Arc
+                                        </p>
+                                        <p style="margin: 5px 0 8px 0; color: var(--rpg-purple); font-size: 1.1rem; font-weight: 600;">
+                                            {{ character.get_blooms_level_display }}
+                                        </p>
+
+                                        <!-- Evolution Arc Progress Journey -->
+                                        <div style="display: flex; align-items: center; gap: 4px; margin-top: 8px; padding-bottom: 25px;">
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'remembering' %}var(--rpg-purple){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'remembering' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'remembering' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Novice</div>
+                                            </div>
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'understanding' %}var(--rpg-purple){% elif character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'understanding' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'understanding' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Apprentice</div>
+                                            </div>
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'applying' %}var(--rpg-purple){% elif character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'applying' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'applying' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Journeyman</div>
+                                            </div>
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'analyzing' %}var(--rpg-purple){% elif character.blooms_level == 'applying' or character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'analyzing' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'analyzing' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Expert</div>
+                                            </div>
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'evaluating' %}var(--rpg-purple){% elif character.blooms_level == 'analyzing' or character.blooms_level == 'applying' or character.blooms_level == 'understanding' or character.blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'evaluating' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'evaluating' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Master</div>
+                                            </div>
+                                            <div style="position: relative; flex: 1;">
+                                                <div style="height: 8px; background-color: {% if character.blooms_level == 'creating' %}var(--rpg-purple){% elif character.blooms_level != 'creating' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 4px;"></div>
+                                                {% if character.blooms_level == 'creating' %}
+                                                <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 12px; height: 12px; background-color: var(--rpg-purple); border: 2px solid var(--rpg-gold); border-radius: 50%;"></div>
+                                                {% endif %}
+                                                <div style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; {% if character.blooms_level == 'creating' %}color: var(--rpg-purple); font-weight: 600;{% else %}color: var(--rpg-silver); opacity: 0.6;{% endif %}">Grandmaster</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
                                         <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
                                             <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">stars</i>
-                                            Level {{ character.level }}
+                                            Character Level {{ character.level }}
                                         </span>
-                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple); display: inline-flex; align-items: center;">
-                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">school</i>
-                                            {{ character.get_blooms_level_display|truncatewords:1 }}
+                                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
+                                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">military_tech</i>
+                                            {{ character.experience_points }} XP
                                         </span>
                                         {% if character.is_alive %}
                                         <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green); display: inline-flex; align-items: center;">
@@ -280,9 +335,12 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div>
+                                <div style="flex-shrink: 0; align-self: flex-start; display: flex; gap: 8px;">
                                     <a href="{% url 'character_detail' character.character_id %}" class="btn-small waves-effect waves-light">
                                         <i class="material-icons">visibility</i>
+                                    </a>
+                                    <a href="{% url 'character_edit' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-gold); color: #1a1a2e;">
+                                        <i class="material-icons">edit</i>
                                     </a>
                                 </div>
                             </div>

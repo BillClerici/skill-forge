@@ -28,7 +28,7 @@
                                 Level {{ character.level }}
                             </span>
                             <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple); display: inline-flex; align-items: center;">
-                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">school</i>
+                                <i class="material-icons" style="font-size: 1.2rem; margin-right: 8px;">trending_up</i>
                                 {{ character.get_blooms_level_display|truncatewords:1 }}
                             </span>
                             {% if character.is_alive %}
@@ -92,7 +92,7 @@
                     </p>
 
                     <p style="margin: 15px 0;">
-                        <strong class="grey-text">Bloom's Taxonomy Level:</strong><br>
+                        <strong class="grey-text">Personal Evolution Arc:</strong><br>
                         <span style="color: var(--rpg-purple);">{{ character.get_blooms_level_display }}</span>
                     </p>
 
