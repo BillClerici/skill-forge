@@ -1,16 +1,16 @@
 """
-Member views for SkillForge
+Player views for SkillForge
 """
 from django.shortcuts import render, get_object_or_404
 from django.views.generic import ListView, DetailView
-from .models import Member
+from .models import Player
 from accounts.models import Account
 
 
-class MemberListView(ListView):
-    model = Member
-    template_name = 'members/member_list.html'
-    context_object_name = 'members'
+class PlayerListView(ListView):
+    model = Player
+    template_name = 'players/player_list.html'
+    context_object_name = 'players'
     paginate_by = 20
 
     def get_queryset(self):
@@ -22,13 +22,13 @@ class MemberListView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['total_members'] = Member.objects.count()
+        context['total_players'] = Player.objects.count()
         return context
 
 
-class MemberDetailView(DetailView):
-    model = Member
-    template_name = 'members/member_detail.html'
-    context_object_name = 'member'
-    slug_field = 'member_id'
-    slug_url_kwarg = 'member_id'
+class PlayerDetailView(DetailView):
+    model = Player
+    template_name = 'players/player_detail.html'
+    context_object_name = 'player'
+    slug_field = 'player_id'
+    slug_url_kwarg = 'player_id'

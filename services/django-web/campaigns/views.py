@@ -1,6 +1,6 @@
 """
 Views for Campaign management
-Campaigns link Members, Worlds, and AI-generated narratives
+Campaigns link Players, Worlds, and AI-generated narratives
 """
 import uuid
 import httpx
@@ -10,7 +10,7 @@ from django.contrib import messages
 from pymongo import MongoClient
 from neo4j import GraphDatabase
 import os
-from members.models import Member
+from members.models import Player
 
 
 # MongoDB connection
@@ -45,34 +45,34 @@ class CampaignCreateView(View):
     def get(self, request):
         worlds = list(db.world_definitions.find())
 
-        # Get members from PostgreSQL instead of MongoDB
-        members = Member.objects.filter(is_active=True).values(
-            'member_id', 'display_name', 'email', 'role'
+        # Get players from PostgreSQL instead of MongoDB
+        players = Player.objects.filter(is_active=True).values(
+            'player_id', 'display_name', 'email', 'role'
         )
 
         # Add id field for template (Django doesn't allow _id)
         for world in worlds:
             world['id'] = world['_id']
 
-        # Convert members to list and add id field
-        members_list = []
-        for member in members:
-            members_list.append({
-                'id': str(member['member_id']),
-                'member_name': member['display_name'],
-                'email': member.get('email', ''),
-                'role': member['role']
+        # Convert players to list and add id field
+        players_list = []
+        for player in players:
+            players_list.append({
+                'id': str(player['player_id']),
+                'player_name': player['display_name'],
+                'email': player.get('email', ''),
+                'role': player['role']
             })
 
         # Initialize empty form data for multi-selects
         form_data = {
             'world_ids': {'value': []},
-            'member_ids': {'value': []}
+            'player_ids': {'value': []}
         }
 
         return render(request, 'campaigns/campaign_form.html', {
             'worlds': worlds,
-            'members': members_list,
+            'players': players_list,
             'form': form_data
         })
 
@@ -81,39 +81,39 @@ class CampaignCreateView(View):
 
         # Get multi-select values
         world_ids = request.POST.getlist('world_ids')
-        member_ids = request.POST.getlist('member_ids')
+        player_ids = request.POST.getlist('player_ids')
 
-        if not world_ids or not member_ids:
+        if not world_ids or not player_ids:
             messages.error(request, 'Please select at least one world and one player')
             return redirect('campaign_create')
 
         # Get world data from MongoDB
         worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}}))
 
-        # Get member data from PostgreSQL
-        members = Member.objects.filter(
-            member_id__in=member_ids,
+        # Get player data from PostgreSQL
+        players = Player.objects.filter(
+            player_id__in=player_ids,
             is_active=True
-        ).values('member_id', 'display_name', 'email')
+        ).values('player_id', 'display_name', 'email')
 
-        if len(worlds) != len(world_ids) or len(members) != len(member_ids):
-            messages.error(request, 'Invalid world or member selected')
+        if len(worlds) != len(world_ids) or len(players) != len(player_ids):
+            messages.error(request, 'Invalid world or player selected')
             return redirect('campaign_create')
 
-        # Build world and member names
+        # Build world and player names
         world_names = [w.get('world_name') for w in worlds]
-        member_names = [m['display_name'] for m in members]
+        player_names = [p['display_name'] for p in players]
 
-        # Convert member_ids to strings for consistency
-        member_ids = [str(m['member_id']) for m in members]
+        # Convert player_ids to strings for consistency
+        player_ids = [str(p['player_id']) for p in players]
 
         campaign_data = {
             '_id': campaign_id,
             'campaign_name': request.POST.get('campaign_name'),
             'world_ids': world_ids,
             'world_names': world_names,
-            'member_ids': member_ids,
-            'member_names': member_names,
+            'player_ids': player_ids,
+            'player_names': player_names,
             'status': 'active',
             'current_scene': None,
             'scene_history': [],
@@ -147,15 +147,15 @@ class CampaignCreateView(View):
                     MERGE (c)-[:IN_WORLD]->(w)
                 """, campaign_id=campaign_id, world_id=world_id)
 
-            # Link to all selected members
-            for member_id in member_ids:
+            # Link to all selected players
+            for player_id in player_ids:
                 session.run("""
                     MATCH (c:Campaign {id: $campaign_id})
-                    MATCH (m:Member {id: $member_id})
-                    MERGE (c)-[:HAS_PLAYER]->(m)
-                """, campaign_id=campaign_id, member_id=member_id)
+                    MATCH (p:Player {id: $player_id})
+                    MERGE (c)-[:HAS_PLAYER]->(p)
+                """, campaign_id=campaign_id, player_id=player_id)
 
-        messages.success(request, f'Campaign "{campaign_data["campaign_name"]}" created successfully with {len(world_ids)} world(s) and {len(member_ids)} player(s)!')
+        messages.success(request, f'Campaign "{campaign_data["campaign_name"]}" created successfully with {len(world_ids)} world(s) and {len(player_ids)} player(s)!')
         return redirect('campaign_detail', campaign_id=campaign_id)
 
 
@@ -179,17 +179,17 @@ class CampaignDetailView(View):
         for world in worlds:
             world['id'] = world['_id']
 
-        # Get all members for this campaign from PostgreSQL
-        member_ids = campaign.get('member_ids', [])
-        members = Member.objects.filter(
-            member_id__in=member_ids,
+        # Get all players for this campaign from PostgreSQL
+        player_ids = campaign.get('player_ids', [])
+        players = Player.objects.filter(
+            player_id__in=player_ids,
             is_active=True
-        ).values('member_id', 'display_name', 'email', 'role') if member_ids else []
+        ).values('player_id', 'display_name', 'email', 'role') if player_ids else []
 
         return render(request, 'campaigns/campaign_detail.html', {
             'campaign': campaign,
             'worlds': worlds,
-            'members': list(members)
+            'players': list(players)
         })
 
     def post(self, request, campaign_id):
@@ -253,7 +253,7 @@ class CampaignStartView(View):
                     json={
                         'campaign_id': campaign_id,
                         'world_id': campaign.get('world_id'),
-                        'member_id': campaign.get('member_id')
+                        'player_id': campaign.get('player_id')
                     },
                     timeout=60.0
                 )
@@ -297,35 +297,35 @@ class CampaignUpdateView(View):
 
         worlds = list(db.world_definitions.find())
 
-        # Get members from PostgreSQL
-        members = Member.objects.filter(is_active=True).values(
-            'member_id', 'display_name', 'email', 'role'
+        # Get players from PostgreSQL
+        players = Player.objects.filter(is_active=True).values(
+            'player_id', 'display_name', 'email', 'role'
         )
 
         # Add id field for template
         for world in worlds:
             world['id'] = world['_id']
 
-        # Convert members to list and add id field
-        members_list = []
-        for member in members:
-            members_list.append({
-                'id': str(member['member_id']),
-                'member_name': member['display_name'],
-                'email': member.get('email', ''),
-                'role': member['role']
+        # Convert players to list and add id field
+        players_list = []
+        for player in players:
+            players_list.append({
+                'id': str(player['player_id']),
+                'player_name': player['display_name'],
+                'email': player.get('email', ''),
+                'role': player['role']
             })
 
         # Prepare form data with current values
         form_data = {
             'campaign_name': {'value': campaign.get('campaign_name', '')},
             'world_ids': {'value': campaign.get('world_ids', [])},
-            'member_ids': {'value': campaign.get('member_ids', [])}
+            'player_ids': {'value': campaign.get('player_ids', [])}
         }
 
         return render(request, 'campaigns/campaign_form.html', {
             'worlds': worlds,
-            'members': members_list,
+            'players': players_list,
             'form': form_data,
             'campaign': campaign,
             'is_edit': True
@@ -339,35 +339,35 @@ class CampaignUpdateView(View):
 
         # Get multi-select values
         world_ids = request.POST.getlist('world_ids')
-        member_ids = request.POST.getlist('member_ids')
+        player_ids = request.POST.getlist('player_ids')
 
-        if not world_ids or not member_ids:
+        if not world_ids or not player_ids:
             messages.error(request, 'Please select at least one world and one player')
             return redirect('campaign_update', campaign_id=campaign_id)
 
         # Get world data from MongoDB
         worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}}))
 
-        # Get member data from PostgreSQL
-        members = Member.objects.filter(
-            member_id__in=member_ids,
+        # Get player data from PostgreSQL
+        players = Player.objects.filter(
+            player_id__in=player_ids,
             is_active=True
-        ).values('member_id', 'display_name', 'email')
+        ).values('player_id', 'display_name', 'email')
 
-        if len(worlds) != len(world_ids) or len(members) != len(member_ids):
-            messages.error(request, 'Invalid world or member selected')
+        if len(worlds) != len(world_ids) or len(players) != len(player_ids):
+            messages.error(request, 'Invalid world or player selected')
             return redirect('campaign_update', campaign_id=campaign_id)
 
-        # Build world and member names
+        # Build world and player names
         world_names = [w.get('world_name') for w in worlds]
-        member_names = [m['display_name'] for m in members]
+        player_names = [p['display_name'] for p in players]
 
-        # Convert member_ids to strings for consistency
-        member_ids = [str(m['member_id']) for m in members]
+        # Convert player_ids to strings for consistency
+        player_ids = [str(p['player_id']) for p in players]
 
-        # Get old world and member IDs for Neo4j cleanup
+        # Get old world and player IDs for Neo4j cleanup
         old_world_ids = campaign.get('world_ids', [])
-        old_member_ids = campaign.get('member_ids', [])
+        old_player_ids = campaign.get('player_ids', [])
 
         # Update MongoDB
         db.campaign_state.update_one(
@@ -377,8 +377,8 @@ class CampaignUpdateView(View):
                     'campaign_name': request.POST.get('campaign_name'),
                     'world_ids': world_ids,
                     'world_names': world_names,
-                    'member_ids': member_ids,
-                    'member_names': member_names
+                    'player_ids': player_ids,
+                    'player_names': player_names
                 }
             }
         )
@@ -408,22 +408,22 @@ class CampaignUpdateView(View):
                         MERGE (c)-[:IN_WORLD]->(w)
                     """, campaign_id=campaign_id, world_id=world_id)
 
-            # Remove old member relationships
-            for old_member_id in old_member_ids:
-                if old_member_id not in member_ids:
+            # Remove old player relationships
+            for old_player_id in old_player_ids:
+                if old_player_id not in player_ids:
                     session.run("""
-                        MATCH (c:Campaign {id: $campaign_id})-[r:HAS_PLAYER]->(m:Member {id: $member_id})
+                        MATCH (c:Campaign {id: $campaign_id})-[r:HAS_PLAYER]->(p:Player {id: $player_id})
                         DELETE r
-                    """, campaign_id=campaign_id, member_id=old_member_id)
+                    """, campaign_id=campaign_id, player_id=old_player_id)
 
-            # Add new member relationships
-            for member_id in member_ids:
-                if member_id not in old_member_ids:
+            # Add new player relationships
+            for player_id in player_ids:
+                if player_id not in old_player_ids:
                     session.run("""
                         MATCH (c:Campaign {id: $campaign_id})
-                        MATCH (m:Member {id: $member_id})
-                        MERGE (c)-[:HAS_PLAYER]->(m)
-                    """, campaign_id=campaign_id, member_id=member_id)
+                        MATCH (p:Player {id: $player_id})
+                        MERGE (c)-[:HAS_PLAYER]->(p)
+                    """, campaign_id=campaign_id, player_id=player_id)
 
         messages.success(request, f'Campaign "{request.POST.get("campaign_name")}" updated successfully!')
         return redirect('campaign_detail', campaign_id=campaign_id)

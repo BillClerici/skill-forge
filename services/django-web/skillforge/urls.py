@@ -10,7 +10,7 @@ from django.conf.urls.static import static
 
 from .views import dashboard
 from accounts.views import AccountListView, AccountDetailView
-from members.views import MemberListView, MemberDetailView
+from members.views import PlayerListView, PlayerDetailView
 from worlds.views import (
     UniverseListView, UniverseCreateView, UniverseDetailView,
     UniverseUpdateView, UniverseDeleteView,
@@ -46,9 +46,9 @@ urlpatterns = [
     path('accounts/', AccountListView.as_view(), name='account_list'),
     path('accounts/<uuid:account_id>/', AccountDetailView.as_view(), name='account_detail'),
 
-    # Members
-    path('members/', MemberListView.as_view(), name='member_list'),
-    path('members/<uuid:member_id>/', MemberDetailView.as_view(), name='member_detail'),
+    # Players
+    path('players/', PlayerListView.as_view(), name='player_list'),
+    path('players/<uuid:player_id>/', PlayerDetailView.as_view(), name='player_detail'),
 
     # Universes
     path('universes/', UniverseListView.as_view(), name='universe_list'),

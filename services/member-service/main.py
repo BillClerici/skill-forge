@@ -1,6 +1,6 @@
 """
-Member Service - FastAPI Microservice with Neo4j
-Handles CRUD operations for members and family relationships
+Player Service - FastAPI Microservice with Neo4j
+Handles CRUD operations for players and family relationships
 """
 import os
 import uuid
@@ -45,10 +45,10 @@ class Base(DeclarativeBase):
     pass
 
 
-class Member(Base):
-    __tablename__ = "members"
+class Player(Base):
+    __tablename__ = "players"
 
-    member_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    player_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     account_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
 
     # Identity
@@ -59,7 +59,7 @@ class Member(Base):
     # Role & Permissions
     role: Mapped[str] = mapped_column(nullable=False)
     can_manage_account: Mapped[bool] = mapped_column(default=False)
-    can_manage_members: Mapped[bool] = mapped_column(default=False)
+    can_manage_players: Mapped[bool] = mapped_column(default=False)
     can_view_billing: Mapped[bool] = mapped_column(default=False)
 
     # Content Restrictions
@@ -79,7 +79,7 @@ class Member(Base):
 # Pydantic Schemas
 # ============================================
 
-class MemberCreate(BaseModel):
+class PlayerCreate(BaseModel):
     account_id: uuid.UUID
     display_name: str
     email: Optional[EmailStr] = None
@@ -87,14 +87,14 @@ class MemberCreate(BaseModel):
     role: str
 
 
-class MemberUpdate(BaseModel):
+class PlayerUpdate(BaseModel):
     display_name: Optional[str] = None
     email: Optional[EmailStr] = None
     role: Optional[str] = None
 
 
-class MemberResponse(BaseModel):
-    member_id: uuid.UUID
+class PlayerResponse(BaseModel):
+    player_id: uuid.UUID
     account_id: uuid.UUID
     display_name: str
     email: Optional[str]
@@ -109,8 +109,8 @@ class MemberResponse(BaseModel):
 
 
 class FamilyRelationshipCreate(BaseModel):
-    parent_member_id: uuid.UUID
-    child_member_id: uuid.UUID
+    parent_player_id: uuid.UUID
+    child_player_id: uuid.UUID
     relationship_type: str = "PARENT_OF"
 
 
@@ -142,7 +142,7 @@ async def lifespan(app: FastAPI):
     global neo4j_driver
 
     # Startup
-    print("🚀 Member Service starting up...")
+    print("🚀 Player Service starting up...")
 
     # Initialize Neo4j driver
     try:
@@ -161,7 +161,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    print("🛑 Member Service shutting down...")
+    print("🛑 Player Service shutting down...")
     if neo4j_driver:
         await neo4j_driver.close()
 
@@ -171,8 +171,8 @@ async def lifespan(app: FastAPI):
 # ============================================
 
 app = FastAPI(
-    title="SkillForge Member Service",
-    description="Member management with Neo4j relationships",
+    title="SkillForge Player Service",
+    description="Player management with Neo4j relationships",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -181,7 +181,7 @@ app = FastAPI(
 @app.get("/")
 async def root():
     return {
-        "service": "Member Service",
+        "service": "Player Service",
         "status": "running",
         "version": "1.0.0"
     }
@@ -189,129 +189,129 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "member-service"}
+    return {"status": "healthy", "service": "player-service"}
 
 
 # ============================================
-# Member CRUD Endpoints
+# Player CRUD Endpoints
 # ============================================
 
-@app.post("/members", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
-async def create_member(
-    member_data: MemberCreate,
+@app.post("/players", response_model=PlayerResponse, status_code=status.HTTP_201_CREATED)
+async def create_player(
+    player_data: PlayerCreate,
     db: AsyncSession = Depends(get_db),
     driver: AsyncDriver = Depends(get_neo4j_driver)
 ):
-    """Create a new member in PostgreSQL and Neo4j"""
+    """Create a new player in PostgreSQL and Neo4j"""
     try:
         # Create in PostgreSQL
-        new_member = Member(
-            account_id=member_data.account_id,
-            display_name=member_data.display_name,
-            email=member_data.email,
-            date_of_birth=member_data.date_of_birth,
-            role=member_data.role
+        new_player = Player(
+            account_id=player_data.account_id,
+            display_name=player_data.display_name,
+            email=player_data.email,
+            date_of_birth=player_data.date_of_birth,
+            role=player_data.role
         )
 
-        db.add(new_member)
+        db.add(new_player)
         await db.commit()
-        await db.refresh(new_member)
+        await db.refresh(new_player)
 
         # Create node in Neo4j
         async with driver.session() as neo4j_session:
             await neo4j_session.run(
                 """
-                CREATE (m:Member {
-                    member_id: $member_id,
+                CREATE (p:Player {
+                    player_id: $player_id,
                     account_id: $account_id,
                     display_name: $display_name,
                     role: $role,
                     created_at: datetime()
                 })
                 """,
-                member_id=str(new_member.member_id),
-                account_id=str(new_member.account_id),
-                display_name=new_member.display_name,
-                role=new_member.role
+                player_id=str(new_player.player_id),
+                account_id=str(new_player.account_id),
+                display_name=new_player.display_name,
+                role=new_player.role
             )
 
-        return new_member
+        return new_player
 
     except Exception as e:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create member: {str(e)}"
+            detail=f"Failed to create player: {str(e)}"
         )
 
 
-@app.get("/members/{member_id}", response_model=MemberResponse)
-async def get_member(
-    member_id: uuid.UUID,
+@app.get("/players/{player_id}", response_model=PlayerResponse)
+async def get_player(
+    player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get member by ID"""
+    """Get player by ID"""
     result = await db.execute(
-        select(Member).where(Member.member_id == member_id)
+        select(Player).where(Player.player_id == player_id)
     )
-    member = result.scalar_one_or_none()
+    player = result.scalar_one_or_none()
 
-    if not member:
+    if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Member {member_id} not found"
+            detail=f"Player {player_id} not found"
         )
 
-    return member
+    return player
 
 
-@app.get("/members", response_model=List[MemberResponse])
-async def list_members(
+@app.get("/players", response_model=List[PlayerResponse])
+async def list_players(
     account_id: Optional[uuid.UUID] = None,
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_db)
 ):
-    """List members, optionally filtered by account"""
-    query = select(Member)
+    """List players, optionally filtered by account"""
+    query = select(Player)
 
     if account_id:
-        query = query.where(Member.account_id == account_id)
+        query = query.where(Player.account_id == account_id)
 
     query = query.offset(skip).limit(limit)
     result = await db.execute(query)
-    members = result.scalars().all()
+    players = result.scalars().all()
 
-    return members
+    return players
 
 
-@app.delete("/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_member(
-    member_id: uuid.UUID,
+@app.delete("/players/{player_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_player(
+    player_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     driver: AsyncDriver = Depends(get_neo4j_driver)
 ):
-    """Delete member from PostgreSQL and Neo4j"""
+    """Delete player from PostgreSQL and Neo4j"""
     result = await db.execute(
-        select(Member).where(Member.member_id == member_id)
+        select(Player).where(Player.player_id == player_id)
     )
-    member = result.scalar_one_or_none()
+    player = result.scalar_one_or_none()
 
-    if not member:
+    if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Member {member_id} not found"
+            detail=f"Player {player_id} not found"
         )
 
     # Delete from PostgreSQL
-    await db.delete(member)
+    await db.delete(player)
     await db.commit()
 
     # Delete from Neo4j
     async with driver.session() as neo4j_session:
         await neo4j_session.run(
-            "MATCH (m:Member {member_id: $member_id}) DETACH DELETE m",
-            member_id=str(member_id)
+            "MATCH (p:Player {player_id: $player_id}) DETACH DELETE p",
+            player_id=str(player_id)
         )
 
     return None
@@ -330,49 +330,49 @@ async def create_family_relationship(
     async with driver.session() as neo4j_session:
         result = await neo4j_session.run(
             """
-            MATCH (parent:Member {member_id: $parent_id})
-            MATCH (child:Member {member_id: $child_id})
+            MATCH (parent:Player {player_id: $parent_id})
+            MATCH (child:Player {player_id: $child_id})
             CREATE (parent)-[r:PARENT_OF {created_at: datetime()}]->(child)
             CREATE (parent)-[:MANAGES]->(child)
             RETURN parent, child, r
             """,
-            parent_id=str(relationship.parent_member_id),
-            child_id=str(relationship.child_member_id)
+            parent_id=str(relationship.parent_player_id),
+            child_id=str(relationship.child_player_id)
         )
 
         record = await result.single()
         if not record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="One or both members not found in graph"
+                detail="One or both players not found in graph"
             )
 
         return {
             "message": "Family relationship created",
-            "parent_id": str(relationship.parent_member_id),
-            "child_id": str(relationship.child_member_id)
+            "parent_id": str(relationship.parent_player_id),
+            "child_id": str(relationship.child_player_id)
         }
 
 
-@app.get("/members/{member_id}/children")
-async def get_member_children(
-    member_id: uuid.UUID,
+@app.get("/players/{player_id}/children")
+async def get_player_children(
+    player_id: uuid.UUID,
     driver: AsyncDriver = Depends(get_neo4j_driver)
 ):
-    """Get all children of a member"""
+    """Get all children of a player"""
     async with driver.session() as neo4j_session:
         result = await neo4j_session.run(
             """
-            MATCH (parent:Member {member_id: $member_id})-[:PARENT_OF]->(child:Member)
-            RETURN child.member_id as member_id, child.display_name as display_name, child.role as role
+            MATCH (parent:Player {player_id: $player_id})-[:PARENT_OF]->(child:Player)
+            RETURN child.player_id as player_id, child.display_name as display_name, child.role as role
             """,
-            member_id=str(member_id)
+            player_id=str(player_id)
         )
 
         children = []
         async for record in result:
             children.append({
-                "member_id": record["member_id"],
+                "player_id": record["player_id"],
                 "display_name": record["display_name"],
                 "role": record["role"]
             })
@@ -380,32 +380,32 @@ async def get_member_children(
         return {"children": children}
 
 
-@app.get("/members/{member_id}/family-tree")
+@app.get("/players/{player_id}/family-tree")
 async def get_family_tree(
-    member_id: uuid.UUID,
+    player_id: uuid.UUID,
     driver: AsyncDriver = Depends(get_neo4j_driver)
 ):
-    """Get the complete family tree for a member"""
+    """Get the complete family tree for a player"""
     async with driver.session() as neo4j_session:
         result = await neo4j_session.run(
             """
-            MATCH path = (m:Member {member_id: $member_id})-[:PARENT_OF*0..3]-(family:Member)
-            RETURN DISTINCT family.member_id as member_id,
+            MATCH path = (p:Player {player_id: $player_id})-[:PARENT_OF*0..3]-(family:Player)
+            RETURN DISTINCT family.player_id as player_id,
                    family.display_name as display_name,
                    family.role as role
             """,
-            member_id=str(member_id)
+            player_id=str(player_id)
         )
 
-        family_members = []
+        family_players = []
         async for record in result:
-            family_members.append({
-                "member_id": record["member_id"],
+            family_players.append({
+                "player_id": record["player_id"],
                 "display_name": record["display_name"],
                 "role": record["role"]
             })
 
-        return {"family_tree": family_members}
+        return {"family_tree": family_players}
 
 
 if __name__ == "__main__":

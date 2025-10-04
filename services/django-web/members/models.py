@@ -1,14 +1,14 @@
 """
-Member models for SkillForge
+Player models for SkillForge
 Using existing PostgreSQL tables with managed=False
 """
 import uuid
 from django.db import models
 
 
-class Member(models.Model):
-    """Member model - maps to existing members table"""
-    member_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+class Player(models.Model):
+    """Player model - maps to existing players table"""
+    player_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     account_id = models.UUIDField()
 
     # Identity
@@ -29,7 +29,7 @@ class Member(models.Model):
         ]
     )
     can_manage_account = models.BooleanField(default=False)
-    can_manage_members = models.BooleanField(default=False)
+    can_manage_players = models.BooleanField(default=False)
     can_view_billing = models.BooleanField(default=False)
 
     # Content Restrictions
@@ -45,7 +45,7 @@ class Member(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = 'members'
+        db_table = 'players'
         managed = False
 
     def __str__(self):

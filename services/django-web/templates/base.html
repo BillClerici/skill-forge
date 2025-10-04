@@ -75,6 +75,12 @@
             text-shadow: 0 0 15px rgba(212, 175, 55, 0.8);
         }
 
+        /* Hamburger Menu */
+        .sidenav-trigger {
+            display: block !important;
+            margin-right: 15px;
+        }
+
         /* Sidebar - Dark fantasy theme */
         .sidenav {
             width: 280px;
@@ -328,22 +334,25 @@
 <body>
     <!-- Navigation -->
     <nav class="deep-purple darken-1">
-        <div class="nav-wrapper container">
-            <a href="{% url 'dashboard' %}" class="brand-logo">
+        <div class="nav-wrapper">
+            <a href="#" data-target="slide-out" class="sidenav-trigger" style="margin-left: 15px;"><i class="material-icons">menu</i></a>
+            <a href="{% url 'dashboard' %}" class="brand-logo" style="margin-left: 65px;">
                 <i class="material-icons left">casino</i>SkillForge RPG
             </a>
-            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
-            <ul class="right hide-on-med-and-down">
+            <ul class="right hide-on-med-and-down" style="margin-right: 15px;">
                 <li><a href="{% url 'admin:index' %}"><i class="material-icons left">settings</i>Admin</a></li>
                 <li><a href="/graphql/"><i class="material-icons left">code</i>GraphQL</a></li>
             </ul>
         </div>
     </nav>
 
-    <!-- Sidebar -->
-    <ul id="slide-out" class="sidenav sidenav-fixed">
+    <!-- Sidebar - Slide-out Drawer -->
+    <ul id="slide-out" class="sidenav">
         <li>
-            <div class="user-view deep-purple darken-1 white-text">
+            <div class="user-view deep-purple darken-1 white-text" style="position: relative;">
+                <a href="#" class="sidenav-close" style="position: absolute; top: 10px; right: 10px; z-index: 10;">
+                    <i class="material-icons white-text">close</i>
+                </a>
                 <div class="background">
                     <img src="https://images.unsplash.com/photo-1542281286-9e0a16bb7366" style="opacity: 0.3;">
                 </div>
@@ -354,7 +363,7 @@
         </li>
         <li><a class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
         <li><a class="{% if 'account' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'account_list' %}"><i class="material-icons">group</i>Accounts</a></li>
-        <li><a class="{% if 'member' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'member_list' %}"><i class="material-icons">person</i>Members</a></li>
+        <li><a class="{% if 'player' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'player_list' %}"><i class="material-icons">person</i>Players</a></li>
         <li><div class="divider"></div></li>
         <li><a class="subheader">Content</a></li>
         <li><a class="{% if 'universe' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'universe_list' %}"><i class="material-icons">public</i>Universes</a></li>
@@ -367,18 +376,9 @@
         <li><a href="http://localhost:15672" target="_blank"><i class="material-icons">inbox</i>RabbitMQ</a></li>
     </ul>
 
-    <!-- Mobile Navigation -->
-    <ul class="sidenav" id="mobile-nav">
-        <li><a href="{% url 'dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
-        <li><a href="{% url 'account_list' %}"><i class="material-icons">group</i>Accounts</a></li>
-        <li><a href="{% url 'member_list' %}"><i class="material-icons">person</i>Members</a></li>
-        <li><a href="{% url 'admin:index' %}"><i class="material-icons">settings</i>Admin</a></li>
-        <li><a href="/graphql/"><i class="material-icons">code</i>GraphQL</a></li>
-    </ul>
-
     <!-- Main Content -->
     <main>
-        <div class="container" style="margin-left: 320px; padding: 24px;">
+        <div class="container" style="padding: 24px;">
             {% block content %}{% endblock %}
         </div>
     </main>

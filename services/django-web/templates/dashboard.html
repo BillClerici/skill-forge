@@ -30,11 +30,11 @@
         <div class="card stat-card hoverable">
             <div class="card-content white-text center-align">
                 <i class="material-icons">person</i>
-                <h3 class="white-text" style="margin: 10px 0;">{{ total_members }}</h3>
-                <p style="font-size: 1.1rem; font-weight: 500;">Total Members</p>
+                <h3 class="white-text" style="margin: 10px 0;">{{ total_players }}</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Total Players</p>
             </div>
             <div class="card-action center-align">
-                <a href="{% url 'member_list' %}" class="white-text" style="font-weight: 600;">View All</a>
+                <a href="{% url 'player_list' %}" class="white-text" style="font-weight: 600;">View All</a>
             </div>
         </div>
     </div>
@@ -43,11 +43,11 @@
         <div class="card stat-card hoverable">
             <div class="card-content white-text center-align">
                 <i class="material-icons">public</i>
-                <h3 class="white-text" style="margin: 10px 0;">0</h3>
+                <h3 class="white-text" style="margin: 10px 0;">{{ total_universes }}</h3>
                 <p style="font-size: 1.1rem; font-weight: 500;">Universes</p>
             </div>
             <div class="card-action center-align">
-                <a href="#!" class="white-text" style="font-weight: 600;">Coming Soon</a>
+                <a href="{% url 'universe_list' %}" class="white-text" style="font-weight: 600;">View All</a>
             </div>
         </div>
     </div>
@@ -55,12 +55,12 @@
     <div class="col s12 m6 l3">
         <div class="card stat-card hoverable">
             <div class="card-content white-text center-align">
-                <i class="material-icons">book</i>
-                <h3 class="white-text" style="margin: 10px 0;">0</h3>
-                <p style="font-size: 1.1rem; font-weight: 500;">Campaigns</p>
+                <i class="material-icons">language</i>
+                <h3 class="white-text" style="margin: 10px 0;">{{ total_worlds }}</h3>
+                <p style="font-size: 1.1rem; font-weight: 500;">Worlds</p>
             </div>
             <div class="card-action center-align">
-                <a href="#!" class="white-text" style="font-weight: 600;">Coming Soon</a>
+                <a href="{% url 'world_list' %}" class="white-text" style="font-weight: 600;">View All</a>
             </div>
         </div>
     </div>
@@ -101,35 +101,35 @@
         </div>
     </div>
 
-    <!-- Recent Members -->
+    <!-- Recent Players -->
     <div class="col s12 l6">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">person</i>Recent Members
+                    <i class="material-icons left">person</i>Recent Players
                 </span>
-                {% if recent_members %}
+                {% if recent_players %}
                 <ul class="collection" style="border: none; margin-top: 15px;">
-                    {% for member in recent_members %}
+                    {% for player in recent_players %}
                     <li class="collection-item" style="background-color: transparent;">
                         <div>
-                            <a href="{% url 'member_detail' member.member_id %}" class="white-text" style="font-weight: 500; font-size: 1.05rem;">
-                                {{ member.display_name }}
+                            <a href="{% url 'player_detail' player.player_id %}" class="white-text" style="font-weight: 500; font-size: 1.05rem;">
+                                {{ player.display_name }}
                             </a>
-                            <span class="badge" style="background-color: var(--rpg-blue);">{{ member.role }}</span>
+                            <span class="badge" style="background-color: var(--rpg-blue);">{{ player.role }}</span>
                             <p class="grey-text" style="margin: 5px 0 0 0; font-size: 0.9rem;">
-                                Joined {{ member.created_at|timesince }} ago
+                                Joined {{ player.created_at|timesince }} ago
                             </p>
                         </div>
                     </li>
                     {% endfor %}
                 </ul>
                 {% else %}
-                <p class="grey-text center-align" style="padding: 20px;">No members yet</p>
+                <p class="grey-text center-align" style="padding: 20px;">No players yet</p>
                 {% endif %}
             </div>
             <div class="card-action">
-                <a href="{% url 'member_list' %}" style="color: var(--rpg-gold); font-weight: 600;">View All Members</a>
+                <a href="{% url 'player_list' %}" style="color: var(--rpg-gold); font-weight: 600;">View All Players</a>
             </div>
         </div>
     </div>
@@ -147,8 +147,8 @@
                     <a href="{% url 'account_list' %}" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
                         <i class="material-icons left">add</i>Create Account
                     </a>
-                    <a href="{% url 'member_list' %}" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
-                        <i class="material-icons left">person_add</i>Add Member
+                    <a href="{% url 'player_list' %}" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
+                        <i class="material-icons left">person_add</i>Add Player
                     </a>
                     <a href="/graphql/" class="btn waves-effect waves-light" style="margin-right: 10px; margin-bottom: 10px;">
                         <i class="material-icons left">code</i>GraphQL Playground

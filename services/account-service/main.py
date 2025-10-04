@@ -34,13 +34,13 @@ class Account(Base):
     __tablename__ = "accounts"
 
     account_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_owner_member_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    account_owner_player_id: Mapped[Optional[uuid.UUID]] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     account_type: Mapped[str] = mapped_column(nullable=False)
     subscription_tier: Mapped[Optional[str]] = mapped_column(nullable=True)
     subscription_status: Mapped[str] = mapped_column(nullable=False, default="active")
     billing_cycle: Mapped[Optional[str]] = mapped_column(nullable=True)
-    max_members: Mapped[int] = mapped_column(default=1)
-    current_member_count: Mapped[int] = mapped_column(default=1)
+    max_players: Mapped[int] = mapped_column(default=1)
+    current_player_count: Mapped[int] = mapped_column(default=1)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(nullable=True)
     stripe_subscription_id: Mapped[Optional[str]] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
@@ -51,7 +51,7 @@ class Account(Base):
 class AccountCreate(BaseModel):
     account_type: str
     subscription_tier: Optional[str] = None
-    max_members: int = 1
+    max_players: int = 1
 
 
 class AccountUpdate(BaseModel):
@@ -64,8 +64,8 @@ class AccountResponse(BaseModel):
     account_type: str
     subscription_tier: Optional[str]
     subscription_status: str
-    max_members: int
-    current_member_count: int
+    max_players: int
+    current_player_count: int
     created_at: datetime
     updated_at: datetime
 
@@ -123,7 +123,7 @@ async def create_account(
         new_account = Account(
             account_type=account_data.account_type,
             subscription_tier=account_data.subscription_tier,
-            max_members=account_data.max_members,
+            max_players=account_data.max_players,
             subscription_status="active"
         )
 

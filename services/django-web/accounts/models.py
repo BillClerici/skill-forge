@@ -9,7 +9,7 @@ from django.db import models
 class Account(models.Model):
     """Account model - maps to existing accounts table"""
     account_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    account_owner_member_id = models.UUIDField(null=True, blank=True)
+    account_owner_player_id = models.UUIDField(null=True, blank=True)
     account_type = models.CharField(
         max_length=50,
         choices=[
@@ -41,8 +41,8 @@ class Account(models.Model):
     )
     subscription_start_date = models.DateField(null=True, blank=True)
     next_billing_date = models.DateField(null=True, blank=True)
-    max_members = models.IntegerField(default=1)
-    current_member_count = models.IntegerField(default=1)
+    max_players = models.IntegerField(default=1)
+    current_player_count = models.IntegerField(default=1)
     stripe_customer_id = models.CharField(max_length=100, null=True, blank=True)
     stripe_subscription_id = models.CharField(max_length=100, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
