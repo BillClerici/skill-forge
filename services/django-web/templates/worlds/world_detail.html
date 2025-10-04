@@ -604,7 +604,9 @@
                     <h6 style="color: var(--rpg-gold); margin-bottom: 5px;">
                         <i class="material-icons tiny">account_balance</i> Government & Politics
                     </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.societal_properties.government }}</p>
+                    {% for item in world.societal_properties.government %}
+                        <span class="chip" style="background-color: rgba(63, 81, 181, 0.3); margin: 4px;">{{ item }}</span>
+                    {% endfor %}
                 </div>
                 {% endif %}
 
