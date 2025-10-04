@@ -403,6 +403,17 @@ class GenerateLocationBackstoryRequest(BaseModel):
     region_name: Optional[str] = None
     world_name: Optional[str] = None
 
+class GenerateCharacterBackstoryRequest(BaseModel):
+    character_id: str
+    character_name: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    age: Optional[str] = ""
+    height: Optional[str] = ""
+    appearance: Optional[str] = ""
+    blooms_level: str
+    player_name: str
+
 class GenerateRegionsRequest(BaseModel):
     world_context: Dict[str, Any]
     num_regions: int
@@ -891,6 +902,84 @@ Write the backstory now:"""
             anthropic_api_key=ANTHROPIC_API_KEY,
             temperature=0.8,
             max_tokens=600
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = await llm.ainvoke(messages)
+
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "backstory": response.content,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating backstory: {str(e)}")
+
+@app.post("/generate-character-backstory")
+async def generate_character_backstory(request: GenerateCharacterBackstoryRequest):
+    """Generate creative backstory for a character using Claude"""
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    # Build arc description
+    arc_descriptors = {
+        'remembering': 'a novice adventurer, fresh and eager to learn',
+        'understanding': 'showing signs of growing wisdom and understanding',
+        'applying': 'a confident and skilled journeyman',
+        'analyzing': 'a wise and analytical expert strategist',
+        'evaluating': 'a masterful presence who commands respect',
+        'creating': 'a legendary grandmaster of their craft'
+    }
+    arc_desc = arc_descriptors.get(request.blooms_level, 'an adventurer')
+
+    prompt = f"""You are a creative storyteller for a tabletop RPG system. Generate an engaging backstory for a player character based on the following details:
+
+CHARACTER NAME: {request.character_name}"""
+
+    if request.title:
+        prompt += f"\nTITLE: {request.title}"
+
+    prompt += f"""
+PLAYER: {request.player_name}
+DESCRIPTION: {request.description}"""
+
+    if request.age:
+        prompt += f"\nAGE: {request.age}"
+    if request.height:
+        prompt += f"\nHEIGHT: {request.height}"
+    if request.appearance:
+        prompt += f"\nAPPEARANCE: {request.appearance}"
+
+    prompt += f"\nCURRENT LEVEL: {arc_desc}"
+
+    prompt += """
+
+INSTRUCTIONS:
+1. Write a rich, detailed backstory (2-3 compelling paragraphs, 200-300 words)
+2. Explore their origins and early life
+3. Explain how they became who they are today
+4. Hint at their motivations, goals, and what drives them
+5. Include interesting personality traits and quirks
+6. Make it appropriate for a fantasy/RPG setting
+7. Incorporate their current skill level naturally
+8. Make it engaging, memorable, and unique
+9. Return ONLY the backstory text, no preamble or explanation
+
+Write the character backstory now:"""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-20250514",
+            anthropic_api_key=ANTHROPIC_API_KEY,
+            temperature=0.8,
+            max_tokens=800
         )
 
         messages = [HumanMessage(content=prompt)]

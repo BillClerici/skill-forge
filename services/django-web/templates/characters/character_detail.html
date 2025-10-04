@@ -17,7 +17,22 @@
         <div class="card">
             <div class="card-content">
                 <div class="row" style="margin-bottom: 0;">
+                    {% if character.images and character.images|length > 0 %}
+                    <div class="col s12 m2 center-align">
+                        {% if character.primary_image_index == 0 %}
+                            <img src="{{ character.images.0 }}" alt="{{ character.name }}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 3px solid var(--rpg-gold); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                        {% elif character.primary_image_index == 1 %}
+                            <img src="{{ character.images.1 }}" alt="{{ character.name }}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 3px solid var(--rpg-gold); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                        {% elif character.primary_image_index == 2 %}
+                            <img src="{{ character.images.2 }}" alt="{{ character.name }}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 3px solid var(--rpg-gold); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                        {% else %}
+                            <img src="{{ character.images.3 }}" alt="{{ character.name }}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 3px solid var(--rpg-gold); box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+                        {% endif %}
+                    </div>
+                    <div class="col s12 m5">
+                    {% else %}
                     <div class="col s12 m7">
+                    {% endif %}
                         <h4 style="color: var(--rpg-gold); margin-top: 0;">
                             <i class="material-icons left" style="vertical-align: middle;">face</i>
                             {{ character.full_name }}
@@ -45,9 +60,6 @@
                         </div>
                     </div>
                     <div class="col s12 m5" style="display: flex; justify-content: flex-end; align-items: center; flex-wrap: nowrap; gap: 5px;">
-                        <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple); font-size: 0.7rem; padding: 0 10px;">
-                            <i class="material-icons left" style="font-size: 1rem; margin-right: 3px;">description</i>Character Sheet
-                        </a>
                         <a href="{% url 'character_edit' character.character_id %}" class="btn-small waves-effect waves-light" style="font-size: 0.7rem; padding: 0 10px;">
                             <i class="material-icons left" style="font-size: 1rem; margin-right: 3px;">edit</i>Edit
                         </a>
@@ -134,68 +146,87 @@
             </div>
         </div>
 
-        <!-- Character Images Card -->
+        <!-- Attributes & Skills Card -->
         <div class="card">
             <div class="card-content">
-                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="material-icons left">image</i>Character Images</span>
-                    {% if character.images|length < 4 %}
-                    <button id="generate-image-btn" class="btn-small waves-effect waves-light">
-                        <i class="material-icons left">auto_fix_high</i>Generate
-                    </button>
-                    {% endif %}
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">bar_chart</i>Attributes & Skills
                 </span>
 
                 <div style="margin-top: 20px;">
-                    {% if character.images %}
-                    <div class="row">
-                        {% for image_url in character.images %}
-                        <div class="col s6 m3">
-                            <div class="card" style="margin: 5px;">
-                                <div class="card-image">
-                                    <img src="{{ image_url }}" alt="{{ character.name }}" style="width: 100%; height: 150px; object-fit: cover;">
-                                    {% if forloop.counter0 == character.primary_image_index %}
-                                    <span class="badge" style="position: absolute; top: 5px; right: 5px; background-color: var(--rpg-gold); color: #1a1a2e; padding: 5px 10px; border-radius: 3px;">
-                                        <i class="material-icons tiny" style="vertical-align: middle;">star</i> Primary
-                                    </span>
-                                    {% endif %}
-                                </div>
-                                <div class="card-action" style="padding: 10px; text-align: center;">
-                                    {% if forloop.counter0 != character.primary_image_index %}
-                                    <a href="#!" class="set-primary-btn" data-index="{{ forloop.counter0 }}" style="color: var(--rpg-gold); margin-right: 10px;">
-                                        <i class="material-icons tiny">star_border</i> Set Primary
-                                    </a>
-                                    {% endif %}
-                                    <a href="#!" class="delete-image-btn" data-index="{{ forloop.counter0 }}" style="color: #f44336;">
-                                        <i class="material-icons tiny">delete</i>
-                                    </a>
-                                </div>
-                            </div>
+                    {% if character.attributes %}
+                    <h6 style="color: var(--rpg-silver); margin-top: 0;">Attributes</h6>
+                    <div style="margin-top: 10px;">
+                        {% for key, value in character.attributes.items %}
+                        <div style="margin-bottom: 10px;">
+                            <p style="margin: 0;">
+                                <strong class="grey-text">{{ key|title }}:</strong>
+                                <span style="color: white;">{{ value }}</span>
+                            </p>
                         </div>
                         {% endfor %}
                     </div>
-                    <p class="grey-text center-align" style="margin-top: 10px;">{{ character.images|length }}/4 images generated</p>
-                    {% else %}
-                    <div class="center-align" style="padding: 20px;">
-                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-gold); opacity: 0.3;">add_photo_alternate</i>
-                        <p class="grey-text" style="margin-top: 10px;">No character images yet</p>
-                        <button id="generate-first-image-btn" class="btn waves-effect waves-light" style="margin-top: 15px;">
-                            <i class="material-icons left">auto_fix_high</i>Generate First Image
-                        </button>
+                    {% endif %}
+
+                    {% if character.skills %}
+                    <h6 style="color: var(--rpg-silver); margin-top: 20px;">Skills</h6>
+                    <div style="margin-top: 10px;">
+                        {% for skill in character.skills %}
+                        <span class="chip" style="margin: 5px;">{{ skill }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if not character.attributes and not character.skills %}
+                    <div class="center-align" style="padding: 40px 20px;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">trending_up</i>
+                        <p class="grey-text" style="margin-top: 15px;">No attributes or skills configured</p>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
+
+        <!-- Inventory Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">backpack</i>Inventory
+                </span>
+
+                {% if character.inventory %}
+                <div style="margin-top: 20px;">
+                    <ul class="collection" style="border: none;">
+                        {% for item in character.inventory %}
+                        <li class="collection-item" style="background-color: rgba(212, 175, 55, 0.05); border-bottom: 1px solid rgba(212, 175, 55, 0.2);">
+                            <span style="color: white;">{{ item }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% else %}
+                <div class="center-align" style="padding: 40px 20px;">
+                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">shopping_bag</i>
+                    <p class="grey-text" style="margin-top: 15px;">Inventory is empty</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
 
-    <!-- Main Content -->
+<!-- Main Content Row -->
+<div class="row">
+    <!-- Main Content Column -->
     <div class="col s12 l8">
         <!-- Personal Evolution Arc Card -->
         <div class="card">
             <div class="card-content">
-                <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">trending_up</i>Personal Evolution Arc
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="material-icons left">trending_up</i>Personal Evolution Arc</span>
+                    <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                        <i class="material-icons left">description</i>Character Sheet
+                    </a>
                 </span>
 
                 <div style="margin-top: 20px;">
@@ -359,72 +390,109 @@
             </div>
         </div>
 
-        <!-- Stats Card -->
+        <!-- Character Images Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">bar_chart</i>Attributes & Skills
+                    <i class="material-icons left">image</i>
+                    Character Images
                 </span>
 
-                <div style="margin-top: 20px;">
-                    {% if character.attributes %}
-                    <h6 style="color: var(--rpg-silver);">Attributes</h6>
-                    <div class="row">
-                        {% for key, value in character.attributes.items %}
-                        <div class="col s6 m4">
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">{{ key|title }}:</strong>
-                                <span style="color: white;">{{ value }}</span>
-                            </p>
+                <!-- Image Grid Display -->
+                <div id="character-images-grid" style="margin-top: 20px;">
+                    {% if character.images and character.images|length > 0 %}
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+                        {% for image_url in character.images %}
+                        <div class="image-thumbnail-wrapper" data-index="{{ forloop.counter0 }}" style="position: relative;">
+                            <img src="{{ image_url }}"
+                                 alt="{{ character.name }}"
+                                 class="materialboxed"
+                                 style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer; display: block;">
+
+                            <!-- Primary Badge -->
+                            {% if forloop.counter0 == character.primary_image_index %}
+                            <div class="primary-badge" style="position: absolute; top: 8px; left: 8px; background: var(--rpg-gold); color: #1a1a2e; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; display: flex; align-items: center; gap: 4px;">
+                                <i class="material-icons" style="font-size: 16px;">star</i>
+                                PRIMARY
+                            </div>
+                            {% endif %}
+
+                            <!-- Action Buttons -->
+                            <div style="position: absolute; top: 8px; right: 8px; display: flex; gap: 5px;">
+                                {% if forloop.counter0 != character.primary_image_index %}
+                                <button class="btn-floating btn-small purple darken-2 set-primary-btn tooltipped"
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-position="bottom"
+                                        data-tooltip="Set as Primary">
+                                    <i class="material-icons">star_border</i>
+                                </button>
+                                {% endif %}
+                                <button class="btn-floating btn-small red delete-image-btn tooltipped"
+                                        data-index="{{ forloop.counter0 }}"
+                                        data-position="bottom"
+                                        data-tooltip="Delete Image">
+                                    <i class="material-icons">delete</i>
+                                </button>
+                            </div>
+
+                            <!-- Full Size Image Modal -->
+                            <div id="image-modal-{{ forloop.counter0 }}" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); padding: 20px;" onclick="this.style.display='none'">
+                                <img src="{{ image_url }}" style="display: block; margin: auto; max-width: 90%; max-height: 90%; border-radius: 8px;">
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
-                    {% endif %}
-
-                    {% if character.skills %}
-                    <h6 style="color: var(--rpg-silver); margin-top: 20px;">Skills</h6>
-                    <div style="margin-top: 10px;">
-                        {% for skill in character.skills %}
-                        <span class="chip" style="margin: 5px;">{{ skill }}</span>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    {% if not character.attributes and not character.skills %}
+                    {% else %}
                     <div class="center-align" style="padding: 40px 20px;">
-                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">trending_up</i>
-                        <p class="grey-text" style="margin-top: 15px;">No attributes or skills configured</p>
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">add_photo_alternate</i>
+                        <p class="grey-text" style="margin-top: 15px; font-size: 1.1rem;">No character images yet</p>
+                        <p class="grey-text" style="margin-top: 5px;">Generate AI-powered character portraits</p>
                     </div>
                     {% endif %}
                 </div>
+
+                <!-- Generation Status -->
+                <div style="margin: 20px 0; text-align: center;">
+                    <p class="grey-text" style="font-size: 0.95rem;">
+                        {{ character.images|length }}/4 images generated
+                    </p>
+                </div>
+
+                <!-- Generate Button -->
+                <div class="center-align" style="margin-top: 20px;">
+                    <button id="generate-character-images-btn"
+                            class="btn waves-effect waves-light"
+                            style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);"
+                            {% if character.images|length >= 4 %}disabled{% endif %}>
+                        <i class="material-icons left">auto_fix_high</i>
+                        <span id="generate-btn-text">
+                            {% if not character.images or character.images|length == 0 %}
+                                Generate 4 Character Images with AI
+                            {% elif character.images|length == 1 %}
+                                Generate 3 More Images
+                            {% elif character.images|length == 2 %}
+                                Generate 2 More Images
+                            {% elif character.images|length == 3 %}
+                                Generate 1 More Image
+                            {% else %}
+                                Delete images to generate more
+                            {% endif %}
+                        </span>
+                    </button>
+                </div>
+
+                <!-- Image Generation Loading -->
+                <div id="image-generation-loading" style="display: none; margin-top: 20px;">
+                    <div class="progress" style="background-color: rgba(103, 58, 183, 0.2);">
+                        <div class="indeterminate" style="background-color: var(--rpg-gold);"></div>
+                    </div>
+                    <p class="center-align grey-text" style="margin-top: 10px;">
+                        Generating character images... This may take a minute.
+                    </p>
+                </div>
             </div>
         </div>
 
-        <!-- Inventory Card -->
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">backpack</i>Inventory
-                </span>
-
-                {% if character.inventory %}
-                <div style="margin-top: 20px;">
-                    <ul class="collection" style="border: none;">
-                        {% for item in character.inventory %}
-                        <li class="collection-item" style="background-color: rgba(212, 175, 55, 0.05); border-bottom: 1px solid rgba(212, 175, 55, 0.2);">
-                            <span style="color: white;">{{ item }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% else %}
-                <div class="center-align" style="padding: 40px 20px;">
-                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">shopping_bag</i>
-                    <p class="grey-text" style="margin-top: 15px;">Inventory is empty</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </div>
 
@@ -475,6 +543,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize modals
     var elems = document.querySelectorAll('.modal');
     M.Modal.init(elems);
+
+    // Initialize materialboxed images
+    var materialboxElems = document.querySelectorAll('.materialboxed');
+    M.Materialbox.init(materialboxElems);
+
+    // Initialize tooltips
+    var tooltipElems = document.querySelectorAll('.tooltipped');
+    M.Tooltip.init(tooltipElems);
 
     const characterId = '{{ character.character_id }}';
 
@@ -532,10 +608,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // AI Backstory generation
     const generateBackstoryBtn = document.getElementById('generate-backstory-btn');
-    const generateFirstImageBtn = document.getElementById('generate-first-image-btn');
-    const generateImageBtn = document.getElementById('generate-image-btn');
     const saveGeneratedBackstoryBtn = document.getElementById('save-generated-backstory-btn');
     const cancelGeneratedBackstoryBtn = document.getElementById('cancel-generated-backstory-btn');
+
+    // Character Images generation
+    const generateCharacterImagesBtn = document.getElementById('generate-character-images-btn');
+    const imageGenLoading = document.getElementById('image-generation-loading');
 
     if (generateBackstoryBtn) {
         generateBackstoryBtn.addEventListener('click', function() {
@@ -603,36 +681,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Image generation
-    function generateImage() {
-        M.toast({html: 'Generating character image...', classes: 'blue'});
+    // Character Images generation
+    if (generateCharacterImagesBtn) {
+        generateCharacterImagesBtn.addEventListener('click', async function() {
+            if (imageGenLoading) {
+                imageGenLoading.style.display = 'block';
+            }
+            generateCharacterImagesBtn.disabled = true;
 
-        fetch(`/characters/${characterId}/generate-image/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}'
+            try {
+                const response = await fetch(`/characters/${characterId}/generate-image/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({html: 'Character image generated successfully!', classes: 'green'});
+                    // Reload to show new image
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    M.toast({html: 'Error: ' + data.error, classes: 'red'});
+                    if (imageGenLoading) {
+                        imageGenLoading.style.display = 'none';
+                    }
+                    generateCharacterImagesBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Image generation error:', error);
+                M.toast({html: 'Error generating image', classes: 'red'});
+                if (imageGenLoading) {
+                    imageGenLoading.style.display = 'none';
+                }
+                generateCharacterImagesBtn.disabled = false;
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                M.toast({html: 'Image generated successfully!', classes: 'green'});
-                location.reload();
-            } else {
-                M.toast({html: 'Error: ' + data.error, classes: 'red'});
-            }
-        })
-        .catch(error => {
-            M.toast({html: 'Error generating image', classes: 'red'});
         });
-    }
-
-    if (generateFirstImageBtn) {
-        generateFirstImageBtn.addEventListener('click', generateImage);
-    }
-
-    if (generateImageBtn) {
-        generateImageBtn.addEventListener('click', generateImage);
     }
 
     // Set primary image

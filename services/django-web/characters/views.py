@@ -11,9 +11,12 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 import json
 import os
+import httpx
 from .models import Character
 from .forms import CharacterForm
 from members.models import Player
+
+ORCHESTRATOR_URL = os.getenv('ORCHESTRATOR_URL', 'http://agent-orchestrator:9000')
 
 
 class CharacterCreateView(View):
@@ -158,47 +161,46 @@ class CharacterGenerateBackstoryView(View):
         character = get_object_or_404(Character, character_id=character_id)
 
         try:
-            # Use description to generate backstory
-            description = character.description or character.name
+            # Get player for context
+            player = get_object_or_404(Player, player_id=character.player_id)
 
-            # Call Claude API
-            from anthropic import Anthropic
-            client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+            print(f"DEBUG: Calling orchestrator at {ORCHESTRATOR_URL}/generate-character-backstory")
 
-            prompt = f"""Generate a compelling character backstory for an RPG character with the following details:
+            # Call orchestrator to generate backstory
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{ORCHESTRATOR_URL}/generate-character-backstory",
+                    json={
+                        'character_id': str(character.character_id),
+                        'character_name': character.name,
+                        'title': character.title or '',
+                        'description': character.description or '',
+                        'age': str(character.age) if character.age else '',
+                        'height': character.height or '',
+                        'appearance': character.appearance or '',
+                        'blooms_level': character.blooms_level,
+                        'player_name': player.display_name
+                    },
+                    timeout=60.0
+                )
 
-Name: {character.name}
-{f'Title: {character.title}' if character.title else ''}
-Description: {description}
-{f'Age: {character.age}' if character.age else ''}
-{f'Height: {character.height}' if character.height else ''}
-{f'Appearance: {character.appearance}' if character.appearance else ''}
-
-Create a rich, detailed backstory (2-3 paragraphs) that:
-1. Explores their origins and early life
-2. Explains how they became who they are today
-3. Hints at their motivations and goals
-4. Includes interesting personality traits and quirks
-5. Is appropriate for a fantasy/RPG setting
-
-Make it engaging and memorable."""
-
-            message = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1000,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
-
-            backstory = message.content[0].text
-
-            return JsonResponse({
-                'success': True,
-                'backstory': backstory
-            })
+                if response.status_code == 200:
+                    result = response.json()
+                    return JsonResponse({
+                        'success': True,
+                        'backstory': result.get('backstory', '')
+                    })
+                else:
+                    error_detail = f"Orchestrator returned {response.status_code}: {response.text}"
+                    print(f"ERROR: {error_detail}")
+                    return JsonResponse({
+                        'success': False,
+                        'error': error_detail
+                    }, status=500)
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return JsonResponse({
                 'success': False,
                 'error': str(e)
@@ -231,36 +233,132 @@ class CharacterSaveBackstoryView(View):
 
 
 class CharacterGenerateImageView(View):
-    """Generate AI image for character"""
+    """Generate AI image for character using DALL-E 3"""
 
     def post(self, request, character_id):
         character = get_object_or_404(Character, character_id=character_id)
 
         try:
             # Check if already at max images (4)
-            if len(character.images) >= 4:
+            current_images = character.images or []
+            if len(current_images) >= 4:
                 return JsonResponse({
                     'success': False,
                     'error': 'Maximum of 4 images reached. Delete an image to generate a new one.'
                 }, status=400)
 
-            # Build image prompt from character details
+            # Get player and player profile for preferences
+            player = get_object_or_404(Player, player_id=character.player_id)
+            from members.models import PlayerProfile
+            try:
+                player_profile = PlayerProfile.objects.get(player_id=player.player_id)
+            except PlayerProfile.DoesNotExist:
+                player_profile = None
+
+            # Use OpenAI DALL-E 3 for image generation
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'OpenAI API key not configured'
+                }, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            # Build comprehensive image prompt based on character and player preferences
             prompt_parts = [f"A fantasy RPG character portrait of {character.name}"]
+
             if character.title:
                 prompt_parts.append(f"known as '{character.title}'")
+
+            # Add player's favorite genres if available
+            if player_profile and player_profile.favorite_genres:
+                genres = ', '.join(player_profile.favorite_genres)
+                prompt_parts.append(f"Genre style: {genres}")
+
+            if character.backstory:
+                # Use first 200 chars of backstory for context
+                backstory_snippet = character.backstory[:200]
+                prompt_parts.append(f"Background: {backstory_snippet}")
+
             if character.appearance:
                 prompt_parts.append(f"Physical appearance: {character.appearance}")
+
             if character.age:
                 prompt_parts.append(f"Age: {character.age}")
 
-            prompt = ". ".join(prompt_parts) + ". High quality, detailed fantasy art style."
+            if character.height:
+                prompt_parts.append(f"Height: {character.height}")
 
-            # Generate image using Anthropic (placeholder - would use actual image generation service)
-            # For now, return a placeholder
-            image_url = f"https://via.placeholder.com/512x512.png?text={character.name}"
+            # Add evolution arc context
+            arc_descriptors = {
+                'remembering': 'appearing as a novice adventurer, fresh and eager',
+                'understanding': 'showing signs of growing wisdom and understanding',
+                'applying': 'confident and skilled, a seasoned journeyman',
+                'analyzing': 'wise and analytical, an expert strategist',
+                'evaluating': 'masterful presence, commanding respect',
+                'creating': 'legendary aura, a grandmaster of their craft'
+            }
+            arc_desc = arc_descriptors.get(character.blooms_level, '')
+            if arc_desc:
+                prompt_parts.append(arc_desc)
+
+            # Combine prompt
+            base_prompt = ". ".join(prompt_parts)
+
+            # Add art direction with player preferences
+            art_style = "epic fantasy RPG style"
+            if player_profile:
+                if player_profile.play_style == 'narrative':
+                    art_style += ", cinematic and story-driven"
+                elif player_profile.play_style == 'combat':
+                    art_style += ", dynamic action pose"
+                elif player_profile.play_style == 'exploration':
+                    art_style += ", adventurous and mysterious"
+                elif player_profile.play_style == 'puzzle':
+                    art_style += ", thoughtful and strategic pose"
+
+            full_prompt = f"""{base_prompt}
+
+Art Direction: High quality fantasy character portrait, detailed face and expression, professional digital art, dramatic lighting, {art_style}, D&D character art quality, full body or three-quarter view.
+
+IMPORTANT: Pure character artwork only - NO text, NO labels, NO character sheets, NO stat blocks, NO UI elements, NO watermarks. Just the character portrait."""
+
+            # Generate image using DALL-E 3
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=full_prompt,
+                size="1024x1024",
+                quality="standard",
+                n=1,
+            )
+
+            # Get the image URL from response
+            dalle_image_url = response.data[0].url
+
+            # Download and save the image to media folder
+            media_root = Path(settings.MEDIA_ROOT)
+            character_images_dir = media_root / 'character_images' / str(character.character_id)
+            character_images_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate filename
+            image_count = len(current_images)
+            filename = f"character_{character.character_id}_image_{image_count + 1}.png"
+            file_path = character_images_dir / filename
+
+            # Download image
+            urllib.request.urlretrieve(dalle_image_url, str(file_path))
+
+            # Create media URL
+            image_url = f"{settings.MEDIA_URL}character_images/{character.character_id}/{filename}"
 
             # Add to images list
-            images = character.images or []
+            images = current_images
             images.append(image_url)
             character.images = images
             character.save()
@@ -272,6 +370,8 @@ class CharacterGenerateImageView(View):
             })
 
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return JsonResponse({
                 'success': False,
                 'error': str(e)

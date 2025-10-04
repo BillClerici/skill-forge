@@ -102,9 +102,15 @@
                             <button type="submit" class="btn waves-effect waves-light" style="margin-right: 10px;">
                                 <i class="material-icons left">save</i>Save Character
                             </button>
+                            {% if character %}
+                            <a href="{% url 'character_detail' character.character_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold);">
+                                Cancel
+                            </a>
+                            {% else %}
                             <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-gold);">
                                 Cancel
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 </form>

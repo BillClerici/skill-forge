@@ -143,6 +143,17 @@ class GenerateLocationBackstoryRequest(BaseModel):
     region_name: Optional[str] = None
     world_name: Optional[str] = None
 
+class GenerateCharacterBackstoryRequest(BaseModel):
+    character_id: str
+    character_name: str
+    title: Optional[str] = ""
+    description: Optional[str] = ""
+    age: Optional[str] = ""
+    height: Optional[str] = ""
+    appearance: Optional[str] = ""
+    blooms_level: str
+    player_name: str
+
 class GenerateRegionsRequest(BaseModel):
     world_context: Dict[str, Any]
     num_regions: int
@@ -647,6 +658,36 @@ async def generate_locations(request: GenerateLocationsRequest):
             result = response.json()
             await track_cost(account_id, subscription_tier, result.get("tokens_used", 0), result.get("cost_usd", 0))
             return GenerateLocationsResponse(**result)
+
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="AI agent request timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
+
+@app.post("/generate-character-backstory", response_model=GenerateBackstoryResponse)
+async def generate_character_backstory(request: GenerateCharacterBackstoryRequest):
+    """Generate creative backstory for a character using AI"""
+
+    account_id = UUID("b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f")
+    subscription_tier = "family"
+
+    if await is_account_throttled(account_id):
+        raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        try:
+            response = await client.post(
+                f"{GAME_MASTER_URL}/generate-character-backstory",
+                json=request.dict(),
+                headers={"Authorization": f"Bearer {MCP_AUTH_TOKEN}"}
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+
+            result = response.json()
+            await track_cost(account_id, subscription_tier, result.get("tokens_used", 0), result.get("cost_usd", 0))
+            return GenerateBackstoryResponse(**result)
 
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="AI agent request timed out")
