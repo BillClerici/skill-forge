@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}{% if species %}Edit Species{% else %}Create Species{% endif %} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">pets</i>
+            {% if species %}Edit Species{% else %}Create New Species{% endif %}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <a href="{% url 'world_detail' world.world_id %}" class="btn waves-effect waves-light grey darken-2">
+            <i class="material-icons left">arrow_back</i>Back to World
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <form method="post" id="species-form">
+                    {% csrf_token %}
+
+                    <!-- Species Name -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">pets</i>
+                        <input id="species_name" name="species_name" type="text" class="validate" required
+                               value="{% if species %}{{ species.species_name }}{% endif %}"
+                               style="color: #e0e0e0;">
+                        <label for="species_name" {% if species %}class="active"{% endif %}>Species Name *</label>
+                    </div>
+
+                    <!-- Species Type -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
+                        <select id="species_type" name="species_type" class="validate" required>
+                            <option value="" disabled {% if not species %}selected{% endif %}>Choose Species Type</option>
+                            <option value="Humanoid" {% if species and species.species_type == "Humanoid" %}selected{% endif %}>Humanoid</option>
+                            <option value="Beast" {% if species and species.species_type == "Beast" %}selected{% endif %}>Beast</option>
+                            <option value="Magical" {% if species and species.species_type == "Magical" %}selected{% endif %}>Magical</option>
+                            <option value="Hybrid" {% if species and species.species_type == "Hybrid" %}selected{% endif %}>Hybrid</option>
+                            <option value="Elemental" {% if species and species.species_type == "Elemental" %}selected{% endif %}>Elemental</option>
+                            <option value="Undead" {% if species and species.species_type == "Undead" %}selected{% endif %}>Undead</option>
+                            <option value="Celestial" {% if species and species.species_type == "Celestial" %}selected{% endif %}>Celestial</option>
+                            <option value="Demonic" {% if species and species.species_type == "Demonic" %}selected{% endif %}>Demonic</option>
+                        </select>
+                        <label>Species Type *</label>
+                    </div>
+
+                    <!-- Category -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">psychology</i>
+                        <select id="category" name="category" class="validate" required>
+                            <option value="" disabled {% if not species %}selected{% endif %}>Choose Category</option>
+                            <option value="Sentient" {% if species and species.category == "Sentient" %}selected{% endif %}>Sentient</option>
+                            <option value="Non-Sentient" {% if species and species.category == "Non-Sentient" %}selected{% endif %}>Non-Sentient</option>
+                            <option value="Semi-Sentient" {% if species and species.category == "Semi-Sentient" %}selected{% endif %}>Semi-Sentient</option>
+                        </select>
+                        <label>Category *</label>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                        <textarea id="description" name="description" class="materialize-textarea validate" required
+                                  style="color: #e0e0e0;">{% if species %}{{ species.description }}{% endif %}</textarea>
+                        <label for="description" {% if species %}class="active"{% endif %}>Description *</label>
+                    </div>
+
+                    <!-- Backstory -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">auto_stories</i>
+                        <textarea id="backstory" name="backstory" class="materialize-textarea"
+                                  style="color: #e0e0e0;">{% if species %}{{ species.backstory }}{% endif %}</textarea>
+                        <label for="backstory" {% if species %}class="active"{% endif %}>Backstory</label>
+                    </div>
+
+                    <!-- Character Traits (Multi-select) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">stars</i>
+                        <select id="character_traits" name="character_traits" multiple>
+                            <option value="" disabled>Choose Character Traits</option>
+                            <option value="Aggressive" {% if species and "Aggressive" in species.character_traits %}selected{% endif %}>Aggressive</option>
+                            <option value="Peaceful" {% if species and "Peaceful" in species.character_traits %}selected{% endif %}>Peaceful</option>
+                            <option value="Intelligent" {% if species and "Intelligent" in species.character_traits %}selected{% endif %}>Intelligent</option>
+                            <option value="Cunning" {% if species and "Cunning" in species.character_traits %}selected{% endif %}>Cunning</option>
+                            <option value="Loyal" {% if species and "Loyal" in species.character_traits %}selected{% endif %}>Loyal</option>
+                            <option value="Territorial" {% if species and "Territorial" in species.character_traits %}selected{% endif %}>Territorial</option>
+                            <option value="Nomadic" {% if species and "Nomadic" in species.character_traits %}selected{% endif %}>Nomadic</option>
+                            <option value="Social" {% if species and "Social" in species.character_traits %}selected{% endif %}>Social</option>
+                            <option value="Solitary" {% if species and "Solitary" in species.character_traits %}selected{% endif %}>Solitary</option>
+                            <option value="Mystical" {% if species and "Mystical" in species.character_traits %}selected{% endif %}>Mystical</option>
+                            <option value="Adaptive" {% if species and "Adaptive" in species.character_traits %}selected{% endif %}>Adaptive</option>
+                            <option value="Traditional" {% if species and "Traditional" in species.character_traits %}selected{% endif %}>Traditional</option>
+                            <option value="Innovative" {% if species and "Innovative" in species.character_traits %}selected{% endif %}>Innovative</option>
+                            <option value="Honorable" {% if species and "Honorable" in species.character_traits %}selected{% endif %}>Honorable</option>
+                            <option value="Deceptive" {% if species and "Deceptive" in species.character_traits %}selected{% endif %}>Deceptive</option>
+                            <option value="Brave" {% if species and "Brave" in species.character_traits %}selected{% endif %}>Brave</option>
+                            <option value="Cautious" {% if species and "Cautious" in species.character_traits %}selected{% endif %}>Cautious</option>
+                            <option value="Industrious" {% if species and "Industrious" in species.character_traits %}selected{% endif %}>Industrious</option>
+                            <option value="Lazy" {% if species and "Lazy" in species.character_traits %}selected{% endif %}>Lazy</option>
+                            <option value="Curious" {% if species and "Curious" in species.character_traits %}selected{% endif %}>Curious</option>
+                        </select>
+                        <label>Character Traits</label>
+                    </div>
+
+                    <!-- Regions (Multi-select) -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">place</i>
+                        <select id="regions" name="regions" multiple>
+                            <option value="" disabled>Choose Regions</option>
+                            {% for region in regions %}
+                            <option value="{{ region.region_id }}" {% if species and region.region_id in species.regions %}selected{% endif %}>
+                                {{ region.region_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <label>Regions (where this species inhabits)</label>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="center-align" style="margin-top: 30px;">
+                        <button type="submit" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, var(--rpg-gold) 0%, #d4af37 100%);">
+                            <i class="material-icons left">save</i>
+                            {% if species %}Update Species{% else %}Create Species{% endif %}
+                        </button>
+                        <a href="{% url 'world_detail' world.world_id %}" class="btn waves-effect waves-light grey darken-2" style="margin-left: 10px;">
+                            <i class="material-icons left">cancel</i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Materialize components
+        const elems = document.querySelectorAll('select');
+        M.FormSelect.init(elems);
+
+        const textareas = document.querySelectorAll('.materialize-textarea');
+        M.textareaAutoResize(textareas);
+    });
+</script>
+{% endblock %}

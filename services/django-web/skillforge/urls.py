@@ -27,6 +27,11 @@ from worlds.views import (
     LocationGenerateBackstoryView, LocationSaveBackstoryView,
     LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView
 )
+from worlds.views_species import (
+    SpeciesCreateView, SpeciesDetailView, SpeciesEditView, SpeciesDeleteView,
+    SpeciesGenerateAIView, SpeciesGenerateImageView,
+    SpeciesDeleteImageView, SpeciesSetPrimaryImageView
+)
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView
@@ -64,6 +69,16 @@ urlpatterns = [
     path('worlds/<str:world_id>/generate-image/', WorldGenerateImageView.as_view(), name='world_generate_image'),
     path('worlds/<str:world_id>/delete-image/', WorldDeleteImageView.as_view(), name='world_delete_image'),
     path('worlds/<str:world_id>/set-primary-image/', WorldSetPrimaryImageView.as_view(), name='world_set_primary_image'),
+
+    # Species
+    path('worlds/<str:world_id>/species/create/', SpeciesCreateView.as_view(), name='species_create'),
+    path('worlds/<str:world_id>/species/<str:species_id>/', SpeciesDetailView.as_view(), name='species_detail'),
+    path('worlds/<str:world_id>/species/<str:species_id>/edit/', SpeciesEditView.as_view(), name='species_edit'),
+    path('worlds/<str:world_id>/species/<str:species_id>/delete/', SpeciesDeleteView.as_view(), name='species_delete'),
+    path('worlds/<str:world_id>/species/generate-ai/', SpeciesGenerateAIView.as_view(), name='species_generate_ai'),
+    path('worlds/<str:world_id>/species/<str:species_id>/generate-image/', SpeciesGenerateImageView.as_view(), name='species_generate_image'),
+    path('worlds/<str:world_id>/species/<str:species_id>/delete-image/', SpeciesDeleteImageView.as_view(), name='species_delete_image'),
+    path('worlds/<str:world_id>/species/<str:species_id>/set-primary-image/', SpeciesSetPrimaryImageView.as_view(), name='species_set_primary_image'),
 
     # Regions
     path('worlds/<str:world_id>/regions/', RegionListView.as_view(), name='region_list'),

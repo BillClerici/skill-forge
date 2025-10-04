@@ -495,6 +495,44 @@ async def generate_timeline(request: Dict[str, Any]):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error generating timeline: {str(e)}")
 
+@app.post("/generate-species")
+async def generate_species(request: Dict[str, Any]):
+    """Generate species for a world using AI"""
+
+    account_id = UUID("b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f")
+    subscription_tier = "family"
+
+    if await is_account_throttled(account_id):
+        raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            response = await client.post(
+                f"{GAME_MASTER_URL}/generate-world-species",
+                json=request,
+                headers={"Authorization": f"Bearer {MCP_AUTH_TOKEN}"}
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+
+            result = response.json()
+
+            # Track cost
+            await track_cost(
+                account_id,
+                subscription_tier,
+                result.get("tokens_used", 0),
+                result.get("cost_usd", 0)
+            )
+
+            return result
+
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="AI agent request timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error generating species: {str(e)}")
+
 @app.post("/generate-region-backstory", response_model=GenerateBackstoryResponse)
 async def generate_region_backstory(request: GenerateRegionBackstoryRequest):
     """Generate creative backstory for a region using AI"""

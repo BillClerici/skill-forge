@@ -298,10 +298,12 @@ class WorldDetailView(View):
 
             # Get all regions for this world
             region_ids = world.get('regions', [])
+            regions_dict = {}
             if region_ids:
                 regions = list(db.region_definitions.find({'_id': {'$in': region_ids}}))
                 for r in regions:
                     r['region_id'] = r['_id']
+                    regions_dict[r['_id']] = r
 
                     # Get primary image URL
                     r['primary_image_url'] = None
@@ -310,6 +312,32 @@ class WorldDetailView(View):
                         primary_idx = r.get('primary_image_index')
                         if 0 <= primary_idx < len(images):
                             r['primary_image_url'] = images[primary_idx].get('url')
+
+            # Get all species for this world
+            species_ids = world.get('species', [])
+            species = []
+            if species_ids:
+                species = list(db.species_definitions.find({'_id': {'$in': species_ids}}))
+                for s in species:
+                    s['species_id'] = s['_id']
+
+                    # Get region names
+                    s['region_names'] = []
+                    if s.get('regions'):
+                        for region_id in s['regions']:
+                            if region_id in regions_dict:
+                                s['region_names'].append(regions_dict[region_id].get('region_name', ''))
+
+                    # Get primary image URL
+                    s['primary_image_url'] = None
+                    if s.get('species_images') and s.get('primary_image_index') is not None:
+                        images = s.get('species_images', [])
+                        primary_idx = s.get('primary_image_index')
+                        if 0 <= primary_idx < len(images):
+                            s['primary_image_url'] = images[primary_idx].get('url')
+                    # Fallback to old species_image field
+                    elif s.get('species_image'):
+                        s['primary_image_url'] = s.get('species_image')
 
             # Format themes and visual styles for display
             if isinstance(world.get('themes'), list):
@@ -325,7 +353,8 @@ class WorldDetailView(View):
         return render(request, 'worlds/world_detail.html', {
             'world': world,
             'universes': universes,
-            'regions': regions
+            'regions': regions,
+            'species': species
         })
 
 

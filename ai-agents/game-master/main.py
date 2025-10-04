@@ -695,6 +695,102 @@ IMPORTANT: Return ONLY the JSON array, no other text, no markdown formatting, no
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating timeline: {str(e)}")
 
+@app.post("/generate-world-species")
+async def generate_world_species(request: dict):
+    """Generate species for a world based on its context"""
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
+
+    world_name = request.get('world_name', 'Unknown World')
+    genre = request.get('genre', 'Fantasy')
+    description = request.get('description', '')
+    backstory = request.get('backstory', '')
+    regions = request.get('regions', [])
+
+    # Build region context
+    region_context = ""
+    if regions:
+        region_context = "\n\nREGIONS IN THIS WORLD:\n"
+        for r in regions:
+            region_context += f"- {r.get('region_name', 'Unknown')}: {r.get('region_type', '')} - {r.get('description', '')[:100]}\n"
+
+    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Based on the world's properties, create a diverse set of 5-8 distinct species that inhabit this world.
+
+WORLD NAME: {world_name}
+GENRE: {genre}
+DESCRIPTION: {description[:300] if description else 'A fantastical world'}
+
+BACKSTORY:
+{backstory[:500] if backstory else 'A world with rich history'}
+{region_context}
+
+INSTRUCTIONS:
+Create 5-8 unique species for this world. For each species, provide:
+1. name: A creative species name
+2. species_type: The type (choose from: Humanoid, Beast, Magical, Hybrid, Elemental, Undead, Celestial, Demonic)
+3. category: Sentience level (Sentient, Non-Sentient, or Semi-Sentient)
+4. description: A detailed description (2-3 sentences) of their appearance, culture, and role in the world
+5. backstory: Their evolutionary history and origin story (2-3 sentences)
+6. character_traits: Array of 4-6 defining personality/behavioral traits
+7. region_ids: Array of region IDs where this species is commonly found (use the region_id from the regions list above)
+
+Make the species diverse and fitting for the world's genre and setting. Include a mix of sentient and non-sentient species, and ensure they have interesting relationships with each other and the world.
+
+Format your response as a JSON array with this exact structure:
+[
+  {{
+    "name": "Species Name",
+    "species_type": "Humanoid",
+    "category": "Sentient",
+    "description": "Description of the species...",
+    "backstory": "Their evolutionary history...",
+    "character_traits": ["Trait1", "Trait2", "Trait3", "Trait4"],
+    "region_ids": ["region_id_1", "region_id_2"]
+  }},
+  ...
+]
+
+IMPORTANT: Return ONLY the JSON array, no other text, no markdown formatting, no explanation. Just the raw JSON array."""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-3-5-sonnet-20241022",
+            temperature=0.9,
+            max_tokens=4000,
+            api_key=ANTHROPIC_API_KEY
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = llm.invoke(messages)
+
+        # Parse the JSON response
+        import json
+        species_json = response.content.strip()
+
+        # Remove markdown code blocks if present
+        if species_json.startswith('```'):
+            species_json = '\n'.join(species_json.split('\n')[1:-1])
+
+        species = json.loads(species_json)
+
+        # Calculate costs
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "species": species,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse species JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating species: {str(e)}")
+
 @app.post("/generate-region-backstory")
 async def generate_region_backstory(request: GenerateRegionBackstoryRequest):
     """Generate creative backstory for a region using Claude"""

@@ -185,6 +185,9 @@
             <li class="tab"><a href="#backstory">
                 <i class="material-icons left tiny">auto_awesome</i>Backstory
             </a></li>
+            <li class="tab"><a href="#species">
+                <i class="material-icons left tiny">pets</i>Species
+            </a></li>
             <li class="tab"><a href="#regions">
                 <i class="material-icons left tiny">terrain</i>Regions
             </a></li>
@@ -800,6 +803,194 @@
     </div>
 </div>
 
+<!-- Species Tab -->
+<div id="species" class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">pets</i>
+                    Species in this World
+                </span>
+
+                <!-- Search and Filter -->
+                <div class="row" style="margin-top: 20px;">
+                    <div class="col s12 m6">
+                        <div class="input-field">
+                            <i class="material-icons prefix">search</i>
+                            <input type="text" id="species-search" placeholder="Search species...">
+                        </div>
+                    </div>
+                    <div class="col s12 m3">
+                        <div class="input-field">
+                            <select id="species-type-filter">
+                                <option value="">All Types</option>
+                                <option value="Humanoid">Humanoid</option>
+                                <option value="Beast">Beast</option>
+                                <option value="Magical">Magical</option>
+                                <option value="Hybrid">Hybrid</option>
+                                <option value="Elemental">Elemental</option>
+                                <option value="Undead">Undead</option>
+                                <option value="Celestial">Celestial</option>
+                                <option value="Demonic">Demonic</option>
+                            </select>
+                            <label>Filter by Type</label>
+                        </div>
+                    </div>
+                    <div class="col s12 m3">
+                        <div class="input-field">
+                            <select id="species-category-filter">
+                                <option value="">All Categories</option>
+                                <option value="Sentient">Sentient</option>
+                                <option value="Non-Sentient">Non-Sentient</option>
+                                <option value="Semi-Sentient">Semi-Sentient</option>
+                            </select>
+                            <label>Filter by Category</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="species-grid">
+                    {% if species %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px;">
+                        {% for s in species %}
+                        <div class="card hoverable species-card"
+                             data-species-name="{{ s.species_name|lower }}"
+                             data-species-type="{{ s.species_type }}"
+                             data-species-category="{{ s.category }}"
+                             style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto; margin: 0;">
+
+                            <!-- Species Image Header -->
+                            {% if s.primary_image_url %}
+                            <div class="card-image" style="margin: 0; padding: 0; position: relative; height: 150px;">
+                                <img src="{{ s.primary_image_url }}"
+                                     alt="{{ s.species_name }}"
+                                     style="height: 150px; width: 100%; object-fit: cover; display: block; margin: 0;">
+                                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); display: flex; align-items: flex-end;">
+                                    <span class="card-title" style="color: var(--rpg-gold); font-size: 1rem; padding: 10px; margin: 0;">
+                                        <i class="material-icons tiny">pets</i>
+                                        {{ s.species_name }}
+                                    </span>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="card-content" style="padding: 12px; display: flex; flex-direction: column;">
+                                {% if not s.primary_image_url %}
+                                <span class="card-title" style="color: var(--rpg-gold); font-size: 1rem; margin-bottom: 8px;">
+                                    <i class="material-icons tiny">pets</i>
+                                    {{ s.species_name }}
+                                </span>
+                                {% endif %}
+
+                                <!-- Type and Category -->
+                                <div style="margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 4px;">
+                                    {% if s.species_type %}
+                                    <span class="chip" style="background-color: rgba(156, 39, 176, 0.3); font-size: 0.75rem; height: 24px; line-height: 24px; padding: 0 8px;">
+                                        {{ s.species_type }}
+                                    </span>
+                                    {% endif %}
+                                    {% if s.category %}
+                                    <span class="chip" style="background-color: rgba(0, 150, 136, 0.3); font-size: 0.75rem; height: 24px; line-height: 24px; padding: 0 8px;">
+                                        {{ s.category }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Description -->
+                                {% if s.description %}
+                                <p style="color: #b8b8d1; font-size: 0.85rem; line-height: 1.4; margin: 0 0 8px 0; flex: 1;">
+                                    {{ s.description|truncatewords:20 }}
+                                </p>
+                                {% endif %}
+
+                                <!-- Character Traits -->
+                                {% if s.character_traits %}
+                                <div style="margin-top: 6px;">
+                                    <h6 style="color: var(--rpg-gold); font-size: 0.75rem; margin-bottom: 4px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 14px;">star</i> Traits
+                                    </h6>
+                                    <div>
+                                        {% for trait in s.character_traits|slice:":3" %}
+                                            <span class="chip" style="background-color: rgba(255, 152, 0, 0.2); font-size: 0.7rem; margin: 2px; padding: 0 6px; height: 20px; line-height: 20px;">
+                                                {{ trait }}
+                                            </span>
+                                        {% endfor %}
+                                        {% if s.character_traits|length > 3 %}
+                                            <span style="color: #b8b8d1; font-size: 0.7rem;">+{{ s.character_traits|length|add:"-3" }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Regions -->
+                                {% if s.region_names %}
+                                <div style="margin-top: 6px;">
+                                    <h6 style="color: var(--rpg-gold); font-size: 0.75rem; margin-bottom: 4px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 14px;">place</i> Regions
+                                    </h6>
+                                    <p style="color: #b8b8d1; font-size: 0.75rem; margin: 0;">
+                                        {{ s.region_names|join:", "|truncatewords:4 }}
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="card-action" style="padding: 8px 12px; background-color: rgba(20, 20, 36, 0.5);">
+                                <a href="{% url 'species_detail' world.world_id s.species_id %}" style="color: #64b5f6; font-size: 0.85rem;">
+                                    <i class="material-icons tiny">visibility</i> View
+                                </a>
+                                <a href="{% url 'species_edit' world.world_id s.species_id %}" style="color: var(--rpg-gold); font-size: 0.85rem;">
+                                    <i class="material-icons tiny">edit</i> Edit
+                                </a>
+                                <a href="#" class="generate-species-image-btn" data-species-id="{{ s.species_id }}" style="color: #9c27b0; font-size: 0.85rem;">
+                                    <i class="material-icons tiny">auto_awesome</i> {% if s.species_image %}Regenerate{% else %}Generate{% endif %} Image
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div style="background-color: rgba(30, 30, 46, 0.5); border-radius: 8px; padding: 60px 20px; text-align: center; margin-top: 20px;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">pets</i>
+                        <p style="color: #b8b8d1; margin-top: 10px;">No species created yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="{% url 'species_create' world.world_id %}" class="btn waves-effect waves-light">
+                        <i class="material-icons left">add</i>Create New Species
+                    </a>
+                    <button id="generate-species-ai-btn" class="btn waves-effect waves-light purple darken-2" style="margin-left: 10px;">
+                        <i class="material-icons left">auto_awesome</i>
+                        <span>Generate Species with AI</span>
+                    </button>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="species-gen-loading" style="display: none; text-align: center; margin-top: 20px;">
+                    <div class="preloader-wrapper active">
+                        <div class="spinner-layer spinner-purple-only">
+                            <div class="circle-clipper left">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="gap-patch">
+                                <div class="circle"></div>
+                            </div>
+                            <div class="circle-clipper right">
+                                <div class="circle"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: var(--rpg-gold); margin-top: 10px;">Generating species with AI...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Regions Tab -->
 <div id="regions" class="row">
     <div class="col s12">
@@ -1393,6 +1584,147 @@
                 }
             }
         })
+    });
+
+    // Species Tab JavaScript
+    // Initialize Materialize selects for filters
+    const speciesTypeFilter = document.getElementById('species-type-filter');
+    const speciesCategoryFilter = document.getElementById('species-category-filter');
+    if (speciesTypeFilter && speciesCategoryFilter) {
+        M.FormSelect.init(speciesTypeFilter);
+        M.FormSelect.init(speciesCategoryFilter);
+    }
+
+    // Search and Filter functionality
+    const speciesSearch = document.getElementById('species-search');
+    const speciesCards = document.querySelectorAll('.species-card');
+
+    function filterSpecies() {
+        const searchTerm = speciesSearch ? speciesSearch.value.toLowerCase() : '';
+        const typeFilter = speciesTypeFilter ? speciesTypeFilter.value : '';
+        const categoryFilter = speciesCategoryFilter ? speciesCategoryFilter.value : '';
+
+        speciesCards.forEach(card => {
+            const name = card.getAttribute('data-species-name') || '';
+            const type = card.getAttribute('data-species-type') || '';
+            const category = card.getAttribute('data-species-category') || '';
+
+            const matchesSearch = name.includes(searchTerm);
+            const matchesType = !typeFilter || type === typeFilter;
+            const matchesCategory = !categoryFilter || category === categoryFilter;
+
+            if (matchesSearch && matchesType && matchesCategory) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    }
+
+    if (speciesSearch) {
+        speciesSearch.addEventListener('input', filterSpecies);
+    }
+    if (speciesTypeFilter) {
+        speciesTypeFilter.addEventListener('change', filterSpecies);
+    }
+    if (speciesCategoryFilter) {
+        speciesCategoryFilter.addEventListener('change', filterSpecies);
+    }
+
+    // Generate Species with AI
+    const generateSpeciesAIBtn = document.getElementById('generate-species-ai-btn');
+    const speciesGenLoading = document.getElementById('species-gen-loading');
+
+    if (generateSpeciesAIBtn) {
+        generateSpeciesAIBtn.addEventListener('click', async function() {
+            speciesGenLoading.style.display = 'block';
+            generateSpeciesAIBtn.disabled = true;
+
+            try {
+                const response = await fetch('{% url "species_generate_ai" world.world_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: `Successfully generated ${data.species_count} species! Tokens: ${data.tokens_used}, Cost: $${data.cost_usd.toFixed(4)}`,
+                        classes: 'green darken-2',
+                        displayLength: 6000
+                    });
+                    location.reload();
+                } else {
+                    M.toast({
+                        html: `Error: ${data.error}`,
+                        classes: 'red darken-2',
+                        displayLength: 4000
+                    });
+                    speciesGenLoading.style.display = 'none';
+                    generateSpeciesAIBtn.disabled = false;
+                }
+            } catch (error) {
+                M.toast({
+                    html: `Error generating species: ${error.message}`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                speciesGenLoading.style.display = 'none';
+                generateSpeciesAIBtn.disabled = false;
+            }
+        });
+    }
+
+    // Generate Individual Species Image
+    document.addEventListener('click', async function(e) {
+        if (e.target.closest('.generate-species-image-btn')) {
+            e.preventDefault();
+            const btn = e.target.closest('.generate-species-image-btn');
+            const speciesId = btn.getAttribute('data-species-id');
+
+            btn.innerHTML = '<i class="material-icons tiny">hourglass_empty</i> Generating...';
+            btn.style.pointerEvents = 'none';
+
+            try {
+                const url = `/worlds/{{ world.world_id }}/species/${speciesId}/generate-image/`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: 'Species image generated successfully!',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    location.reload();
+                } else {
+                    M.toast({
+                        html: `Error: ${data.error}`,
+                        classes: 'red darken-2',
+                        displayLength: 4000
+                    });
+                    btn.innerHTML = '<i class="material-icons tiny">auto_awesome</i> Generate Image';
+                    btn.style.pointerEvents = 'auto';
+                }
+            } catch (error) {
+                M.toast({
+                    html: `Error: ${error.message}`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                btn.innerHTML = '<i class="material-icons tiny">auto_awesome</i> Generate Image';
+                btn.style.pointerEvents = 'auto';
+            }
+        }
     });
 </script>
 {% endblock %}
