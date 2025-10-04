@@ -153,6 +153,14 @@ class GenerateCharacterBackstoryRequest(BaseModel):
     appearance: Optional[str] = ""
     blooms_level: str
     player_name: str
+    attributes: Optional[List[str]] = []
+    skills: Optional[List[str]] = []
+    personality_traits: Optional[List[str]] = []
+    voice_type: Optional[str] = ""
+    accent: Optional[str] = ""
+    speaking_patterns: Optional[List[str]] = []
+    languages: Optional[List[str]] = []
+    speech_quirks: Optional[str] = ""
 
 class GenerateRegionsRequest(BaseModel):
     world_context: Dict[str, Any]

@@ -146,41 +146,143 @@
             </div>
         </div>
 
-        <!-- Attributes & Skills Card -->
+        <!-- Attributes Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">bar_chart</i>Attributes & Skills
+                    <i class="material-icons left">flash_on</i>Attributes
                 </span>
 
                 <div style="margin-top: 20px;">
                     {% if character.attributes %}
-                    <h6 style="color: var(--rpg-silver); margin-top: 0;">Attributes</h6>
-                    <div style="margin-top: 10px;">
-                        {% for key, value in character.attributes.items %}
-                        <div style="margin-bottom: 10px;">
-                            <p style="margin: 0;">
-                                <strong class="grey-text">{{ key|title }}:</strong>
-                                <span style="color: white;">{{ value }}</span>
-                            </p>
-                        </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        {% for key in character.attributes.keys %}
+                        <span class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold); border: 1px solid var(--rpg-gold);">
+                            <i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">flash_on</i>{{ key|title }}
+                        </span>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="center-align" style="padding: 20px;">
+                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-silver); opacity: 0.3;">flash_on</i>
+                        <p class="grey-text" style="margin-top: 10px; font-size: 0.9rem;">No attributes configured</p>
+                    </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
 
+        <!-- Skills Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">build</i>Skills
+                </span>
+
+                <div style="margin-top: 20px;">
                     {% if character.skills %}
-                    <h6 style="color: var(--rpg-silver); margin-top: 20px;">Skills</h6>
-                    <div style="margin-top: 10px;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
                         {% for skill in character.skills %}
-                        <span class="chip" style="margin: 5px;">{{ skill }}</span>
+                        <span class="chip" style="background-color: rgba(103, 58, 183, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple);">
+                            <i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">build</i>{{ skill|title }}
+                        </span>
                         {% endfor %}
                     </div>
+                    {% else %}
+                    <div class="center-align" style="padding: 20px;">
+                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-silver); opacity: 0.3;">build</i>
+                        <p class="grey-text" style="margin-top: 10px; font-size: 0.9rem;">No skills configured</p>
+                    </div>
                     {% endif %}
+                </div>
+            </div>
+        </div>
 
-                    {% if not character.attributes and not character.skills %}
-                    <div class="center-align" style="padding: 40px 20px;">
-                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-silver); opacity: 0.3;">trending_up</i>
-                        <p class="grey-text" style="margin-top: 15px;">No attributes or skills configured</p>
+        <!-- Personality Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">psychology</i>Personality
+                </span>
+
+                <div style="margin-top: 20px;">
+                    {% if character.personality_traits %}
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        {% for trait in character.personality_traits %}
+                        <span class="chip" style="background-color: rgba(0, 150, 136, 0.2); color: var(--rpg-green); border: 1px solid var(--rpg-green);">
+                            <i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">psychology</i>{{ trait|title }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="center-align" style="padding: 20px;">
+                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-silver); opacity: 0.3;">psychology</i>
+                        <p class="grey-text" style="margin-top: 10px; font-size: 0.9rem;">No personality traits configured</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Voice & Speech Profile Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">record_voice_over</i>Voice & Speech
+                </span>
+
+                <div style="margin-top: 20px;">
+                    {% if character.voice_profile.voice_type or character.voice_profile.accent or character.voice_profile.speaking_patterns or character.voice_profile.languages or character.voice_profile.speech_quirks %}
+                        {% if character.voice_profile.voice_type %}
+                        <p style="margin: 15px 0;">
+                            <strong class="grey-text"><i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">mic</i>Voice Type:</strong><br>
+                            <span style="color: white;">{{ character.voice_profile.voice_type|title }}</span>
+                        </p>
+                        {% endif %}
+
+                        {% if character.voice_profile.accent %}
+                        <p style="margin: 15px 0;">
+                            <strong class="grey-text"><i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">language</i>Accent:</strong><br>
+                            <span style="color: white;">{{ character.voice_profile.accent|title }}</span>
+                        </p>
+                        {% endif %}
+
+                        {% if character.voice_profile.speaking_patterns %}
+                        <p style="margin: 15px 0;">
+                            <strong class="grey-text"><i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">chat</i>Speaking Patterns:</strong><br>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                {% for pattern in character.voice_profile.speaking_patterns %}
+                                <span class="chip" style="background-color: rgba(156, 39, 176, 0.2); color: var(--rpg-purple); border: 1px solid var(--rpg-purple); font-size: 0.85rem;">
+                                    {{ pattern|title }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </p>
+                        {% endif %}
+
+                        {% if character.voice_profile.languages %}
+                        <p style="margin: 15px 0;">
+                            <strong class="grey-text"><i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">translate</i>Languages:</strong><br>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                {% for language in character.voice_profile.languages %}
+                                <span class="chip" style="background-color: rgba(33, 150, 243, 0.2); color: #2196F3; border: 1px solid #2196F3; font-size: 0.85rem;">
+                                    {{ language|title }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                        </p>
+                        {% endif %}
+
+                        {% if character.voice_profile.speech_quirks %}
+                        <p style="margin: 15px 0;">
+                            <strong class="grey-text"><i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">format_quote</i>Speech Quirks:</strong><br>
+                            <span style="color: white; font-style: italic;">{{ character.voice_profile.speech_quirks }}</span>
+                        </p>
+                        {% endif %}
+                    {% else %}
+                    <div class="center-align" style="padding: 20px;">
+                        <i class="material-icons" style="font-size: 60px; color: var(--rpg-silver); opacity: 0.3;">record_voice_over</i>
+                        <p class="grey-text" style="margin-top: 10px; font-size: 0.9rem;">No voice profile configured</p>
                     </div>
                     {% endif %}
                 </div>

@@ -96,6 +96,239 @@
                         </div>
                     </div>
 
+                    <!-- Character Traits Section -->
+                    <h6 style="color: var(--rpg-silver); margin-top: 30px; margin-bottom: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 10px;">
+                        <i class="material-icons left" style="font-size: 1.2rem;">stars</i>Character Traits
+                    </h6>
+
+                    <!-- Attributes -->
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">flash_on</i>
+                                <select id="id_attributes" name="attributes" multiple>
+                                    <option value="strength" {% if 'strength' in form.attributes.value %}selected{% endif %}>Strength</option>
+                                    <option value="dexterity" {% if 'dexterity' in form.attributes.value %}selected{% endif %}>Dexterity</option>
+                                    <option value="constitution" {% if 'constitution' in form.attributes.value %}selected{% endif %}>Constitution</option>
+                                    <option value="intelligence" {% if 'intelligence' in form.attributes.value %}selected{% endif %}>Intelligence</option>
+                                    <option value="wisdom" {% if 'wisdom' in form.attributes.value %}selected{% endif %}>Wisdom</option>
+                                    <option value="charisma" {% if 'charisma' in form.attributes.value %}selected{% endif %}>Charisma</option>
+                                    <option value="perception" {% if 'perception' in form.attributes.value %}selected{% endif %}>Perception</option>
+                                    <option value="endurance" {% if 'endurance' in form.attributes.value %}selected{% endif %}>Endurance</option>
+                                    <option value="agility" {% if 'agility' in form.attributes.value %}selected{% endif %}>Agility</option>
+                                    <option value="luck" {% if 'luck' in form.attributes.value %}selected{% endif %}>Luck</option>
+                                </select>
+                                <label>Attributes</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Skills -->
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">build</i>
+                                <select id="id_skills" name="skills" multiple>
+                                    <option value="archery" {% if 'archery' in form.skills.value %}selected{% endif %}>Archery</option>
+                                    <option value="swordsmanship" {% if 'swordsmanship' in form.skills.value %}selected{% endif %}>Swordsmanship</option>
+                                    <option value="magic" {% if 'magic' in form.skills.value %}selected{% endif %}>Magic</option>
+                                    <option value="stealth" {% if 'stealth' in form.skills.value %}selected{% endif %}>Stealth</option>
+                                    <option value="lockpicking" {% if 'lockpicking' in form.skills.value %}selected{% endif %}>Lockpicking</option>
+                                    <option value="persuasion" {% if 'persuasion' in form.skills.value %}selected{% endif %}>Persuasion</option>
+                                    <option value="intimidation" {% if 'intimidation' in form.skills.value %}selected{% endif %}>Intimidation</option>
+                                    <option value="medicine" {% if 'medicine' in form.skills.value %}selected{% endif %}>Medicine</option>
+                                    <option value="survival" {% if 'survival' in form.skills.value %}selected{% endif %}>Survival</option>
+                                    <option value="tracking" {% if 'tracking' in form.skills.value %}selected{% endif %}>Tracking</option>
+                                    <option value="crafting" {% if 'crafting' in form.skills.value %}selected{% endif %}>Crafting</option>
+                                    <option value="alchemy" {% if 'alchemy' in form.skills.value %}selected{% endif %}>Alchemy</option>
+                                    <option value="enchanting" {% if 'enchanting' in form.skills.value %}selected{% endif %}>Enchanting</option>
+                                    <option value="athletics" {% if 'athletics' in form.skills.value %}selected{% endif %}>Athletics</option>
+                                    <option value="acrobatics" {% if 'acrobatics' in form.skills.value %}selected{% endif %}>Acrobatics</option>
+                                    <option value="investigation" {% if 'investigation' in form.skills.value %}selected{% endif %}>Investigation</option>
+                                    <option value="history" {% if 'history' in form.skills.value %}selected{% endif %}>History</option>
+                                    <option value="nature" {% if 'nature' in form.skills.value %}selected{% endif %}>Nature</option>
+                                    <option value="religion" {% if 'religion' in form.skills.value %}selected{% endif %}>Religion</option>
+                                    <option value="performance" {% if 'performance' in form.skills.value %}selected{% endif %}>Performance</option>
+                                </select>
+                                <label>Skills</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Personality Traits -->
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">psychology</i>
+                                <select id="id_personality_traits" name="personality_traits" multiple>
+                                    <option value="brave" {% if 'brave' in form.personality_traits.value %}selected{% endif %}>Brave</option>
+                                    <option value="cautious" {% if 'cautious' in form.personality_traits.value %}selected{% endif %}>Cautious</option>
+                                    <option value="cunning" {% if 'cunning' in form.personality_traits.value %}selected{% endif %}>Cunning</option>
+                                    <option value="honorable" {% if 'honorable' in form.personality_traits.value %}selected{% endif %}>Honorable</option>
+                                    <option value="compassionate" {% if 'compassionate' in form.personality_traits.value %}selected{% endif %}>Compassionate</option>
+                                    <option value="ruthless" {% if 'ruthless' in form.personality_traits.value %}selected{% endif %}>Ruthless</option>
+                                    <option value="wise" {% if 'wise' in form.personality_traits.value %}selected{% endif %}>Wise</option>
+                                    <option value="impulsive" {% if 'impulsive' in form.personality_traits.value %}selected{% endif %}>Impulsive</option>
+                                    <option value="loyal" {% if 'loyal' in form.personality_traits.value %}selected{% endif %}>Loyal</option>
+                                    <option value="ambitious" {% if 'ambitious' in form.personality_traits.value %}selected{% endif %}>Ambitious</option>
+                                    <option value="humble" {% if 'humble' in form.personality_traits.value %}selected{% endif %}>Humble</option>
+                                    <option value="arrogant" {% if 'arrogant' in form.personality_traits.value %}selected{% endif %}>Arrogant</option>
+                                    <option value="optimistic" {% if 'optimistic' in form.personality_traits.value %}selected{% endif %}>Optimistic</option>
+                                    <option value="pessimistic" {% if 'pessimistic' in form.personality_traits.value %}selected{% endif %}>Pessimistic</option>
+                                    <option value="disciplined" {% if 'disciplined' in form.personality_traits.value %}selected{% endif %}>Disciplined</option>
+                                    <option value="creative" {% if 'creative' in form.personality_traits.value %}selected{% endif %}>Creative</option>
+                                    <option value="analytical" {% if 'analytical' in form.personality_traits.value %}selected{% endif %}>Analytical</option>
+                                    <option value="empathetic" {% if 'empathetic' in form.personality_traits.value %}selected{% endif %}>Empathetic</option>
+                                    <option value="stoic" {% if 'stoic' in form.personality_traits.value %}selected{% endif %}>Stoic</option>
+                                    <option value="charismatic" {% if 'charismatic' in form.personality_traits.value %}selected{% endif %}>Charismatic</option>
+                                </select>
+                                <label>Personality Traits</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Voice & Speech Profile Section -->
+                    <h6 style="color: var(--rpg-silver); margin-top: 30px; margin-bottom: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 10px;">
+                        <i class="material-icons left" style="font-size: 1.2rem;">record_voice_over</i>Voice & Speech Profile
+                    </h6>
+
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">mic</i>
+                                <select id="id_voice_type" name="voice_type">
+                                    <option value="" {% if not form.voice_type.value %}selected{% endif %}>-- Select Voice Type --</option>
+                                    <option value="deep" {% if form.voice_type.value == 'deep' %}selected{% endif %}>Deep</option>
+                                    <option value="high" {% if form.voice_type.value == 'high' %}selected{% endif %}>High</option>
+                                    <option value="raspy" {% if form.voice_type.value == 'raspy' %}selected{% endif %}>Raspy</option>
+                                    <option value="smooth" {% if form.voice_type.value == 'smooth' %}selected{% endif %}>Smooth</option>
+                                    <option value="gravelly" {% if form.voice_type.value == 'gravelly' %}selected{% endif %}>Gravelly</option>
+                                    <option value="melodic" {% if form.voice_type.value == 'melodic' %}selected{% endif %}>Melodic</option>
+                                    <option value="nasal" {% if form.voice_type.value == 'nasal' %}selected{% endif %}>Nasal</option>
+                                    <option value="booming" {% if form.voice_type.value == 'booming' %}selected{% endif %}>Booming</option>
+                                    <option value="soft" {% if form.voice_type.value == 'soft' %}selected{% endif %}>Soft</option>
+                                    <option value="commanding" {% if form.voice_type.value == 'commanding' %}selected{% endif %}>Commanding</option>
+                                </select>
+                                <label>Voice Type</label>
+                            </div>
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">language</i>
+                                <select id="id_accent" name="accent">
+                                    <option value="" {% if not form.accent.value %}selected{% endif %}>-- Select Accent --</option>
+                                    <option value="none" {% if form.accent.value == 'none' %}selected{% endif %}>No Accent</option>
+                                    <optgroup label="Real World">
+                                        <option value="british" {% if form.accent.value == 'british' %}selected{% endif %}>British</option>
+                                        <option value="scottish" {% if form.accent.value == 'scottish' %}selected{% endif %}>Scottish</option>
+                                        <option value="irish" {% if form.accent.value == 'irish' %}selected{% endif %}>Irish</option>
+                                        <option value="french" {% if form.accent.value == 'french' %}selected{% endif %}>French</option>
+                                        <option value="german" {% if form.accent.value == 'german' %}selected{% endif %}>German</option>
+                                        <option value="italian" {% if form.accent.value == 'italian' %}selected{% endif %}>Italian</option>
+                                        <option value="spanish" {% if form.accent.value == 'spanish' %}selected{% endif %}>Spanish</option>
+                                        <option value="russian" {% if form.accent.value == 'russian' %}selected{% endif %}>Russian</option>
+                                        <option value="australian" {% if form.accent.value == 'australian' %}selected{% endif %}>Australian</option>
+                                        <option value="southern_us" {% if form.accent.value == 'southern_us' %}selected{% endif %}>Southern US</option>
+                                        <option value="new_york" {% if form.accent.value == 'new_york' %}selected{% endif %}>New York</option>
+                                        <option value="texan" {% if form.accent.value == 'texan' %}selected{% endif %}>Texan</option>
+                                        <option value="caribbean" {% if form.accent.value == 'caribbean' %}selected{% endif %}>Caribbean</option>
+                                        <option value="indian" {% if form.accent.value == 'indian' %}selected{% endif %}>Indian</option>
+                                        <option value="south_african" {% if form.accent.value == 'south_african' %}selected{% endif %}>South African</option>
+                                    </optgroup>
+                                    <optgroup label="Fantasy">
+                                        <option value="fantasy_elvish" {% if form.accent.value == 'fantasy_elvish' %}selected{% endif %}>Elvish</option>
+                                        <option value="fantasy_dwarven" {% if form.accent.value == 'fantasy_dwarven' %}selected{% endif %}>Dwarven</option>
+                                        <option value="fantasy_orcish" {% if form.accent.value == 'fantasy_orcish' %}selected{% endif %}>Orcish</option>
+                                        <option value="fantasy_fae" {% if form.accent.value == 'fantasy_fae' %}selected{% endif %}>Fae/Sylvan</option>
+                                    </optgroup>
+                                    <optgroup label="Sci-Fi">
+                                        <option value="scifi_synthetic" {% if form.accent.value == 'scifi_synthetic' %}selected{% endif %}>Synthetic/Robotic</option>
+                                        <option value="scifi_alien" {% if form.accent.value == 'scifi_alien' %}selected{% endif %}>Alien/Xenomorph</option>
+                                        <option value="scifi_cyborg" {% if form.accent.value == 'scifi_cyborg' %}selected{% endif %}>Cyborg/Augmented</option>
+                                        <option value="scifi_space_station" {% if form.accent.value == 'scifi_space_station' %}selected{% endif %}>Space Station Dialect</option>
+                                    </optgroup>
+                                </select>
+                                <label>Accent</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">chat</i>
+                                <select id="id_speaking_patterns" name="speaking_patterns" multiple>
+                                    <option value="formal" {% if form.speaking_patterns.value and 'formal' in form.speaking_patterns.value %}selected{% endif %}>Formal/Eloquent</option>
+                                    <option value="casual" {% if form.speaking_patterns.value and 'casual' in form.speaking_patterns.value %}selected{% endif %}>Casual</option>
+                                    <option value="stutters" {% if form.speaking_patterns.value and 'stutters' in form.speaking_patterns.value %}selected{% endif %}>Stutters</option>
+                                    <option value="slow_deliberate" {% if form.speaking_patterns.value and 'slow_deliberate' in form.speaking_patterns.value %}selected{% endif %}>Slow and Deliberate</option>
+                                    <option value="fast_excited" {% if form.speaking_patterns.value and 'fast_excited' in form.speaking_patterns.value %}selected{% endif %}>Fast and Excited</option>
+                                    <option value="whispers" {% if form.speaking_patterns.value and 'whispers' in form.speaking_patterns.value %}selected{% endif %}>Whispers Often</option>
+                                    <option value="loud_boisterous" {% if form.speaking_patterns.value and 'loud_boisterous' in form.speaking_patterns.value %}selected{% endif %}>Loud and Boisterous</option>
+                                    <option value="sarcastic" {% if form.speaking_patterns.value and 'sarcastic' in form.speaking_patterns.value %}selected{% endif %}>Sarcastic</option>
+                                    <option value="poetic" {% if form.speaking_patterns.value and 'poetic' in form.speaking_patterns.value %}selected{% endif %}>Poetic/Flowery</option>
+                                    <option value="blunt_direct" {% if form.speaking_patterns.value and 'blunt_direct' in form.speaking_patterns.value %}selected{% endif %}>Blunt and Direct</option>
+                                    <option value="uses_slang" {% if form.speaking_patterns.value and 'uses_slang' in form.speaking_patterns.value %}selected{% endif %}>Uses Slang</option>
+                                    <option value="archaic_speech" {% if form.speaking_patterns.value and 'archaic_speech' in form.speaking_patterns.value %}selected{% endif %}>Archaic/Old-fashioned</option>
+                                </select>
+                                <label>Speaking Patterns</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">translate</i>
+                                <select id="id_languages" name="languages" multiple>
+                                    <optgroup label="Fantasy">
+                                        <option value="common" {% if 'common' in form.languages.value %}selected{% endif %}>Common</option>
+                                        <option value="elvish" {% if 'elvish' in form.languages.value %}selected{% endif %}>Elvish</option>
+                                        <option value="dwarvish" {% if 'dwarvish' in form.languages.value %}selected{% endif %}>Dwarvish</option>
+                                        <option value="orcish" {% if 'orcish' in form.languages.value %}selected{% endif %}>Orcish</option>
+                                        <option value="draconic" {% if 'draconic' in form.languages.value %}selected{% endif %}>Draconic</option>
+                                        <option value="infernal" {% if 'infernal' in form.languages.value %}selected{% endif %}>Infernal</option>
+                                        <option value="celestial" {% if 'celestial' in form.languages.value %}selected{% endif %}>Celestial</option>
+                                        <option value="sylvan" {% if 'sylvan' in form.languages.value %}selected{% endif %}>Sylvan</option>
+                                        <option value="undercommon" {% if 'undercommon' in form.languages.value %}selected{% endif %}>Undercommon</option>
+                                        <option value="giant" {% if 'giant' in form.languages.value %}selected{% endif %}>Giant</option>
+                                        <option value="gnomish" {% if 'gnomish' in form.languages.value %}selected{% endif %}>Gnomish</option>
+                                        <option value="halfling" {% if 'halfling' in form.languages.value %}selected{% endif %}>Halfling</option>
+                                    </optgroup>
+                                    <optgroup label="Sci-Fi">
+                                        <option value="galactic_standard" {% if 'galactic_standard' in form.languages.value %}selected{% endif %}>Galactic Standard</option>
+                                        <option value="binary" {% if 'binary' in form.languages.value %}selected{% endif %}>Binary/Machine Code</option>
+                                        <option value="alien_xenomorph" {% if 'alien_xenomorph' in form.languages.value %}selected{% endif %}>Xenomorph</option>
+                                        <option value="android_protocol" {% if 'android_protocol' in form.languages.value %}selected{% endif %}>Android Protocol</option>
+                                        <option value="telepathic" {% if 'telepathic' in form.languages.value %}selected{% endif %}>Telepathic</option>
+                                    </optgroup>
+                                    <optgroup label="Real World">
+                                        <option value="english" {% if 'english' in form.languages.value %}selected{% endif %}>English</option>
+                                        <option value="spanish" {% if 'spanish' in form.languages.value %}selected{% endif %}>Spanish</option>
+                                        <option value="mandarin" {% if 'mandarin' in form.languages.value %}selected{% endif %}>Mandarin</option>
+                                        <option value="french" {% if 'french' in form.languages.value %}selected{% endif %}>French</option>
+                                        <option value="german" {% if 'german' in form.languages.value %}selected{% endif %}>German</option>
+                                        <option value="japanese" {% if 'japanese' in form.languages.value %}selected{% endif %}>Japanese</option>
+                                        <option value="russian" {% if 'russian' in form.languages.value %}selected{% endif %}>Russian</option>
+                                        <option value="arabic" {% if 'arabic' in form.languages.value %}selected{% endif %}>Arabic</option>
+                                    </optgroup>
+                                </select>
+                                <label>Languages</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col s12">
+                            <div class="input-field">
+                                <i class="material-icons prefix" style="color: var(--rpg-gold);">format_quote</i>
+                                {{ form.speech_quirks }}
+                                <label for="{{ form.speech_quirks.id_for_label }}">Speech Quirks</label>
+                                <span class="helper-text">Unique phrases, catchphrases, or speech mannerisms</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Form Actions -->
                     <div class="row" style="margin-top: 30px;">
                         <div class="col s12">
@@ -123,6 +356,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Materialize components
     M.updateTextFields();
+
+    // Initialize select dropdowns
+    var elems = document.querySelectorAll('select');
+    M.FormSelect.init(elems);
 });
 </script>
 {% endblock %}

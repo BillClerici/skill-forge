@@ -413,6 +413,14 @@ class GenerateCharacterBackstoryRequest(BaseModel):
     appearance: Optional[str] = ""
     blooms_level: str
     player_name: str
+    attributes: Optional[List[str]] = []
+    skills: Optional[List[str]] = []
+    personality_traits: Optional[List[str]] = []
+    voice_type: Optional[str] = ""
+    accent: Optional[str] = ""
+    speaking_patterns: Optional[List[str]] = []
+    languages: Optional[List[str]] = []
+    speech_quirks: Optional[str] = ""
 
 class GenerateRegionsRequest(BaseModel):
     world_context: Dict[str, Any]
@@ -959,6 +967,35 @@ DESCRIPTION: {request.description}"""
 
     prompt += f"\nCURRENT LEVEL: {arc_desc}"
 
+    # Add attributes
+    if request.attributes:
+        attributes_str = ', '.join([attr.title() for attr in request.attributes])
+        prompt += f"\nKEY ATTRIBUTES: {attributes_str}"
+
+    # Add skills
+    if request.skills:
+        skills_str = ', '.join([skill.title() for skill in request.skills])
+        prompt += f"\nSKILLS: {skills_str}"
+
+    # Add personality traits
+    if request.personality_traits:
+        traits_str = ', '.join([trait.title() for trait in request.personality_traits])
+        prompt += f"\nPERSONALITY TRAITS: {traits_str}"
+
+    # Add voice profile
+    if request.voice_type:
+        prompt += f"\nVOICE TYPE: {request.voice_type.title()}"
+    if request.accent:
+        prompt += f"\nACCENT: {request.accent.replace('_', ' ').title()}"
+    if request.speaking_patterns:
+        patterns_str = ', '.join([pattern.replace('_', ' ').title() for pattern in request.speaking_patterns])
+        prompt += f"\nSPEAKING PATTERNS: {patterns_str}"
+    if request.languages:
+        languages_str = ', '.join([lang.replace('_', ' ').title() for lang in request.languages])
+        prompt += f"\nLANGUAGES: {languages_str}"
+    if request.speech_quirks:
+        prompt += f"\nSPEECH QUIRKS: {request.speech_quirks}"
+
     prompt += """
 
 INSTRUCTIONS:
@@ -966,11 +1003,15 @@ INSTRUCTIONS:
 2. Explore their origins and early life
 3. Explain how they became who they are today
 4. Hint at their motivations, goals, and what drives them
-5. Include interesting personality traits and quirks
-6. Make it appropriate for a fantasy/RPG setting
-7. Incorporate their current skill level naturally
-8. Make it engaging, memorable, and unique
-9. Return ONLY the backstory text, no preamble or explanation
+5. Naturally weave in their key attributes, skills, and personality traits
+6. Show how their attributes and skills developed over time
+7. Demonstrate their personality traits through past events and experiences
+8. If voice characteristics are provided, subtly reference how they speak or communicate
+9. If languages are mentioned, incorporate cultural or linguistic background elements
+10. Make it appropriate for a fantasy/RPG setting
+11. Incorporate their current skill level naturally
+12. Make it engaging, memorable, and unique
+13. Return ONLY the backstory text, no preamble or explanation
 
 Write the character backstory now:"""
 

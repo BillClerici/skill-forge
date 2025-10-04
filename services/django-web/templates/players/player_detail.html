@@ -252,6 +252,23 @@
                     <div class="card" style="background-color: rgba(212, 175, 55, 0.05); margin: 10px 0;">
                         <div class="card-content" style="padding: 15px;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <!-- Character Image Thumbnail -->
+                                {% if character.images and character.images|length > 0 %}
+                                <div style="margin-right: 15px; flex-shrink: 0;">
+                                    {% if character.primary_image_index == 0 %}
+                                        <img src="{{ character.images.0 }}" alt="{{ character.full_name }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold); box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {% elif character.primary_image_index == 1 %}
+                                        <img src="{{ character.images.1 }}" alt="{{ character.full_name }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold); box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {% elif character.primary_image_index == 2 %}
+                                        <img src="{{ character.images.2 }}" alt="{{ character.full_name }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold); box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {% elif character.primary_image_index == 3 %}
+                                        <img src="{{ character.images.3 }}" alt="{{ character.full_name }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold); box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {% else %}
+                                        <img src="{{ character.images.0 }}" alt="{{ character.full_name }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold); box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
                                 <div style="flex: 1; margin-right: 15px;">
                                     <h6 style="margin: 0; color: var(--rpg-gold);">
                                         <a href="{% url 'character_detail' character.character_id %}" style="color: var(--rpg-gold);">

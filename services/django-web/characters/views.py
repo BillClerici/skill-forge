@@ -166,6 +166,19 @@ class CharacterGenerateBackstoryView(View):
 
             print(f"DEBUG: Calling orchestrator at {ORCHESTRATOR_URL}/generate-character-backstory")
 
+            # Get attributes, skills, and personality traits
+            attributes = list(character.attributes.keys()) if isinstance(character.attributes, dict) else []
+            skills = character.skills if isinstance(character.skills, list) else []
+            personality_traits = character.personality_traits if isinstance(character.personality_traits, list) else []
+
+            # Get voice profile
+            voice_profile = character.voice_profile if isinstance(character.voice_profile, dict) else {}
+            voice_type = voice_profile.get('voice_type', '')
+            accent = voice_profile.get('accent', '')
+            speaking_patterns = voice_profile.get('speaking_patterns', [])
+            languages = voice_profile.get('languages', [])
+            speech_quirks = voice_profile.get('speech_quirks', '')
+
             # Call orchestrator to generate backstory
             with httpx.Client() as client:
                 response = client.post(
@@ -179,7 +192,15 @@ class CharacterGenerateBackstoryView(View):
                         'height': character.height or '',
                         'appearance': character.appearance or '',
                         'blooms_level': character.blooms_level,
-                        'player_name': player.display_name
+                        'player_name': player.display_name,
+                        'attributes': attributes,
+                        'skills': skills,
+                        'personality_traits': personality_traits,
+                        'voice_type': voice_type,
+                        'accent': accent,
+                        'speaking_patterns': speaking_patterns,
+                        'languages': languages,
+                        'speech_quirks': speech_quirks
                     },
                     timeout=60.0
                 )
@@ -270,64 +291,63 @@ class CharacterGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
-            # Build comprehensive image prompt based on character and player preferences
-            prompt_parts = [f"A fantasy RPG character portrait of {character.name}"]
+            # Build simple, clean prompt focused on character artwork only
+            prompt_parts = []
 
-            if character.title:
-                prompt_parts.append(f"known as '{character.title}'")
-
-            # Add player's favorite genres if available
-            if player_profile and player_profile.favorite_genres:
-                genres = ', '.join(player_profile.favorite_genres)
-                prompt_parts.append(f"Genre style: {genres}")
-
-            if character.backstory:
-                # Use first 200 chars of backstory for context
-                backstory_snippet = character.backstory[:200]
-                prompt_parts.append(f"Background: {backstory_snippet}")
-
+            # Start with basic character description
             if character.appearance:
-                prompt_parts.append(f"Physical appearance: {character.appearance}")
+                prompt_parts.append(character.appearance)
+            else:
+                prompt_parts.append(f"A fantasy character")
 
             if character.age:
-                prompt_parts.append(f"Age: {character.age}")
+                prompt_parts.append(f"age {character.age}")
 
-            if character.height:
-                prompt_parts.append(f"Height: {character.height}")
+            # Add personality traits for expression/demeanor
+            if character.personality_traits and isinstance(character.personality_traits, list):
+                # Take up to 3 personality traits for visual representation
+                visual_traits = character.personality_traits[:3]
+                if visual_traits:
+                    traits_str = ", ".join([trait.replace('_', ' ') for trait in visual_traits])
+                    prompt_parts.append(f"with {traits_str} demeanor")
 
-            # Add evolution arc context
+            # Add attributes for physical representation
+            if character.attributes and isinstance(character.attributes, dict):
+                attr_keys = list(character.attributes.keys())
+                # Highlight physical attributes
+                physical_attrs = [a for a in attr_keys if a in ['strength', 'dexterity', 'agility', 'constitution', 'endurance']]
+                if physical_attrs:
+                    attrs_str = " and ".join([attr.replace('_', ' ') for attr in physical_attrs[:2]])
+                    prompt_parts.append(f"displaying {attrs_str}")
+
+            # Add evolution arc visual descriptor
             arc_descriptors = {
-                'remembering': 'appearing as a novice adventurer, fresh and eager',
-                'understanding': 'showing signs of growing wisdom and understanding',
-                'applying': 'confident and skilled, a seasoned journeyman',
-                'analyzing': 'wise and analytical, an expert strategist',
-                'evaluating': 'masterful presence, commanding respect',
-                'creating': 'legendary aura, a grandmaster of their craft'
+                'remembering': 'novice adventurer with eager expression',
+                'understanding': 'growing wisdom in their eyes',
+                'applying': 'confident and skilled warrior pose',
+                'analyzing': 'wise strategist appearance',
+                'evaluating': 'masterful commanding presence',
+                'creating': 'legendary grandmaster aura'
             }
             arc_desc = arc_descriptors.get(character.blooms_level, '')
             if arc_desc:
                 prompt_parts.append(arc_desc)
 
-            # Combine prompt
-            base_prompt = ". ".join(prompt_parts)
-
-            # Add art direction with player preferences
-            art_style = "epic fantasy RPG style"
+            # Add art style based on player preferences
+            art_style = "fantasy art style"
             if player_profile:
                 if player_profile.play_style == 'narrative':
-                    art_style += ", cinematic and story-driven"
+                    art_style = "cinematic fantasy art"
                 elif player_profile.play_style == 'combat':
-                    art_style += ", dynamic action pose"
+                    art_style = "dynamic action fantasy art"
                 elif player_profile.play_style == 'exploration':
-                    art_style += ", adventurous and mysterious"
+                    art_style = "adventurous fantasy art"
                 elif player_profile.play_style == 'puzzle':
-                    art_style += ", thoughtful and strategic pose"
+                    art_style = "thoughtful fantasy art"
 
-            full_prompt = f"""{base_prompt}
+            character_description = ", ".join(prompt_parts)
 
-Art Direction: High quality fantasy character portrait, detailed face and expression, professional digital art, dramatic lighting, {art_style}, D&D character art quality, full body or three-quarter view.
-
-IMPORTANT: Pure character artwork only - NO text, NO labels, NO character sheets, NO stat blocks, NO UI elements, NO watermarks. Just the character portrait."""
+            full_prompt = f"""A detailed portrait painting of a fantasy character. {character_description}. Professional {art_style}, painterly style, dramatic lighting, detailed facial features. Portrait only, plain background, no text, no UI elements, no character sheet, no stats, no labels."""
 
             # Generate image using DALL-E 3
             response = client.images.generate(

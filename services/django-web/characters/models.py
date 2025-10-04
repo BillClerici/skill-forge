@@ -64,6 +64,12 @@ class Character(models.Model):
         help_text="Character's inventory items"
     )
 
+    # Voice and Speech Profile (for TTS/STT)
+    voice_profile = models.JSONField(
+        default=dict,
+        help_text="Voice characteristics, accent, speaking patterns, and language proficiencies"
+    )
+
     # Character Images (up to 4 AI-generated images)
     images = models.JSONField(
         default=list,
