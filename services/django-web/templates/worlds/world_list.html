@@ -105,10 +105,10 @@
                         {% endif %}
                     </div>
 
-                    <!-- Setting/Description -->
-                    {% if world.setting %}
+                    <!-- Description -->
+                    {% if world.description %}
                     <p style="margin-top: 16px; color: #b8b8d1;">
-                        {{ world.setting|truncatewords:30 }}
+                        {{ world.description|truncatewords:30 }}
                     </p>
                     {% endif %}
 
@@ -125,12 +125,6 @@
                         <div class="chip" style="background-color: rgba(103, 58, 183, 0.2);">
                             <i class="material-icons tiny">terrain</i>
                             {{ world.region_count }} Region{{ world.region_count|pluralize }}
-                        </div>
-                        {% endif %}
-                        {% if world.power_system %}
-                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.2);">
-                            <i class="material-icons tiny">flash_on</i>
-                            {{ world.power_system }}
                         </div>
                         {% endif %}
                     </div>

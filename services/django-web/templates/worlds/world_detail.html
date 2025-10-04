@@ -143,6 +143,9 @@
             <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">map</i>
             {{ world.world_name }}
         </h3>
+        {% if world.description %}
+        <p style="color: #b8b8d1; font-size: 1.1rem; margin-top: 10px; line-height: 1.6;">{{ world.description }}</p>
+        {% endif %}
     </div>
 </div>
 
@@ -167,20 +170,8 @@
             <li class="tab"><a href="#overview" class="active">
                 <i class="material-icons left tiny">info</i>Overview
             </a></li>
-            <li class="tab"><a href="#physical">
-                <i class="material-icons left tiny">public</i>Physical
-            </a></li>
-            <li class="tab"><a href="#biological">
-                <i class="material-icons left tiny">eco</i>Biological
-            </a></li>
-            <li class="tab"><a href="#technological">
-                <i class="material-icons left tiny">settings</i>Technological
-            </a></li>
-            <li class="tab"><a href="#societal">
-                <i class="material-icons left tiny">groups</i>Societal
-            </a></li>
-            <li class="tab"><a href="#historical">
-                <i class="material-icons left tiny">history</i>Historical
+            <li class="tab"><a href="#properties">
+                <i class="material-icons left tiny">list</i>Properties
             </a></li>
             <li class="tab"><a href="#backstory">
                 <i class="material-icons left tiny">auto_awesome</i>Backstory
@@ -206,6 +197,16 @@
                     World Overview
                 </span>
 
+                <!-- Description -->
+                {% if world.description %}
+                <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">description</i> Description
+                    </h6>
+                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.description }}</p>
+                </div>
+                {% endif %}
+
                 <!-- Universes -->
                 {% if universes %}
                 <div style="margin: 20px 0;">
@@ -223,12 +224,17 @@
                 {% endif %}
 
                 <!-- Genre -->
+                {% if world.genre %}
                 <div style="margin: 20px 0;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">category</i> Genre
+                    </h6>
                     <div class="chip">
                         <i class="material-icons tiny">category</i>
                         {{ world.genre }}
                     </div>
                 </div>
+                {% endif %}
 
                 <!-- Visual Styles -->
                 {% if world.visual_style %}
@@ -262,15 +268,6 @@
                 </div>
                 {% endif %}
 
-                <!-- Power System -->
-                {% if world.power_system %}
-                <div style="margin: 20px 0;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">flash_on</i> Power System
-                    </h6>
-                    <p style="color: #b8b8d1; line-height: 1.6;">{{ world.power_system }}</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
@@ -401,8 +398,9 @@
     </div>
 </div>
 
-<!-- Physical Properties Tab -->
-<div id="physical" class="row">
+<!-- Properties Tab (Combined) -->
+<div id="properties" class="row">
+    <!-- Physical Properties -->
     {% if world.physical_properties %}
     <div class="col s12">
         <div class="card">
@@ -475,10 +473,8 @@
         </div>
     </div>
     {% endif %}
-</div>
 
-<!-- Biological Properties Tab -->
-<div id="biological" class="row">
+    <!-- Biological Properties -->
     {% if world.biological_properties %}
     <div class="col s12">
         <div class="card">
@@ -533,10 +529,8 @@
         </div>
     </div>
     {% endif %}
-</div>
 
-<!-- Technological Properties Tab -->
-<div id="technological" class="row">
+    <!-- Technological Properties -->
     {% if world.technological_properties %}
     <div class="col s12">
         <div class="card">
@@ -589,10 +583,8 @@
         </div>
     </div>
     {% endif %}
-</div>
 
-<!-- Societal Properties Tab -->
-<div id="societal" class="row">
+    <!-- Societal Properties -->
     {% if world.societal_properties %}
     <div class="col s12">
         <div class="card">
@@ -649,10 +641,8 @@
         </div>
     </div>
     {% endif %}
-</div>
 
-<!-- Historical Properties Tab -->
-<div id="historical" class="row">
+    <!-- Historical Properties -->
     {% if world.historical_properties %}
     <div class="col s12">
         <div class="card">

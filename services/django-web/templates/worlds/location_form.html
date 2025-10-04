@@ -2,6 +2,29 @@
 
 {% block title %}{% if location %}Edit Location{% else %}Create Location{% endif %} - SkillForge RPG{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Input field labels and text */
+    .input-field label {
+        color: var(--rpg-gold) !important;
+    }
+
+    .input-field label.active {
+        color: var(--rpg-gold) !important;
+    }
+
+    /* Helper text color */
+    .helper-text {
+        color: #b8b8d1 !important;
+    }
+
+    /* Add spacing between input fields */
+    .input-field {
+        margin-bottom: 30px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col s12">

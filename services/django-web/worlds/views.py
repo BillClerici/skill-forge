@@ -212,11 +212,11 @@ class WorldCreateView(View):
         world_data = {
             '_id': world_id,
             'world_name': request.POST.get('world_name'),
+            'description': request.POST.get('description', ''),
             'universe_ids': universe_ids,
             'genre': request.POST.get('genre'),
             'themes': themes,
             'visual_style': visual_styles,
-            'power_system': request.POST.get('power_system', ''),
             'physical_properties': {
                 'star_system': request.POST.get('star_system', ''),
                 'planetary_classification': request.POST.get('planetary_classification', ''),
@@ -538,11 +538,11 @@ class WorldUpdateView(View):
         form_data = {
             'instance': world,
             'world_name': {'value': world.get('world_name', '')},
+            'description': {'value': world.get('description', '')},
             'universe_ids': {'value': universe_ids},
             'genre': {'value': world.get('genre', '')},
             'themes': {'value': themes},
             'visual_style': {'value': visual_styles},
-            'power_system': {'value': world.get('power_system', '')},
             # Physical Properties
             'star_system': {'value': physical.get('star_system', '')},
             'planetary_classification': {'value': physical.get('planetary_classification', '')},
@@ -591,11 +591,11 @@ class WorldUpdateView(View):
 
         world_data = {
             'world_name': request.POST.get('world_name'),
+            'description': request.POST.get('description', ''),
             'universe_ids': universe_ids,
             'genre': request.POST.get('genre'),
             'themes': themes,
             'visual_style': visual_styles,
-            'power_system': request.POST.get('power_system', ''),
             'physical_properties': {
                 'star_system': request.POST.get('star_system', ''),
                 'planetary_classification': request.POST.get('planetary_classification', ''),
@@ -746,10 +746,10 @@ class WorldGenerateBackstoryView(View):
                     json={
                         'world_id': world_id,
                         'world_name': world.get('world_name', ''),
+                        'description': world.get('description', ''),
                         'genre': world.get('genre', ''),
                         'themes': world.get('themes', []),
                         'visual_style': world.get('visual_style', []),
-                        'power_system': world.get('power_system', ''),
                         'physical_properties': physical,
                         'biological_properties': biological,
                         'technological_properties': technological,
@@ -1506,10 +1506,10 @@ class WorldGenerateRegionsView(View):
             # Prepare world context with new properties
             world_context = {
                 'world_name': world.get('world_name'),
+                'description': world.get('description', ''),
                 'genre': world.get('genre'),
                 'themes': world.get('themes', []),
                 'visual_style': world.get('visual_style', []),
-                'power_system': world.get('power_system', ''),
                 'backstory': world.get('backstory', ''),
                 'physical_properties': world.get('physical_properties', {}),
                 'biological_properties': world.get('biological_properties', {}),
@@ -1766,11 +1766,14 @@ class WorldGenerateImageView(View):
             client = OpenAI(api_key=openai_api_key)
 
             # Define 4 distinct image types
+            description = world.get('description', '')
             image_types = [
                 {
                     'type': 'solar_system',
                     'name': 'Solar System View',
                     'prompt_template': f"""Create a cinematic view of the solar system containing the world: {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
 
 Show the {world.get('world_name')} world/planet in its orbital position within the solar system. Include:
 - The central star(s)
@@ -1788,6 +1791,8 @@ Art Direction: Wide-angle solar system diagram, professional space illustration,
                     'type': 'full_planet',
                     'name': 'Full Planet View',
                     'prompt_template': f"""Create a cinematic full planet view of the fantasy world: {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
 
 Show the entire planet from space with:
 - Visible continents and oceans
@@ -1807,6 +1812,8 @@ Art Direction: Full planetary view from space, highly detailed, professional spa
                     'name': 'Primary Region View',
                     'prompt_template': f"""Create a cinematic landscape view of the main region in the fantasy world: {world.get('world_name')}
 
+{f"World Description: {description}" if description else ""}
+
 {f"Region: {region_summary[0]}" if region_summary else "Primary region of the world"}
 
 Environment:
@@ -1825,6 +1832,8 @@ Art Direction: Wide panoramic establishing shot, highly detailed digital concept
                     'type': 'region_2',
                     'name': 'Secondary Region View',
                     'prompt_template': f"""Create a cinematic landscape view of a secondary region in the fantasy world: {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
 
 {f"Region: {region_summary[1]}" if len(region_summary) > 1 else f"Region: {region_summary[0]}" if region_summary else "Secondary region of the world"}
 

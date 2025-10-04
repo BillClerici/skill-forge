@@ -30,7 +30,7 @@
 
     /* Input field labels and text */
     .input-field label {
-        color: #b8b8d1 !important;
+        color: var(--rpg-gold) !important;
     }
 
     .input-field input[type=text],
@@ -58,6 +58,11 @@
     .helper-text {
         color: #b8b8d1 !important;
     }
+
+    /* Add spacing between input fields */
+    .input-field {
+        margin-bottom: 40px;
+    }
 </style>
 {% endblock %}
 
@@ -84,8 +89,20 @@
                         <input type="text" id="world_name" name="world_name"
                                value="{{ form.world_name.value|default:'' }}" required>
                         <label for="world_name" class="{% if form.world_name.value %}active{% endif %}">World Name</label>
+                        <span class="helper-text">Enter a unique name for your world</span>
                         {% if form.world_name.errors %}
                             <span class="helper-text red-text">{{ form.world_name.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Description -->
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">description</i>
+                        <textarea id="description" name="description" class="materialize-textarea">{{ form.description.value|default:'' }}</textarea>
+                        <label for="description" class="{% if form.description.value %}active{% endif %}">Description</label>
+                        <span class="helper-text">A brief description of this world</span>
+                        {% if form.description.errors %}
+                            <span class="helper-text red-text">{{ form.description.errors.0 }}</span>
                         {% endif %}
                     </div>
 
@@ -126,7 +143,7 @@
                             <option value="Superhero" {% if form.genre.value == 'Superhero' %}selected{% endif %}>Superhero</option>
                         </select>
                         <label>Genre <span style="color: #ff6b6b;">*</span></label>
-                        <span class="helper-text" id="genre_error"></span>
+                        <span class="helper-text" id="genre_error">Primary genre for this world (required)</span>
                         {% if form.genre.errors %}
                             <span class="helper-text red-text">{{ form.genre.errors.0 }}</span>
                         {% endif %}
@@ -178,14 +195,6 @@
                         {% if form.visual_style.errors %}
                             <span class="helper-text red-text">{{ form.visual_style.errors.0 }}</span>
                         {% endif %}
-                    </div>
-
-                    <!-- Power System -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">flash_on</i>
-                        <textarea id="power_system" name="power_system" class="materialize-textarea">{{ form.power_system.value|default:'' }}</textarea>
-                        <label for="power_system" class="{% if form.power_system.value %}active{% endif %}">Power System</label>
-                        <span class="helper-text">Magic systems, technology, or special abilities</span>
                     </div>
 
                     <div class="divider" style="background-color: rgba(212, 175, 55, 0.2); margin: 32px 0;"></div>
@@ -700,7 +709,7 @@
         // Initialize collapsible sections
         var collapsibles = document.querySelectorAll('.collapsible');
         M.Collapsible.init(collapsibles, {
-            accordion: false
+            accordion: true
         });
 
         // Initialize all textareas
