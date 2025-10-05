@@ -162,6 +162,25 @@ class GenerateCharacterBackstoryRequest(BaseModel):
     languages: Optional[List[str]] = []
     speech_quirks: Optional[str] = ""
 
+class GenerateCampaignRequest(BaseModel):
+    genre: str
+    world: Dict[str, Any]
+    region: Optional[Dict[str, Any]] = None
+    locations: List[Dict[str, Any]]
+    species: List[Dict[str, Any]]
+    story_outline: str
+    num_quests: int = 5
+
+class GenerateCampaignResponse(BaseModel):
+    campaign_description: str
+    campaign_backstory: str
+    primary_locations: List[str]
+    key_npcs: List[str]
+    main_goals: List[str]
+    quests: List[Dict[str, Any]]
+    tokens_used: int
+    cost_usd: float
+
 class GenerateRegionsRequest(BaseModel):
     world_context: Dict[str, Any]
     num_regions: int
@@ -699,6 +718,36 @@ async def generate_character_backstory(request: GenerateCharacterBackstoryReques
 
         except httpx.TimeoutException:
             raise HTTPException(status_code=504, detail="AI agent request timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
+
+@app.post("/generate-campaign", response_model=GenerateCampaignResponse)
+async def generate_campaign(request: GenerateCampaignRequest):
+    """Generate complete campaign with quests and Bloom's Taxonomy tasks using AI"""
+
+    account_id = UUID("b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f")
+    subscription_tier = "family"
+
+    if await is_account_throttled(account_id):
+        raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
+
+    async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minute timeout for campaign generation
+        try:
+            response = await client.post(
+                f"{GAME_MASTER_URL}/generate-campaign",
+                json=request.dict(),
+                headers={"Authorization": f"Bearer {MCP_AUTH_TOKEN}"}
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+
+            result = response.json()
+            await track_cost(account_id, subscription_tier, result.get("tokens_used", 0), result.get("cost_usd", 0))
+            return GenerateCampaignResponse(**result)
+
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="AI agent request timed out after 5 minutes")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
 

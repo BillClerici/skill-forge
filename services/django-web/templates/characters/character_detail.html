@@ -495,7 +495,16 @@
                 <div class="center-align" style="padding: 40px 20px;">
                     <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">map</i>
                     <p class="grey-text" style="margin-top: 15px;">No campaign or quest participation yet</p>
-                    <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Join a campaign to begin your adventure!</p>
+                    <p class="grey-text" style="font-size: 0.9rem; margin-top: 10px;">Start a new campaign or search for campaigns to join!</p>
+
+                    <div style="margin-top: 30px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                        <a href="{% url 'campaign_designer_wizard' %}" class="btn waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                            <i class="material-icons left">auto_awesome</i>Campaign Designer Wizard
+                        </a>
+                        <a href="{% url 'campaign_list' %}" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);">
+                            <i class="material-icons left">search</i>Search Campaigns
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

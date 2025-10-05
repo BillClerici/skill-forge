@@ -13,31 +13,53 @@
 </div>
 
 <div class="row">
-    <div class="col s12">
-        <a href="{% url 'campaign_create' %}" class="btn-large waves-effect waves-light">
-            <i class="material-icons left">add</i>Create Campaign
+    <div class="col s12 m6">
+        <a href="{% url 'campaign_designer_wizard' %}" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-purple);">
+            <i class="material-icons left">auto_awesome</i>Campaign Designer Wizard
         </a>
+    </div>
+    <div class="col s12 m6">
+        <div class="input-field">
+            <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
+            <input type="text" id="campaign-search" placeholder="Search campaigns by name...">
+            <label for="campaign-search">Search Campaigns</label>
+        </div>
     </div>
 </div>
 
 <div class="row">
     {% if campaigns %}
         {% for campaign in campaigns %}
-        <div class="col s12 m6 l4">
+        <div class="col s12 m6 l4 campaign-card" data-name="{{ campaign.campaign_name|lower }}">
             <div class="card hoverable">
                 <div class="card-content">
-                    <span class="card-title">{{ campaign.campaign_name }}</span>
+                    <span class="card-title" style="color: var(--rpg-gold);">{{ campaign.campaign_name }}</span>
 
                     <div style="margin: 16px 0;">
-                        <div class="chip">
-                            <i class="material-icons tiny">map</i>
-                            {{ campaign.world.world_name }}
-                        </div>
-                        {% if campaign.member %}
-                        <div class="chip">
-                            <i class="material-icons tiny">person</i>
-                            {{ campaign.member.member_name }}
-                        </div>
+                        {% if campaign.world_names %}
+                            <div style="margin-bottom: 8px;">
+                                <strong class="grey-text" style="font-size: 0.85rem;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">map</i> Worlds:
+                                </strong>
+                            </div>
+                            {% for world_name in campaign.world_names %}
+                            <div class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.85rem; margin: 2px;">
+                                {{ world_name }}
+                            </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        {% if campaign.player_names %}
+                            <div style="margin-top: 12px; margin-bottom: 8px;">
+                                <strong class="grey-text" style="font-size: 0.85rem;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">people</i> Players:
+                                </strong>
+                            </div>
+                            {% for player_name in campaign.player_names %}
+                            <div class="chip" style="background-color: rgba(0, 150, 136, 0.2); color: var(--rpg-green); font-size: 0.85rem; margin: 2px;">
+                                {{ player_name }}
+                            </div>
+                            {% endfor %}
                         {% endif %}
                     </div>
 
@@ -48,7 +70,7 @@
                                 Active
                             </span>
                         {% elif campaign.status == 'in_progress' %}
-                            <span class="chip" style="background-color: rgba(76, 110, 245, 0.3); color: var(--rpg-blue);">
+                            <span class="chip" style="background-color: rgba(76, 110, 245, 0.3); color: #4c6ef5;">
                                 <i class="material-icons tiny">play_arrow</i>
                                 In Progress
                             </span>
@@ -79,12 +101,36 @@
                     <i class="material-icons large" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.5;">book</i>
                     <h5 style="color: var(--rpg-gold);">No Campaigns Found</h5>
                     <p style="color: #b8b8d1;">Create your first campaign to start your RPG adventure.</p>
-                    <a href="{% url 'campaign_create' %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
-                        <i class="material-icons left">add</i>Create Campaign
+                    <a href="{% url 'campaign_designer_wizard' %}" class="btn waves-effect waves-light" style="margin-top: 20px; background-color: var(--rpg-purple);">
+                        <i class="material-icons left">auto_awesome</i>Campaign Designer Wizard
                     </a>
                 </div>
             </div>
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Campaign search functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('campaign-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                const campaignCards = document.querySelectorAll('.campaign-card');
+
+                campaignCards.forEach(card => {
+                    const campaignName = card.dataset.name;
+                    if (campaignName.includes(searchTerm)) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        }
+    });
+</script>
 {% endblock %}

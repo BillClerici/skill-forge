@@ -1348,6 +1348,165 @@ async def retrieve_campaign_memories(
     )
     return {"memories": memories}
 
+class GenerateCampaignRequest(BaseModel):
+    genre: str
+    world: Dict[str, Any]
+    region: Optional[Dict[str, Any]] = None
+    locations: List[Dict[str, Any]]
+    species: List[Dict[str, Any]]
+    story_outline: str
+    num_quests: int = 5
+
+@app.post("/generate-campaign")
+async def generate_campaign(request: GenerateCampaignRequest):
+    """Generate a complete campaign with quests structured using Bloom's Taxonomy"""
+
+    try:
+        genre = request.genre
+        world = request.world
+        region = request.region
+        locations = request.locations
+        species = request.species
+        story_outline = request.story_outline
+        num_quests = request.num_quests
+
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-20250514",
+            api_key=ANTHROPIC_API_KEY,
+            temperature=0.8,
+            max_tokens=8000
+        )
+
+        # Build context for campaign generation
+        location_context = "\n".join([
+            f"- {loc.get('name', 'Unnamed')}: {loc.get('description', 'No description')}"
+            for loc in locations[:10]
+        ])
+
+        species_context = "\n".join([
+            f"- {sp.get('name', 'Unnamed')}: {sp.get('traits', 'No traits')}"
+            for sp in species[:5]
+        ])
+
+        region_context = ""
+        if region:
+            region_context = f"\nRegion: {region.get('name', 'Unnamed')} - {region.get('description', 'No description')}"
+
+        system_prompt = f"""You are an expert RPG campaign designer. Generate a complete campaign with {num_quests} quests.
+
+CRITICAL: You MUST respond with valid JSON only. Do not include any markdown code blocks, explanations, or text outside the JSON structure.
+
+Genre: {genre}
+World: {world.get('name', 'Unknown')}
+World Setting: {world.get('setting', 'No setting')}
+World Backstory: {world.get('backstory', 'No backstory')[:500]}...
+{region_context}
+
+Available Locations:
+{location_context}
+
+Available Species:
+{species_context}
+
+Story Outline from User:
+{story_outline}
+
+IMPORTANT: Structure each quest with tasks that follow Bloom's Taxonomy levels:
+1. Remembering - Recall information (e.g., find a specific item, remember NPC names)
+2. Understanding - Explain concepts (e.g., interpret clues, summarize lore)
+3. Applying - Use knowledge (e.g., apply learned skills, use items correctly)
+4. Analyzing - Break down problems (e.g., investigate mysteries, analyze patterns)
+5. Evaluating - Make judgments (e.g., choose between moral dilemmas, assess situations)
+6. Creating - Produce new work (e.g., craft solutions, negotiate treaties)
+
+Generate a JSON response with the following structure:
+{{
+    "campaign_description": "Rich narrative description of the campaign (2-3 paragraphs)",
+    "campaign_backstory": "Detailed backstory explaining the situation and stakes (2-3 paragraphs)",
+    "primary_locations": ["Location 1", "Location 2", "Location 3"],
+    "key_npcs": ["NPC Name 1", "NPC Name 2"],
+    "main_goals": ["Goal 1", "Goal 2", "Goal 3"],
+    "quests": [
+        {{
+            "quest_id": "unique_id",
+            "quest_name": "Quest Name",
+            "description": "Quest description",
+            "location_ids": ["location_id1", "location_id2"],
+            "species_involved": ["species_id1"],
+            "goals": ["Goal 1", "Goal 2"],
+            "tasks": [
+                {{
+                    "task_id": "task_unique_id",
+                    "type": "puzzle|riddle|action|dialogue|investigation",
+                    "blooms_level": "remembering|understanding|applying|analyzing|evaluating|creating",
+                    "description": "What the character must do",
+                    "success_criteria": "How to complete it",
+                    "hints": ["Hint 1", "Hint 2"],
+                    "xp_reward": 100,
+                    "cognitive_skills": {{"critical_thinking": 5, "memory": 3}}
+                }}
+            ],
+            "prerequisites": [],
+            "rewards": {{"xp": 500, "items": []}}
+        }}
+    ]
+}}
+
+Ensure quests are progressively challenging and use all Bloom's levels across the campaign."""
+
+        messages = [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"Generate {num_quests} quests for this campaign, ensuring variety in locations, species interaction, and Bloom's Taxonomy levels.")
+        ]
+
+        response = await llm.ainvoke(messages)
+
+        # Parse JSON response
+        result_text = response.content
+        print(f"AI RESPONSE LENGTH: {len(result_text)} chars")
+        print(f"AI RAW RESPONSE (first 1000 chars): {result_text[:1000]}")
+        print(f"AI RAW RESPONSE (last 500 chars): {result_text[-500:]}")
+
+        # Extract JSON from response (handle markdown code blocks)
+        if "```json" in result_text:
+            result_text = result_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in result_text:
+            result_text = result_text.split("```")[1].split("```")[0].strip()
+
+        campaign_data = json.loads(result_text)
+
+        # Calculate cost
+        input_tokens = response.usage_metadata.get("input_tokens", 0)
+        output_tokens = response.usage_metadata.get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+
+        cost = (
+            (input_tokens / 1_000_000 * CLAUDE_PRICING["claude-sonnet-4"]["input"]) +
+            (output_tokens / 1_000_000 * CLAUDE_PRICING["claude-sonnet-4"]["output"])
+        )
+
+        return {
+            "campaign_description": campaign_data.get("campaign_description", ""),
+            "campaign_backstory": campaign_data.get("campaign_backstory", ""),
+            "primary_locations": campaign_data.get("primary_locations", []),
+            "key_npcs": campaign_data.get("key_npcs", []),
+            "main_goals": campaign_data.get("main_goals", []),
+            "quests": campaign_data.get("quests", []),
+            "tokens_used": total_tokens,
+            "cost_usd": cost
+        }
+
+    except json.JSONDecodeError as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"JSON DECODE ERROR: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"CAMPAIGN GENERATION ERROR: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Error generating campaign: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

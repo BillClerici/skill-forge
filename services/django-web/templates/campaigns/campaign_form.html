@@ -136,15 +136,15 @@
                         <div id="selected_worlds_display" style="margin-top: 10px;"></div>
                     </div>
 
-                    <!-- Member Selection (Modal Dialog) -->
+                    <!-- Player Selection (Modal Dialog) -->
                     <div class="input-field">
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">people</i>
-                        <input type="text" id="member_display" readonly class="modal-trigger" href="#memberModal"
+                        <input type="text" id="player_display" readonly class="modal-trigger" href="#playerModal"
                                placeholder="Click to select players" style="cursor: pointer;">
-                        <label for="member_display">Players <span style="color: #ff6b6b;">*</span></label>
+                        <label for="player_display">Players <span style="color: #ff6b6b;">*</span></label>
                         <span class="helper-text">Click to search, filter, and select players</span>
-                        <span class="helper-text" id="member_ids_error"></span>
-                        <div id="selected_members_display" style="margin-top: 10px;"></div>
+                        <span class="helper-text" id="player_ids_error"></span>
+                        <div id="selected_players_display" style="margin-top: 10px;"></div>
                     </div>
 
                     <!-- Form Actions -->
@@ -237,8 +237,8 @@
     </div>
 </div>
 
-<!-- Member Selection Modal -->
-<div id="memberModal" class="modal" style="max-height: 90%; width: 80%;">
+<!-- Player Selection Modal -->
+<div id="playerModal" class="modal" style="max-height: 90%; width: 80%;">
     <div class="modal-content" style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); color: #e0e0e0;">
         <h4 style="color: var(--rpg-gold);">
             <i class="material-icons left">people</i>Select Players
@@ -249,23 +249,23 @@
             <div class="col s12">
                 <div class="input-field">
                     <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
-                    <input type="text" id="memberSearch" placeholder="Search players...">
-                    <label for="memberSearch">Search by name or email</label>
+                    <input type="text" id="playerSearch" placeholder="Search players...">
+                    <label for="playerSearch">Search by name or email</label>
                 </div>
             </div>
         </div>
 
-        <!-- Member List -->
-        <div id="memberList" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 10px;">
-            {% for member in members %}
-            <div class="member-item" data-id="{{ member.id }}" data-name="{{ member.member_name }}" data-email="{{ member.email|default:'' }}"
+        <!-- Player List -->
+        <div id="playerList" style="max-height: 400px; overflow-y: auto; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px; padding: 10px;">
+            {% for player in players %}
+            <div class="player-item" data-id="{{ player.id }}" data-name="{{ player.player_name }}" data-email="{{ player.email|default:'' }}"
                  style="padding: 12px; margin: 8px 0; background: rgba(212, 175, 55, 0.05); border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.2); cursor: pointer; transition: all 0.3s;">
                 <label>
-                    <input type="checkbox" class="member-checkbox filled-in" value="{{ member.id }}" />
+                    <input type="checkbox" class="player-checkbox filled-in" value="{{ player.id }}" />
                     <span style="color: #e0e0e0;">
-                        <strong>{{ member.member_name }}</strong>
-                        {% if member.email %}
-                        <br><small style="color: #b8b8d1;">{{ member.email }}</small>
+                        <strong>{{ player.player_name }}</strong>
+                        {% if player.email %}
+                        <br><small style="color: #b8b8d1;">{{ player.email }}</small>
                         {% endif %}
                     </span>
                 </label>
@@ -277,7 +277,7 @@
         <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
             <i class="material-icons left">cancel</i>Cancel
         </a>
-        <a href="#!" id="confirmMembers" class="modal-close waves-effect waves-light btn">
+        <a href="#!" id="confirmPlayers" class="modal-close waves-effect waves-light btn">
             <i class="material-icons left">check</i>Confirm Selection
         </a>
     </div>
@@ -300,7 +300,7 @@
 
         // Selected items storage
         let selectedWorlds = new Map();
-        let selectedMembers = new Map();
+        let selectedPlayers = new Map();
 
         // Pre-populate selections in edit mode
         {% if is_edit %}
@@ -318,23 +318,23 @@
         }
         {% endfor %}
 
-        // Pre-select members
-        {% for member_id in form.member_ids.value %}
-        const memberCheckbox{{ forloop.counter }} = document.querySelector('.member-checkbox[value="{{ member_id }}"]');
-        if (memberCheckbox{{ forloop.counter }}) {
-            memberCheckbox{{ forloop.counter }}.checked = true;
-            const memberItem{{ forloop.counter }} = memberCheckbox{{ forloop.counter }}.closest('.member-item');
-            selectedMembers.set('{{ member_id }}', {
-                id: '{{ member_id }}',
-                name: memberItem{{ forloop.counter }}.dataset.name,
-                email: memberItem{{ forloop.counter }}.dataset.email
+        // Pre-select players
+        {% for player_id in form.player_ids.value %}
+        const playerCheckbox{{ forloop.counter }} = document.querySelector('.player-checkbox[value="{{ player_id }}"]');
+        if (playerCheckbox{{ forloop.counter }}) {
+            playerCheckbox{{ forloop.counter }}.checked = true;
+            const playerItem{{ forloop.counter }} = playerCheckbox{{ forloop.counter }}.closest('.player-item');
+            selectedPlayers.set('{{ player_id }}', {
+                id: '{{ player_id }}',
+                name: playerItem{{ forloop.counter }}.dataset.name,
+                email: playerItem{{ forloop.counter }}.dataset.email
             });
         }
         {% endfor %}
 
         // Update displays
         updateWorldDisplay();
-        updateMemberDisplay();
+        updatePlayerDisplay();
         {% endif %}
 
         // World search functionality
@@ -365,12 +365,12 @@
             });
         }
 
-        // Member search functionality
-        document.getElementById('memberSearch').addEventListener('input', function(e) {
+        // Player search functionality
+        document.getElementById('playerSearch').addEventListener('input', function(e) {
             const searchTerm = e.target.value.toLowerCase();
-            const memberItems = document.querySelectorAll('.member-item');
+            const playerItems = document.querySelectorAll('.player-item');
 
-            memberItems.forEach(item => {
+            playerItems.forEach(item => {
                 const name = item.dataset.name.toLowerCase();
                 const email = item.dataset.email.toLowerCase();
                 const matches = name.includes(searchTerm) || email.includes(searchTerm);
@@ -395,8 +395,8 @@
             });
         });
 
-        // Member item hover effects
-        document.querySelectorAll('.member-item').forEach(item => {
+        // Player item hover effects
+        document.querySelectorAll('.player-item').forEach(item => {
             item.addEventListener('mouseenter', function() {
                 this.style.background = 'rgba(212, 175, 55, 0.15)';
                 this.style.borderColor = 'var(--rpg-gold)';
@@ -421,18 +421,18 @@
             updateWorldDisplay();
         });
 
-        // Confirm member selection
-        document.getElementById('confirmMembers').addEventListener('click', function() {
-            selectedMembers.clear();
-            document.querySelectorAll('.member-checkbox:checked').forEach(checkbox => {
-                const item = checkbox.closest('.member-item');
-                selectedMembers.set(checkbox.value, {
+        // Confirm player selection
+        document.getElementById('confirmPlayers').addEventListener('click', function() {
+            selectedPlayers.clear();
+            document.querySelectorAll('.player-checkbox:checked').forEach(checkbox => {
+                const item = checkbox.closest('.player-item');
+                selectedPlayers.set(checkbox.value, {
                     id: checkbox.value,
                     name: item.dataset.name,
                     email: item.dataset.email
                 });
             });
-            updateMemberDisplay();
+            updatePlayerDisplay();
         });
 
         function updateWorldDisplay() {
@@ -465,31 +465,31 @@
             }
         }
 
-        function updateMemberDisplay() {
-            const display = document.getElementById('selected_members_display');
-            const input = document.getElementById('member_display');
+        function updatePlayerDisplay() {
+            const display = document.getElementById('selected_players_display');
+            const input = document.getElementById('player_display');
 
-            if (selectedMembers.size === 0) {
+            if (selectedPlayers.size === 0) {
                 display.innerHTML = '';
                 input.value = '';
                 return;
             }
 
-            input.value = `${selectedMembers.size} player(s) selected`;
+            input.value = `${selectedPlayers.size} player(s) selected`;
 
             let html = '';
-            selectedMembers.forEach((member, id) => {
+            selectedPlayers.forEach((player, id) => {
                 html += `
                     <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); margin: 5px; display: inline-flex; align-items: center;">
-                        ${member.name}${member.email ? ` <span style="font-size: 0.8em; color: #b8b8d1;">(${member.email})</span>` : ''}
-                        <i class="material-icons close" style="cursor: pointer; margin-left: 8px; font-size: 16px;" onclick="removeMember('${id}')">close</i>
+                        ${player.name}${player.email ? ` <span style="font-size: 0.8em; color: #b8b8d1;">(${player.email})</span>` : ''}
+                        <i class="material-icons close" style="cursor: pointer; margin-left: 8px; font-size: 16px;" onclick="removePlayer('${id}')">close</i>
                     </div>
                 `;
             });
             display.innerHTML = html;
 
             // Clear error
-            const errorSpan = document.getElementById('member_ids_error');
+            const errorSpan = document.getElementById('player_ids_error');
             if (errorSpan) {
                 errorSpan.textContent = '';
             }
@@ -503,11 +503,11 @@
             updateWorldDisplay();
         };
 
-        window.removeMember = function(id) {
-            selectedMembers.delete(id);
-            const checkbox = document.querySelector(`.member-checkbox[value="${id}"]`);
+        window.removePlayer = function(id) {
+            selectedPlayers.delete(id);
+            const checkbox = document.querySelector(`.player-checkbox[value="${id}"]`);
             if (checkbox) checkbox.checked = false;
-            updateMemberDisplay();
+            updatePlayerDisplay();
         };
 
         // Form submission - add hidden inputs for selected items
@@ -533,10 +533,10 @@
                 }
             }
 
-            // Validate members selection
-            if (selectedMembers.size === 0) {
+            // Validate players selection
+            if (selectedPlayers.size === 0) {
                 isValid = false;
-                const errorSpan = document.getElementById('member_ids_error');
+                const errorSpan = document.getElementById('player_ids_error');
                 if (errorSpan) {
                     errorSpan.textContent = 'Please select at least one player';
                     errorSpan.style.color = '#ff6b6b';
@@ -553,7 +553,7 @@
             }
 
             // Remove any existing hidden inputs
-            form.querySelectorAll('input[name="world_ids"], input[name="member_ids"]').forEach(input => input.remove());
+            form.querySelectorAll('input[name="world_ids"], input[name="player_ids"]').forEach(input => input.remove());
 
             // Add hidden inputs for selected worlds
             selectedWorlds.forEach((world, id) => {
@@ -564,11 +564,11 @@
                 form.appendChild(input);
             });
 
-            // Add hidden inputs for selected members
-            selectedMembers.forEach((member, id) => {
+            // Add hidden inputs for selected players
+            selectedPlayers.forEach((player, id) => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
-                input.name = 'member_ids';
+                input.name = 'player_ids';
                 input.value = id;
                 form.appendChild(input);
             });

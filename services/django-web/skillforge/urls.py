@@ -39,7 +39,7 @@ from worlds.views_species import (
 )
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
-    CampaignUpdateView, CampaignDeleteView
+    CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView
 )
 from characters.views import (
     CharacterCreateView, CharacterDetailView, CharacterSheetView, CharacterEditView, CharacterDeleteView,
@@ -131,6 +131,7 @@ urlpatterns = [
     # Campaigns
     path('campaigns/', CampaignListView.as_view(), name='campaign_list'),
     path('campaigns/create/', CampaignCreateView.as_view(), name='campaign_create'),
+    path('campaigns/designer/', CampaignDesignerWizardView.as_view(), name='campaign_designer_wizard'),
     path('campaigns/<str:campaign_id>/', CampaignDetailView.as_view(), name='campaign_detail'),
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
