@@ -26,6 +26,39 @@
     </div>
 </div>
 
+<!-- Campaign Story -->
+{% if campaign.campaign_description %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">auto_stories</i>
+                    Campaign Story
+                </span>
+                <p style="font-size: 1.1rem; line-height: 1.8; margin-top: 15px; white-space: pre-wrap;">{{ campaign.campaign_description }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if campaign.campaign_backstory %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title">
+                    <i class="material-icons left">history_edu</i>
+                    Backstory
+                </span>
+                <p style="font-size: 1.05rem; line-height: 1.7; margin-top: 15px; white-space: pre-wrap;">{{ campaign.campaign_backstory }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Campaign Overview -->
 <div class="row">
     <div class="col s12 l8">
@@ -72,6 +105,54 @@
                         </span>
                     {% endif %}
                 </div>
+
+                {% if campaign.main_goals %}
+                <div style="margin-top: 25px;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">flag</i> Main Goals
+                    </h6>
+                    <ul class="collection" style="border: 1px solid rgba(212, 175, 55, 0.3);">
+                        {% for goal in campaign.main_goals %}
+                        <li class="collection-item" style="background-color: rgba(18, 18, 32, 0.6); border-bottom: 1px solid rgba(212, 175, 55, 0.2);">
+                            <i class="material-icons tiny" style="color: var(--rpg-gold); vertical-align: middle;">star</i>
+                            {{ goal }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if campaign.primary_locations %}
+                <div style="margin-top: 20px;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">place</i> Key Locations
+                    </h6>
+                    <div>
+                        {% for location in campaign.primary_locations %}
+                        <span class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue);">
+                            <i class="material-icons tiny">location_on</i>
+                            {{ location }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if campaign.key_npcs %}
+                <div style="margin-top: 20px;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        <i class="material-icons tiny">people</i> Key NPCs
+                    </h6>
+                    <div>
+                        {% for npc in campaign.key_npcs %}
+                        <span class="chip" style="background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green);">
+                            <i class="material-icons tiny">person</i>
+                            {{ npc }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
