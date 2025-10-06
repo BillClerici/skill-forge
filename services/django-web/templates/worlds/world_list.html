@@ -364,12 +364,12 @@ document.addEventListener('DOMContentLoaded', function() {
         </h4>
     </div>
     <div class="modal-content" style="background-color: var(--rpg-dark); flex: 1; overflow-y: auto; padding-top: 0;">
-        <p style="color: #b8b8d1; margin-top: 20px;">Generate a complete, richly detailed world automatically using AI. This will create:</p>
-        <ul style="color: #9898b1; margin-left: 20px;">
+        <p style="color: #b8b8d1; margin-top: 15px; font-size: 0.9rem;">Generate a complete, richly detailed world automatically using AI. This will create:</p>
+        <ul style="color: #9898b1; margin-left: 20px; font-size: 0.85rem; line-height: 1.4;">
             <li>✨ Unique world with genre-appropriate themes and backstory</li>
             <li>🗺️ 1-8 diverse regions (based on world features)</li>
             <li>🏛️ <strong>3-level hierarchical locations</strong>:
-                <ul style="margin-left: 20px; margin-top: 8px;">
+                <ul style="margin-left: 20px; margin-top: 5px;">
                     <li>Level 1: 2-3 Primary locations per region (Islands, Forests, Districts)</li>
                     <li>Level 2: 2-3 Settlements per primary (Cities, Towns, Fortresses)</li>
                     <li>Level 3: 4-8 Buildings per settlement (Shops, Houses, Inns, Temples)</li>
@@ -377,7 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </li>
             <li>🐉 4-12 unique species (distributed across compatible regions)</li>
             <li>🎨 AI-generated images:
-                <ul style="margin-left: 20px; margin-top: 8px;">
+                <ul style="margin-left: 20px; margin-top: 5px;">
                     <li>World: 1 image (Full Planet View)</li>
                     <li>Regions: 1 image per region</li>
                     <li>Locations: 1 image per Level 1 & 2 location (not Level 3)</li>
@@ -386,31 +386,38 @@ document.addEventListener('DOMContentLoaded', function() {
             </li>
         </ul>
 
-        <div class="input-field" style="margin-top: 30px;">
+        <div class="input-field" style="margin-top: 15px; margin-bottom: 10px;">
             <select id="world-factory-genre" style="color: #e0e0e0;">
                 <option value="" disabled selected>Choose a genre</option>
                 <option value="Fantasy">Fantasy</option>
                 <option value="Sci-Fi">Sci-Fi</option>
                 <option value="Cyberpunk">Cyberpunk</option>
-                <option value="Steampunk">Steampunk</option>
-                <option value="Post-Apocalyptic">Post-Apocalyptic</option>
-                <option value="Space Opera">Space Opera</option>
-                <option value="Dark Fantasy">Dark Fantasy</option>
-                <option value="Urban Fantasy">Urban Fantasy</option>
                 <option value="Mythological">Mythological</option>
                 <option value="Historical Fantasy">Historical Fantasy</option>
-                <option value="Superhero">Superhero</option>
                 <option value="Horror">Horror</option>
                 <option value="Western">Western</option>
-                <option value="Asian Fantasy">Asian Fantasy</option>
-                <option value="Solarpunk">Solarpunk</option>
             </select>
-            <label style="color: var(--rpg-gold);">Select World Genre</label>
+            <label style="color: var(--rpg-gold); font-size: 0.85rem;">Select World Genre</label>
         </div>
 
-        <div class="card" style="background-color: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); margin-top: 20px;">
-            <div class="card-content">
-                <p style="color: var(--rpg-gold); font-size: 0.9rem; margin: 0;">
+        <style>
+            /* Condense dropdown items */
+            .select-dropdown li {
+                min-height: 30px !important;
+                line-height: 30px !important;
+            }
+            .select-dropdown li span {
+                font-size: 0.85rem !important;
+                padding: 5px 16px !important;
+            }
+            .dropdown-content {
+                max-height: 300px !important;
+            }
+        </style>
+
+        <div class="card" style="background-color: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); margin-top: 10px; margin-bottom: 10px;">
+            <div class="card-content" style="padding: 10px;">
+                <p style="color: var(--rpg-gold); font-size: 0.8rem; margin: 0;">
                     <i class="material-icons tiny">info</i>
                     <strong>Estimated time:</strong> 10-20 minutes<br>
                     <strong>Estimated cost:</strong> $2-$4 in AI credits (1 image per world/region/species, 1 per Level 1&2 locations)
