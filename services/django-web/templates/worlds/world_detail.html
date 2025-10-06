@@ -139,13 +139,31 @@
 </style>
 <div class="row">
     <div class="col s12">
-        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); display: flex; align-items: center;">
-            <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">public</i>
-            World: {{ world.world_name }}
-        </h3>
-        {% if world.description %}
-        <p style="color: #b8b8d1; font-size: 1.1rem; margin-top: 10px; line-height: 1.6;">{{ world.description }}</p>
-        {% endif %}
+        <div style="display: flex; gap: 20px; align-items: flex-start;">
+            <!-- World Primary Image -->
+            {% if world.world_images and world.primary_image_index is not none %}
+            <div style="flex-shrink: 0;">
+                {% for image in world.world_images %}
+                    {% if forloop.counter0 == world.primary_image_index %}
+                    <img src="{{ image.url }}"
+                         alt="{{ world.world_name }}"
+                         style="width: 200px; height: 200px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold);">
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- World Header Content -->
+            <div style="flex: 1;">
+                <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); display: flex; align-items: center; margin-top: 0;">
+                    <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">public</i>
+                    World: {{ world.world_name }}
+                </h3>
+                {% if world.description %}
+                <p style="color: #b8b8d1; font-size: 1.1rem; margin-top: 10px; line-height: 1.6;">{{ world.description }}</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 </div>
 

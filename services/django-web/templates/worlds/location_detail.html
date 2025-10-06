@@ -125,37 +125,55 @@
                     {{ location.location_name }} Overview
                 </span>
 
-                <!-- Location Type -->
-                <div style="margin: 20px 0;">
-                    <div class="chip" style="background-color: rgba(156, 39, 176, 0.3);">
-                        <i class="material-icons tiny">category</i>
-                        {{ location.location_type }}
+                <div style="display: flex; gap: 20px; margin-top: 20px;">
+                    <!-- Location Primary Image Thumbnail -->
+                    {% if location.location_images and location.primary_image_index is not none %}
+                    <div style="flex-shrink: 0;">
+                        {% for image in location.location_images %}
+                            {% if forloop.counter0 == location.primary_image_index %}
+                            <img src="{{ image.url }}"
+                                 alt="{{ location.location_name }}"
+                                 style="width: 250px; height: 250px; object-fit: cover; border-radius: 8px; border: 2px solid var(--rpg-gold);">
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Location Content -->
+                    <div style="flex: 1;">
+                        <!-- Location Type -->
+                        <div style="margin-bottom: 20px;">
+                            <div class="chip" style="background-color: rgba(156, 39, 176, 0.3);">
+                                <i class="material-icons tiny">category</i>
+                                {{ location.location_type }}
+                            </div>
+                        </div>
+
+                        <!-- Features -->
+                        {% if location.features %}
+                        <div style="margin-bottom: 20px;">
+                            <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                                <i class="material-icons tiny">stars</i> Features
+                            </h6>
+                            {% for feature in location.features %}
+                                <span class="chip" style="background-color: rgba(255, 152, 0, 0.3); margin: 4px;">
+                                    {{ feature }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Description -->
+                        {% if location.description %}
+                        <div style="margin: 20px 0;">
+                            <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
+                                <i class="material-icons tiny">description</i> Description
+                            </h6>
+                            <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ location.description }}</p>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-
-                <!-- Features -->
-                {% if location.features %}
-                <div style="margin: 20px 0;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">stars</i> Features
-                    </h6>
-                    {% for feature in location.features %}
-                        <span class="chip" style="background-color: rgba(255, 152, 0, 0.3); margin: 4px;">
-                            {{ feature }}
-                        </span>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                <!-- Description -->
-                {% if location.description %}
-                <div style="margin: 20px 0;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">description</i> Description
-                    </h6>
-                    <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ location.description }}</p>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
