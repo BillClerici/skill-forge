@@ -18,6 +18,20 @@ class AccountListView(ListView):
     context_object_name = 'accounts'
     paginate_by = 20
 
+    def get_queryset(self):
+        # Get accounts with owner player info
+        accounts = Account.objects.all()
+        # Attach owner player to each account
+        for account in accounts:
+            if account.account_owner_player_id:
+                try:
+                    account.owner_player = Player.objects.get(player_id=account.account_owner_player_id)
+                except Player.DoesNotExist:
+                    account.owner_player = None
+            else:
+                account.owner_player = None
+        return accounts
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['total_accounts'] = Account.objects.count()
@@ -36,9 +50,9 @@ class AccountDetailView(DetailView):
         account = self.get_object()
 
         # Get all players for this account
-        players = Player.objects.filter(account_id=account.account_id).order_by('-is_primary', '-created_at')
+        players = Player.objects.filter(account_id=account.account_id).order_by('-created_at')
         context['players'] = players
-        context['primary_players'] = players.filter(is_primary=True)
+        context['primary_players'] = players.filter(role='owner')
 
         # Get subscription history
         subscriptions = Subscription.objects.filter(account_id=account.account_id)
@@ -79,7 +93,6 @@ class AccountCreateView(View):
                 email=form.cleaned_data.get('primary_player_email'),
                 date_of_birth=form.cleaned_data['primary_player_dob'],
                 role='owner',
-                is_primary=True,
                 can_manage_account=True,
                 can_manage_players=True,
                 can_view_billing=True,
@@ -90,7 +103,7 @@ class AccountCreateView(View):
             account.account_owner_player_id = primary_player.player_id
             account.save()
 
-            messages.success(request, f'Account "{account.name}" created successfully with primary player "{primary_player.display_name}"!')
+            messages.success(request, f'Account created successfully with primary player "{primary_player.display_name}"!')
             return redirect('account_detail', account_id=account.account_id)
 
         return render(request, 'accounts/account_form.html', {
@@ -117,7 +130,7 @@ class AccountUpdateView(View):
 
         if form.is_valid():
             form.save()
-            messages.success(request, f'Account "{account.name}" updated successfully!')
+            messages.success(request, f'Account updated successfully!')
             return redirect('account_detail', account_id=account.account_id)
 
         return render(request, 'accounts/account_form.html', {
@@ -132,7 +145,7 @@ class AccountDeleteView(View):
 
     def post(self, request, account_id):
         account = get_object_or_404(Account, account_id=account_id)
-        account_name = account.name or str(account.account_id)
+        account_name = str(account.account_id)
 
         # Delete all players in the account
         Player.objects.filter(account_id=account_id).delete()
@@ -207,11 +220,11 @@ class PlayerUpdateView(View):
         form = PlayerEditForm(request.POST, instance=player)
 
         if form.is_valid():
-            # Ensure at least one primary player remains
-            if player.is_primary and not form.cleaned_data.get('is_primary'):
-                primary_count = Player.objects.filter(account_id=account_id, is_primary=True).exclude(player_id=player_id).count()
-                if primary_count == 0:
-                    messages.error(request, 'Cannot remove primary status. At least one primary player must exist.')
+            # Ensure at least one owner remains
+            if player.role == 'owner' and form.cleaned_data.get('role') != 'owner':
+                owner_count = Player.objects.filter(account_id=account_id, role='owner').exclude(player_id=player_id).count()
+                if owner_count == 0:
+                    messages.error(request, 'Cannot remove owner role. At least one owner must exist.')
                     return redirect('account_player_edit', account_id=account_id, player_id=player_id)
 
             form.save()
@@ -233,11 +246,11 @@ class PlayerDeleteView(View):
         account = get_object_or_404(Account, account_id=account_id)
         player = get_object_or_404(Player, player_id=player_id, account_id=account_id)
 
-        # Prevent deleting the last primary player
-        if player.is_primary:
-            primary_count = Player.objects.filter(account_id=account_id, is_primary=True).count()
-            if primary_count <= 1:
-                messages.error(request, 'Cannot delete the last primary player. Please designate another primary player first.')
+        # Prevent deleting the last owner
+        if player.role == 'owner':
+            owner_count = Player.objects.filter(account_id=account_id, role='owner').count()
+            if owner_count <= 1:
+                messages.error(request, 'Cannot delete the last owner. Please designate another owner first.')
                 return redirect('account_detail', account_id=account_id)
 
         player_name = player.display_name

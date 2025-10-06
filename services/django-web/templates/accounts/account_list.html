@@ -42,16 +42,23 @@
 <div class="row">
     {% for account in accounts %}
     <div class="col s12 m6 l4">
-        <div class="card hoverable">
+        <a href="{% url 'account_detail' account.account_id %}" style="text-decoration: none; color: inherit;">
+        <div class="card hoverable" style="cursor: pointer;">
             <div class="card-content">
-                <span class="card-title" style="display: flex; align-items: center; justify-content: space-between;">
-                    <span style="color: var(--rpg-gold);">{{ account.name }}</span>
-                    <span class="chip" style="margin: 0;">
-                        {{ account.account_type }}
-                    </span>
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    {% if account.owner_player %}
+                        {{ account.owner_player.display_name }}'s Account
+                    {% else %}
+                        {{ account.account_type|title }} Account
+                    {% endif %}
                 </span>
 
                 <div style="margin-top: 15px;">
+                    <p style="margin: 8px 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">label</i>
+                        <span class="grey-text">Type: </span>
+                        <strong>{{ account.account_type|title }}</strong>
+                    </p>
                     <p style="margin: 8px 0;">
                         <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);">people</i>
                         <span class="grey-text">Players: </span>
@@ -73,14 +80,12 @@
             </div>
 
             <div class="card-action">
-                <a href="{% url 'account_detail' account.account_id %}" style="color: var(--rpg-gold);">
-                    <i class="material-icons tiny" style="vertical-align: middle;">visibility</i> View Details
-                </a>
-                <a href="{% url 'account_edit' account.account_id %}" style="color: var(--rpg-blue);">
-                    <i class="material-icons tiny" style="vertical-align: middle;">edit</i> Edit
-                </a>
+                <span style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="material-icons tiny">visibility</i> <span>View Details</span>
+                </span>
             </div>
         </div>
+        </a>
     </div>
     {% endfor %}
 </div>

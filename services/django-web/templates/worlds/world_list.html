@@ -449,6 +449,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 position: relative !important;
             }
 
+            /* Same fix for progress modal */
+            #world-factory-progress-modal {
+                max-height: 90vh !important;
+                overflow: hidden !important;
+            }
+
+            #world-factory-progress-modal .modal-content {
+                display: flex !important;
+                flex-direction: column !important;
+                height: 100% !important;
+                max-height: 80vh !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+
+            #world-factory-progress-modal .modal-content > div:first-child {
+                flex-shrink: 0 !important;
+            }
+
+            #world-factory-progress-modal .modal-content > div:nth-child(2) {
+                flex: 1 1 auto !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                min-height: 0 !important;
+            }
+
+            #world-factory-progress-modal .modal-footer {
+                flex-shrink: 0 !important;
+                position: relative !important;
+            }
+
             /* Condense dropdown items */
             .select-dropdown li {
                 min-height: 30px !important;
@@ -483,12 +514,15 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- World Factory Progress Modal -->
-<div id="world-factory-progress-modal" class="modal" style="max-width: 800px; background-color: var(--rpg-dark);">
-    <div class="modal-content" style="background-color: var(--rpg-dark);">
-        <h4 style="color: var(--rpg-gold); border-bottom: 2px solid var(--rpg-gold); padding-bottom: 10px;">
-            <i class="material-icons left">hourglass_empty</i>
-            Generating Your World...
-        </h4>
+<div id="world-factory-progress-modal" class="modal" style="max-width: 800px; background-color: var(--rpg-dark); max-height: 90% !important; overflow: hidden !important;">
+    <div class="modal-content" style="background-color: var(--rpg-dark) !important; display: flex !important; flex-direction: column !important; height: 100% !important; max-height: 80vh !important; padding: 0 !important; overflow: hidden !important;">
+        <div style="background-color: var(--rpg-dark); padding: 24px 24px 16px 24px; border-bottom: 2px solid var(--rpg-gold); flex-shrink: 0;">
+            <h4 style="color: var(--rpg-gold); margin: 0;">
+                <i class="material-icons left">hourglass_empty</i>
+                Generating Your World...
+            </h4>
+        </div>
+        <div style="background-color: var(--rpg-dark); flex: 1 1 auto !important; overflow-y: auto !important; overflow-x: hidden !important; padding: 20px 24px; min-height: 0 !important;">
         <p id="progress-genre-display" style="color: #b8b8d1; margin-top: 15px;"></p>
 
         <!-- Cost & Time Tracking -->
@@ -523,15 +557,17 @@ document.addEventListener('DOMContentLoaded', function() {
         <div id="progress-steps" style="margin-top: 20px;">
             <!-- Steps will be dynamically added here -->
         </div>
-    </div>
-    <div class="modal-footer" style="background-color: var(--rpg-darker); border-top: 1px solid var(--rpg-gold);">
-        <a href="#!" id="stop-workflow-btn" class="waves-effect waves-light btn red darken-2" style="display: inline-block;">
-            <i class="material-icons left">stop</i>Stop & Rollback
-        </a>
-        <a href="#!" id="view-world-btn" class="waves-effect waves-light btn" style="display: none; background: var(--rpg-gold); color: var(--rpg-dark);">
-            <i class="material-icons left">visibility</i>View World
-        </a>
-        <a href="#!" id="close-progress-btn" class="waves-effect waves-light btn-flat" style="display: none; color: var(--rpg-silver);">Close</a>
+        </div>
+        <div class="modal-footer" style="background-color: var(--rpg-darker) !important; border-top: 1px solid var(--rpg-gold); flex-shrink: 0 !important; padding: 10px 24px !important;">
+            <a href="#!" class="modal-close waves-effect waves-light btn-flat" style="color: var(--rpg-silver);">Close</a>
+            <a href="#!" id="stop-workflow-btn" class="waves-effect waves-light btn red darken-2" style="display: inline-block;">
+                <i class="material-icons left">stop</i>Stop & Rollback
+            </a>
+            <a href="#!" id="view-world-btn" class="waves-effect waves-light btn" style="display: none; background: var(--rpg-gold); color: var(--rpg-dark);">
+                <i class="material-icons left">visibility</i>View World
+            </a>
+            <a href="#!" id="close-progress-btn" class="waves-effect waves-light btn-flat" style="display: none; color: var(--rpg-silver);">Close</a>
+        </div>
     </div>
 </div>
 

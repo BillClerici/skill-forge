@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if is_create %}Configure{% else %}Edit{% endif %} Player Profile - SkillForge RPG{% endblock %}
+{% block title %}Edit Player Settings - SkillForge RPG{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -16,12 +16,12 @@
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">account_circle</i>
-                    {% if is_create %}Configure{% else %}Edit{% endif %} Player Profile for {{ player.display_name }}
+                    <i class="material-icons left">settings</i>
+                    Player Settings for {{ player.display_name }}
                 </span>
 
                 <p class="grey-text" style="margin-top: 15px;">
-                    Customize the gaming experience by setting preferences that will help the AI tailor campaigns, difficulty, and storytelling to match this player's style.
+                    Configure parental controls, time limits, social settings, and content restrictions for this player.
                 </p>
 
                 {% if messages %}
@@ -36,193 +36,254 @@
                 <form method="post" style="margin-top: 30px;">
                     {% csrf_token %}
 
-                    <!-- Favorite Genres Section -->
-                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">category</i> Favorite Genres
-                    </h6>
-
-                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
-                        Select all the genres you enjoy playing:
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for value, label in form.favorite_genres_field.field.choices %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                <input type="checkbox" name="favorite_genres_field" value="{{ value }}"
-                                       {% if value in form.favorite_genres_field.value %}checked{% endif %}>
-                                <span>{{ label }}</span>
-                            </label>
+                    <!-- Form-level errors (like universe overlap) -->
+                    {% if form.non_field_errors %}
+                    <div class="card-panel red lighten-4" style="border-left: 4px solid #f44336; margin-bottom: 20px;">
+                        {% for error in form.non_field_errors %}
+                        <p style="color: #c62828; margin: 0;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+                            {{ error }}
                         </p>
                         {% endfor %}
                     </div>
+                    {% endif %}
 
-                    <!-- Session Duration Section -->
+                    <!-- Content Restrictions Section -->
                     <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">schedule</i> Session Duration
+                        <i class="material-icons tiny" style="vertical-align: middle;">verified_user</i> Content Restrictions
                     </h6>
 
-                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
-                        {{ form.session_duration.help_text }}
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for radio in form.session_duration %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                {{ radio.tag }}
-                                <span>{{ radio.choice_label }}</span>
-                            </label>
-                        </p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Play Style Section -->
-                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">sports_esports</i> Play Style
-                    </h6>
-
-                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
-                        {{ form.play_style.help_text }}
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for radio in form.play_style %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                {{ radio.tag }}
-                                <span>{{ radio.choice_label }}</span>
-                            </label>
-                        </p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Difficulty Preference Section -->
-                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">fitness_center</i> Difficulty Preference
-                    </h6>
-
-                    <p class="grey-text" style="font-size: 0.95rem; margin-bottom: 15px;">
-                        {{ form.difficulty_preference.help_text }}
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for radio in form.difficulty_preference %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                {{ radio.tag }}
-                                <span>{{ radio.choice_label }}</span>
-                            </label>
-                        </p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- AI & Narrative Section -->
-                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">psychology</i> AI & Narrative Preferences
-                    </h6>
-
-                    <!-- AI Guidance Level -->
-                    <p class="grey-text" style="font-size: 0.95rem; margin: 20px 0 15px 0;">
-                        <strong>AI Guidance Level:</strong> {{ form.ai_guidance_level.help_text }}
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for radio in form.ai_guidance_level %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                {{ radio.tag }}
-                                <span>{{ radio.choice_label }}</span>
-                            </label>
-                        </p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Narrative Depth -->
-                    <p class="grey-text" style="font-size: 0.95rem; margin: 30px 0 15px 0;">
-                        <strong>Narrative Depth:</strong> {{ form.narrative_depth.help_text }}
-                    </p>
-
-                    <div style="margin: 20px 0;">
-                        {% for radio in form.narrative_depth %}
-                        <p style="margin: 10px 0;">
-                            <label>
-                                {{ radio.tag }}
-                                <span>{{ radio.choice_label }}</span>
-                            </label>
-                        </p>
-                        {% endfor %}
-                    </div>
-
-                    <!-- Content & Accessibility Section -->
-                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">settings</i> Content & Accessibility
-                    </h6>
-
-                    <!-- Content Maturity -->
                     <div class="input-field">
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">verified_user</i>
-                        {{ form.content_maturity }}
-                        <label for="{{ form.content_maturity.id_for_label }}">Content Maturity Level</label>
-                        {% if form.content_maturity.help_text %}
-                        <span class="helper-text grey-text">{{ form.content_maturity.help_text }}</span>
+                        {{ form.content_restriction_level }}
+                        <label for="{{ form.content_restriction_level.id_for_label }}">{{ form.content_restriction_level.label }}</label>
+                        {% if form.content_restriction_level.help_text %}
+                        <span class="helper-text grey-text">{{ form.content_restriction_level.help_text }}</span>
+                        {% endif %}
+                        {% if form.content_restriction_level.errors %}
+                        <span class="helper-text red-text">{{ form.content_restriction_level.errors.0 }}</span>
                         {% endif %}
                     </div>
 
-                    <!-- Text Size -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">text_fields</i>
-                        {{ form.text_size }}
-                        <label for="{{ form.text_size.id_for_label }}">Text Size</label>
+                    <!-- Custom Universe Restrictions (shown when Custom is selected) -->
+                    <div id="custom-universe-section" style="display: none; margin-top: 20px; padding: 20px; background-color: rgba(30, 30, 46, 0.5); border-radius: 8px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 15px;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">public</i> Custom Universe Access
+                        </h6>
+
+                        <p class="grey-text" style="font-size: 0.9rem; margin-bottom: 20px;">
+                            Configure which universes this player can or cannot access. Leave both empty to allow all universes.
+                        </p>
+
+                        <!-- Allowed Universes -->
+                        <div style="margin-bottom: 25px;">
+                            <label style="color: var(--rpg-silver); font-size: 1rem; display: block; margin-bottom: 10px;">
+                                <i class="material-icons tiny" style="color: #4caf50; vertical-align: middle;">check_circle</i>
+                                {{ form.allowed_universes_list.label }}
+                            </label>
+                            <p class="grey-text" style="font-size: 0.85rem; margin-bottom: 10px;">
+                                {{ form.allowed_universes_list.help_text }}
+                            </p>
+                            {% if form.allowed_universes_list.field.choices %}
+                                <div style="padding-left: 10px;">
+                                    {% for choice in form.allowed_universes_list %}
+                                    <p style="margin: 8px 0;">
+                                        <label>
+                                            {{ choice.tag }}
+                                            <span>{{ choice.choice_label }}</span>
+                                        </label>
+                                    </p>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="grey-text" style="font-style: italic; margin-left: 10px;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                                    No universes available yet. Universes will appear here once they are created.
+                                </p>
+                            {% endif %}
+                            {% if form.allowed_universes_list.errors %}
+                            <span class="helper-text red-text">{{ form.allowed_universes_list.errors.0 }}</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Blocked Universes -->
+                        <div style="margin-bottom: 10px;">
+                            <label style="color: var(--rpg-silver); font-size: 1rem; display: block; margin-bottom: 10px;">
+                                <i class="material-icons tiny" style="color: #f44336; vertical-align: middle;">cancel</i>
+                                {{ form.blocked_universes_list.label }}
+                            </label>
+                            <p class="grey-text" style="font-size: 0.85rem; margin-bottom: 10px;">
+                                {{ form.blocked_universes_list.help_text }}
+                            </p>
+                            {% if form.blocked_universes_list.field.choices %}
+                                <div style="padding-left: 10px;">
+                                    {% for choice in form.blocked_universes_list %}
+                                    <p style="margin: 8px 0;">
+                                        <label>
+                                            {{ choice.tag }}
+                                            <span>{{ choice.choice_label }}</span>
+                                        </label>
+                                    </p>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="grey-text" style="font-style: italic; margin-left: 10px;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                                    No universes available yet. Universes will appear here once they are created.
+                                </p>
+                            {% endif %}
+                            {% if form.blocked_universes_list.errors %}
+                            <span class="helper-text red-text">{{ form.blocked_universes_list.errors.0 }}</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-panel blue lighten-5" style="margin-top: 20px;">
+                            <p style="margin: 0; color: #1565c0; font-size: 0.9rem;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                                <strong>Note:</strong> If a universe is in both lists, it will be blocked. Allowed list takes effect only if specified.
+                            </p>
+                        </div>
                     </div>
 
-                    <!-- Audio & Visual Options -->
+                    <!-- Time Limits Section -->
                     <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
-                        <i class="material-icons tiny" style="vertical-align: middle;">volume_up</i> Audio & Visual Options
+                        <i class="material-icons tiny" style="vertical-align: middle;">schedule</i> Time Limits
+                    </h6>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">timelapse</i>
+                        {{ form.daily_time_limit_minutes }}
+                        <label for="{{ form.daily_time_limit_minutes.id_for_label }}">{{ form.daily_time_limit_minutes.label }}</label>
+                        {% if form.daily_time_limit_minutes.help_text %}
+                        <span class="helper-text grey-text">{{ form.daily_time_limit_minutes.help_text }}</span>
+                        {% endif %}
+                        {% if form.daily_time_limit_minutes.errors %}
+                        <span class="helper-text red-text">{{ form.daily_time_limit_minutes.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">today</i>
+                        {{ form.weekday_time_limit_minutes }}
+                        <label for="{{ form.weekday_time_limit_minutes.id_for_label }}">{{ form.weekday_time_limit_minutes.label }}</label>
+                        {% if form.weekday_time_limit_minutes.errors %}
+                        <span class="helper-text red-text">{{ form.weekday_time_limit_minutes.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">weekend</i>
+                        {{ form.weekend_time_limit_minutes }}
+                        <label for="{{ form.weekend_time_limit_minutes.id_for_label }}">{{ form.weekend_time_limit_minutes.label }}</label>
+                        {% if form.weekend_time_limit_minutes.errors %}
+                        <span class="helper-text red-text">{{ form.weekend_time_limit_minutes.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Quiet Hours Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">bedtime</i> Quiet Hours
+                    </h6>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">nights_stay</i>
+                        {{ form.quiet_hours_start }}
+                        <label for="{{ form.quiet_hours_start.id_for_label }}">{{ form.quiet_hours_start.label }}</label>
+                        {% if form.quiet_hours_start.help_text %}
+                        <span class="helper-text grey-text">{{ form.quiet_hours_start.help_text }}</span>
+                        {% endif %}
+                        {% if form.quiet_hours_start.errors %}
+                        <span class="helper-text red-text">{{ form.quiet_hours_start.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">wb_sunny</i>
+                        {{ form.quiet_hours_end }}
+                        <label for="{{ form.quiet_hours_end.id_for_label }}">{{ form.quiet_hours_end.label }}</label>
+                        {% if form.quiet_hours_end.help_text %}
+                        <span class="helper-text grey-text">{{ form.quiet_hours_end.help_text }}</span>
+                        {% endif %}
+                        {% if form.quiet_hours_end.errors %}
+                        <span class="helper-text red-text">{{ form.quiet_hours_end.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Social Settings Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">groups</i> Social Settings
                     </h6>
 
                     <div style="margin: 20px 0;">
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.enable_voice_narration }}
-                                <span>Enable Voice Narration</span>
+                                {{ form.can_play_with_family }}
+                                <span>{{ form.can_play_with_family.label }}</span>
                             </label>
                         </p>
 
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.enable_background_music }}
-                                <span>Enable Background Music</span>
+                                {{ form.can_play_with_friends }}
+                                <span>{{ form.can_play_with_friends.label }}</span>
                             </label>
                         </p>
 
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.enable_sound_effects }}
-                                <span>Enable Sound Effects</span>
+                                {{ form.can_play_with_strangers }}
+                                <span>{{ form.can_play_with_strangers.label }}</span>
                             </label>
                         </p>
 
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.enable_auto_save }}
-                                <span>Enable Auto-Save</span>
+                                {{ form.friend_requests_require_approval }}
+                                <span>{{ form.friend_requests_require_approval.label }}</span>
+                            </label>
+                        </p>
+                    </div>
+
+                    <!-- Chat Settings Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">chat</i> Chat Settings
+                    </h6>
+
+                    <div style="margin: 20px 0;">
+                        <p style="margin: 15px 0;">
+                            <label>
+                                {{ form.can_chat_in_family_campaigns }}
+                                <span>{{ form.can_chat_in_family_campaigns.label }}</span>
                             </label>
                         </p>
 
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.high_contrast_mode }}
-                                <span>High Contrast Mode</span>
+                                {{ form.can_chat_with_friends }}
+                                <span>{{ form.can_chat_with_friends.label }}</span>
                             </label>
                         </p>
 
                         <p style="margin: 15px 0;">
                             <label>
-                                {{ form.reduce_motion }}
-                                <span>Reduce Motion</span>
+                                {{ form.can_chat_with_strangers }}
+                                <span>{{ form.can_chat_with_strangers.label }}</span>
                             </label>
                         </p>
+                    </div>
+
+                    <!-- Parent Notifications Section -->
+                    <h6 style="color: var(--rpg-silver); margin: 30px 0 20px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(212, 175, 55, 0.3);">
+                        <i class="material-icons tiny" style="vertical-align: middle;">email</i> Parent Notifications
+                    </h6>
+
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">email</i>
+                        {{ form.parent_email_for_notifications }}
+                        <label for="{{ form.parent_email_for_notifications.id_for_label }}">{{ form.parent_email_for_notifications.label }}</label>
+                        {% if form.parent_email_for_notifications.errors %}
+                        <span class="helper-text red-text">{{ form.parent_email_for_notifications.errors.0 }}</span>
+                        {% endif %}
                     </div>
 
                     <!-- Submit Buttons -->
@@ -230,7 +291,7 @@
                         <div class="col s12">
                             <button type="submit" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold); color: #1a1a2e;">
                                 <i class="material-icons left">save</i>
-                                {% if is_create %}Create Profile{% else %}Save Changes{% endif %}
+                                Save Settings
                             </button>
                             <a href="{% url 'player_detail' player.player_id %}" class="btn-flat waves-effect" style="color: var(--rpg-silver); margin-left: 10px;">
                                 Cancel
@@ -248,6 +309,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Materialize select dropdowns
     var elems = document.querySelectorAll('select');
     M.FormSelect.init(elems);
+
+    // Initialize Materialize labels for prefilled fields
+    M.updateTextFields();
+
+    // Show/hide custom universe section based on content restriction level
+    const contentRestrictionSelect = document.getElementById('{{ form.content_restriction_level.id_for_label }}');
+    const customUniverseSection = document.getElementById('custom-universe-section');
+
+    function toggleCustomUniverseSection() {
+        if (contentRestrictionSelect.value === 'custom') {
+            customUniverseSection.style.display = 'block';
+        } else {
+            customUniverseSection.style.display = 'none';
+        }
+    }
+
+    // Initial check
+    toggleCustomUniverseSection();
+
+    // Listen for changes
+    contentRestrictionSelect.addEventListener('change', toggleCustomUniverseSection);
 });
 </script>
 {% endblock %}

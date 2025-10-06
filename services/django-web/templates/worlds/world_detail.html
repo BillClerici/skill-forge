@@ -859,11 +859,12 @@
                     {% if species %}
                     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px;">
                         {% for s in species %}
+                        <a href="{% url 'species_detail' world.world_id s.species_id %}" style="text-decoration: none; color: inherit;">
                         <div class="card hoverable species-card"
                              data-species-name="{{ s.species_name|lower }}"
                              data-species-type="{{ s.species_type }}"
                              data-species-category="{{ s.category }}"
-                             style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto; margin: 0;">
+                             style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto; margin: 0; cursor: pointer;">
 
                             <!-- Species Image Header -->
                             {% if s.primary_image_url %}
@@ -942,17 +943,12 @@
                             </div>
 
                             <div class="card-action" style="padding: 8px 12px; background-color: rgba(20, 20, 36, 0.5);">
-                                <a href="{% url 'species_detail' world.world_id s.species_id %}" style="color: var(--rpg-gold); font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="material-icons tiny">visibility</i> <span>View</span>
-                                </a>
-                                <a href="{% url 'species_edit' world.world_id s.species_id %}" style="color: #64b5f6; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="material-icons tiny">edit</i> <span>Edit</span>
-                                </a>
-                                <a href="#" class="generate-species-image-btn" data-species-id="{{ s.species_id }}" style="color: #9c27b0; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="material-icons tiny">auto_awesome</i> <span>{% if s.species_image %}Regen{% else %}Gen{% endif %} Image</span>
-                                </a>
+                                <span style="color: var(--rpg-gold); font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="material-icons tiny">visibility</i> <span>View Details</span>
+                                </span>
                             </div>
                         </div>
+                        </a>
                         {% endfor %}
                     </div>
                     {% else %}
@@ -1009,7 +1005,8 @@
                 {% if regions %}
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 20px; margin-top: 20px;">
                     {% for region in regions %}
-                    <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto;">
+                    <a href="{% url 'region_detail' world.world_id region.region_id %}" style="text-decoration: none; color: inherit;">
+                    <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto; cursor: pointer;">
                         <!-- Primary Image Header -->
                         {% if region.primary_image_url %}
                         <div class="card-image" style="margin: 0; padding: 0; position: relative; height: 200px;">
@@ -1037,24 +1034,22 @@
                                 {{ region.region_name }}
                             </span>
                             {% endif %}
-                            <div style="margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px;">
-                                <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); font-size: 0.85rem;">
-                                    {{ region.region_type }}
-                                </span>
-                                <span class="chip" style="background-color: rgba(33, 150, 243, 0.3); font-size: 0.85rem;">
-                                    {{ region.climate }}
-                                </span>
+                            <div style="margin-bottom: 10px;">
+                                <p style="color: var(--rpg-gold); font-size: 0.9rem; margin: 5px 0;">
+                                    <strong>Type:</strong> {{ region.region_type }}
+                                </p>
+                                <p style="color: #64b5f6; font-size: 0.9rem; margin: 5px 0;">
+                                    <strong>Climate:</strong> {{ region.climate }}
+                                </p>
                             </div>
                         </div>
                         <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
-                            <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
                                 <i class="material-icons tiny">visibility</i> <span>View Details</span>
-                            </a>
-                            <a href="{% url 'region_update' world.world_id region.region_id %}" style="color: #64b5f6; display: inline-flex; align-items: center; gap: 4px;">
-                                <i class="material-icons tiny">edit</i> <span>Edit</span>
-                            </a>
+                            </span>
                         </div>
                     </div>
+                    </a>
                     {% endfor %}
                 </div>
                 <div style="margin-top: 20px;">

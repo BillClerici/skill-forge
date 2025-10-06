@@ -436,7 +436,8 @@
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 20px; margin-top: 20px;">
                     {% for location in locations %}
-                    <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto;">
+                    <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="text-decoration: none; color: inherit;">
+                    <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); display: grid; grid-template-rows: auto 1fr auto; cursor: pointer;">
                         <!-- Primary Image Header -->
                         {% if location.primary_image_url %}
                         <div class="card-image" style="margin: 0; padding: 0; position: relative; height: 180px;">
@@ -510,14 +511,12 @@
                         </div>
 
                         <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
-                            <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}" style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
+                            <span style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
                                 <i class="material-icons tiny">visibility</i> <span>View Details</span>
-                            </a>
-                            <a href="{% url 'location_update' world.world_id region.region_id location.location_id %}" style="color: #64b5f6; display: inline-flex; align-items: center; gap: 4px;">
-                                <i class="material-icons tiny">edit</i> <span>Edit</span>
-                            </a>
+                            </span>
                         </div>
                     </div>
+                    </a>
                     {% endfor %}
                 </div>
                 {% else %}

@@ -170,69 +170,131 @@
             </div>
         </div>
 
-        <!-- Player Profile Card -->
+        <!-- Player Settings Card -->
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="material-icons left">account_circle</i>Player Profile</span>
+                    <span><i class="material-icons left">settings</i>Player Settings</span>
                     <a href="{% url 'player_profile_config' player.player_id %}" class="btn-small waves-effect waves-light">
-                        <i class="material-icons left">{% if profile %}edit{% else %}add{% endif %}</i>
-                        {% if profile %}Edit Profile{% else %}Configure Profile{% endif %}
+                        <i class="material-icons left">edit</i>Edit Settings
                     </a>
                 </span>
 
-                {% if profile %}
                 <div style="margin-top: 20px;">
                     <div class="row" style="margin-bottom: 0;">
                         <div class="col s12 m6">
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Favorite Genres:</strong><br>
-                                <span style="color: white;">
-                                    {% if profile.favorite_genres %}
-                                        {{ profile.favorite_genres|join:", "|title }}
-                                    {% else %}
-                                        Not specified
-                                    {% endif %}
-                                </span>
+                            <h6 style="color: var(--rpg-silver); font-size: 0.95rem; margin-bottom: 12px;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">verified_user</i> Content & Access
+                            </h6>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Restriction Level:</strong><br>
+                                <span style="color: white;">{{ player.get_content_restriction_level_display }}</span>
                             </p>
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Session Duration:</strong><br>
-                                <span style="color: white;">{{ profile.get_session_duration_display }}</span>
+                            {% if player.content_restriction_level == 'custom' %}
+                                {% if player.allowed_universes %}
+                                <p style="margin: 10px 0 10px 20px;">
+                                    <strong class="grey-text">Allowed Universes:</strong><br>
+                                    <span style="color: #4caf50;">{{ player.allowed_universes|length }} configured</span>
+                                </p>
+                                {% endif %}
+                                {% if player.blocked_universes %}
+                                <p style="margin: 10px 0 10px 20px;">
+                                    <strong class="grey-text">Blocked Universes:</strong><br>
+                                    <span style="color: #f44336;">{{ player.blocked_universes|length }} configured</span>
+                                </p>
+                                {% endif %}
+                            {% endif %}
+
+                            <h6 style="color: var(--rpg-silver); font-size: 0.95rem; margin: 20px 0 12px 0;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">schedule</i> Time Limits
+                            </h6>
+                            {% if player.daily_time_limit_minutes %}
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Daily Limit:</strong><br>
+                                <span style="color: white;">{{ player.daily_time_limit_minutes }} minutes</span>
                             </p>
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Play Style:</strong><br>
-                                <span style="color: white;">{{ profile.get_play_style_display }}</span>
+                            {% endif %}
+                            {% if player.weekday_time_limit_minutes %}
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Weekday Limit:</strong><br>
+                                <span style="color: white;">{{ player.weekday_time_limit_minutes }} minutes</span>
                             </p>
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Difficulty:</strong><br>
-                                <span style="color: white;">{{ profile.get_difficulty_preference_display }}</span>
+                            {% endif %}
+                            {% if player.weekend_time_limit_minutes %}
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Weekend Limit:</strong><br>
+                                <span style="color: white;">{{ player.weekend_time_limit_minutes }} minutes</span>
                             </p>
+                            {% endif %}
+                            {% if player.quiet_hours_start and player.quiet_hours_end %}
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Quiet Hours:</strong><br>
+                                <span style="color: white;">{{ player.quiet_hours_start|time:"g:i A" }} - {{ player.quiet_hours_end|time:"g:i A" }}</span>
+                            </p>
+                            {% endif %}
+                            {% if not player.daily_time_limit_minutes and not player.weekday_time_limit_minutes and not player.weekend_time_limit_minutes and not player.quiet_hours_start %}
+                            <p style="margin: 10px 0 10px 20px; color: #9898b1; font-style: italic;">
+                                No time limits configured
+                            </p>
+                            {% endif %}
                         </div>
                         <div class="col s12 m6">
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">AI Guidance:</strong><br>
-                                <span style="color: white;">{{ profile.get_ai_guidance_level_display }}</span>
+                            <h6 style="color: var(--rpg-silver); font-size: 0.95rem; margin-bottom: 12px;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">groups</i> Social Settings
+                            </h6>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_play_with_family %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_play_with_family %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Play with Family</span>
                             </p>
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Narrative Depth:</strong><br>
-                                <span style="color: white;">{{ profile.get_narrative_depth_display }}</span>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_play_with_friends %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_play_with_friends %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Play with Friends</span>
                             </p>
-                            <p style="margin: 10px 0;">
-                                <strong class="grey-text">Content Maturity:</strong><br>
-                                <span style="color: white;">{{ profile.get_content_maturity_display }}</span>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_play_with_strangers %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_play_with_strangers %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Play with Strangers</span>
                             </p>
+
+                            <h6 style="color: var(--rpg-silver); font-size: 0.95rem; margin: 20px 0 12px 0;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">chat</i> Chat Settings
+                            </h6>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_chat_in_family_campaigns %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_chat_in_family_campaigns %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Chat in Family Campaigns</span>
+                            </p>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_chat_with_friends %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_chat_with_friends %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Chat with Friends</span>
+                            </p>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <i class="material-icons tiny" style="vertical-align: middle; color: {% if player.can_chat_with_strangers %}#4caf50{% else %}#f44336{% endif %};">
+                                    {% if player.can_chat_with_strangers %}check_circle{% else %}cancel{% endif %}
+                                </i>
+                                <span class="grey-text">Chat with Strangers</span>
+                            </p>
+
+                            {% if player.parent_email_for_notifications %}
+                            <h6 style="color: var(--rpg-silver); font-size: 0.95rem; margin: 20px 0 12px 0;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">email</i> Parent Notifications
+                            </h6>
+                            <p style="margin: 10px 0 10px 20px;">
+                                <strong class="grey-text">Email:</strong><br>
+                                <span style="color: white;">{{ player.parent_email_for_notifications }}</span>
+                            </p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
-                {% else %}
-                <div class="center-align" style="padding: 40px 20px;">
-                    <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">assignment</i>
-                    <p class="grey-text" style="margin-top: 15px;">Player profile not configured</p>
-                    <a href="{% url 'player_profile_config' player.player_id %}" class="btn waves-effect waves-light" style="margin-top: 20px;">
-                        <i class="material-icons left">add</i>Configure Profile
-                    </a>
-                </div>
-                {% endif %}
             </div>
         </div>
 

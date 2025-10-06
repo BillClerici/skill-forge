@@ -34,7 +34,14 @@ class Player(models.Model):
     can_view_billing = models.BooleanField(default=False)
 
     # Content Restrictions
-    content_restriction_level = models.CharField(max_length=20, default='automatic')
+    content_restriction_level = models.CharField(
+        max_length=20,
+        default='automatic',
+        choices=[
+            ('automatic', 'Automatic (Age-Based)'),
+            ('custom', 'Custom'),
+        ]
+    )
     allowed_universes = models.JSONField(null=True, blank=True)
     blocked_universes = models.JSONField(null=True, blank=True)
 

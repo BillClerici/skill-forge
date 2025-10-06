@@ -443,6 +443,14 @@ class CharacterTextToSpeechView(View):
     """Generate TTS audio for character backstory using ElevenLabs"""
 
     def post(self, request, character_id):
+        import logging
+        import sys
+        logger = logging.getLogger(__name__)
+
+        logger.error(f"TTS: Starting request for character {character_id}")
+        sys.stdout.flush()
+        sys.stderr.flush()
+
         character = get_object_or_404(Character, character_id=character_id)
 
         try:
@@ -450,10 +458,12 @@ class CharacterTextToSpeechView(View):
             from django.http import HttpResponse
             import traceback
 
-            print(f"DEBUG: TTS request for character {character_id}")
+            logger.error(f"DEBUG: TTS request for character {character_id}")
+            print(f"DEBUG: TTS request for character {character_id}", flush=True)
 
             elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
-            print(f"DEBUG: API key exists: {bool(elevenlabs_api_key)}")
+            logger.error(f"DEBUG: API key exists: {bool(elevenlabs_api_key)}")
+            print(f"DEBUG: API key exists: {bool(elevenlabs_api_key)}", flush=True)
 
             if not elevenlabs_api_key:
                 return JsonResponse({
@@ -518,8 +528,17 @@ class CharacterTextToSpeechView(View):
         except Exception as e:
             import traceback
             error_trace = traceback.format_exc()
-            print(f"ERROR: TTS generation failed: {str(e)}")
-            print(f"TRACEBACK: {error_trace}")
+            logger.error(f"ERROR: TTS generation failed: {str(e)}")
+            logger.error(f"TRACEBACK: {error_trace}")
+
+            # Check for specific ElevenLabs errors
+            error_message = str(e)
+            if 'quota_exceeded' in error_message or 'credits' in error_message.lower():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'ElevenLabs quota exceeded. Please add more credits to your account or shorten the backstory.'
+                }, status=402)  # Payment Required
+
             return JsonResponse({
                 'success': False,
                 'error': f'Error generating audio: {str(e)}'

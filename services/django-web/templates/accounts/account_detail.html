@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ account.name }} - SkillForge RPG{% endblock %}
+{% block title %}{{ account.account_type|title }} Account - SkillForge RPG{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -20,7 +20,7 @@
                     <div class="col s12 m8">
                         <h4 style="color: var(--rpg-gold); margin-top: 0;">
                             <i class="material-icons left" style="vertical-align: middle;">group</i>
-                            {{ account.name }}
+                            {{ account.account_type|title }} Account
                         </h4>
                         <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                             <span class="chip" style="font-size: 1rem; padding: 0 16px; height: 36px; line-height: 36px; display: inline-flex; align-items: center;">
@@ -106,57 +106,52 @@
                 </span>
 
                 {% if players %}
-                <table class="highlight responsive-table" style="margin-top: 20px;">
-                    <thead>
-                        <tr>
-                            <th>Display Name</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Joined</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for player in players %}
-                        <tr>
-                            <td>
-                                <a href="{% url 'player_detail' player.player_id %}" style="color: var(--rpg-gold); font-weight: 500;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; margin-top: 20px;">
+                    {% for player in players %}
+                    <a href="{% url 'player_detail' player.player_id %}" style="text-decoration: none; color: inherit;">
+                    <div class="card hoverable" style="cursor: pointer; margin: 0;">
+                        <div class="card-content" style="padding: 16px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                                <span style="color: var(--rpg-gold); font-size: 1.1rem; font-weight: 500;">
                                     {{ player.display_name }}
-                                    {% if player.is_primary %}
-                                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);" title="Primary Player">star</i>
+                                    {% if player.role == 'owner' %}
+                                    <i class="material-icons tiny" style="vertical-align: middle; color: var(--rpg-gold);" title="Account Owner">star</i>
                                     {% endif %}
-                                </a>
-                            </td>
-                            <td>
-                                <span class="chip" style="margin: 0;">{{ player.role|title }}</span>
-                            </td>
-                            <td>
+                                </span>
                                 {% if player.is_active %}
-                                <span style="color: var(--rpg-green);">
-                                    <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i> Active
-                                </span>
+                                <i class="material-icons" style="color: #4caf50; font-size: 1.2rem;" title="Active">check_circle</i>
                                 {% else %}
-                                <span class="grey-text">
-                                    <i class="material-icons tiny" style="vertical-align: middle;">cancel</i> Inactive
-                                </span>
+                                <i class="material-icons grey-text" style="font-size: 1.2rem;" title="Inactive">cancel</i>
                                 {% endif %}
-                            </td>
-                            <td>{{ player.created_at|date:"M d, Y" }}</td>
-                            <td>
-                                <a href="{% url 'player_detail' player.player_id %}" class="btn-small waves-effect waves-light" style="margin-right: 5px;">
-                                    <i class="material-icons">visibility</i>
-                                </a>
-                                <a href="{% url 'account_player_edit' account.account_id player.player_id %}" class="btn-small waves-effect waves-light blue" style="margin-right: 5px;">
-                                    <i class="material-icons">edit</i>
-                                </a>
-                                <a href="#delete-player-{{ player.player_id }}-modal" class="btn-small waves-effect waves-light red darken-2 modal-trigger">
-                                    <i class="material-icons">delete</i>
-                                </a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </div>
+
+                            <div style="margin: 8px 0;">
+                                <span class="chip" style="margin: 0; font-size: 0.85rem;">
+                                    <i class="material-icons tiny" style="margin-right: 4px;">badge</i>
+                                    {{ player.role|title }}
+                                </span>
+                            </div>
+
+                            <p style="margin: 8px 0; color: #9898b1; font-size: 0.9rem;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">cake</i>
+                                Age: {{ player.age }}
+                            </p>
+
+                            <p style="margin: 8px 0; color: #9898b1; font-size: 0.9rem;">
+                                <i class="material-icons tiny" style="vertical-align: middle;">schedule</i>
+                                Joined {{ player.created_at|timesince }} ago
+                            </p>
+                        </div>
+
+                        <div class="card-action" style="padding: 8px 16px;">
+                            <span style="color: var(--rpg-gold); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny">visibility</i> <span>View Details</span>
+                            </span>
+                        </div>
+                    </div>
+                    </a>
+                    {% endfor %}
+                </div>
                 {% else %}
                 <div class="center-align" style="padding: 40px 20px;">
                     <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">person_outline</i>
@@ -323,10 +318,10 @@
             <i class="material-icons left">warning</i>Remove Player
         </h4>
         <p class="grey-text">Are you sure you want to remove <strong>{{ player.display_name }}</strong> from this account?</p>
-        {% if player.is_primary %}
+        {% if player.role == 'owner' %}
         <div class="card-panel orange lighten-5" style="border-left: 4px solid #ff9800;">
             <p style="color: #f57c00; margin: 0;">
-                <strong>Note:</strong> This is a primary player. Make sure at least one other primary player exists before removing.
+                <strong>Note:</strong> This is an account owner. Make sure at least one other owner exists before removing.
             </p>
         </div>
         {% endif %}
