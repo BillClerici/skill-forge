@@ -31,9 +31,18 @@
                             <i class="material-icons tiny" style="vertical-align: middle;">info</i>
                             <strong>Warning:</strong> This action cannot be undone.
                         </p>
-                        <p style="color: #b8b8d1; margin: 0;">
+                        <p style="color: #b8b8d1; margin-bottom: 10px;">
                             The location will be permanently removed from the database and all relationships will be deleted.
                         </p>
+                        {% if child_count > 0 %}
+                        <p style="color: #ef5350; margin: 10px 0; font-weight: bold;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">warning</i>
+                            This location has <strong>{{ child_count }} child location{{ child_count|pluralize }}</strong> that will also be deleted!
+                        </p>
+                        <p style="color: #b8b8d1; margin: 0; font-size: 0.9rem;">
+                            All child locations in the hierarchy will be permanently removed along with this location.
+                        </p>
+                        {% endif %}
                     </div>
                 </div>
 

@@ -201,7 +201,12 @@ class WorldListView(View):
             # Get region count
             world['region_count'] = db.region_definitions.count_documents({'world_id': world['_id']})
 
-        return render(request, 'worlds/world_list.html', {'worlds': worlds})
+        response = render(request, 'worlds/world_list.html', {'worlds': worlds})
+        # Prevent browser caching
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
 
 
 class WorldCreateView(View):
@@ -961,7 +966,7 @@ class RegionDetailView(View):
             universe = db.universe_definitions.find_one({'_id': world.get('universe_id')})
             world['universe'] = universe
 
-        # Get all locations for this region
+        # Get all locations for this region (top-level only for tree)
         location_ids = region.get('locations', [])
         locations = list(db.location_definitions.find({'_id': {'$in': location_ids}})) if location_ids else []
         for location in locations:
@@ -975,10 +980,32 @@ class RegionDetailView(View):
                 if 0 <= primary_idx < len(images):
                     location['primary_image_url'] = images[primary_idx].get('url')
 
+        # Build hierarchical tree structure for location tree view
+        def build_location_tree(location):
+            """Recursively build location tree with children"""
+            loc_data = {
+                'id': location['_id'],
+                'name': location.get('location_name'),
+                'type': location.get('location_type'),
+                'depth': location.get('depth', 1),
+                'children': []
+            }
+
+            child_ids = location.get('child_locations', [])
+            if child_ids:
+                children = list(db.location_definitions.find({'_id': {'$in': child_ids}}))
+                for child in children:
+                    loc_data['children'].append(build_location_tree(child))
+
+            return loc_data
+
+        location_tree = [build_location_tree(loc) for loc in locations]
+
         return render(request, 'worlds/region_detail.html', {
             'world': world,
             'region': region,
-            'locations': locations
+            'locations': locations,
+            'location_tree': location_tree
         })
 
 
@@ -1211,6 +1238,21 @@ class LocationCreateView(View):
         world['world_id'] = world['_id']
         region['region_id'] = region['_id']
 
+        # Get all locations in this region for parent selection
+        all_locations = list(db.location_definitions.find({'region_id': region_id}))
+        for loc in all_locations:
+            loc['location_id'] = loc['_id']
+
+        # Check if creating child location (parent_location_id in query params)
+        parent_location_id = request.GET.get('parent_location_id')
+        parent_location = None
+        location_depth = 1  # Default: Primary
+        if parent_location_id:
+            parent_location = db.location_definitions.find_one({'_id': parent_location_id})
+            if parent_location:
+                parent_location['location_id'] = parent_location['_id']
+                location_depth = parent_location.get('depth', 1) + 1
+
         form_data = {
             'location_name': {'value': ''},
             'location_type': {'value': ''},
@@ -1221,7 +1263,11 @@ class LocationCreateView(View):
         return render(request, 'worlds/location_form.html', {
             'world': world,
             'region': region,
-            'form': form_data
+            'form': form_data,
+            'all_locations': all_locations,
+            'parent_location_id': parent_location_id,
+            'parent_location': parent_location,
+            'location_depth': location_depth
         })
 
     def post(self, request, world_id, region_id):
@@ -1232,6 +1278,18 @@ class LocationCreateView(View):
 
         location_id = str(uuid.uuid4())
         features = request.POST.getlist('features')
+        parent_location_id = request.POST.get('parent_location_id', None)
+
+        # Calculate depth based on parent
+        depth = 1  # Default: Primary location
+        if parent_location_id:
+            parent = db.location_definitions.find_one({'_id': parent_location_id})
+            if parent:
+                depth = parent.get('depth', 1) + 1
+                # Enforce max depth of 3
+                if depth > 3:
+                    messages.error(request, 'Maximum location depth of 3 levels reached')
+                    return redirect('location_detail', world_id=world_id, region_id=region_id, location_id=parent_location_id)
 
         location_data = {
             '_id': location_id,
@@ -1240,21 +1298,34 @@ class LocationCreateView(View):
             'description': request.POST.get('description', ''),
             'features': features,
             'region_id': region_id,
-            'world_id': world_id
+            'world_id': world_id,
+            'parent_location_id': parent_location_id,
+            'child_locations': [],
+            'depth': depth
         }
 
         # Store in MongoDB
         db.location_definitions.insert_one(location_data)
 
-        # Update region's locations array
-        db.region_definitions.update_one(
-            {'_id': region_id},
-            {'$push': {'locations': location_id}}
-        )
+        # Update parent location's child_locations array if this is a child location
+        parent_location_id = location_data.get('parent_location_id')
+        if parent_location_id:
+            db.location_definitions.update_one(
+                {'_id': parent_location_id},
+                {'$push': {'child_locations': location_id}}
+            )
+
+        # Update region's locations array (only add top-level locations)
+        if not parent_location_id:
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$push': {'locations': location_id}}
+            )
 
         # Publish event to sync to Neo4j
         publish_entity_event('location', 'created', location_id, {
             'region_id': region_id,
+            'parent_location_id': parent_location_id,
             'location_name': location_data['location_name'],
             'location_type': location_data['location_type']
         })
@@ -1290,10 +1361,28 @@ class LocationDetailView(View):
         # Get location count for region
         region['location_count'] = len(region.get('locations', []))
 
+        # Load child locations if any
+        child_location_ids = location.get('child_locations', [])
+        child_locations = []
+        if child_location_ids:
+            child_locations = list(db.location_definitions.find({'_id': {'$in': child_location_ids}}))
+            for child in child_locations:
+                child['location_id'] = child['_id']
+
+        # Load parent location if any
+        parent_location = None
+        parent_location_id = location.get('parent_location_id')
+        if parent_location_id:
+            parent_location = db.location_definitions.find_one({'_id': parent_location_id})
+            if parent_location:
+                parent_location['location_id'] = parent_location['_id']
+
         return render(request, 'worlds/location_detail.html', {
             'world': world,
             'region': region,
-            'location': location
+            'location': location,
+            'child_locations': child_locations,
+            'parent_location': parent_location
         })
 
 
@@ -1368,26 +1457,78 @@ class LocationDeleteView(View):
         region['region_id'] = region['_id']
         location['location_id'] = location['_id']
 
+        # Count all child locations recursively
+        def count_children(loc_id):
+            loc = db.location_definitions.find_one({'_id': loc_id})
+            if not loc:
+                return 0
+            count = 0
+            child_ids = loc.get('child_locations', [])
+            for child_id in child_ids:
+                count += 1 + count_children(child_id)
+            return count
+
+        child_count = count_children(location_id)
+
         return render(request, 'worlds/location_confirm_delete.html', {
             'world': world,
             'region': region,
-            'location': location
+            'location': location,
+            'child_count': child_count
         })
 
     def post(self, request, world_id, region_id, location_id):
-        # Remove from region's locations array
-        db.region_definitions.update_one(
-            {'_id': region_id},
-            {'$pull': {'locations': location_id}}
-        )
+        # Get the location to check for children
+        location = db.location_definitions.find_one({'_id': location_id})
+        if not location:
+            messages.error(request, 'Location not found')
+            return redirect('region_detail', world_id=world_id, region_id=region_id)
 
-        # Delete from MongoDB
-        db.location_definitions.delete_one({'_id': location_id})
+        # Recursive function to delete location and all its children
+        def delete_location_recursively(loc_id):
+            """Delete a location and all its children recursively"""
+            loc = db.location_definitions.find_one({'_id': loc_id})
+            if not loc:
+                return 0
 
-        # Publish event to sync deletion to Neo4j
-        publish_entity_event('location', 'deleted', location_id, {})
+            deleted_count = 0
 
-        messages.success(request, 'Location deleted successfully!')
+            # First, recursively delete all children
+            child_ids = loc.get('child_locations', [])
+            for child_id in child_ids:
+                deleted_count += delete_location_recursively(child_id)
+
+            # Remove from parent's child_locations array if has parent
+            parent_id = loc.get('parent_location_id')
+            if parent_id:
+                db.location_definitions.update_one(
+                    {'_id': parent_id},
+                    {'$pull': {'child_locations': loc_id}}
+                )
+
+            # Delete the location from MongoDB
+            db.location_definitions.delete_one({'_id': loc_id})
+
+            # Publish event to sync deletion to Neo4j
+            publish_entity_event('location', 'deleted', loc_id, {})
+
+            return deleted_count + 1
+
+        # Remove from region's locations array (only if top-level)
+        if not location.get('parent_location_id'):
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$pull': {'locations': location_id}}
+            )
+
+        # Delete this location and all children recursively
+        total_deleted = delete_location_recursively(location_id)
+
+        if total_deleted > 1:
+            messages.success(request, f'Location and {total_deleted - 1} child location(s) deleted successfully!')
+        else:
+            messages.success(request, 'Location deleted successfully!')
+
         return redirect('region_detail', world_id=world_id, region_id=region_id)
 
 
@@ -1705,10 +1846,10 @@ class WorldGenerateImageView(View):
         try:
             # Get current image count to determine how many to generate
             current_images = world.get('world_images', [])
-            images_to_generate = 4 - len(current_images)
+            images_to_generate = 1 - len(current_images)
 
             if images_to_generate <= 0:
-                return JsonResponse({'error': 'Already have 4 images. Delete some first.'}, status=400)
+                return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
 
             # Get regions and locations for richer context
             regions = list(db.region_definitions.find({'world_id': world_id}))
@@ -1739,28 +1880,9 @@ class WorldGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
-            # Define 4 distinct image types
+            # Define 1 image type: Full Planet View
             description = world.get('description', '')
             image_types = [
-                {
-                    'type': 'solar_system',
-                    'name': 'Solar System View',
-                    'prompt_template': f"""Create a cinematic view of the solar system containing the world: {world.get('world_name')}
-
-{f"World Description: {description}" if description else ""}
-
-Show the {world.get('world_name')} world/planet in its orbital position within the solar system. Include:
-- The central star(s)
-- {world.get('world_name')} highlighted in its orbit
-- Other planets in the system
-- Any asteroid belts or cosmic features
-- Moons orbiting {world.get('world_name')}
-
-Genre: {world.get('genre')}
-Visual Style: {visual_styles if visual_styles else 'Space fantasy'}
-
-Art Direction: Wide-angle solar system diagram, professional space illustration, dramatic cosmic lighting, epic scale"""
-                },
                 {
                     'type': 'full_planet',
                     'name': 'Full Planet View',
@@ -1780,48 +1902,6 @@ Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 
 Art Direction: Full planetary view from space, highly detailed, professional space illustration, dramatic lighting, epic scale"""
-                },
-                {
-                    'type': 'region_1',
-                    'name': 'Primary Region View',
-                    'prompt_template': f"""Create a cinematic landscape view of the main region in the fantasy world: {world.get('world_name')}
-
-{f"World Description: {description}" if description else ""}
-
-{f"Region: {region_summary[0]}" if region_summary else "Primary region of the world"}
-
-Environment:
-- Terrain: {', '.join(physical.get('terrain', [])[:3])}
-- Climate: {physical.get('climate', 'Varied')}
-- Notable Features: {', '.join(physical.get('world_features', [])[:3])}
-- Flora & Fauna: {', '.join(biological.get('flora', [])[:2])} vegetation, {', '.join(biological.get('fauna', [])[:2])} creatures
-
-Genre: {world.get('genre')}
-Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
-Themes: {themes if themes else 'Adventure and wonder'}
-
-Art Direction: Wide panoramic establishing shot, highly detailed digital concept art, dramatic lighting, epic scale"""
-                },
-                {
-                    'type': 'region_2',
-                    'name': 'Secondary Region View',
-                    'prompt_template': f"""Create a cinematic landscape view of a secondary region in the fantasy world: {world.get('world_name')}
-
-{f"World Description: {description}" if description else ""}
-
-{f"Region: {region_summary[1]}" if len(region_summary) > 1 else f"Region: {region_summary[0]}" if region_summary else "Secondary region of the world"}
-
-Environment:
-- Terrain: {', '.join(physical.get('terrain', [])[:3])}
-- Climate: {physical.get('climate', 'Varied')}
-- Notable Features: {', '.join(physical.get('world_features', [])[:3])}
-- Flora & Fauna: {', '.join(biological.get('flora', [])[:2])} vegetation, {', '.join(biological.get('fauna', [])[:2])} creatures
-
-Genre: {world.get('genre')}
-Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
-Themes: {themes if themes else 'Adventure and wonder'}
-
-Art Direction: Atmospheric environmental scene, highly detailed digital concept art, dramatic lighting, epic scale"""
                 }
             ]
 
@@ -2015,10 +2095,10 @@ class RegionGenerateImageView(View):
         try:
             # Get current image count
             current_images = region.get('region_images', [])
-            images_to_generate = 4 - len(current_images)
+            images_to_generate = 1 - len(current_images)
 
             if images_to_generate <= 0:
-                return JsonResponse({'error': 'Already have 4 images. Delete some first.'}, status=400)
+                return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
 
             # Get locations for context
             locations = list(db.location_definitions.find({'region_id': region_id}).limit(5))
@@ -2040,18 +2120,12 @@ class RegionGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
-            new_images = []
-            perspectives = [
-                "wide panoramic vista",
-                "atmospheric environmental view",
-                "dramatic landscape perspective",
-                "detailed scenic composition"
-            ]
-
-            for i in range(images_to_generate):
-                perspective = perspectives[len(current_images) + i] if (len(current_images) + i) < len(perspectives) else perspectives[0]
-
-                dalle_prompt = f"""Create a cinematic, {perspective} of the fantasy RPG region: {region.get('region_name')}
+            # Define 1 image type: Region View
+            image_types = [
+                {
+                    'type': 'region_view',
+                    'name': 'Region View',
+                    'prompt_template': f"""Create a cinematic, wide panoramic vista of the fantasy RPG region: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
 Region Type: {region.get('region_type', 'Fantasy region')}
@@ -2066,9 +2140,30 @@ Environment:
 
 {region.get('description', '')[:150] if region.get('description') else ''}
 
-Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
+Art Direction: Wide establishing shot showing the full scope of the region, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
 
 IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+                }
+            ]
+
+            # Determine which images to generate based on what's missing
+            new_images = []
+            existing_types = [img.get('image_type') for img in current_images]
+
+            for i in range(images_to_generate):
+                # Find the first missing image type
+                image_type_config = None
+                for img_type in image_types:
+                    if img_type['type'] not in existing_types:
+                        image_type_config = img_type
+                        existing_types.append(img_type['type'])  # Mark as being generated
+                        break
+
+                if not image_type_config:
+                    # All types exist, shouldn't happen but fallback to first type
+                    image_type_config = image_types[0]
+
+                dalle_prompt = image_type_config['prompt_template']
 
                 response = client.images.generate(
                     model="dall-e-3",
@@ -2100,15 +2195,25 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
                 new_images.append({
                     'url': local_url,
                     'prompt': dalle_prompt[:500],
-                    'perspective': perspective,
+                    'image_type': image_type_config['type'],
+                    'image_name': image_type_config['name'],
                     'filepath': str(filepath)
                 })
 
             all_images = current_images + new_images
 
+            # Set Far Away as primary by default if it was just generated and no primary exists
+            update_data = {'region_images': all_images}
+            if region.get('primary_image_index') is None:
+                # Find the far_away image index
+                for idx, img in enumerate(all_images):
+                    if img.get('image_type') == 'far_away':
+                        update_data['primary_image_index'] = idx
+                        break
+
             db.region_definitions.update_one(
                 {'_id': region_id},
-                {'$set': {'region_images': all_images}}
+                {'$set': update_data}
             )
 
             return JsonResponse({

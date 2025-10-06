@@ -27,10 +27,10 @@ class LocationGenerateImageView(View):
         try:
             # Get current image count
             current_images = location.get('location_images', [])
-            images_to_generate = 4 - len(current_images)
+            images_to_generate = 1 - len(current_images)
 
             if images_to_generate <= 0:
-                return JsonResponse({'error': 'Already have 4 images. Delete some first.'}, status=400)
+                return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
 
             # Build comprehensive prompt
             features = location.get('features', [])
@@ -50,18 +50,12 @@ class LocationGenerateImageView(View):
 
             client_openai = OpenAI(api_key=openai_api_key)
 
-            new_images = []
-            perspectives = [
-                "detailed establishing shot",
-                "atmospheric interior view",
-                "dramatic architectural perspective",
-                "cinematic environmental composition"
-            ]
-
-            for i in range(images_to_generate):
-                perspective = perspectives[len(current_images) + i] if (len(current_images) + i) < len(perspectives) else perspectives[0]
-
-                dalle_prompt = f"""Create a cinematic, {perspective} of the fantasy RPG location: {location.get('location_name')}
+            # Define 1 image type: Location View
+            image_types = [
+                {
+                    'type': 'location_view',
+                    'name': 'Location View',
+                    'prompt_template': f"""Create a cinematic view of the fantasy RPG location: {location.get('location_name')}
 
 World: {world.get('world_name') if world else 'Fantasy World'} - {world.get('genre', 'Fantasy') if world else 'Fantasy'}
 Region: {region.get('region_name') if region else 'Unknown Region'} - {region.get('region_type') if region else ''}
@@ -73,9 +67,30 @@ Environment:
 
 {location.get('description', '')[:150] if location.get('description') else ''}
 
-Art Direction: {perspective.capitalize()}, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
+Art Direction: Detailed establishing shot, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
 
 IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+                }
+            ]
+
+            # Determine which images to generate based on what's missing
+            new_images = []
+            existing_types = [img.get('image_type') for img in current_images]
+
+            for i in range(images_to_generate):
+                # Find the first missing image type
+                image_type_config = None
+                for img_type in image_types:
+                    if img_type['type'] not in existing_types:
+                        image_type_config = img_type
+                        existing_types.append(img_type['type'])  # Mark as being generated
+                        break
+
+                if not image_type_config:
+                    # All types exist, shouldn't happen but fallback to first type
+                    image_type_config = image_types[0]
+
+                dalle_prompt = image_type_config['prompt_template']
 
                 response = client_openai.images.generate(
                     model="dall-e-3",
@@ -107,15 +122,25 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
                 new_images.append({
                     'url': local_url,
                     'prompt': dalle_prompt[:500],
-                    'perspective': perspective,
+                    'image_type': image_type_config['type'],
+                    'image_name': image_type_config['name'],
                     'filepath': str(filepath)
                 })
 
             all_images = current_images + new_images
 
+            # Set Day as primary by default if it was just generated and no primary exists
+            update_data = {'location_images': all_images}
+            if location.get('primary_image_index') is None:
+                # Find the day image index
+                for idx, img in enumerate(all_images):
+                    if img.get('image_type') == 'day':
+                        update_data['primary_image_index'] = idx
+                        break
+
             db.location_definitions.update_one(
                 {'_id': location_id},
-                {'$set': {'location_images': all_images}}
+                {'$set': update_data}
             )
 
             return JsonResponse({

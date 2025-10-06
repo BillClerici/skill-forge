@@ -1189,36 +1189,104 @@ Return ONLY the JSON array, no preamble or explanation."""
 
 @app.post("/generate-locations")
 async def generate_locations(request: GenerateLocationsRequest):
-    """Generate multiple locations for a region"""
+    """Generate multiple locations for a region (depth-aware for hierarchical locations)"""
+
+    # Get location level info from request (1=Primary, 2=Secondary, 3=Tertiary)
+    location_level = getattr(request, 'location_level', None)
+    level_description = getattr(request, 'location_level_description', '')
+    parent_location_name = getattr(request, 'parent_location_name', None)
+    parent_location_type = getattr(request, 'parent_location_type', None)
+    grandparent_location_name = getattr(request, 'grandparent_location_name', None)
+
+    # Build hierarchy context
+    hierarchy_context = ""
+    location_types = "City, Town, Village, Fortress, Castle, Temple, Dungeon, Cave, Ruins, Market, Port, Inn/Tavern, Guild Hall, Academy, Library, Landmark, Wilderness"
+
+    if location_level == 1:
+        # PRIMARY LEVEL: Large geographic areas
+        hierarchy_context = f"""
+LOCATION HIERARCHY LEVEL: 1 (PRIMARY - Large Geographic Areas)
+{level_description}
+
+Generate locations that are LARGE GEOGRAPHIC AREAS like:
+- Islands, Archipelagos
+- Forests, Mountain Ranges, Valleys
+- Districts, Provinces, Territories
+- Peninsulas, Wildernesses
+
+These are the LARGEST subdivisions within a region."""
+        location_types = "Island, Forest, Mountain Range, Valley, District, Province, Territory, Wilderness, Peninsula, Archipelago, Country, Region"
+
+    elif location_level == 2:
+        # SECONDARY LEVEL: Settlements
+        hierarchy_context = f"""
+LOCATION HIERARCHY LEVEL: 2 (SECONDARY - Settlements & Communities)
+{level_description}
+
+PARENT LOCATION: {parent_location_name} ({parent_location_type})
+
+Generate locations that are SETTLEMENTS AND COMMUNITIES within {parent_location_name}, like:
+- Cities, Towns, Villages
+- Fortresses, Castles, Strongholds
+- Outposts, Camps, Encampments
+
+These are communities and settlements that exist WITHIN the {parent_location_type}."""
+        location_types = "City, Town, Village, Settlement, Fortress, Castle, Stronghold, Outpost, Camp, Encampment"
+
+    elif location_level == 3:
+        # TERTIARY LEVEL: Buildings & Structures
+        hierarchy_context = f"""
+LOCATION HIERARCHY LEVEL: 3 (TERTIARY - Buildings & Specific Structures)
+{level_description}
+
+PARENT LOCATION: {parent_location_name} ({parent_location_type})
+GRANDPARENT LOCATION: {grandparent_location_name}
+
+Generate locations that are SPECIFIC BUILDINGS AND STRUCTURES within {parent_location_name}, like:
+- Houses, Dwellings
+- Inns, Taverns, Bars
+- Shops, Stores, Markets
+- Temples, Churches
+- Guild Halls, Academies, Libraries
+- Stables, Warehouses, Barracks
+- Ships, Spaceships, Airships
+- Parks, Plazas, Courtyards
+
+These are individual buildings or structures that exist WITHIN the {parent_location_type} of {parent_location_name}."""
+        location_types = "House, Inn/Tavern, Bar, Shop, Store, Market, Temple, Church, Guild Hall, Academy, Library, Stable, Warehouse, Barracks, Tower, Park, Plaza, Courtyard, Ship, Spaceship, Airship, Port, Dock, Arena, Colosseum, Dwelling, Building, Courthouse"
 
     # Build the prompt
-    prompt = f"""You are a creative world-builder for an RPG game. Generate {request.num_locations} unique and diverse locations for this region.
+    prompt = f"""You are a creative world-builder for an RPG game. Generate {request.num_locations} unique and diverse locations.
+
+{hierarchy_context}
 
 World Context:
 - World Name: {request.world_name}
 - Genre: {request.world_genre}
-- World Backstory: {request.world_backstory}
+{f"- World Backstory: {request.world_backstory}" if hasattr(request, 'world_backstory') and request.world_backstory else ""}
 
 Region Context:
 - Region Name: {request.region_name}
-- Region Type: {request.region_type}
-- Climate: {request.climate}
-- Terrain: {', '.join(request.terrain)}
-- Description: {request.region_description}
-- Backstory: {request.region_backstory}
+{f"- Region Type: {request.region_type}" if hasattr(request, 'region_type') and request.region_type else ""}
+{f"- Climate: {request.climate}" if hasattr(request, 'climate') and request.climate else ""}
+{f"- Terrain: {', '.join(request.terrain)}" if hasattr(request, 'terrain') and request.terrain else ""}
+{f"- Description: {request.region_description}" if hasattr(request, 'region_description') and request.region_description else ""}
+{f"- Backstory: {request.region_backstory}" if hasattr(request, 'region_backstory') and request.region_backstory else ""}
 
 For each location, generate:
-1. A unique location_name (creative, evocative, fits the region and world)
-2. A location_type from: City, Town, Village, Fortress, Castle, Temple, Dungeon, Cave, Ruins, Market, Port, Inn/Tavern, Guild Hall, Academy, Library, Landmark, Wilderness
-3. A 1-2 sentence description
+1. A unique location_name (creative, evocative, fits the hierarchy level, parent location, region and world)
+2. A location_type from: {location_types}
+3. A 1-2 sentence description appropriate for this hierarchy level
 4. An array of features from: Trading Post, Blacksmith, Magic Shop, Quest Board, Safe Haven, Dangerous, Hidden, Magical, Ancient, Cursed, Sacred, Abandoned, Thriving, Under Siege, Mysterious, Fortified, Underground, Floating
 5. A compelling 2-3 paragraph backstory (150-250 words) that:
+   - Fits the HIERARCHY LEVEL (Level {location_level if location_level else "1"})
+   {f"- Connects to the parent location: {parent_location_name}" if parent_location_name else ""}
    - Ties into the region's characteristics and backstory
    - Connects to the world's lore and genre
    - Makes the location feel distinct and memorable
    - Hints at potential adventures or encounters
 
-Make each location feel unique and interconnected with both the region and world.
+IMPORTANT: Make sure the location_type and scale match the hierarchy level. Level 1 = large areas, Level 2 = settlements, Level 3 = individual buildings.
 
 Return the result as a JSON array of locations. Each location should have this structure:
 {{

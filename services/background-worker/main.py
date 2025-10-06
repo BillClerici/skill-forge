@@ -41,21 +41,27 @@ def sync_species_to_neo4j(entity_id, entity_data, action, max_retries=3):
         try:
             with neo4j_driver.session() as session:
                 if action == 'created':
-                    # Create Species node and relationships
+                    # Create Species node first
                     session.run("""
-                        MATCH (w:World {id: $world_id})
                         MERGE (s:Species {id: $species_id})
                         ON CREATE SET s.name = $species_name,
                                      s.type = $species_type,
                                      s.category = $category
-                        MERGE (s)-[:IN_WORLD]->(w)
-                    """, world_id=entity_data.get('world_id'),
-                       species_id=entity_id,
+                    """, species_id=entity_id,
                        species_name=entity_data.get('species_name', ''),
                        species_type=entity_data.get('species_type', ''),
                        category=entity_data.get('category', ''))
 
-                    # Link to regions
+                    # Link to world if it exists
+                    world_id = entity_data.get('world_id')
+                    if world_id:
+                        session.run("""
+                            MATCH (s:Species {id: $species_id})
+                            MATCH (w:World {id: $world_id})
+                            MERGE (s)-[:IN_WORLD]->(w)
+                        """, species_id=entity_id, world_id=world_id)
+
+                    # Link to regions if they exist
                     for region_id in entity_data.get('regions', []):
                         session.run("""
                             MATCH (s:Species {id: $species_id})
@@ -163,16 +169,22 @@ def sync_world_to_neo4j(entity_id, entity_data, action, max_retries=3):
         try:
             with neo4j_driver.session() as session:
                 if action == 'created':
+                    # Create the World node first (even if no universes)
+                    session.run("""
+                        MERGE (w:World {id: $world_id})
+                        ON CREATE SET w.name = $world_name, w.genre = $genre
+                    """, world_id=entity_id,
+                       world_name=entity_data.get('world_name', ''),
+                       genre=entity_data.get('genre', ''))
+
+                    # Then link to universes if any exist
                     for universe_id in entity_data.get('universe_ids', []):
                         session.run("""
+                            MATCH (w:World {id: $world_id})
                             MATCH (u:Universe {id: $universe_id})
-                            MERGE (w:World {id: $world_id})
-                            ON CREATE SET w.name = $world_name, w.genre = $genre
                             MERGE (w)-[:IN_UNIVERSE]->(u)
-                        """, universe_id=universe_id,
-                           world_id=entity_id,
-                           world_name=entity_data.get('world_name', ''),
-                           genre=entity_data.get('genre', ''))
+                        """, world_id=entity_id, universe_id=universe_id)
+
                     logger.info(f"Created World in Neo4j: {entity_id}")
 
                 elif action == 'updated':
@@ -224,18 +236,26 @@ def sync_region_to_neo4j(entity_id, entity_data, action, max_retries=3):
         try:
             with neo4j_driver.session() as session:
                 if action == 'created':
+                    # Create Region node first
                     session.run("""
-                        MATCH (w:World {id: $world_id})
                         MERGE (r:Region {id: $region_id})
                         ON CREATE SET r.name = $region_name,
                                      r.type = $region_type,
                                      r.climate = $climate
-                        MERGE (r)-[:IN_WORLD]->(w)
-                    """, world_id=entity_data.get('world_id'),
-                       region_id=entity_id,
+                    """, region_id=entity_id,
                        region_name=entity_data.get('region_name', ''),
                        region_type=entity_data.get('region_type', ''),
                        climate=entity_data.get('climate', ''))
+
+                    # Link to world if it exists
+                    world_id = entity_data.get('world_id')
+                    if world_id:
+                        session.run("""
+                            MATCH (r:Region {id: $region_id})
+                            MATCH (w:World {id: $world_id})
+                            MERGE (r)-[:IN_WORLD]->(w)
+                        """, region_id=entity_id, world_id=world_id)
+
                     logger.info(f"Created Region in Neo4j: {entity_id}")
 
                 elif action == 'updated':
@@ -274,16 +294,33 @@ def sync_location_to_neo4j(entity_id, entity_data, action, max_retries=3):
         try:
             with neo4j_driver.session() as session:
                 if action == 'created':
+                    # Create Location node first
                     session.run("""
-                        MATCH (r:Region {id: $region_id})
                         MERGE (l:Location {id: $location_id})
                         ON CREATE SET l.name = $location_name,
                                      l.type = $location_type
-                        MERGE (l)-[:IN_REGION]->(r)
-                    """, region_id=entity_data.get('region_id'),
-                       location_id=entity_id,
+                    """, location_id=entity_id,
                        location_name=entity_data.get('location_name', ''),
                        location_type=entity_data.get('location_type', ''))
+
+                    # Link to region if it exists
+                    region_id = entity_data.get('region_id')
+                    if region_id:
+                        session.run("""
+                            MATCH (l:Location {id: $location_id})
+                            MATCH (r:Region {id: $region_id})
+                            MERGE (l)-[:IN_REGION]->(r)
+                        """, location_id=entity_id, region_id=region_id)
+
+                    # Create parent-child relationship if parent exists
+                    parent_location_id = entity_data.get('parent_location_id')
+                    if parent_location_id:
+                        session.run("""
+                            MATCH (child:Location {id: $child_id})
+                            MATCH (parent:Location {id: $parent_id})
+                            MERGE (child)-[:CHILD_OF]->(parent)
+                        """, child_id=entity_id, parent_id=parent_location_id)
+
                     logger.info(f"Created Location in Neo4j: {entity_id}")
 
                 elif action == 'updated':

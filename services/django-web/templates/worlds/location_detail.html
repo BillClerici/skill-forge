@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ location.location_name }} - SkillForge RPG{% endblock %}
+{% block title %}Location: {{ location.location_name }} - SkillForge RPG{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
             <i class="material-icons left" style="font-size: 2.5rem;">location_on</i>
-            {{ location.location_name }}
+            Location: {{ location.location_name }}
         </h3>
     </div>
 </div>
@@ -117,12 +117,12 @@
 
 <!-- Location Overview -->
 <div class="row">
-    <div class="col s12 l8">
+    <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
                     <i class="material-icons left">info</i>
-                    Location Overview
+                    {{ location.location_name }} Overview
                 </span>
 
                 <!-- Location Type -->
@@ -159,23 +159,98 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col s12 l4">
-        <div class="card stat-card">
-            <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">location_on</i>
-                <h5 style="margin: 10px 0; color: white;">{{ location.location_type }}</h5>
-                <p style="color: white;">
-                    {% if location.features %}
-                        {{ location.features|length }} Feature{% if location.features|length != 1 %}s{% endif %}
-                    {% else %}
-                        No Features
-                    {% endif %}
-                </p>
+<!-- Parent & Child Locations -->
+{% if parent_location or child_locations %}
+<div class="row">
+    <!-- Parent Location -->
+    {% if parent_location %}
+    <div class="col s12 {% if child_locations %}m6{% else %}m12{% endif %}">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">arrow_upward</i>
+                    Parent Location
+                </span>
+                <div style="margin-top: 20px;">
+                    <a href="{% url 'location_detail' world.world_id region.region_id parent_location.location_id %}" class="collection-item hoverable" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; text-decoration: none; border-left: 4px solid var(--rpg-gold);">
+                        <div>
+                            <span style="font-weight: bold; color: var(--rpg-gold); font-size: 1.1rem;">{{ parent_location.location_name }}</span>
+                            <div style="margin-top: 5px;">
+                                <div class="chip" style="background-color: rgba(156, 39, 176, 0.3); font-size: 0.85rem;">
+                                    <i class="material-icons tiny">category</i>
+                                    {{ parent_location.location_type }}
+                                </div>
+                            </div>
+                        </div>
+                        <i class="material-icons" style="color: var(--rpg-gold);">arrow_forward</i>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Child Locations -->
+    {% if child_locations %}
+    <div class="col s12 {% if parent_location %}m6{% else %}m12{% endif %}">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">arrow_downward</i>
+                    Child Locations ({{ child_locations|length }})
+                </span>
+                <div class="collection" style="margin-top: 20px; border: none;">
+                    {% for child in child_locations %}
+                    <a href="{% url 'location_detail' world.world_id region.region_id child.location_id %}" class="collection-item hoverable" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-left: 3px solid var(--rpg-purple);">
+                        <div>
+                            <span style="font-weight: bold; color: white;">{{ child.location_name }}</span>
+                            <div style="margin-top: 4px;">
+                                <div class="chip" style="background-color: rgba(156, 39, 176, 0.3); font-size: 0.8rem;">
+                                    <i class="material-icons tiny">category</i>
+                                    {{ child.location_type }}
+                                </div>
+                            </div>
+                        </div>
+                        <i class="material-icons" style="color: var(--rpg-purple);">arrow_forward</i>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% if location.depth|default:"1" < 3 %}
+                <div style="margin-top: 15px; text-align: center;">
+                    <a href="{% url 'location_create' world.world_id region.region_id %}?parent_location_id={{ location.location_id }}" class="btn-small waves-effect waves-light" style="background: var(--rpg-purple);">
+                        <i class="material-icons left">add</i>Add Child Location
+                    </a>
+                </div>
+                {% else %}
+                <div style="margin-top: 15px; text-align: center;">
+                    <p style="color: #b8b8d1; font-size: 0.9rem;">Maximum depth reached (Level 3)</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- No child locations - show add button -->
+    <div class="col s12 {% if parent_location %}m6{% else %}m12{% endif %}">
+        <div class="card">
+            <div class="card-content center-align">
+                <i class="material-icons" style="font-size: 48px; color: var(--rpg-silver); opacity: 0.5;">account_tree</i>
+                <p style="color: #b8b8d1; margin: 15px 0;">No child locations yet</p>
+                {% if location.depth|default:"1" < 3 %}
+                <a href="{% url 'location_create' world.world_id region.region_id %}?parent_location_id={{ location.location_id }}" class="btn-small waves-effect waves-light" style="background: var(--rpg-purple);">
+                    <i class="material-icons left">add</i>Add Child Location
+                </a>
+                {% else %}
+                <p style="color: #888; font-size: 0.9rem;">Maximum depth reached (Level 3)</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endif %}
 
 <!-- AI-Generated Backstory -->
 <div class="row">

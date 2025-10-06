@@ -37,6 +37,10 @@ from worlds.views_species import (
     SpeciesGenerateAIView, SpeciesGenerateImageView,
     SpeciesDeleteImageView, SpeciesSetPrimaryImageView
 )
+from worlds.views_world_factory import (
+    WorldFactoryInitiateView, WorldFactoryStatusView, WorldFactoryResultView,
+    WorldFactoryCancelView, WorldFactoryAuditTrailView, WorldFactoryListWorkflowsView
+)
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView
@@ -90,6 +94,14 @@ urlpatterns = [
     path('worlds/<str:world_id>/delete-image/', WorldDeleteImageView.as_view(), name='world_delete_image'),
     path('worlds/<str:world_id>/set-primary-image/', WorldSetPrimaryImageView.as_view(), name='world_set_primary_image'),
     path('worlds/<str:world_id>/tts-backstory/', WorldTextToSpeechView.as_view(), name='world_tts_backstory'),
+
+    # World Factory API
+    path('api/world-factory/initiate/', WorldFactoryInitiateView.as_view(), name='world_factory_initiate'),
+    path('api/world-factory/<str:workflow_id>/status/', WorldFactoryStatusView.as_view(), name='world_factory_status'),
+    path('api/world-factory/<str:workflow_id>/result/', WorldFactoryResultView.as_view(), name='world_factory_result'),
+    path('api/world-factory/<str:workflow_id>/cancel/', WorldFactoryCancelView.as_view(), name='world_factory_cancel'),
+    path('api/world-factory/<str:workflow_id>/audit/', WorldFactoryAuditTrailView.as_view(), name='world_factory_audit'),
+    path('api/world-factory/workflows/', WorldFactoryListWorkflowsView.as_view(), name='world_factory_list'),
 
     # Species
     path('worlds/<str:world_id>/species/create/', SpeciesCreateView.as_view(), name='species_create'),

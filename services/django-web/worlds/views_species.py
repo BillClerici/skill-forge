@@ -519,25 +519,38 @@ class SpeciesGenerateImageView(View):
 
         # Check how many images already exist
         current_images = species.get('species_images', [])
-        if len(current_images) >= 4:
-            return JsonResponse({'error': 'Maximum 4 images allowed'}, status=400)
+        if len(current_images) >= 1:
+            return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
 
         try:
-            # Define 4 different perspectives
-            perspectives = [
-                "portrait view, face and upper body",
-                "full body standing pose",
-                "action pose showing abilities",
-                "environmental scene with species in habitat"
+            # Define 1 image type: Full Body
+            image_types = [
+                {
+                    'type': 'full_body',
+                    'name': 'Full Body View',
+                    'perspective': 'full body standing pose showing complete form'
+                }
             ]
 
-            # Determine which images to generate
-            images_to_generate = min(4 - len(current_images), 4)
+            # Determine which images to generate based on what's missing
+            images_to_generate = 1 - len(current_images)
             generated_images = []
+            existing_types = [img.get('image_type') for img in current_images]
 
             for i in range(images_to_generate):
-                perspective_index = len(current_images) + i
-                perspective = perspectives[perspective_index] if perspective_index < len(perspectives) else perspectives[0]
+                # Find the first missing image type
+                image_type_config = None
+                for img_type in image_types:
+                    if img_type['type'] not in existing_types:
+                        image_type_config = img_type
+                        existing_types.append(img_type['type'])  # Mark as being generated
+                        break
+
+                if not image_type_config:
+                    # All types exist, shouldn't happen but fallback to first type
+                    image_type_config = image_types[0]
+
+                perspective = image_type_config['perspective']
 
                 # Build safe prompt focusing on visual aspects only
                 # Avoid backstory, lore, or anything that might trigger content filters
@@ -640,16 +653,25 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
                     local_image_url = f"{MEDIA_URL}species/{world_id}/{image_filename}"
                     generated_images.append({
                         'url': local_image_url,
+                        'image_type': image_type_config['type'],
+                        'image_name': image_type_config['name'],
                         'perspective': perspective
                     })
 
             # Update species with new images
             updated_images = current_images + generated_images
 
-            # Set first image as primary if no primary exists
+            # Set Portrait as primary by default if it was just generated and no primary exists
             primary_index = species.get('primary_image_index')
-            if primary_index is None and updated_images:
-                primary_index = 0
+            if primary_index is None:
+                # Find the portrait image index
+                for idx, img in enumerate(updated_images):
+                    if img.get('image_type') == 'portrait':
+                        primary_index = idx
+                        break
+                # If no portrait found, use first image
+                if primary_index is None and updated_images:
+                    primary_index = 0
 
             db.species_definitions.update_one(
                 {'_id': species_id},

@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ region.region_name }} - SkillForge RPG{% endblock %}
+{% block title %}Region: {{ region.region_name }} - SkillForge RPG{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
             <i class="material-icons left" style="font-size: 2.5rem;">terrain</i>
-            {{ region.region_name }}
+            Region: {{ region.region_name }}
         </h3>
     </div>
 </div>
@@ -113,12 +113,12 @@
 
 <!-- Region Overview -->
 <div class="row">
-    <div class="col s12 l8">
+    <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
                     <i class="material-icons left">info</i>
-                    Region Overview
+                    {{ region.region_name }} Overview
                 </span>
 
                 <!-- Region Type & Climate -->
@@ -156,18 +156,6 @@
                     <p style="color: #b8b8d1; line-height: 1.8; white-space: pre-wrap;">{{ region.description }}</p>
                 </div>
                 {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col s12 l4">
-        <div class="card stat-card">
-            <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">terrain</i>
-                <h5 style="margin: 10px 0; color: white;">Region Details</h5>
-                <p style="color: white;">
-                    {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
-                </p>
             </div>
         </div>
     </div>
@@ -336,6 +324,78 @@
         </div>
     </div>
 </div>
+
+<!-- Location Hierarchy Tree View -->
+{% if location_tree %}
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">account_tree</i>
+                    Location Hierarchy Tree
+                </span>
+                <p style="color: #b8b8d1; margin-bottom: 20px;">Visual representation of all locations in this region organized by their hierarchical relationships</p>
+
+                <div id="location-tree" style="margin-top: 20px;">
+                    {% for primary in location_tree %}
+                    <div class="tree-node depth-1" style="margin-bottom: 15px;">
+                        <div class="tree-node-content" style="display: flex; align-items: center; padding: 12px; background-color: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); border-radius: 4px; cursor: pointer;" data-location-id="{{ primary.id }}">
+                            <i class="material-icons" style="color: var(--rpg-gold); margin-right: 8px;">terrain</i>
+                            <div style="flex: 1;">
+                                <strong style="color: var(--rpg-gold);">{{ primary.name }}</strong>
+                                <span style="color: #b8b8d1; margin-left: 10px; font-size: 0.9rem;">({{ primary.type }})</span>
+                                <span class="badge" style="background-color: var(--rpg-gold); color: #000; margin-left: 10px; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px;">Level 1</span>
+                            </div>
+                            {% if primary.children %}
+                            <i class="material-icons tree-toggle" style="color: var(--rpg-gold);">expand_more</i>
+                            {% endif %}
+                        </div>
+
+                        {% if primary.children %}
+                        <div class="tree-children" style="margin-left: 30px; margin-top: 8px;">
+                            {% for secondary in primary.children %}
+                            <div class="tree-node depth-2" style="margin-bottom: 10px;">
+                                <div class="tree-node-content" style="display: flex; align-items: center; padding: 10px; background-color: rgba(156, 39, 176, 0.1); border-left: 3px solid var(--rpg-purple); border-radius: 4px; cursor: pointer;" data-location-id="{{ secondary.id }}">
+                                    <i class="material-icons" style="color: var(--rpg-purple); margin-right: 8px; font-size: 20px;">location_city</i>
+                                    <div style="flex: 1;">
+                                        <strong style="color: white;">{{ secondary.name }}</strong>
+                                        <span style="color: #b8b8d1; margin-left: 8px; font-size: 0.85rem;">({{ secondary.type }})</span>
+                                        <span class="badge" style="background-color: var(--rpg-purple); color: #fff; margin-left: 8px; font-size: 0.7rem; padding: 2px 6px; border-radius: 8px;">Level 2</span>
+                                    </div>
+                                    {% if secondary.children %}
+                                    <i class="material-icons tree-toggle" style="color: var(--rpg-purple); font-size: 20px;">expand_more</i>
+                                    {% endif %}
+                                </div>
+
+                                {% if secondary.children %}
+                                <div class="tree-children" style="margin-left: 25px; margin-top: 6px;">
+                                    {% for tertiary in secondary.children %}
+                                    <div class="tree-node depth-3" style="margin-bottom: 6px;">
+                                        <div class="tree-node-content" style="display: flex; align-items: center; padding: 8px; background-color: rgba(76, 175, 80, 0.1); border-left: 2px solid var(--rpg-green); border-radius: 3px; cursor: pointer;" data-location-id="{{ tertiary.id }}">
+                                            <i class="material-icons" style="color: var(--rpg-green); margin-right: 6px; font-size: 18px;">business</i>
+                                            <div style="flex: 1;">
+                                                <span style="color: white; font-size: 0.9rem;">{{ tertiary.name }}</span>
+                                                <span style="color: #b8b8d1; margin-left: 6px; font-size: 0.8rem;">({{ tertiary.type }})</span>
+                                                <span class="badge" style="background-color: var(--rpg-green); color: #000; margin-left: 6px; font-size: 0.65rem; padding: 1px 5px; border-radius: 6px;">Level 3</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Locations in Region -->
 <div class="row">
@@ -952,6 +1012,47 @@
                     });
                 }
             }
+        });
+    });
+
+    // Location Tree View - Expand/Collapse and Navigation
+    document.querySelectorAll('.tree-node-content').forEach(node => {
+        node.addEventListener('click', function(e) {
+            const locationId = this.dataset.locationId;
+            const regionId = '{{ region.region_id }}';
+            const worldId = '{{ world.world_id }}';
+
+            // If clicked on toggle icon, expand/collapse instead of navigate
+            if (e.target.classList.contains('tree-toggle')) {
+                e.stopPropagation();
+                const treeNode = this.parentElement;
+                const children = treeNode.querySelector('.tree-children');
+                const toggle = this.querySelector('.tree-toggle');
+
+                if (children) {
+                    if (children.style.display === 'none') {
+                        children.style.display = 'block';
+                        toggle.textContent = 'expand_more';
+                    } else {
+                        children.style.display = 'none';
+                        toggle.textContent = 'chevron_right';
+                    }
+                }
+            } else {
+                // Navigate to location detail
+                window.location.href = `/worlds/${worldId}/regions/${regionId}/locations/${locationId}/`;
+            }
+        });
+
+        // Add hover effect
+        node.addEventListener('mouseenter', function() {
+            if (!this.querySelector('.tree-toggle') || !event.target.classList.contains('tree-toggle')) {
+                this.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+            }
+        });
+
+        node.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
         });
     });
 </script>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ world.world_name }} - SkillForge RPG{% endblock %}
+{% block title %}World: {{ world.world_name }} - SkillForge RPG{% endblock %}
 
 {% block content %}
 <style>
@@ -140,8 +140,8 @@
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); display: flex; align-items: center;">
-            <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">map</i>
-            {{ world.world_name }}
+            <i class="material-icons" style="font-size: 2.5rem; margin-right: 10px;">public</i>
+            World: {{ world.world_name }}
         </h3>
         {% if world.description %}
         <p style="color: #b8b8d1; font-size: 1.1rem; margin-top: 10px; line-height: 1.6;">{{ world.description }}</p>
@@ -182,6 +182,9 @@
             <li class="tab"><a href="#regions">
                 <i class="material-icons left tiny">terrain</i>Regions
             </a></li>
+            <li class="tab"><a href="#audit-trail">
+                <i class="material-icons left tiny">history</i>Generation Audit
+            </a></li>
         </ul>
     </div>
 </div>
@@ -189,12 +192,12 @@
 <!-- Tab Content Wrapper -->
 <div class="tab-content-wrapper" style="margin-top: 0;">
     <div id="overview" class="row">
-    <div class="col s12 l8">
+    <div class="col s12">
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
                     <i class="material-icons left">info</i>
-                    World Overview
+                    {{ world.world_name }} Overview
                 </span>
 
                 <!-- Description -->
@@ -268,22 +271,6 @@
                 </div>
                 {% endif %}
 
-            </div>
-        </div>
-    </div>
-
-    <div class="col s12 l4">
-        <div class="card stat-card">
-            <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">map</i>
-                <h5 style="margin: 10px 0; color: white;">World Details</h5>
-                <p style="color: white;">
-                    {% if universes %}
-                        {{ universes|length }} Universe{% if universes|length != 1 %}s{% endif %}
-                    {% else %}
-                        No Universes
-                    {% endif %}
-                </p>
             </div>
         </div>
     </div>
@@ -1011,6 +998,11 @@
                             <img src="{{ region.primary_image_url }}"
                                  alt="{{ region.region_name }}"
                                  style="height: 200px; width: 100%; object-fit: cover; display: block; margin: 0;">
+                            <!-- Location count badge - top right -->
+                            <div style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.7); padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 4px;">
+                                <i class="material-icons tiny" style="color: var(--rpg-gold); font-size: 16px;">location_on</i>
+                                <span style="color: white; font-size: 0.9rem; font-weight: 500;">{{ region.locations|length }}</span>
+                            </div>
                             <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.6), transparent); display: flex; align-items: flex-end;">
                                 <span class="card-title" style="color: var(--rpg-gold); font-size: 1.2rem; padding: 15px; margin: 0;">
                                     <i class="material-icons left">terrain</i>
@@ -1035,10 +1027,6 @@
                                     {{ region.climate }}
                                 </span>
                             </div>
-                            <p style="color: #b8b8d1; font-size: 0.9rem; margin: 0;">
-                                <i class="material-icons tiny" style="vertical-align: middle;">location_on</i>
-                                {{ region.locations|length }} Location{% if region.locations|length != 1 %}s{% endif %}
-                            </p>
                         </div>
                         <div class="card-action" style="background-color: rgba(20, 20, 36, 0.5);">
                             <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold); display: inline-flex; align-items: center; gap: 4px;">
@@ -1091,6 +1079,39 @@
         </div>
     </div>
 </div>
+
+<!-- Audit Trail Tab -->
+<div id="audit-trail" class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold); display: flex; align-items: center;">
+                    <i class="material-icons left" style="margin-right: 10px;">history</i>
+                    World Generation Audit Trail
+                </span>
+                <div id="audit-trail-content">
+                    <div class="center-align" style="padding: 40px;">
+                        <div class="preloader-wrapper small active">
+                            <div class="spinner-layer" style="border-color: var(--rpg-gold);">
+                                <div class="circle-clipper left">
+                                    <div class="circle"></div>
+                                </div>
+                                <div class="gap-patch">
+                                    <div class="circle"></div>
+                                </div>
+                                <div class="circle-clipper right">
+                                    <div class="circle"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="color: #b8b8d1; margin-top: 20px;">Loading audit trail...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 </div>
 <!-- End Tab Content Wrapper -->
 
@@ -1477,7 +1498,101 @@
     // Initialize tabs
     document.addEventListener('DOMContentLoaded', function() {
         const tabs = document.querySelectorAll('.tabs');
-        M.Tabs.init(tabs);
+        const tabsInstance = M.Tabs.init(tabs);
+
+        // Load audit trail when tab is clicked
+        document.querySelector('a[href="#audit-trail"]').addEventListener('click', async function() {
+            const auditContent = document.getElementById('audit-trail-content');
+
+            try {
+                const response = await fetch('/api/world-factory/workflows/?limit=100');
+                const data = await response.json();
+
+                if (data.success && data.workflows) {
+                    // Find workflow for this world
+                    const workflow = data.workflows.find(w => w.world_id === '{{ world.world_id }}');
+
+                    if (workflow && workflow.workflow_id) {
+                        // Fetch audit trail
+                        const auditResponse = await fetch(`/api/world-factory/${workflow.workflow_id}/audit/`);
+                        const auditData = await auditResponse.json();
+
+                        if (auditData.success) {
+                            displayAuditTrail(auditData.audit_trail, auditData);
+                        } else {
+                            auditContent.innerHTML = '<p class="center-align" style="color: #b8b8d1;">No audit trail found for this world.</p>';
+                        }
+                    } else {
+                        auditContent.innerHTML = '<p class="center-align" style="color: #b8b8d1;">This world was not created by the AI World Factory.</p>';
+                    }
+                } else {
+                    auditContent.innerHTML = '<p class="center-align" style="color: #ff6b6b;">Failed to load audit trail.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading audit trail:', error);
+                auditContent.innerHTML = '<p class="center-align" style="color: #ff6b6b;">Error loading audit trail.</p>';
+            }
+        });
+
+        function displayAuditTrail(auditTrail, auditData) {
+            const auditContent = document.getElementById('audit-trail-content');
+
+            let html = `
+                <div style="margin-bottom: 30px; padding: 20px; background: linear-gradient(135deg, rgba(106, 76, 147, 0.2), rgba(212, 175, 55, 0.1)); border-radius: 8px; border-left: 4px solid var(--rpg-gold);">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 15px;"><i class="material-icons tiny" style="vertical-align: middle;">info</i> Workflow Summary</h6>
+                    <p style="color: #b8b8d1; margin: 5px 0;"><strong>Workflow ID:</strong> ${auditData.workflow_id}</p>
+                    <p style="color: #b8b8d1; margin: 5px 0;"><strong>Genre:</strong> ${auditData.genre || 'N/A'}</p>
+                    <p style="color: #b8b8d1; margin: 5px 0;"><strong>Status:</strong> <span style="color: ${auditData.status === 'completed' ? '#4caf50' : '#ff9800'};">${auditData.status || 'N/A'}</span></p>
+                    <p style="color: #b8b8d1; margin: 5px 0;"><strong>Created:</strong> ${auditData.created_at ? new Date(auditData.created_at).toLocaleString() : 'N/A'}</p>
+                </div>
+                <div class="timeline-container">
+            `;
+
+            if (auditTrail && auditTrail.length > 0) {
+                auditTrail.forEach((entry, index) => {
+                    const isLast = index === auditTrail.length - 1;
+                    const statusIcon = entry.status === 'completed' ? 'check_circle' :
+                                     entry.status === 'failed' ? 'error' : 'schedule';
+                    const statusColor = entry.status === 'completed' ? '#4caf50' :
+                                      entry.status === 'failed' ? '#ff6b6b' : '#ffa726';
+
+                    html += `
+                        <div class="timeline-event">
+                            <div class="timeline-marker">
+                                <div class="timeline-dot"></div>
+                                ${!isLast ? '<div class="timeline-line"></div>' : ''}
+                            </div>
+                            <div class="timeline-content">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                    <h6 style="color: var(--rpg-gold); margin: 0; display: flex; align-items: center;">
+                                        <i class="material-icons tiny" style="margin-right: 5px; color: ${statusColor};">${statusIcon}</i>
+                                        ${entry.step.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </h6>
+                                    <span style="color: ${statusColor}; font-size: 0.9rem; font-weight: 500;">
+                                        ${entry.status}
+                                    </span>
+                                </div>
+                                <p style="color: #b8b8d1; margin: 10px 0;">${entry.message || 'No message'}</p>
+                                ${entry.tokens_used ? `<p style="color: #9ca3af; font-size: 0.9rem; margin: 5px 0;"><i class="material-icons tiny" style="vertical-align: middle;">analytics</i> Tokens: ${entry.tokens_used.toLocaleString()}</p>` : ''}
+                                ${entry.cost_usd ? `<p style="color: #9ca3af; font-size: 0.9rem; margin: 5px 0;"><i class="material-icons tiny" style="vertical-align: middle;">attach_money</i> Cost: $${entry.cost_usd.toFixed(4)}</p>` : ''}
+                                ${entry.error ? `<p style="color: #ff6b6b; font-size: 0.9rem; margin: 10px 0;"><i class="material-icons tiny" style="vertical-align: middle;">warning</i> Error: ${entry.error}</p>` : ''}
+                                ${entry.data && Object.keys(entry.data).length > 0 ? `
+                                    <details style="margin-top: 10px;">
+                                        <summary style="color: var(--rpg-gold); cursor: pointer; font-size: 0.9rem;">View Details</summary>
+                                        <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 4px; margin-top: 10px; overflow-x: auto; color: #b8b8d1; font-size: 0.85rem;">${JSON.stringify(entry.data, null, 2)}</pre>
+                                    </details>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<p class="center-align" style="color: #b8b8d1;">No audit entries found.</p>';
+            }
+
+            html += '</div>';
+            auditContent.innerHTML = html;
+        }
 
         // Initialize Materialbox for image lightbox
         const materialboxElems = document.querySelectorAll('.materialboxed');

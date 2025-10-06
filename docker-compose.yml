@@ -276,6 +276,30 @@ services:
       - ./ai-agents/quest-designer:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8100 --reload
 
+  world-factory:
+    build: ./services/world-factory
+    container_name: skillforge-world-factory
+    environment:
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - REDIS_URL=redis://redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ORCHESTRATOR_URL=http://agent-orchestrator:9000
+      - DJANGO_URL=http://django-web:8000
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - rabbitmq
+      - mongodb
+      - redis
+      - agent-orchestrator
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/world-factory:/app
+    command: python main.py
+    restart: unless-stopped
+
   # ============================================
   # API Gateway
   # ============================================

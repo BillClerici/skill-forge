@@ -51,30 +51,99 @@
                         <label for="location_name" {% if location %}class="active"{% endif %}>Location Name *</label>
                     </div>
 
+                    <!-- Parent Location (Optional) -->
+                    {% if all_locations %}
+                    <div class="input-field">
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">account_tree</i>
+                        <select id="parent_location_id" name="parent_location_id">
+                            <option value="" {% if not parent_location_id %}selected{% endif %}>None (Top-level Location)</option>
+                            {% for loc in all_locations %}
+                            <option value="{{ loc.location_id }}" {% if parent_location_id == loc.location_id %}selected{% endif %}>
+                                {{ loc.location_name }} ({{ loc.location_type }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <label>Parent Location (Optional)</label>
+                        <span class="helper-text">Select a parent location to create a hierarchical structure (e.g., City → Building)</span>
+                    </div>
+                    {% endif %}
+
                     <!-- Location Type -->
                     <div class="input-field">
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
                         <select id="location_type" name="location_type" class="validate" required>
                             <option value="" disabled {% if not location %}selected{% endif %}>Choose Location Type</option>
-                            <option value="City" {% if location and location.location_type == "City" %}selected{% endif %}>City</option>
-                            <option value="Town" {% if location and location.location_type == "Town" %}selected{% endif %}>Town</option>
-                            <option value="Village" {% if location and location.location_type == "Village" %}selected{% endif %}>Village</option>
-                            <option value="Fortress" {% if location and location.location_type == "Fortress" %}selected{% endif %}>Fortress</option>
-                            <option value="Castle" {% if location and location.location_type == "Castle" %}selected{% endif %}>Castle</option>
-                            <option value="Temple" {% if location and location.location_type == "Temple" %}selected{% endif %}>Temple</option>
-                            <option value="Dungeon" {% if location and location.location_type == "Dungeon" %}selected{% endif %}>Dungeon</option>
-                            <option value="Cave" {% if location and location.location_type == "Cave" %}selected{% endif %}>Cave</option>
-                            <option value="Ruins" {% if location and location.location_type == "Ruins" %}selected{% endif %}>Ruins</option>
-                            <option value="Market" {% if location and location.location_type == "Market" %}selected{% endif %}>Market</option>
-                            <option value="Port" {% if location and location.location_type == "Port" %}selected{% endif %}>Port</option>
-                            <option value="Inn/Tavern" {% if location and location.location_type == "Inn/Tavern" %}selected{% endif %}>Inn/Tavern</option>
-                            <option value="Guild Hall" {% if location and location.location_type == "Guild Hall" %}selected{% endif %}>Guild Hall</option>
-                            <option value="Academy" {% if location and location.location_type == "Academy" %}selected{% endif %}>Academy</option>
-                            <option value="Library" {% if location and location.location_type == "Library" %}selected{% endif %}>Library</option>
-                            <option value="Landmark" {% if location and location.location_type == "Landmark" %}selected{% endif %}>Landmark</option>
-                            <option value="Wilderness" {% if location and location.location_type == "Wilderness" %}selected{% endif %}>Wilderness</option>
+
+                            {% if location_depth == 1 %}
+                            <!-- PRIMARY LEVEL: Large geographic areas -->
+                            <optgroup label="Primary Locations (Geographic Areas)">
+                                <option value="Island" {% if location and location.location_type == "Island" %}selected{% endif %}>Island</option>
+                                <option value="Forest" {% if location and location.location_type == "Forest" %}selected{% endif %}>Forest</option>
+                                <option value="Country" {% if location and location.location_type == "Country" %}selected{% endif %}>Country</option>
+                                <option value="District" {% if location and location.location_type == "District" %}selected{% endif %}>District</option>
+                                <option value="Region" {% if location and location.location_type == "Region" %}selected{% endif %}>Region</option>
+                                <option value="Province" {% if location and location.location_type == "Province" %}selected{% endif %}>Province</option>
+                                <option value="Territory" {% if location and location.location_type == "Territory" %}selected{% endif %}>Territory</option>
+                                <option value="Wilderness" {% if location and location.location_type == "Wilderness" %}selected{% endif %}>Wilderness</option>
+                                <option value="Mountain Range" {% if location and location.location_type == "Mountain Range" %}selected{% endif %}>Mountain Range</option>
+                                <option value="Valley" {% if location and location.location_type == "Valley" %}selected{% endif %}>Valley</option>
+                                <option value="Peninsula" {% if location and location.location_type == "Peninsula" %}selected{% endif %}>Peninsula</option>
+                                <option value="Archipelago" {% if location and location.location_type == "Archipelago" %}selected{% endif %}>Archipelago</option>
+                            </optgroup>
+
+                            {% elif location_depth == 2 %}
+                            <!-- SECONDARY LEVEL: Settlements and communities -->
+                            <optgroup label="Secondary Locations (Settlements)">
+                                <option value="City" {% if location and location.location_type == "City" %}selected{% endif %}>City</option>
+                                <option value="Town" {% if location and location.location_type == "Town" %}selected{% endif %}>Town</option>
+                                <option value="Village" {% if location and location.location_type == "Village" %}selected{% endif %}>Village</option>
+                                <option value="Settlement" {% if location and location.location_type == "Settlement" %}selected{% endif %}>Settlement</option>
+                                <option value="Outpost" {% if location and location.location_type == "Outpost" %}selected{% endif %}>Outpost</option>
+                                <option value="Fortress" {% if location and location.location_type == "Fortress" %}selected{% endif %}>Fortress</option>
+                                <option value="Castle" {% if location and location.location_type == "Castle" %}selected{% endif %}>Castle</option>
+                                <option value="Stronghold" {% if location and location.location_type == "Stronghold" %}selected{% endif %}>Stronghold</option>
+                                <option value="Camp" {% if location and location.location_type == "Camp" %}selected{% endif %}>Camp</option>
+                                <option value="Encampment" {% if location and location.location_type == "Encampment" %}selected{% endif %}>Encampment</option>
+                            </optgroup>
+
+                            {% elif location_depth == 3 %}
+                            <!-- TERTIARY LEVEL: Buildings and specific structures -->
+                            <optgroup label="Tertiary Locations (Buildings & Structures)">
+                                <option value="House" {% if location and location.location_type == "House" %}selected{% endif %}>House</option>
+                                <option value="Inn/Tavern" {% if location and location.location_type == "Inn/Tavern" %}selected{% endif %}>Inn/Tavern</option>
+                                <option value="Bar" {% if location and location.location_type == "Bar" %}selected{% endif %}>Bar</option>
+                                <option value="Shop" {% if location and location.location_type == "Shop" %}selected{% endif %}>Shop</option>
+                                <option value="Store" {% if location and location.location_type == "Store" %}selected{% endif %}>Store</option>
+                                <option value="Market" {% if location and location.location_type == "Market" %}selected{% endif %}>Market</option>
+                                <option value="Park" {% if location and location.location_type == "Park" %}selected{% endif %}>Park</option>
+                                <option value="Building" {% if location and location.location_type == "Building" %}selected{% endif %}>Building</option>
+                                <option value="Stable" {% if location and location.location_type == "Stable" %}selected{% endif %}>Stable</option>
+                                <option value="Dwelling" {% if location and location.location_type == "Dwelling" %}selected{% endif %}>Dwelling</option>
+                                <option value="Courthouse" {% if location and location.location_type == "Courthouse" %}selected{% endif %}>Courthouse</option>
+                                <option value="Temple" {% if location and location.location_type == "Temple" %}selected{% endif %}>Temple</option>
+                                <option value="Church" {% if location and location.location_type == "Church" %}selected{% endif %}>Church</option>
+                                <option value="Guild Hall" {% if location and location.location_type == "Guild Hall" %}selected{% endif %}>Guild Hall</option>
+                                <option value="Academy" {% if location and location.location_type == "Academy" %}selected{% endif %}>Academy</option>
+                                <option value="Library" {% if location and location.location_type == "Library" %}selected{% endif %}>Library</option>
+                                <option value="Warehouse" {% if location and location.location_type == "Warehouse" %}selected{% endif %}>Warehouse</option>
+                                <option value="Barracks" {% if location and location.location_type == "Barracks" %}selected{% endif %}>Barracks</option>
+                                <option value="Tower" {% if location and location.location_type == "Tower" %}selected{% endif %}>Tower</option>
+                                <option value="Plaza" {% if location and location.location_type == "Plaza" %}selected{% endif %}>Plaza</option>
+                                <option value="Courtyard" {% if location and location.location_type == "Courtyard" %}selected{% endif %}>Courtyard</option>
+                                <option value="Ship" {% if location and location.location_type == "Ship" %}selected{% endif %}>Ship</option>
+                                <option value="Spaceship" {% if location and location.location_type == "Spaceship" %}selected{% endif %}>Spaceship</option>
+                                <option value="Airship" {% if location and location.location_type == "Airship" %}selected{% endif %}>Airship</option>
+                                <option value="Port" {% if location and location.location_type == "Port" %}selected{% endif %}>Port</option>
+                                <option value="Dock" {% if location and location.location_type == "Dock" %}selected{% endif %}>Dock</option>
+                                <option value="Arena" {% if location and location.location_type == "Arena" %}selected{% endif %}>Arena</option>
+                                <option value="Colosseum" {% if location and location.location_type == "Colosseum" %}selected{% endif %}>Colosseum</option>
+                            </optgroup>
+                            {% endif %}
                         </select>
-                        <label>Location Type *</label>
+                        <label>Location Type * (Level {{ location_depth }})</label>
+                        <span class="helper-text">
+                            {% if location_depth == 1 %}Level 1: Large geographic areas{% elif location_depth == 2 %}Level 2: Settlements and communities{% else %}Level 3: Specific buildings and structures{% endif %}
+                        </span>
                     </div>
 
                     <!-- Features (Multi-select) -->
