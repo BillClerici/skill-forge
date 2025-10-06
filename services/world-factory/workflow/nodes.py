@@ -483,6 +483,11 @@ async def generate_world_backstory_node(state: WorldFactoryState) -> WorldFactor
                 if not state.world_id:
                     from .utils import publish_entity_event
                     world_id = str(uuid.uuid4())
+
+                    # DEBUG: Log what properties we have
+                    logger.info(f"Creating world with world_data keys: {list(state.world_data.keys())}")
+                    logger.info(f"Physical properties: {state.world_data.get('physical_properties', {})}")
+
                     world_doc = {
                         '_id': world_id,
                         'world_name': state.world_data.get('world_name'),
