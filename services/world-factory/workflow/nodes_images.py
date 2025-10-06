@@ -34,48 +34,14 @@ async def generate_world_images_node(state: WorldFactoryState) -> WorldFactorySt
             state.workflow_id,
             step_name,
             "started",
-            "Creating world in database and generating 1 image (Full Planet)"
+            "Generating 1 image (Full Planet)"
         )
 
-        # First, create the world in MongoDB if not already created
+        # World should already be created in backstory node
         if not state.world_id:
-            world_id = str(uuid.uuid4())
-            world_doc = {
-                '_id': world_id,
-                'world_name': state.world_data.get('world_name'),
-                'description': state.world_data.get('description', ''),
-                'genre': state.genre,
-                'themes': state.world_data.get('themes', []),
-                'visual_style': state.world_data.get('visual_style', []),
-                'physical_properties': state.world_data.get('physical_properties', {}),
-                'biological_properties': state.world_data.get('biological_properties', {}),
-                'technological_properties': state.world_data.get('technological_properties', {}),
-                'societal_properties': state.world_data.get('societal_properties', {}),
-                'historical_properties': state.world_data.get('historical_properties', {}),
-                'backstory': state.world_data.get('backstory', ''),
-                'timeline': state.world_data.get('timeline', []),
-                'universe_ids': [],
-                'regions': [],
-                'species': [],
-                'world_images': [],
-                'primary_image_index': None,
-                'created_by_workflow': state.workflow_id,
-                'created_at': datetime.utcnow()
-            }
+            raise Exception("World ID not set - world should have been created in backstory node")
 
-            db.world_definitions.insert_one(world_doc)
-            state.world_id = world_id
-
-            logger.info(f"Created world in MongoDB: {world_id}")
-
-            # Publish Neo4j event for world creation
-            publish_entity_event('world', 'created', world_id, {
-                'world_name': state.world_data.get('world_name'),
-                'description': state.world_data.get('description', ''),
-                'genre': state.genre
-            })
-
-        # Now generate images using existing Django endpoint
+        # Generate images using existing Django endpoint
         async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
                 f"{DJANGO_URL}/worlds/{state.world_id}/generate-image/",

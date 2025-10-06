@@ -149,6 +149,26 @@
                         {% endif %}
                     </div>
 
+                    <!-- Generate Images Checkbox -->
+                    <div class="input-field" style="margin-top: 30px; margin-bottom: 30px;">
+                        <p>
+                            <label>
+                                <input type="checkbox" id="generate_images" name="generate_images" class="filled-in"
+                                       {% if form.generate_images.value %}checked{% endif %} />
+                                <span style="color: #e0e0e0; font-size: 1.1rem;">
+                                    <i class="material-icons tiny" style="color: var(--rpg-gold); vertical-align: middle;">image</i>
+                                    Generate Images for this World
+                                </span>
+                            </label>
+                        </p>
+                        <span class="helper-text" style="margin-left: 37px;">
+                            If unchecked, world will be created without images. You can generate images later.
+                        </span>
+                        {% if form.generate_images.errors %}
+                            <span class="helper-text red-text" style="margin-left: 37px;">{{ form.generate_images.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
                     <!-- Themes (Multi-select) -->
                     <div class="input-field">
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">label</i>

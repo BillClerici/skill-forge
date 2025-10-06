@@ -93,8 +93,9 @@ class WorldFactoryService:
             workflow_id = job_data.get('workflow_id')
             genre = job_data.get('genre')
             user_id = job_data.get('user_id')
+            generate_images = job_data.get('generate_images', True)  # Default to True
 
-            logger.info(f"Processing world factory job: {workflow_id} for genre: {genre}")
+            logger.info(f"Processing world factory job: {workflow_id} for genre: {genre} (Images: {'enabled' if generate_images else 'disabled'})")
 
             # Check if this workflow is already running or completed to prevent duplicates
             from datetime import datetime
@@ -113,6 +114,7 @@ class WorldFactoryService:
                 workflow_id=workflow_id,
                 genre=genre,
                 user_id=user_id,
+                generate_images=generate_images,
                 current_step="start",
                 world_id=None,
                 region_ids=[],
@@ -129,6 +131,7 @@ class WorldFactoryService:
                     'workflow_id': workflow_id,
                     'user_id': user_id,
                     'genre': genre,
+                    'generate_images': generate_images,
                     'status': 'running',
                     'current_step': 'start',
                     'world_id': None,
@@ -167,8 +170,11 @@ class WorldFactoryService:
         try:
             from datetime import datetime
 
+            # Convert Pydantic model to dict for LangGraph
+            state_dict = initial_state.model_dump()
+
             # Run the workflow
-            final_state = await self.workflow_graph.ainvoke(initial_state)
+            final_state = await self.workflow_graph.ainvoke(state_dict)
 
             logger.info(f"Workflow completed: {final_state['workflow_id']}")
 

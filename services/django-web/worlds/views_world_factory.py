@@ -34,12 +34,13 @@ class WorldFactoryInitiateView(View):
     def post(self, request):
         """
         Initiate world factory generation
-        Expected JSON: {"genre": "Fantasy", "user_id": "user_uuid"}
+        Expected JSON: {"genre": "Fantasy", "user_id": "user_uuid", "generate_images": true}
         """
         try:
             data = json.loads(request.body)
             genre = data.get('genre')
             user_id = data.get('user_id', 'anonymous')
+            generate_images = data.get('generate_images', True)  # Default to True for backwards compatibility
 
             if not genre:
                 return JsonResponse({
@@ -55,6 +56,7 @@ class WorldFactoryInitiateView(View):
                 'workflow_id': workflow_id,
                 'genre': genre,
                 'user_id': user_id,
+                'generate_images': generate_images,
                 'initiated_at': datetime.utcnow().isoformat()
             }
 
@@ -94,11 +96,12 @@ class WorldFactoryInitiateView(View):
                     'workflow_id': workflow_id,
                     'genre': genre,
                     'user_id': user_id,
+                    'generate_images': generate_images,
                     'status': 'initiated',
                     'audit_trail': [{
                         'step': 'initiate',
                         'status': 'started',
-                        'message': f'World factory workflow initiated for genre: {genre}',
+                        'message': f'World factory workflow initiated for genre: {genre} (Images: {"enabled" if generate_images else "disabled"})',
                         'timestamp': datetime.utcnow()
                     }],
                     'created_at': datetime.utcnow()

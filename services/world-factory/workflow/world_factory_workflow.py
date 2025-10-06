@@ -81,6 +81,9 @@ def route_after_backstory(state: WorldFactoryState) -> str:
     """Route after backstory generation"""
     if state.errors:
         return "failed" if state.retry_count >= state.max_retries else "retry_backstory"
+    # Skip world images if generate_images is False
+    if not state.generate_images:
+        return "generate_regions"
     return "generate_world_images"
 
 
@@ -95,6 +98,9 @@ def route_after_regions(state: WorldFactoryState) -> str:
     """Route after regions generation"""
     if state.errors:
         return "failed" if state.retry_count >= state.max_retries else "retry_regions"
+    # Skip region images if generate_images is False
+    if not state.generate_images:
+        return "generate_locations"
     return "generate_region_images"
 
 
@@ -108,6 +114,9 @@ def route_after_locations(state: WorldFactoryState) -> str:
     """Route after locations generation"""
     if state.errors:
         return "failed" if state.retry_count >= state.max_retries else "retry_locations"
+    # Skip location images if generate_images is False
+    if not state.generate_images:
+        return "generate_species"
     return "generate_location_images"
 
 
@@ -121,6 +130,9 @@ def route_after_species(state: WorldFactoryState) -> str:
     """Route after species generation"""
     if state.errors:
         return "failed" if state.retry_count >= state.max_retries else "retry_species"
+    # Skip species images if generate_images is False
+    if not state.generate_images:
+        return "finalize"
     return "generate_species_images"
 
 
@@ -205,6 +217,7 @@ def create_world_factory_workflow() -> StateGraph:
         route_after_backstory,
         {
             "generate_world_images": "generate_world_images",
+            "generate_regions": "generate_regions",  # Skip images if disabled
             "retry_backstory": "generate_backstory",
             "failed": END
         }
@@ -223,6 +236,7 @@ def create_world_factory_workflow() -> StateGraph:
         route_after_regions,
         {
             "generate_region_images": "generate_region_images",
+            "generate_locations": "generate_locations",  # Skip images if disabled
             "retry_regions": "generate_regions",
             "failed": END
         }
@@ -241,6 +255,7 @@ def create_world_factory_workflow() -> StateGraph:
         route_after_locations,
         {
             "generate_location_images": "generate_location_images",
+            "generate_species": "generate_species",  # Skip images if disabled
             "retry_locations": "generate_locations",
             "failed": END
         }
@@ -259,6 +274,7 @@ def create_world_factory_workflow() -> StateGraph:
         route_after_species,
         {
             "generate_species_images": "generate_species_images",
+            "finalize": "finalize",  # Skip images if disabled
             "retry_species": "generate_species",
             "failed": END
         }

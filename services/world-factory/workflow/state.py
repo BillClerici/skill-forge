@@ -27,6 +27,7 @@ class WorldFactoryState(BaseModel):
     genre: str
     user_id: str
     current_step: str
+    generate_images: bool = True  # Flag to control image generation
 
     # Generated entity IDs
     world_id: Optional[str] = None

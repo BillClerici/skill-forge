@@ -477,6 +477,47 @@ async def generate_world_backstory_node(state: WorldFactoryState) -> WorldFactor
                     {'backstory_length': len(backstory), 'timeline_events': len(timeline)}
                 )
 
+                # Create world in MongoDB now that we have all the data
+                # (Previously this was in generate_world_images_node, but we need it here
+                # so the world exists even when image generation is skipped)
+                if not state.world_id:
+                    from .utils import publish_entity_event
+                    world_id = str(uuid.uuid4())
+                    world_doc = {
+                        '_id': world_id,
+                        'world_name': state.world_data.get('world_name'),
+                        'description': state.world_data.get('description', ''),
+                        'genre': state.genre,
+                        'themes': state.world_data.get('themes', []),
+                        'visual_style': state.world_data.get('visual_style', []),
+                        'physical_properties': state.world_data.get('physical_properties', {}),
+                        'biological_properties': state.world_data.get('biological_properties', {}),
+                        'technological_properties': state.world_data.get('technological_properties', {}),
+                        'societal_properties': state.world_data.get('societal_properties', {}),
+                        'historical_properties': state.world_data.get('historical_properties', {}),
+                        'backstory': state.world_data.get('backstory', ''),
+                        'timeline': state.world_data.get('timeline', []),
+                        'universe_ids': [],
+                        'regions': [],
+                        'species': [],
+                        'world_images': [],
+                        'primary_image_index': None,
+                        'created_by_workflow': state.workflow_id,
+                        'created_at': datetime.utcnow()
+                    }
+
+                    db.world_definitions.insert_one(world_doc)
+                    state.world_id = world_id
+
+                    logger.info(f"Created world in MongoDB: {world_id}")
+
+                    # Publish Neo4j event for world creation
+                    publish_entity_event('world', 'created', world_id, {
+                        'world_name': state.world_data.get('world_name'),
+                        'description': state.world_data.get('description', ''),
+                        'genre': state.genre
+                    })
+
                 state.retry_count = 0
             else:
                 raise Exception(f"Orchestrator returned status {response.status_code}: {response.text}")
