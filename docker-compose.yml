@@ -351,9 +351,9 @@ services:
       - ./services/account-service:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-  member-service:
-    build: ./services/member-service
-    container_name: skillforge-member-service
+  player-service:
+    build: ./services/player-service
+    container_name: skillforge-player-service
     environment:
       - DATABASE_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
       - NEO4J_URL=bolt://neo4j:7687
@@ -368,7 +368,7 @@ services:
     networks:
       - skillforge-network
     volumes:
-      - ./services/member-service:/app
+      - ./services/player-service:/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   # ============================================

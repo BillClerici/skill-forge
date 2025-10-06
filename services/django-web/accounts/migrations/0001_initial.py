@@ -1,0 +1,38 @@
+# Initial migration for accounts app
+
+from django.db import migrations, models
+import uuid
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Account',
+            fields=[
+                ('account_id', models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)),
+                ('name', models.CharField(max_length=255, null=True, blank=True)),
+                ('account_owner_player_id', models.UUIDField(null=True, blank=True)),
+                ('account_type', models.CharField(max_length=50)),
+                ('subscription_tier', models.CharField(max_length=50, null=True, blank=True)),
+                ('subscription_status', models.CharField(max_length=20, default='active')),
+                ('billing_cycle', models.CharField(max_length=20, null=True, blank=True)),
+                ('subscription_start_date', models.DateField(null=True, blank=True)),
+                ('next_billing_date', models.DateField(null=True, blank=True)),
+                ('max_players', models.IntegerField(default=1)),
+                ('current_player_count', models.IntegerField(default=1)),
+                ('stripe_customer_id', models.CharField(max_length=100, null=True, blank=True)),
+                ('stripe_subscription_id', models.CharField(max_length=100, null=True, blank=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                'db_table': 'accounts',
+            },
+        ),
+    ]

@@ -28,10 +28,7 @@ class AccountCreateForm(forms.ModelForm):
 
     class Meta:
         model = Account
-        fields = ['name', 'account_type']
-        widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'e.g., Smith Family Account'}),
-        }
+        fields = ['account_type']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,10 +43,7 @@ class AccountEditForm(forms.ModelForm):
 
     class Meta:
         model = Account
-        fields = ['name', 'account_type', 'max_players']
-        widgets = {
-            'name': forms.TextInput(attrs={'placeholder': 'e.g., Smith Family Account'}),
-        }
+        fields = ['account_type', 'max_players']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +60,7 @@ class PlayerCreateForm(forms.ModelForm):
         model = Player
         fields = [
             'display_name', 'email', 'date_of_birth', 'role',
-            'is_primary', 'can_manage_account', 'can_manage_players', 'can_view_billing',
+            'can_manage_account', 'can_manage_players', 'can_view_billing',
             'content_restriction_level'
         ]
         widgets = {
@@ -83,7 +77,6 @@ class PlayerCreateForm(forms.ModelForm):
                 field.widget.attrs['class'] = field.widget.attrs.get('class', '') + ' validate'
 
         # Add help text
-        self.fields['is_primary'].help_text = "Primary players can manage the account and add/remove other players"
         self.fields['role'].help_text = "Select the player's role in the account"
 
 
@@ -94,7 +87,7 @@ class PlayerEditForm(forms.ModelForm):
         model = Player
         fields = [
             'display_name', 'email', 'date_of_birth', 'role',
-            'is_primary', 'can_manage_account', 'can_manage_players', 'can_view_billing',
+            'can_manage_account', 'can_manage_players', 'can_view_billing',
             'content_restriction_level', 'is_active'
         ]
         widgets = {

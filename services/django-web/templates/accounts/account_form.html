@@ -37,19 +37,6 @@
                         <i class="material-icons tiny" style="vertical-align: middle;">group</i> Account Details
                     </h6>
 
-                    <!-- Account Name -->
-                    <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">label</i>
-                        {{ form.name }}
-                        <label for="{{ form.name.id_for_label }}">Account Name</label>
-                        {% if form.name.help_text %}
-                        <span class="helper-text grey-text">{{ form.name.help_text }}</span>
-                        {% endif %}
-                        {% if form.name.errors %}
-                        <span class="helper-text red-text">{{ form.name.errors.0 }}</span>
-                        {% endif %}
-                    </div>
-
                     <!-- Account Type -->
                     <div class="input-field">
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">category</i>
