@@ -1402,10 +1402,29 @@ class LocationUpdateView(View):
         region['region_id'] = region['_id']
         location['location_id'] = location['_id']
 
+        # Calculate location depth for determining available location types
+        location_depth = 1  # Default to level 1
+        if location.get('parent_location_id'):
+            # This location has a parent, so check parent's depth
+            parent = db.location_definitions.find_one({'_id': location['parent_location_id']})
+            if parent:
+                if parent.get('parent_location_id'):
+                    location_depth = 3  # Parent has a parent, so this is level 3
+                else:
+                    location_depth = 2  # Parent is top-level, so this is level 2
+
+        # Get all locations in this region for parent selection
+        all_locations = list(db.location_definitions.find({'region_id': region_id}))
+        for loc in all_locations:
+            loc['location_id'] = loc['_id']
+
         return render(request, 'worlds/location_form.html', {
             'world': world,
             'region': region,
-            'location': location
+            'location': location,
+            'location_depth': location_depth,
+            'all_locations': all_locations,
+            'parent_location_id': location.get('parent_location_id')
         })
 
     def post(self, request, world_id, region_id, location_id):
@@ -1845,11 +1864,12 @@ class WorldGenerateImageView(View):
 
         try:
             # Get current image count to determine how many to generate
+            # Admin pages can have up to 4 images
             current_images = world.get('world_images', [])
-            images_to_generate = 1 - len(current_images)
+            images_to_generate = 4 - len(current_images)
 
             if images_to_generate <= 0:
-                return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
+                return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
 
             # Get regions and locations for richer context
             regions = list(db.region_definitions.find({'world_id': world_id}))
@@ -1880,7 +1900,7 @@ class WorldGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
-            # Define 1 image type: Full Planet View
+            # Define 4 image types for different perspectives
             description = world.get('description', '')
             image_types = [
                 {
@@ -1902,6 +1922,65 @@ Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 
 Art Direction: Full planetary view from space, highly detailed, professional space illustration, dramatic lighting, epic scale"""
+                },
+                {
+                    'type': 'landscape',
+                    'name': 'Iconic Landscape',
+                    'prompt_template': f"""Create an epic landscape view of {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
+
+Show a sweeping landscape featuring:
+- {', '.join(physical.get('terrain', ['mountains', 'valleys'])[:2])}
+- {physical.get('climate', 'Varied climate')} atmosphere
+- {', '.join(biological.get('flora', ['exotic vegetation'])[:2])}
+- Dramatic sky and lighting
+{f"- Regions: {', '.join(region_summary[:2])}" if region_summary else ""}
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+Themes: {themes if themes else 'Adventure and wonder'}
+
+Art Direction: Wide cinematic landscape, epic scale, highly detailed, dramatic atmosphere, professional concept art"""
+                },
+                {
+                    'type': 'settlement',
+                    'name': 'Major Settlement',
+                    'prompt_template': f"""Create a detailed view of a major settlement or city in {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
+
+Show an impressive settlement with:
+- Architecture reflecting the world's culture and technology
+- {', '.join(world.get('societal_properties', {}).get('culture_traditions', ['unique cultural elements'])[:2])}
+- Inhabitants going about their lives
+- {world.get('technological_properties', {}).get('technology_level', 'Medieval technology')}
+- Surrounding environment integration
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+
+Art Direction: Detailed settlement view, bustling with life, architectural detail, cinematic composition, professional concept art"""
+                },
+                {
+                    'type': 'atmospheric',
+                    'name': 'Atmospheric Scene',
+                    'prompt_template': f"""Create an atmospheric, mood-setting scene from {world.get('world_name')}
+
+{f"World Description: {description}" if description else ""}
+
+Capture the world's essence with:
+- Dramatic lighting and weather effects
+- Mysterious or awe-inspiring environment
+- {', '.join(biological.get('fauna', ['unique creatures'])[:2])} presence
+- Environmental storytelling elements
+- Sense of scale and wonder
+
+Genre: {world.get('genre')}
+Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
+Themes: {themes if themes else 'Mystery and discovery'}
+
+Art Direction: Cinematic atmosphere, dramatic mood, evocative lighting, professional concept art, epic fantasy illustration"""
                 }
             ]
 
@@ -2094,11 +2173,12 @@ class RegionGenerateImageView(View):
 
         try:
             # Get current image count
+            # Admin pages can have up to 4 images
             current_images = region.get('region_images', [])
-            images_to_generate = 1 - len(current_images)
+            images_to_generate = 4 - len(current_images)
 
             if images_to_generate <= 0:
-                return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
+                return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
 
             # Get locations for context
             locations = list(db.location_definitions.find({'region_id': region_id}).limit(5))
@@ -2120,11 +2200,11 @@ class RegionGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
-            # Define 1 image type: Region View
+            # Define 4 image types for different perspectives
             image_types = [
                 {
-                    'type': 'region_view',
-                    'name': 'Region View',
+                    'type': 'panoramic_view',
+                    'name': 'Panoramic Vista',
                     'prompt_template': f"""Create a cinematic, wide panoramic vista of the fantasy RPG region: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
@@ -2141,6 +2221,60 @@ Environment:
 {region.get('description', '')[:150] if region.get('description') else ''}
 
 Art Direction: Wide establishing shot showing the full scope of the region, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+                },
+                {
+                    'type': 'key_landmark',
+                    'name': 'Key Landmark',
+                    'prompt_template': f"""Create a dramatic view of the most iconic landmark in the region: {region.get('region_name')}
+
+World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
+Region Type: {region.get('region_type', 'Fantasy region')}
+
+Show a prominent natural or architectural feature:
+- {', '.join(physical.get('natural_features', ['distinctive features'])[:2])}
+- Climate: {physical.get('climate', 'Varied')}
+- Surrounding terrain: {', '.join(physical.get('terrain_types', [])[:2])}
+
+{f"Near: {location_summary[0]}" if location_summary else ''}
+
+Art Direction: Dramatic composition focusing on iconic feature, cinematic lighting, professional concept art, detailed environment
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+                },
+                {
+                    'type': 'inhabited_area',
+                    'name': 'Inhabited Area',
+                    'prompt_template': f"""Create a detailed view of where people live and gather in the region: {region.get('region_name')}
+
+World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
+
+Show settlements or gathering places:
+- Architecture style: {', '.join(cultural.get('architectural_style', ['regional architecture'])[:2])}
+- Local culture: {', '.join(cultural.get('traditions', ['local traditions'])[:2])}
+- {f"Locations like: {', '.join(location_summary[:2])}" if location_summary else 'Local settlements'}
+- Climate influence: {physical.get('climate', 'Varied')}
+
+Art Direction: Populated area showing daily life, architectural detail, atmospheric lighting, professional concept art
+
+IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+                },
+                {
+                    'type': 'environmental_detail',
+                    'name': 'Environmental Detail',
+                    'prompt_template': f"""Create an atmospheric close-up view of the unique environment in: {region.get('region_name')}
+
+World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
+
+Focus on environmental details:
+- Climate effects: {physical.get('climate', 'Varied')}
+- Natural features: {', '.join(physical.get('natural_features', ['unique elements'])[:2])}
+- Flora and fauna presence
+- Weather and atmospheric conditions
+- Mood: {themes if themes else 'mysterious atmosphere'}
+
+Art Direction: Detailed environmental study, cinematic atmosphere, dramatic mood lighting, professional fantasy illustration
 
 IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
                 }
@@ -2202,12 +2336,12 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
 
             all_images = current_images + new_images
 
-            # Set Far Away as primary by default if it was just generated and no primary exists
+            # Set Panoramic View as primary by default if it was just generated and no primary exists
             update_data = {'region_images': all_images}
             if region.get('primary_image_index') is None:
-                # Find the far_away image index
+                # Find the panoramic_view image index
                 for idx, img in enumerate(all_images):
-                    if img.get('image_type') == 'far_away':
+                    if img.get('image_type') == 'panoramic_view':
                         update_data['primary_image_index'] = idx
                         break
 

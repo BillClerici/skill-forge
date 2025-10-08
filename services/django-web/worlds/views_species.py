@@ -518,22 +518,38 @@ class SpeciesGenerateImageView(View):
             return JsonResponse({'error': 'World or Species not found'}, status=404)
 
         # Check how many images already exist
+        # Admin pages can have up to 4 images
         current_images = species.get('species_images', [])
-        if len(current_images) >= 1:
-            return JsonResponse({'error': 'Already have 1 image. Delete it first.'}, status=400)
+        if len(current_images) >= 4:
+            return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
 
         try:
-            # Define 1 image type: Full Body
+            # Define 4 image types for different perspectives
             image_types = [
                 {
                     'type': 'full_body',
                     'name': 'Full Body View',
                     'perspective': 'full body standing pose showing complete form'
+                },
+                {
+                    'type': 'portrait',
+                    'name': 'Portrait',
+                    'perspective': 'close-up portrait showing face and upper body details'
+                },
+                {
+                    'type': 'action_pose',
+                    'name': 'Action Pose',
+                    'perspective': 'dynamic action pose showing movement and agility'
+                },
+                {
+                    'type': 'habitat',
+                    'name': 'In Natural Habitat',
+                    'perspective': 'shown in natural environment or habitat, environmental context'
                 }
             ]
 
             # Determine which images to generate based on what's missing
-            images_to_generate = 1 - len(current_images)
+            images_to_generate = 4 - len(current_images)
             generated_images = []
             existing_types = [img.get('image_type') for img in current_images]
 
