@@ -1863,13 +1863,15 @@ class WorldGenerateImageView(View):
             return JsonResponse({'error': 'World not found'}, status=404)
 
         try:
-            # Get current image count to determine how many to generate
-            # Admin pages can have up to 4 images
+            # Get current image count
+            # Admin pages can have up to 4 images, but generate 1 at a time
             current_images = world.get('world_images', [])
-            images_to_generate = 4 - len(current_images)
 
-            if images_to_generate <= 0:
+            if len(current_images) >= 4:
                 return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
+
+            # Generate only 1 image at a time
+            images_to_generate = 1
 
             # Get regions and locations for richer context
             regions = list(db.region_definitions.find({'world_id': world_id}))
@@ -1902,11 +1904,28 @@ class WorldGenerateImageView(View):
 
             # Define 4 image types for different perspectives
             description = world.get('description', '')
+
+            # Strong anti-text prefix for ALL prompts
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix for ALL prompts
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
             image_types = [
                 {
                     'type': 'full_planet',
                     'name': 'Full Planet View',
-                    'prompt_template': f"""Create a cinematic full planet view of the fantasy world: {world.get('world_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a cinematic full planet view of the fantasy world: {world.get('world_name')}
 
 {f"World Description: {description}" if description else ""}
 
@@ -1921,12 +1940,12 @@ Show the entire planet from space with:
 Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 
-Art Direction: Full planetary view from space, highly detailed, professional space illustration, dramatic lighting, epic scale"""
+Art Direction: Full planetary view from space, highly detailed, professional space illustration, dramatic lighting, epic scale{no_text_suffix}"""
                 },
                 {
                     'type': 'landscape',
                     'name': 'Iconic Landscape',
-                    'prompt_template': f"""Create an epic landscape view of {world.get('world_name')}
+                    'prompt_template': f"""{no_text_prefix}Create an epic landscape view of {world.get('world_name')}
 
 {f"World Description: {description}" if description else ""}
 
@@ -1941,12 +1960,12 @@ Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 Themes: {themes if themes else 'Adventure and wonder'}
 
-Art Direction: Wide cinematic landscape, epic scale, highly detailed, dramatic atmosphere, professional concept art"""
+Art Direction: Wide cinematic landscape, epic scale, highly detailed, dramatic atmosphere, professional concept art{no_text_suffix}"""
                 },
                 {
                     'type': 'settlement',
                     'name': 'Major Settlement',
-                    'prompt_template': f"""Create a detailed view of a major settlement or city in {world.get('world_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a detailed view of a major settlement or city in {world.get('world_name')}
 
 {f"World Description: {description}" if description else ""}
 
@@ -1960,12 +1979,12 @@ Show an impressive settlement with:
 Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 
-Art Direction: Detailed settlement view, bustling with life, architectural detail, cinematic composition, professional concept art"""
+Art Direction: Detailed settlement view, bustling with life, architectural detail, cinematic composition, professional concept art{no_text_suffix}"""
                 },
                 {
                     'type': 'atmospheric',
                     'name': 'Atmospheric Scene',
-                    'prompt_template': f"""Create an atmospheric, mood-setting scene from {world.get('world_name')}
+                    'prompt_template': f"""{no_text_prefix}Create an atmospheric, mood-setting scene from {world.get('world_name')}
 
 {f"World Description: {description}" if description else ""}
 
@@ -1980,7 +1999,7 @@ Genre: {world.get('genre')}
 Visual Style: {visual_styles if visual_styles else 'Epic high-fantasy'}
 Themes: {themes if themes else 'Mystery and discovery'}
 
-Art Direction: Cinematic atmosphere, dramatic mood, evocative lighting, professional concept art, epic fantasy illustration"""
+Art Direction: Cinematic atmosphere, dramatic mood, evocative lighting, professional concept art, epic fantasy illustration{no_text_suffix}"""
                 }
             ]
 
@@ -2001,7 +2020,7 @@ Art Direction: Cinematic atmosphere, dramatic mood, evocative lighting, professi
                     # All types exist, shouldn't happen but fallback to first type
                     image_type_config = image_types[0]
 
-                dalle_prompt = f"{image_type_config['prompt_template']}. IMPORTANT: No text, letters, words, or symbols of any kind in the image."
+                dalle_prompt = image_type_config['prompt_template']
 
                 # Generate image with DALL-E 3
                 response = client.images.generate(
@@ -2173,12 +2192,14 @@ class RegionGenerateImageView(View):
 
         try:
             # Get current image count
-            # Admin pages can have up to 4 images
+            # Admin pages can have up to 4 images, but generate 1 at a time
             current_images = region.get('region_images', [])
-            images_to_generate = 4 - len(current_images)
 
-            if images_to_generate <= 0:
+            if len(current_images) >= 4:
                 return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
+
+            # Generate only 1 image at a time
+            images_to_generate = 1
 
             # Get locations for context
             locations = list(db.location_definitions.find({'region_id': region_id}).limit(5))
@@ -2200,12 +2221,28 @@ class RegionGenerateImageView(View):
 
             client = OpenAI(api_key=openai_api_key)
 
+            # Strong anti-text prefix for ALL prompts
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix for ALL prompts
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
             # Define 4 image types for different perspectives
             image_types = [
                 {
                     'type': 'panoramic_view',
                     'name': 'Panoramic Vista',
-                    'prompt_template': f"""Create a cinematic, wide panoramic vista of the fantasy RPG region: {region.get('region_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a cinematic, wide panoramic vista of the fantasy RPG region: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
 Region Type: {region.get('region_type', 'Fantasy region')}
@@ -2220,14 +2257,12 @@ Environment:
 
 {region.get('description', '')[:150] if region.get('description') else ''}
 
-Art Direction: Wide establishing shot showing the full scope of the region, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Wide establishing shot showing the full scope of the region, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration{no_text_suffix}"""
                 },
                 {
                     'type': 'key_landmark',
                     'name': 'Key Landmark',
-                    'prompt_template': f"""Create a dramatic view of the most iconic landmark in the region: {region.get('region_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a dramatic view of the most iconic landmark in the region: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
 Region Type: {region.get('region_type', 'Fantasy region')}
@@ -2239,14 +2274,12 @@ Show a prominent natural or architectural feature:
 
 {f"Near: {location_summary[0]}" if location_summary else ''}
 
-Art Direction: Dramatic composition focusing on iconic feature, cinematic lighting, professional concept art, detailed environment
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Dramatic composition focusing on iconic feature, cinematic lighting, professional concept art, detailed environment{no_text_suffix}"""
                 },
                 {
                     'type': 'inhabited_area',
                     'name': 'Inhabited Area',
-                    'prompt_template': f"""Create a detailed view of where people live and gather in the region: {region.get('region_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a detailed view of where people live and gather in the region: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
 
@@ -2256,14 +2289,12 @@ Show settlements or gathering places:
 - {f"Locations like: {', '.join(location_summary[:2])}" if location_summary else 'Local settlements'}
 - Climate influence: {physical.get('climate', 'Varied')}
 
-Art Direction: Populated area showing daily life, architectural detail, atmospheric lighting, professional concept art
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Populated area showing daily life, architectural detail, atmospheric lighting, professional concept art{no_text_suffix}"""
                 },
                 {
                     'type': 'environmental_detail',
                     'name': 'Environmental Detail',
-                    'prompt_template': f"""Create an atmospheric close-up view of the unique environment in: {region.get('region_name')}
+                    'prompt_template': f"""{no_text_prefix}Create an atmospheric close-up view of the unique environment in: {region.get('region_name')}
 
 World: {world.get('world_name')} - {world.get('genre', 'Fantasy')}
 
@@ -2274,9 +2305,7 @@ Focus on environmental details:
 - Weather and atmospheric conditions
 - Mood: {themes if themes else 'mysterious atmosphere'}
 
-Art Direction: Detailed environmental study, cinematic atmosphere, dramatic mood lighting, professional fantasy illustration
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Detailed environmental study, cinematic atmosphere, dramatic mood lighting, professional fantasy illustration{no_text_suffix}"""
                 }
             ]
 

@@ -26,12 +26,14 @@ class LocationGenerateImageView(View):
 
         try:
             # Get current image count
-            # Admin pages can have up to 4 images
+            # Admin pages can have up to 4 images, but generate 1 at a time
             current_images = location.get('location_images', [])
-            images_to_generate = 4 - len(current_images)
 
-            if images_to_generate <= 0:
+            if len(current_images) >= 4:
                 return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
+
+            # Generate only 1 image at a time
+            images_to_generate = 1
 
             # Build comprehensive prompt
             features = location.get('features', [])
@@ -51,12 +53,28 @@ class LocationGenerateImageView(View):
 
             client_openai = OpenAI(api_key=openai_api_key)
 
+            # Strong anti-text prefix for ALL prompts
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix for ALL prompts
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
             # Define 4 image types for different perspectives
             image_types = [
                 {
                     'type': 'exterior_view',
                     'name': 'Exterior View',
-                    'prompt_template': f"""Create a cinematic exterior view of the fantasy RPG location: {location.get('location_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a cinematic exterior view of the fantasy RPG location: {location.get('location_name')}
 
 World: {world.get('world_name') if world else 'Fantasy World'} - {world.get('genre', 'Fantasy') if world else 'Fantasy'}
 Region: {region.get('region_name') if region else 'Unknown Region'} - {region.get('region_type') if region else ''}
@@ -68,14 +86,12 @@ Environment:
 
 {location.get('description', '')[:150] if location.get('description') else ''}
 
-Art Direction: Wide exterior establishing shot, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Wide exterior establishing shot, highly detailed digital concept art, dramatic lighting, epic scale, professional fantasy illustration{no_text_suffix}"""
                 },
                 {
                     'type': 'interior_view',
                     'name': 'Interior View',
-                    'prompt_template': f"""Create a detailed interior view of the fantasy RPG location: {location.get('location_name')}
+                    'prompt_template': f"""{no_text_prefix}Create a detailed interior view of the fantasy RPG location: {location.get('location_name')}
 
 World: {world.get('world_name') if world else 'Fantasy World'} - {world.get('genre', 'Fantasy') if world else 'Fantasy'}
 Location Type: {location.get('location_type', 'Fantasy location')}
@@ -88,14 +104,12 @@ Interior Details:
 
 {location.get('description', '')[:150] if location.get('description') else ''}
 
-Art Direction: Atmospheric interior shot, detailed environment, dramatic lighting, professional concept art
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Atmospheric interior shot, detailed environment, dramatic lighting, professional concept art{no_text_suffix}"""
                 },
                 {
                     'type': 'entrance_view',
                     'name': 'Entrance View',
-                    'prompt_template': f"""Create an imposing view of the entrance to the fantasy RPG location: {location.get('location_name')}
+                    'prompt_template': f"""{no_text_prefix}Create an imposing view of the entrance to the fantasy RPG location: {location.get('location_name')}
 
 World: {world.get('world_name') if world else 'Fantasy World'} - {world.get('genre', 'Fantasy') if world else 'Fantasy'}
 Region: {region.get('region_name') if region else 'Unknown Region'}
@@ -107,14 +121,12 @@ Entrance Features:
 - Entry point architectural details
 - Welcoming or foreboding atmosphere
 
-Art Direction: Dramatic entrance composition, detailed architecture, atmospheric lighting, professional fantasy illustration
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Dramatic entrance composition, detailed architecture, atmospheric lighting, professional fantasy illustration{no_text_suffix}"""
                 },
                 {
                     'type': 'atmospheric_detail',
                     'name': 'Atmospheric Detail',
-                    'prompt_template': f"""Create an atmospheric detail shot from the fantasy RPG location: {location.get('location_name')}
+                    'prompt_template': f"""{no_text_prefix}Create an atmospheric detail shot from the fantasy RPG location: {location.get('location_name')}
 
 World: {world.get('world_name') if world else 'Fantasy World'} - {world.get('genre', 'Fantasy') if world else 'Fantasy'}
 
@@ -125,9 +137,7 @@ Environmental Details:
 - Mood and atmosphere
 - Environmental storytelling elements
 
-Art Direction: Close-up atmospheric detail, cinematic mood, dramatic lighting, professional concept art
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Close-up atmospheric detail, cinematic mood, dramatic lighting, professional concept art{no_text_suffix}"""
                 }
             ]
 

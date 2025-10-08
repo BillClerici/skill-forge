@@ -105,10 +105,10 @@ urlpatterns = [
 
     # Species
     path('worlds/<str:world_id>/species/create/', SpeciesCreateView.as_view(), name='species_create'),
+    path('worlds/<str:world_id>/species/generate-ai/', SpeciesGenerateAIView.as_view(), name='species_generate_ai'),
     path('worlds/<str:world_id>/species/<str:species_id>/', SpeciesDetailView.as_view(), name='species_detail'),
     path('worlds/<str:world_id>/species/<str:species_id>/edit/', SpeciesEditView.as_view(), name='species_edit'),
     path('worlds/<str:world_id>/species/<str:species_id>/delete/', SpeciesDeleteView.as_view(), name='species_delete'),
-    path('worlds/<str:world_id>/species/generate-ai/', SpeciesGenerateAIView.as_view(), name='species_generate_ai'),
     path('worlds/<str:world_id>/species/<str:species_id>/generate-image/', SpeciesGenerateImageView.as_view(), name='species_generate_image'),
     path('worlds/<str:world_id>/species/<str:species_id>/delete-image/', SpeciesDeleteImageView.as_view(), name='species_delete_image'),
     path('worlds/<str:world_id>/species/<str:species_id>/set-primary-image/', SpeciesSetPrimaryImageView.as_view(), name='species_set_primary_image'),

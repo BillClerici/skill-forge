@@ -504,14 +504,58 @@ async def generate_species_node(state: WorldFactoryState) -> WorldFactoryState:
             for r in regions_info
         ])
 
+        # Define available character traits from the form
+        available_traits = [
+            "Aggressive", "Peaceful", "Intelligent", "Cunning", "Loyal", "Territorial",
+            "Nomadic", "Social", "Solitary", "Mystical", "Adaptive", "Traditional",
+            "Innovative", "Honorable", "Deceptive", "Brave", "Cautious", "Industrious",
+            "Lazy", "Curious"
+        ]
+
+        # Extract additional properties for richer context
+        world_data = state.world_data
+        physical = world_data.get('physical_properties', {})
+        biological = world_data.get('biological_properties', {})
+        technological = world_data.get('technological_properties', {})
+        societal = world_data.get('societal_properties', {})
+        historical = world_data.get('historical_properties', {})
+
+        # Build context strings
+        tech_level = technological.get('technology_level', 'varied')
+        power_sources = ', '.join(technological.get('power_sources', []))
+        governance = ', '.join(societal.get('governance_types', []))
+        social_structure = societal.get('social_structure', '')
+        visual_style_str = ', '.join(world_data.get('visual_style', []))
+
         prompt = ChatPromptTemplate.from_messages([
             ("system", f"""You are creating unique species for an RPG world.
-Generate {num_species} diverse and interesting species that fit the world's genre, themes, and environmental features.
+Generate {num_species} diverse and interesting species that fit the world's genre, themes, environmental features, technology level, and society.
+
+WORLD CONTEXT:
+- Visual Style: {visual_style_str if visual_style_str else 'varied'}
+- Technology Level: {tech_level}
+- Power Sources: {power_sources if power_sources else 'varied'}
+- Governance: {governance if governance else 'varied'}
+- Social Structure: {social_structure if social_structure else 'varied'}
 
 IMPORTANT: Species can exist in multiple regions based on:
 - Compatible terrain types (e.g., mountain species can live in all mountain regions)
 - Climate compatibility (e.g., cold-adapted species in arctic/tundra regions)
 - Ecological niches (predators, herbivores, magical beings, etc.)
+- Technology level (some species may be more/less technologically advanced)
+- Social structures (how they interact with governance and society)
+
+CHARACTER TRAITS INSTRUCTIONS:
+You must select 3-5 character traits for each species that align with:
+1. The species' description and backstory
+2. The environments/regions they inhabit (e.g., mountain dwellers might be "Brave", "Territorial", arctic species might be "Adaptive", "Cautious")
+3. The world's genre, themes, and technology level
+4. The societal structures they interact with
+
+Available predefined traits (use these first):
+{', '.join(available_traits)}
+
+You may also create 1-2 custom traits if needed to capture unique aspects of the species, but prioritize using the predefined traits above.
 
 Output valid JSON with this structure:
 {{{{
@@ -520,8 +564,8 @@ Output valid JSON with this structure:
             "species_name": "name",
             "species_type": "humanoid/creature/elemental/plant-based/mechanical/etc",
             "category": "sentient/wildlife/magical/symbiotic",
-            "description": "detailed description including adaptations",
-            "backstory": "rich backstory and origin",
+            "description": "detailed description including adaptations and how they fit the world's technology/society",
+            "backstory": "rich backstory and origin that references the world's history and culture",
             "character_traits": ["trait1", "trait2", "trait3", "trait4"],
             "habitat_requirements": {{{{
                 "terrain_types": ["terrain1", "terrain2"],
@@ -533,11 +577,13 @@ Output valid JSON with this structure:
     ]
 }}}}
 
-Create {num_species} species with variety in types, sizes, intelligence, and ecological roles!"""),
+Create {num_species} species with variety in types, sizes, intelligence, technological adaptation, and ecological roles!"""),
             ("human", """World: {world_name}
 Genre: {genre}
+Description: {description}
 World Features: {world_features}
 Themes: {themes}
+Visual Style: {visual_style}
 Backstory: {backstory}
 
 Regions in this world:
@@ -553,7 +599,13 @@ Biological Properties:
 - Habitability: {habitability}
 - Native Species Hints: {native_species}
 
-Create {num_species} unique species. Ensure each species is assigned to ALL suitable regions based on terrain/climate compatibility.
+Technology & Society:
+- Technology Level: {tech_level}
+- Power Sources: {power_sources}
+- Governance: {governance}
+- Social Structure: {social_structure}
+
+Create {num_species} unique species. Ensure each species is assigned to ALL suitable regions based on terrain/climate compatibility, and that they fit the world's technology level and societal structures.
 Return ONLY the JSON object.""")
         ])
 
@@ -565,8 +617,10 @@ Return ONLY the JSON object.""")
         response = await chain.ainvoke({
             "world_name": world_data.get('world_name'),
             "genre": state.genre,
+            "description": world_data.get('description', '')[:300],
             "world_features": ', '.join(world_features),
             "themes": ', '.join(world_data.get('themes', [])),
+            "visual_style": visual_style_str,
             "backstory": world_data.get('backstory', '')[:600],
             "regions": regions_summary,
             "terrain": ', '.join(physical.get('terrain', [])),
@@ -575,6 +629,10 @@ Return ONLY the JSON object.""")
             "fauna": ', '.join(biological.get('fauna', [])[:3]),
             "habitability": biological.get('habitability', 'Unknown'),
             "native_species": ', '.join(biological.get('native_species', [])),
+            "tech_level": tech_level,
+            "power_sources": power_sources,
+            "governance": governance,
+            "social_structure": social_structure,
             "num_species": num_species
         })
 

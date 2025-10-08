@@ -725,6 +725,12 @@ async def generate_world_species(request: dict):
     genre = request.get('genre', 'Fantasy')
     description = request.get('description', '')
     backstory = request.get('backstory', '')
+    themes = request.get('themes', [])
+    visual_style = request.get('visual_style', [])
+    physical_props = request.get('physical_properties', {})
+    biological_props = request.get('biological_properties', {})
+    technological_props = request.get('technological_properties', {})
+    societal_props = request.get('societal_properties', {})
     regions = request.get('regions', [])
 
     # Build region context
@@ -732,27 +738,85 @@ async def generate_world_species(request: dict):
     if regions:
         region_context = "\n\nREGIONS IN THIS WORLD:\n"
         for r in regions:
-            region_context += f"- {r.get('region_name', 'Unknown')}: {r.get('region_type', '')} - {r.get('description', '')[:100]}\n"
+            terrain_str = ', '.join(r.get('terrain', [])) if r.get('terrain') else 'varied'
+            region_context += f"- {r.get('region_name', 'Unknown')}: {r.get('region_type', '')} ({r.get('climate', 'temperate')} climate, {terrain_str} terrain)\n"
+            if r.get('description'):
+                region_context += f"  Description: {r.get('description', '')[:150]}\n"
 
-    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Based on the world's properties, create a diverse set of 5-8 distinct species that inhabit this world.
+    # Define available character traits
+    available_traits = [
+        "Aggressive", "Peaceful", "Intelligent", "Cunning", "Loyal", "Territorial",
+        "Nomadic", "Social", "Solitary", "Mystical", "Adaptive", "Traditional",
+        "Innovative", "Honorable", "Deceptive", "Brave", "Cautious", "Industrious",
+        "Lazy", "Curious"
+    ]
+
+    # Build additional world context
+    themes_str = ', '.join(themes) if themes else 'adventure, exploration'
+    visual_str = ', '.join(visual_style) if visual_style else 'vivid, detailed'
+
+    physical_context = ""
+    if physical_props:
+        climate = physical_props.get('climate', '')
+        terrain = ', '.join(physical_props.get('terrain', []))
+        world_features = ', '.join(physical_props.get('world_features', []))
+        if climate or terrain or world_features:
+            physical_context = f"\n\nPHYSICAL ENVIRONMENT:\n- Climate: {climate}\n- Terrain: {terrain}\n- Features: {world_features}"
+
+    biological_context = ""
+    if biological_props:
+        flora = ', '.join(biological_props.get('flora', [])[:3])
+        fauna = ', '.join(biological_props.get('fauna', [])[:3])
+        if flora or fauna:
+            biological_context = f"\n\nBIOLOGICAL ECOSYSTEM:\n- Flora: {flora}\n- Fauna: {fauna}"
+
+    tech_context = ""
+    if technological_props:
+        tech_level = technological_props.get('technology_level', '')
+        power_sources = ', '.join(technological_props.get('power_sources', []))
+        if tech_level or power_sources:
+            tech_context = f"\n\nTECHNOLOGY:\n- Level: {tech_level}\n- Power Sources: {power_sources}"
+
+    societal_context = ""
+    if societal_props:
+        governance = ', '.join(societal_props.get('governance_types', []))
+        social_structure = societal_props.get('social_structure', '')
+        if governance or social_structure:
+            societal_context = f"\n\nSOCIETY:\n- Governance: {governance}\n- Structure: {social_structure}"
+
+    prompt = f"""You are a creative world-building assistant for a tabletop RPG system. Based on the world's properties, create 1 new unique species that fits this world.
 
 WORLD NAME: {world_name}
 GENRE: {genre}
+THEMES: {themes_str}
+VISUAL STYLE: {visual_str}
+
 DESCRIPTION: {description[:300] if description else 'A fantastical world'}
 
 BACKSTORY:
-{backstory[:500] if backstory else 'A world with rich history'}
-{region_context}
+{backstory[:600] if backstory else 'A world with rich history'}
+{region_context}{physical_context}{biological_context}{tech_context}{societal_context}
 
 INSTRUCTIONS:
-Create 5-8 unique species for this world. For each species, provide:
+Create 1 unique species for this world. Provide:
 1. name: A creative species name
 2. species_type: The type (choose from: Humanoid, Beast, Magical, Hybrid, Elemental, Undead, Celestial, Demonic)
 3. category: Sentience level (Sentient, Non-Sentient, or Semi-Sentient)
 4. description: A detailed description (2-3 sentences) of their appearance, culture, and role in the world
 5. backstory: Their evolutionary history and origin story (2-3 sentences)
-6. character_traits: Array of 4-6 defining personality/behavioral traits
+6. character_traits: Array of 3-5 defining personality/behavioral traits
 7. region_ids: Array of region IDs where this species is commonly found (use the region_id from the regions list above)
+
+CHARACTER TRAITS INSTRUCTIONS:
+Select 3-5 character traits for each species that align with:
+- The species' description and backstory
+- The environments/regions they inhabit (e.g., mountain dwellers might be "Brave", "Territorial"; arctic species might be "Adaptive", "Cautious")
+- The world's genre and themes
+
+Available predefined traits (use these primarily):
+{', '.join(available_traits)}
+
+You may create 1-2 custom traits if needed to capture unique aspects of a species, but prioritize using the predefined traits above.
 
 Make the species diverse and fitting for the world's genre and setting. Include a mix of sentient and non-sentient species, and ensure they have interesting relationships with each other and the world.
 

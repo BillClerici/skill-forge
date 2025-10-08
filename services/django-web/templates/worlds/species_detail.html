@@ -6,7 +6,7 @@
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
-            <i class="material-icons left" style="font-size: 2.5rem;">pets</i>
+            <i class="material-icons left" style="font-size: 2.5rem;">diversity_3</i>
             {{ species.species_name }}
         </h3>
     </div>
@@ -84,7 +84,7 @@
         <div class="card" style="height: 100%;">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">pets</i>
+                    <i class="material-icons left">diversity_3</i>
                     Species Details
                 </span>
 
@@ -148,16 +148,16 @@
                         {% for region in species_regions %}
                         <div class="card hoverable" style="background-color: rgba(30, 30, 46, 0.5); margin: 0;">
                             <div class="card-content" style="padding: 12px;">
-                                <span style="color: var(--rpg-gold); font-weight: bold; display: block; margin-bottom: 5px;">
+                                <span style="color: var(--rpg-gold); font-weight: bold; display: block; margin-bottom: 8px;">
                                     <i class="material-icons tiny" style="vertical-align: middle;">terrain</i>
                                     {{ region.region_name }}
                                 </span>
-                                <div class="chip" style="background-color: rgba(212, 175, 55, 0.3); font-size: 0.75rem; margin: 2px;">
-                                    {{ region.region_type }}
-                                </div>
-                                <div class="chip" style="background-color: rgba(33, 150, 243, 0.3); font-size: 0.75rem; margin: 2px;">
-                                    {{ region.climate }}
-                                </div>
+                                <p style="color: #b8b8d1; font-size: 0.85rem; margin: 4px 0; line-height: 1.4;">
+                                    <strong style="color: var(--rpg-gold);">Type:</strong> {{ region.region_type }}
+                                </p>
+                                <p style="color: #b8b8d1; font-size: 0.85rem; margin: 4px 0; line-height: 1.4;">
+                                    <strong style="color: var(--rpg-gold);">Climate:</strong> {{ region.climate }}
+                                </p>
                             </div>
                             <div class="card-action" style="padding: 8px 12px; background-color: rgba(20, 20, 36, 0.5);">
                                 <a href="{% url 'region_detail' world.world_id region.region_id %}" style="color: var(--rpg-gold); font-size: 0.85rem;">
@@ -198,7 +198,7 @@
         {% else %}
         <div class="card" style="height: 100%;">
             <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">pets</i>
+                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">diversity_3</i>
                 <p style="color: #b8b8d1;">No species image available</p>
                 <button id="generate-image-btn" class="btn waves-effect waves-light purple darken-2" style="margin-top: 10px;">
                     <i class="material-icons left">auto_awesome</i>Generate Image
@@ -264,7 +264,7 @@
                     </div>
                     {% else %}
                     <div id="no-images-placeholder" style="background-color: rgba(30, 30, 46, 0.5); border-radius: 8px; padding: 60px 20px; text-align: center; margin-bottom: 15px;">
-                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">pets</i>
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">diversity_3</i>
                         <p style="color: #b8b8d1; margin-top: 10px;">No species images generated yet</p>
                     </div>
                     {% endif %}

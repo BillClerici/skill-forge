@@ -60,10 +60,18 @@ class SpeciesCreateView(View):
             for r in regions:
                 r['region_id'] = r['_id']
 
+        # Get all unique character traits from existing species in this world
+        all_species = list(db.species_definitions.find({'world_id': world_id}))
+        custom_traits = set()
+        for species in all_species:
+            for trait in species.get('character_traits', []):
+                custom_traits.add(trait)
+
         world['world_id'] = world['_id']
         return render(request, 'worlds/species_form.html', {
             'world': world,
             'regions': regions,
+            'custom_traits': sorted(list(custom_traits)),
             'action': 'create'
         })
 
@@ -183,6 +191,13 @@ class SpeciesEditView(View):
                 # Mark regions that this species inhabits
                 r['is_selected'] = r['_id'] in species.get('regions', [])
 
+        # Get all unique character traits from existing species in this world
+        all_species = list(db.species_definitions.find({'world_id': world_id}))
+        custom_traits = set()
+        for sp in all_species:
+            for trait in sp.get('character_traits', []):
+                custom_traits.add(trait)
+
         world['world_id'] = world['_id']
         species['species_id'] = species['_id']
 
@@ -190,6 +205,7 @@ class SpeciesEditView(View):
             'world': world,
             'species': species,
             'regions': regions,
+            'custom_traits': sorted(list(custom_traits)),
             'action': 'edit'
         })
 
@@ -291,17 +307,23 @@ class SpeciesGenerateAIView(View):
             'genre': world.get('genre', ''),
             'description': world.get('description', ''),
             'backstory': world.get('backstory', ''),
+            'themes': world.get('themes', []),
+            'visual_style': world.get('visual_style', []),
             'timeline': world.get('timeline', []),
-            'environmental_properties': world.get('environmental_properties', {}),
-            'societal_properties': world.get('societal_properties', {}),
+            'physical_properties': world.get('physical_properties', {}),
+            'biological_properties': world.get('biological_properties', {}),
             'technological_properties': world.get('technological_properties', {}),
+            'societal_properties': world.get('societal_properties', {}),
             'historical_properties': world.get('historical_properties', {}),
             'regions': [
                 {
                     'region_id': str(r['_id']),
                     'region_name': r.get('region_name', ''),
                     'region_type': r.get('region_type', ''),
-                    'description': r.get('description', '')
+                    'climate': r.get('climate', ''),
+                    'terrain': r.get('terrain', []),
+                    'description': r.get('description', ''),
+                    'backstory': r.get('backstory', '')
                 }
                 for r in regions
             ]
@@ -335,7 +357,8 @@ class SpeciesGenerateAIView(View):
                             'character_traits': species_data.get('character_traits', []),
                             'regions': species_data.get('region_ids', []),
                             'relationships': [],
-                            'species_image': None
+                            'species_images': [],
+                            'primary_image_index': None
                         }
 
                         db.species_definitions.insert_one(species)
@@ -344,9 +367,25 @@ class SpeciesGenerateAIView(View):
                         # Generate image for this species
                         if openai_client:
                             try:
+                                # Strong anti-text prefix for ALL prompts
+                                no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+                                # Strong anti-text suffix for ALL prompts
+                                no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
                                 traits_str = ', '.join(species_data.get('character_traits', [])[:5]) if species_data.get('character_traits') else 'unique characteristics'
 
-                                dalle_prompt = f"""Create a detailed character portrait of the {species['species_name']} species from the fantasy world: {world.get('world_name')}
+                                dalle_prompt = f"""{no_text_prefix}Create a detailed character portrait of the {species['species_name']} species from the fantasy world: {world.get('world_name')}
 
 World Genre: {world.get('genre', 'Fantasy')}
 Species: {species['species_name']}
@@ -355,9 +394,7 @@ Key Traits: {traits_str}
 
 {species['description'][:200] if species['description'] else ''}
 
-Art Direction: Full body or portrait view, highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics
-
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+Art Direction: Full body or portrait view, highly detailed fantasy character art, dramatic lighting, professional digital illustration, showing distinctive species features and characteristics{no_text_suffix}"""
 
                                 # Generate image with DALL-E 3
                                 dalle_response = openai_client.images.generate(
@@ -377,28 +414,41 @@ IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
                                     species_dir = os.path.join(MEDIA_ROOT, 'species', world_id)
                                     os.makedirs(species_dir, exist_ok=True)
 
-                                    # Save image
-                                    image_filename = f"{species_id}.png"
+                                    # Save image with timestamp
+                                    import time
+                                    timestamp = int(time.time() * 1000)
+                                    image_filename = f"{species_id}_{timestamp}_0.png"
                                     image_path = os.path.join(species_dir, image_filename)
 
                                     with open(image_path, 'wb') as f:
                                         f.write(img_response.content)
 
-                                    # Update species with local image URL
+                                    # Update species with new multi-image system
                                     local_image_url = f"{MEDIA_URL}species/{world_id}/{image_filename}"
+
+                                    # Add to species_images array as portrait type
+                                    image_data = {
+                                        'url': local_image_url,
+                                        'image_type': 'portrait',
+                                        'image_name': 'Portrait',
+                                        'perspective': 'close-up portrait showing face and upper body details'
+                                    }
 
                                     db.species_definitions.update_one(
                                         {'_id': species_id},
-                                        {'$set': {'species_image': local_image_url}}
+                                        {
+                                            '$push': {'species_images': image_data},
+                                            '$set': {'primary_image_index': 0}
+                                        }
                                     )
                             except Exception as img_error:
                                 # Log error but continue - image generation is optional
                                 print(f"Failed to generate image for species {species['species_name']}: {str(img_error)}")
 
-                    # Update world's species list
+                    # Add new species to world's species list (append, don't replace)
                     db.world_definitions.update_one(
                         {'_id': world_id},
-                        {'$set': {'species': created_species_ids}}
+                        {'$push': {'species': {'$each': created_species_ids}}}
                     )
 
                     return JsonResponse({
@@ -518,18 +568,34 @@ class SpeciesGenerateImageView(View):
             return JsonResponse({'error': 'World or Species not found'}, status=404)
 
         # Check how many images already exist
-        # Admin pages can have up to 4 images
+        # Admin pages can have up to 4 images, but generate 1 at a time
         current_images = species.get('species_images', [])
         if len(current_images) >= 4:
             return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
 
         try:
+            # Strong anti-text prefix for ALL prompts
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix for ALL prompts
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
             # Define 4 image types for different perspectives
             image_types = [
                 {
                     'type': 'full_body',
                     'name': 'Full Body View',
-                    'perspective': 'full body standing pose showing complete form'
+                    'perspective': 'full body standing pose showing complete form from head to toe'
                 },
                 {
                     'type': 'portrait',
@@ -548,8 +614,8 @@ class SpeciesGenerateImageView(View):
                 }
             ]
 
-            # Determine which images to generate based on what's missing
-            images_to_generate = 4 - len(current_images)
+            # Generate only 1 image at a time
+            images_to_generate = 1
             generated_images = []
             existing_types = [img.get('image_type') for img in current_images]
 
@@ -619,7 +685,9 @@ class SpeciesGenerateImageView(View):
 
                 traits_str = ', '.join(safe_traits) if safe_traits else ''
 
-                dalle_prompt = f"""A {species_type.lower()} called {species_name}.
+                # Build the prompt with conditional full_body instruction
+                if image_type_config['type'] == 'full_body':
+                    dalle_prompt = f"""{no_text_prefix}A {species_type.lower()} called {species_name}.
 
 {visual_desc}
 
@@ -629,7 +697,17 @@ Perspective: {perspective}
 
 Style: Detailed fantasy art, dramatic lighting, professional digital illustration, epic scale
 
-IMPORTANT: No text, letters, words, or symbols of any kind in the image."""
+IMPORTANT: Full body view must include the complete character from head to toe. Show the entire head, face, torso, arms, legs, and feet in the frame.{no_text_suffix}"""
+                else:
+                    dalle_prompt = f"""{no_text_prefix}A {species_type.lower()} called {species_name}.
+
+{visual_desc}
+
+{f'Characteristics: {traits_str}' if traits_str else ''}
+
+Perspective: {perspective}
+
+Style: Detailed fantasy art, dramatic lighting, professional digital illustration, epic scale{no_text_suffix}"""
 
                 # Log the prompt for debugging
                 print(f"=== DALL-E PROMPT FOR {species.get('species_name')} ===", file=sys.stderr)

@@ -29,7 +29,7 @@
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
-            <i class="material-icons left" style="font-size: 2.5rem;">pets</i>
+            <i class="material-icons left" style="font-size: 2.5rem;">diversity_3</i>
             {% if species %}Edit Species{% else %}Create New Species{% endif %}
         </h3>
     </div>
@@ -52,7 +52,7 @@
 
                     <!-- Species Name -->
                     <div class="input-field">
-                        <i class="material-icons prefix" style="color: var(--rpg-gold);">pets</i>
+                        <i class="material-icons prefix" style="color: var(--rpg-gold);">diversity_3</i>
                         <input id="species_name" name="species_name" type="text" class="validate" required
                                value="{% if species %}{{ species.species_name }}{% endif %}"
                                style="color: #e0e0e0;">
@@ -109,6 +109,7 @@
                         <i class="material-icons prefix" style="color: var(--rpg-gold);">stars</i>
                         <select id="character_traits" name="character_traits" multiple>
                             <option value="" disabled>Choose Character Traits</option>
+                            {% comment %}Predefined traits{% endcomment %}
                             <option value="Aggressive" {% if species and "Aggressive" in species.character_traits %}selected{% endif %}>Aggressive</option>
                             <option value="Peaceful" {% if species and "Peaceful" in species.character_traits %}selected{% endif %}>Peaceful</option>
                             <option value="Intelligent" {% if species and "Intelligent" in species.character_traits %}selected{% endif %}>Intelligent</option>
@@ -129,6 +130,15 @@
                             <option value="Industrious" {% if species and "Industrious" in species.character_traits %}selected{% endif %}>Industrious</option>
                             <option value="Lazy" {% if species and "Lazy" in species.character_traits %}selected{% endif %}>Lazy</option>
                             <option value="Curious" {% if species and "Curious" in species.character_traits %}selected{% endif %}>Curious</option>
+                            {% comment %}Custom traits from AI-generated species{% endcomment %}
+                            {% if custom_traits %}
+                                {% for trait in custom_traits %}
+                                    {% comment %}Only add if not in predefined list{% endcomment %}
+                                    {% if trait not in "Aggressive,Peaceful,Intelligent,Cunning,Loyal,Territorial,Nomadic,Social,Solitary,Mystical,Adaptive,Traditional,Innovative,Honorable,Deceptive,Brave,Cautious,Industrious,Lazy,Curious" %}
+                                    <option value="{{ trait }}" {% if species and trait in species.character_traits %}selected{% endif %}>{{ trait }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
                         </select>
                         <label>Character Traits</label>
                     </div>

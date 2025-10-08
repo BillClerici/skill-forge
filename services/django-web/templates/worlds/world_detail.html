@@ -195,7 +195,7 @@
                 <i class="material-icons left tiny">auto_awesome</i>Backstory
             </a></li>
             <li class="tab"><a href="#species">
-                <i class="material-icons left tiny">pets</i>Species
+                <i class="material-icons left tiny">diversity_3</i>Species
             </a></li>
             <li class="tab"><a href="#regions">
                 <i class="material-icons left tiny">terrain</i>Regions
@@ -813,7 +813,7 @@
         <div class="card">
             <div class="card-content">
                 <span class="card-title">
-                    <i class="material-icons left">pets</i>
+                    <i class="material-icons left">diversity_3</i>
                     Species in this World
                 </span>
 
@@ -874,7 +874,7 @@
                                      style="height: 150px; width: 100%; object-fit: cover; display: block; margin: 0;">
                                 <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); display: flex; align-items: flex-end;">
                                     <span class="card-title" style="color: var(--rpg-gold); font-size: 1rem; padding: 10px; margin: 0;">
-                                        <i class="material-icons tiny">pets</i>
+                                        <i class="material-icons tiny">diversity_3</i>
                                         {{ s.species_name }}
                                     </span>
                                 </div>
@@ -884,7 +884,7 @@
                             <div class="card-content" style="padding: 12px; display: flex; flex-direction: column;">
                                 {% if not s.primary_image_url %}
                                 <span class="card-title" style="color: var(--rpg-gold); font-size: 1rem; margin-bottom: 8px;">
-                                    <i class="material-icons tiny">pets</i>
+                                    <i class="material-icons tiny">diversity_3</i>
                                     {{ s.species_name }}
                                 </span>
                                 {% endif %}
@@ -953,7 +953,7 @@
                     </div>
                     {% else %}
                     <div style="background-color: rgba(30, 30, 46, 0.5); border-radius: 8px; padding: 60px 20px; text-align: center; margin-top: 20px;">
-                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">pets</i>
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">diversity_3</i>
                         <p style="color: #b8b8d1; margin-top: 10px;">No species created yet</p>
                     </div>
                     {% endif %}
@@ -1852,7 +1852,8 @@
                 const response = await fetch('{% url "species_generate_ai" world.world_id %}', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
                     }
                 });
 
