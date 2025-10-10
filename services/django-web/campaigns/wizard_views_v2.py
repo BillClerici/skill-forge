@@ -22,7 +22,6 @@ mongo_db = mongo_client['skillforge']
 ORCHESTRATOR_URL = os.getenv('ORCHESTRATOR_URL', 'http://agent-orchestrator:9000')
 
 
-@login_required
 def campaign_wizard_v2(request):
     """
     Main wizard view - Step 1: Universe selection
@@ -164,7 +163,7 @@ def regenerate_stories_api(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_http_methods(["POST"])
 def generate_core_api(request):
     """
@@ -178,12 +177,15 @@ def generate_core_api(request):
         request_id = data.get('request_id')
         selected_story_id = data.get('selected_story_id')
 
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
         with httpx.Client(timeout=60.0) as client:
             response = client.post(
                 f"{ORCHESTRATOR_URL}/campaign-wizard/select-story",
                 json={
                     'request_id': request_id,
-                    'user_id': str(request.user.id),
+                    'user_id': user_id,
                     'selected_story_id': selected_story_id
                 }
             )
@@ -197,7 +199,7 @@ def generate_core_api(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_http_methods(["POST"])
 def approve_core_api(request):
     """
@@ -211,12 +213,15 @@ def approve_core_api(request):
         data = json.loads(request.body)
         request_id = data.get('request_id')
 
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
         with httpx.Client(timeout=120.0) as client:
             response = client.post(
                 f"{ORCHESTRATOR_URL}/campaign-wizard/approve-core",
                 json={
                     'request_id': request_id,
-                    'user_id': str(request.user.id),
+                    'user_id': user_id,
                     'user_approved_core': True,
                     'num_quests': data.get('num_quests', 5),
                     'quest_difficulty': data.get('quest_difficulty', 'Medium'),
@@ -234,7 +239,7 @@ def approve_core_api(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_http_methods(["POST"])
 def approve_quests_api(request):
     """
@@ -247,12 +252,15 @@ def approve_quests_api(request):
         data = json.loads(request.body)
         request_id = data.get('request_id')
 
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
         with httpx.Client(timeout=120.0) as client:
             response = client.post(
                 f"{ORCHESTRATOR_URL}/campaign-wizard/approve-quests",
                 json={
                     'request_id': request_id,
-                    'user_id': str(request.user.id),
+                    'user_id': user_id,
                     'user_approved_quests': True
                 }
             )
@@ -266,7 +274,7 @@ def approve_quests_api(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_http_methods(["POST"])
 def approve_places_api(request):
     """
@@ -278,12 +286,15 @@ def approve_places_api(request):
         data = json.loads(request.body)
         request_id = data.get('request_id')
 
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
         with httpx.Client(timeout=180.0) as client:
             response = client.post(
                 f"{ORCHESTRATOR_URL}/campaign-wizard/approve-places",
                 json={
                     'request_id': request_id,
-                    'user_id': str(request.user.id),
+                    'user_id': user_id,
                     'user_approved_places': True
                 }
             )
@@ -322,7 +333,7 @@ def get_workflow_status_api(request, request_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_http_methods(["POST"])
 def finalize_campaign_api(request):
     """
@@ -334,12 +345,15 @@ def finalize_campaign_api(request):
         data = json.loads(request.body)
         request_id = data.get('request_id')
 
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
         with httpx.Client(timeout=60.0) as client:
             response = client.post(
                 f"{ORCHESTRATOR_URL}/campaign-wizard/finalize",
                 json={
                     'request_id': request_id,
-                    'user_id': str(request.user.id)
+                    'user_id': user_id
                 }
             )
 

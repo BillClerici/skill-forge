@@ -35,6 +35,11 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
     4. Stores ideas in state for user selection
     """
     try:
+        # Skip if story is already selected (resuming workflow)
+        if state.get("selected_story_id") and state.get("story_ideas"):
+            logger.info(f"Skipping story generation - story already selected: {state['selected_story_id']}")
+            return state
+
         state["current_node"] = "generate_story_ideas"
         state["current_phase"] = "story_gen"
         state["progress_percentage"] = 10

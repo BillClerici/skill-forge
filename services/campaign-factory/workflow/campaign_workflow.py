@@ -31,6 +31,11 @@ def route_after_story_ideas(state: CampaignWorkflowState) -> str:
     """Route after story idea generation"""
     if state.get("errors", []):
         return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_story"
+
+    # If a story is already selected, skip waiting and go directly to core generation
+    if state.get("selected_story_id"):
+        return "generate_core"
+
     return "wait_for_selection"
 
 
@@ -136,6 +141,7 @@ def create_campaign_workflow() -> StateGraph:
         route_after_story_ideas,
         {
             "wait_for_selection": "wait_for_story_selection",
+            "generate_core": "generate_campaign_core",
             "retry_story": "generate_story_ideas",
             "failed": END
         }

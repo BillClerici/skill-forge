@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update buttons
         prevBtn.style.display = currentStep > 1 ? 'inline-block' : 'none';
-        nextBtn.style.display = (currentStep < totalSteps && currentStep !== 4 && currentStep !== 5) ? 'inline-block' : 'none';
+        nextBtn.style.display = (currentStep < totalSteps && currentStep !== 4) ? 'inline-block' : 'none';
         generateStoriesBtn.style.display = currentStep === 4 ? 'inline-block' : 'none';
         finalizeBtn.style.display = currentStep === totalSteps ? 'inline-block' : 'none';
 
@@ -461,22 +461,32 @@ document.addEventListener('DOMContentLoaded', function() {
         storyIdeas.forEach((story, index) => {
             const card = document.createElement('label');
             card.className = 'story-idea-card';
-            card.innerHTML = `
-                <input type="radio" name="selected_story_id" value="${story.id}" data-story='${JSON.stringify(story)}'>
-                <div class="story-idea-content">
-                    <h6 style="color: var(--rpg-gold); margin-top: 0;">${story.title}</h6>
-                    <p style="color: #b8b8d1; font-size: 0.95rem; line-height: 1.6;">
-                        ${story.summary}
-                    </p>
-                    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: #ffffff; font-size: 0.8rem;">${theme}</span>`).join('')}
-                    </div>
-                    <div style="margin-top: 15px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
-                        <span><i class="material-icons tiny">timer</i> ${story.estimated_length}</span>
-                        <span><i class="material-icons tiny">trending_up</i> ${story.difficulty_level}</span>
-                    </div>
+
+            // Create the input element separately to avoid JSON escaping issues
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'selected_story_id';
+            input.value = story.id;
+            input.dataset.story = JSON.stringify(story);
+
+            const content = document.createElement('div');
+            content.className = 'story-idea-content';
+            content.innerHTML = `
+                <h6 style="color: var(--rpg-gold); margin-top: 0;">${story.title}</h6>
+                <p style="color: #b8b8d1; font-size: 0.95rem; line-height: 1.6;">
+                    ${story.summary}
+                </p>
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: #ffffff; font-size: 0.8rem;">${theme}</span>`).join('')}
+                </div>
+                <div style="margin-top: 15px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
+                    <span><i class="material-icons tiny">timer</i> ${story.estimated_length}</span>
+                    <span><i class="material-icons tiny">trending_up</i> ${story.difficulty_level}</span>
                 </div>
             `;
+
+            card.appendChild(input);
+            card.appendChild(content);
             container.appendChild(card);
         });
 
