@@ -24,9 +24,11 @@ from .nodes_images import (
 )
 from .nodes_entities import (
     generate_regions_node,
-    generate_locations_node,
     generate_species_node,
     finalize_world_node,
+)
+from .nodes_locations_hierarchical import (
+    generate_locations_hierarchical_node,
 )
 from .utils import publish_progress, save_audit_trail
 
@@ -172,7 +174,7 @@ def create_world_factory_workflow() -> StateGraph:
     workflow.add_node("generate_world_images", generate_world_images_node)
     workflow.add_node("generate_regions", generate_regions_node)
     workflow.add_node("generate_region_images", generate_region_images_node)
-    workflow.add_node("generate_locations", generate_locations_node)
+    workflow.add_node("generate_locations", generate_locations_hierarchical_node)
     workflow.add_node("generate_location_images", generate_location_images_node)
     workflow.add_node("generate_species", generate_species_node)
     workflow.add_node("generate_species_images", generate_species_images_node)

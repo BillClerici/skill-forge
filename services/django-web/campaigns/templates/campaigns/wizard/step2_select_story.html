@@ -1,0 +1,172 @@
+{% extends "campaigns/wizard/base_wizard.html" %}
+
+{% block wizard_content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Step 2: Select Story Idea</h4>
+        <p class="mb-0">Choose from 3 AI-generated campaign story ideas</p>
+    </div>
+    <div class="card-body">
+        <!-- Loading indicator while waiting for stories -->
+        <div id="loading-stories" class="text-center p-5">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Generating creative story ideas based on your selected world...</p>
+        </div>
+
+        <!-- Story ideas container (populated via AJAX) -->
+        <div id="story-ideas-container" style="display: none;">
+            <div id="story-ideas-list"></div>
+
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" class="btn btn-outline-secondary" id="regenerate-btn">
+                    ↻ Regenerate Stories
+                </button>
+                <div>
+                    <a href="{% url 'campaign_wizard_start' %}" class="btn btn-secondary me-2">← Back</a>
+                    <button type="button" class="btn btn-primary" id="select-story-btn" disabled>
+                        Continue with Selected Story →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let selectedStoryId = null;
+let storyIdeas = [];
+
+// Poll for story ideas
+function pollStoryIdeas() {
+    fetch('{% url "campaign_wizard_status" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.workflow_phase === 'story_selection' && data.story_ideas) {
+                // Display story ideas
+                displayStoryIdeas(data.story_ideas, data.regeneration_count);
+            } else if (data.errors && data.errors.length > 0) {
+                alert('Error generating stories: ' + data.errors.join(', '));
+            } else {
+                // Continue polling
+                setTimeout(pollStoryIdeas, 2000);
+            }
+        })
+        .catch(error => {
+            setTimeout(pollStoryIdeas, 2000);
+        });
+}
+
+function displayStoryIdeas(ideas, regenerationCount) {
+    storyIdeas = ideas;
+    document.getElementById('loading-stories').style.display = 'none';
+    document.getElementById('story-ideas-container').style.display = 'block';
+
+    const container = document.getElementById('story-ideas-list');
+    container.innerHTML = '';
+
+    if (regenerationCount > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'alert alert-info';
+        badge.textContent = `Regeneration #${regenerationCount}`;
+        container.appendChild(badge);
+    }
+
+    ideas.forEach((idea, index) => {
+        const card = document.createElement('div');
+        card.className = 'card mb-3 story-idea-card';
+        card.dataset.storyId = idea.id;
+        card.style.cursor = 'pointer';
+
+        card.innerHTML = `
+            <div class="card-body">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="story_idea" id="story_${idea.id}" value="${idea.id}">
+                    <label class="form-check-label w-100" for="story_${idea.id}">
+                        <h5 class="card-title">${idea.title}</h5>
+                        <p class="card-text">${idea.summary}</p>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <strong>Themes:</strong>
+                                <div class="mt-1">
+                                    ${idea.themes.map(theme => `<span class="badge bg-secondary me-1">${theme}</span>`).join('')}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Length:</strong> ${idea.estimated_length}
+                            </div>
+                            <div class="col-md-3">
+                                <strong>Difficulty:</strong> ${idea.difficulty_level}
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        `;
+
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.story-idea-card').forEach(c => c.classList.remove('border-primary'));
+            this.classList.add('border-primary');
+            document.getElementById(`story_${idea.id}`).checked = true;
+            selectedStoryId = idea.id;
+            document.getElementById('select-story-btn').disabled = false;
+        });
+
+        container.appendChild(card);
+    });
+}
+
+// Regenerate stories
+document.getElementById('regenerate-btn').addEventListener('click', function() {
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Regenerating...';
+
+    document.getElementById('story-ideas-container').style.display = 'none';
+    document.getElementById('loading-stories').style.display = 'block';
+
+    fetch('{% url "campaign_wizard_regenerate_stories" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        pollStoryIdeas();
+    });
+});
+
+// Select story and continue
+document.getElementById('select-story-btn').addEventListener('click', function() {
+    if (!selectedStoryId) {
+        alert('Please select a story idea');
+        return;
+    }
+
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+
+    const formData = new FormData();
+    formData.append('selected_story_id', selectedStoryId);
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+    fetch('{% url "campaign_wizard_select_story" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+});
+
+// Start polling
+pollStoryIdeas();
+</script>
+{% endblock %}

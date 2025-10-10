@@ -1,0 +1,823 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign Designer Wizard - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">auto_awesome</i>
+            Campaign Designer Wizard
+        </h3>
+    </div>
+</div>
+
+<!-- Progress Indicator -->
+<div class="row">
+    <div class="col s12">
+        <div class="card" style="background: rgba(27, 27, 46, 0.6);">
+            <div class="card-content">
+                <div id="progress-container" style="display: flex; justify-content: space-between; align-items: center; position: relative;">
+                    <div class="progress-step active" data-step="1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Campaign Info</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">World</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Region</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="4">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Story</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="5">
+                        <div class="step-circle">5</div>
+                        <div class="step-label">Quests</div>
+                    </div>
+                    <div class="progress-line"></div>
+                    <div class="progress-step" data-step="6">
+                        <div class="step-circle">6</div>
+                        <div class="step-label">Review</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="wizard-form" method="post" action="{% url 'campaign_designer_wizard' %}">
+    {% csrf_token %}
+
+    <!-- Step 1: Campaign Name & Genre -->
+    <div class="wizard-step" data-step="1">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">bookmark</i>Campaign Name & Genre
+                </span>
+
+                <div class="input-field">
+                    <input type="text" id="campaign_name" name="campaign_name" required>
+                    <label for="campaign_name">Campaign Name</label>
+                </div>
+
+                <p style="color: var(--rpg-gold); margin-top: 30px; margin-bottom: 15px;">
+                    <strong>Select Campaign Genre:</strong>
+                </p>
+
+                <div class="row">
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="fantasy" required>
+                            <div class="genre-content">
+                                <i class="material-icons">castle</i>
+                                <span>Fantasy</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="sci-fi" required>
+                            <div class="genre-content">
+                                <i class="material-icons">rocket_launch</i>
+                                <span>Sci-Fi</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="horror" required>
+                            <div class="genre-content">
+                                <i class="material-icons">dark_mode</i>
+                                <span>Horror</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="cyberpunk" required>
+                            <div class="genre-content">
+                                <i class="material-icons">computer</i>
+                                <span>Cyberpunk</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="medieval" required>
+                            <div class="genre-content">
+                                <i class="material-icons">shield</i>
+                                <span>Medieval</span>
+                            </div>
+                        </label>
+                    </div>
+                    <div class="col s12 m6 l4">
+                        <label class="genre-card">
+                            <input type="radio" name="genre" value="post-apocalyptic" required>
+                            <div class="genre-content">
+                                <i class="material-icons">warning</i>
+                                <span>Post-Apocalyptic</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 2: World Selection -->
+    <div class="wizard-step" data-step="2" style="display: none;">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">public</i>Select World
+                </span>
+
+                <div class="input-field">
+                    <i class="material-icons prefix" style="color: var(--rpg-gold);">search</i>
+                    <input type="text" id="world-search" placeholder="Search worlds...">
+                    <label for="world-search">Search Worlds</label>
+                </div>
+
+                <div id="world-list" style="margin-top: 20px;">
+                    {% for world in worlds %}
+                    <label class="world-card" data-genre="{{ world.genre|lower }}" data-name="{{ world.world_name|lower }}">
+                        <input type="radio" name="world_id" value="{{ world.world_id }}" required>
+                        <div class="world-content">
+                            <div style="display: flex; gap: 15px;">
+                                <!-- World Image -->
+                                <div class="world-image-container">
+                                    {% if world.primary_image_url %}
+                                    <img src="{{ world.primary_image_url }}" alt="{{ world.world_name }}" class="world-image">
+                                    {% else %}
+                                    <div class="world-image-placeholder">
+                                        <i class="material-icons" style="font-size: 48px; color: var(--rpg-gold); opacity: 0.5;">public</i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- World Info -->
+                                <div style="flex: 1;">
+                                    <div class="world-header">
+                                        <h6 style="color: var(--rpg-gold); margin: 0; font-size: 1.2rem; font-weight: bold;">{{ world.world_name }}</h6>
+                                    </div>
+                                    <div style="margin-top: 10px;">
+                                        <span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.85rem;">
+                                            <i class="material-icons tiny" style="vertical-align: middle;">category</i> {{ world.genre }}
+                                        </span>
+                                    </div>
+                                    <p style="color: #b8b8d1; font-size: 0.95rem; margin-top: 12px; line-height: 1.5;">
+                                        {{ world.description|truncatewords:30 }}
+                                    </p>
+                                    <div style="margin-top: 12px; display: flex; align-items: center; gap: 15px;">
+                                        <span style="color: var(--rpg-silver); font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+                                            <i class="material-icons" style="font-size: 1.1rem;">map</i>
+                                            <span>{{ world.regions|length }} Regions</span>
+                                        </span>
+                                        <span style="color: var(--rpg-silver); font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+                                            <i class="material-icons" style="font-size: 1.1rem;">diversity_3</i>
+                                            <span>{{ world.species|length }} Species</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Region Selection -->
+    <div class="wizard-step" data-step="3" style="display: none;">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">map</i>Select Region (Optional)
+                </span>
+
+                <p style="color: #b8b8d1; margin-bottom: 20px;">
+                    Choose a specific region for your campaign, or skip to use the entire world.
+                </p>
+
+                <div id="region-list">
+                    <label class="region-card">
+                        <input type="radio" name="region_id" value="" checked>
+                        <div class="region-content">
+                            <strong style="color: var(--rpg-silver);">No Specific Region</strong>
+                            <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
+                                Campaign spans the entire world
+                            </p>
+                        </div>
+                    </label>
+                    <!-- Regions will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 4: Story Outline -->
+    <div class="wizard-step" data-step="4" style="display: none;">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">edit_note</i>Story Outline
+                </span>
+
+                <p style="color: #b8b8d1; margin-bottom: 20px;">
+                    Describe the high-level story you want for your campaign. The AI will use this to generate quests and tasks.
+                </p>
+
+                <div class="input-field">
+                    <textarea id="story_outline" name="story_outline" class="materialize-textarea" style="min-height: 200px;" required></textarea>
+                    <label for="story_outline">Campaign Story Outline</label>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); border-radius: 4px;">
+                    <p style="color: var(--rpg-gold); margin: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">lightbulb</i>
+                        <strong>Tip:</strong> Include main conflicts, key NPCs, desired themes, and any specific story beats you want to see.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 5: Quest Configuration -->
+    <div class="wizard-step" data-step="5" style="display: none;">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">assignment</i>Quest Configuration
+                </span>
+
+                <p style="color: #b8b8d1; margin-bottom: 30px;">
+                    How many quests should your campaign include?
+                </p>
+
+                <div style="padding: 20px;">
+                    <p style="color: var(--rpg-gold); margin-bottom: 20px;">
+                        <strong>Number of Quests: <span id="quest-count-display">5</span></strong>
+                    </p>
+                    <p>
+                        <input type="range" id="num_quests" name="num_quests" min="3" max="10" value="5" step="1">
+                    </p>
+                </div>
+
+                <div style="margin-top: 30px; padding: 15px; background: rgba(106, 90, 205, 0.1); border-left: 3px solid var(--rpg-purple); border-radius: 4px;">
+                    <p style="color: var(--rpg-purple); margin: 0; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                        Each quest will include multiple tasks structured with Bloom's Taxonomy levels (Remembering, Understanding, Applying, Analyzing, Evaluating, Creating).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 6: Review & Generate -->
+    <div class="wizard-step" data-step="6" style="display: none;">
+        <div class="card hoverable">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">preview</i>Review & Generate
+                </span>
+
+                <p style="color: #b8b8d1; margin-bottom: 30px;">
+                    Review your campaign settings before generating.
+                </p>
+
+                <div id="review-content" style="padding: 20px; background: rgba(27, 27, 46, 0.4); border-radius: 8px;">
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">Campaign Name:</strong>
+                        <p id="review-name" style="color: #b8b8d1;"></p>
+                    </div>
+
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">Genre:</strong>
+                        <p id="review-genre" style="color: #b8b8d1;"></p>
+                    </div>
+
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">World:</strong>
+                        <p id="review-world" style="color: #b8b8d1;"></p>
+                    </div>
+
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">Region:</strong>
+                        <p id="review-region" style="color: #b8b8d1;"></p>
+                    </div>
+
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">Number of Quests:</strong>
+                        <p id="review-quests" style="color: #b8b8d1;"></p>
+                    </div>
+
+                    <div class="review-section">
+                        <strong style="color: var(--rpg-gold);">Story Outline:</strong>
+                        <p id="review-story" style="color: #b8b8d1; white-space: pre-wrap;"></p>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px; padding: 15px; background: rgba(47, 158, 68, 0.1); border-left: 3px solid var(--rpg-green); border-radius: 4px;">
+                    <p style="color: var(--rpg-green); margin: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i>
+                        <strong>Ready to generate!</strong> The AI will create a complete campaign with quests, tasks, and Bloom's Taxonomy integration.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <div class="row" style="margin-top: 30px;">
+        <div class="col s12 center-align">
+            <button type="button" id="prev-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-silver); display: none;">
+                <i class="material-icons left">chevron_left</i>Previous
+            </button>
+            <button type="button" id="next-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-purple); margin-left: 10px;">
+                Next<i class="material-icons right">chevron_right</i>
+            </button>
+            <button type="submit" id="submit-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-green); display: none;">
+                <i class="material-icons left">auto_awesome</i>Generate Campaign
+            </button>
+        </div>
+    </div>
+</form>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 9999; justify-content: center; align-items: center;">
+    <div style="text-align: center;">
+        <div class="preloader-wrapper big active">
+            <div class="spinner-layer spinner-blue-only">
+                <div class="circle-clipper left">
+                    <div class="circle"></div>
+                </div><div class="gap-patch">
+                    <div class="circle"></div>
+                </div><div class="circle-clipper right">
+                    <div class="circle"></div>
+                </div>
+            </div>
+        </div>
+        <h5 style="color: var(--rpg-gold); margin-top: 30px;">Generating Your Campaign...</h5>
+        <p style="color: #b8b8d1;">The AI is creating quests with Bloom's Taxonomy tasks. This may take 1-2 minutes.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Progress Indicator */
+    #progress-container {
+        padding: 20px 0;
+    }
+
+    .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 1;
+    }
+
+    .step-circle {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: rgba(192, 192, 192, 0.3);
+        border: 3px solid var(--rpg-silver);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--rpg-silver);
+        font-weight: bold;
+        font-size: 1.2rem;
+        transition: all 0.3s ease;
+    }
+
+    .progress-step.active .step-circle {
+        background-color: var(--rpg-purple);
+        border-color: var(--rpg-gold);
+        color: white;
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+    }
+
+    .progress-step.completed .step-circle {
+        background-color: var(--rpg-green);
+        border-color: var(--rpg-green);
+        color: white;
+    }
+
+    .step-label {
+        margin-top: 10px;
+        color: var(--rpg-silver);
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .progress-step.active .step-label {
+        color: var(--rpg-gold);
+        font-weight: bold;
+    }
+
+    .progress-line {
+        flex: 1;
+        height: 3px;
+        background-color: rgba(192, 192, 192, 0.3);
+        margin: 0 10px;
+        margin-bottom: 40px;
+    }
+
+    /* Genre Cards */
+    .genre-card {
+        display: block;
+        margin-bottom: 15px;
+        cursor: pointer;
+    }
+
+    .genre-card input[type="radio"] {
+        display: none;
+    }
+
+    .genre-content {
+        padding: 20px;
+        background: rgba(27, 27, 46, 0.6);
+        border: 2px solid rgba(192, 192, 192, 0.3);
+        border-radius: 8px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .genre-content i {
+        font-size: 3rem;
+        color: var(--rpg-silver);
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    .genre-content span {
+        color: var(--rpg-silver);
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+
+    .genre-card:hover .genre-content {
+        border-color: var(--rpg-purple);
+        background: rgba(106, 90, 205, 0.1);
+    }
+
+    .genre-card input[type="radio"]:checked + .genre-content {
+        border-color: var(--rpg-gold);
+        background: rgba(212, 175, 55, 0.1);
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+    }
+
+    .genre-card input[type="radio"]:checked + .genre-content i,
+    .genre-card input[type="radio"]:checked + .genre-content span {
+        color: var(--rpg-gold);
+    }
+
+    /* World Cards */
+    .world-card {
+        display: block;
+        margin-bottom: 15px;
+        cursor: pointer;
+    }
+
+    .world-card input[type="radio"] {
+        display: none;
+    }
+
+    .world-content {
+        padding: 15px;
+        background: rgba(27, 27, 46, 0.6);
+        border: 2px solid rgba(192, 192, 192, 0.3);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .world-header {
+        border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+
+    .world-image-container {
+        flex-shrink: 0;
+        width: 150px;
+        height: 150px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(27, 27, 46, 0.8);
+        border: 2px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .world-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .world-image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%);
+    }
+
+    .world-card:hover .world-content {
+        border-color: var(--rpg-purple);
+        background: rgba(106, 90, 205, 0.1);
+    }
+
+    .world-card input[type="radio"]:checked + .world-content {
+        border-color: var(--rpg-gold);
+        background: rgba(212, 175, 55, 0.1);
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+    }
+
+    /* Region Cards */
+    .region-card {
+        display: block;
+        margin-bottom: 15px;
+        cursor: pointer;
+    }
+
+    .region-card input[type="radio"] {
+        display: none;
+    }
+
+    .region-content {
+        padding: 15px;
+        background: rgba(27, 27, 46, 0.6);
+        border: 2px solid rgba(192, 192, 192, 0.3);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .region-card:hover .region-content {
+        border-color: var(--rpg-purple);
+        background: rgba(106, 90, 205, 0.1);
+    }
+
+    .region-card input[type="radio"]:checked + .region-content {
+        border-color: var(--rpg-gold);
+        background: rgba(212, 175, 55, 0.1);
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+    }
+
+    /* Player Checkboxes */
+    .player-checkbox-item {
+        display: block;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: rgba(27, 27, 46, 0.4);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .player-checkbox-item:hover {
+        background: rgba(106, 90, 205, 0.1);
+    }
+
+    /* Review Sections */
+    .review-section {
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(192, 192, 192, 0.2);
+    }
+
+    .review-section:last-child {
+        border-bottom: none;
+    }
+
+    .review-section strong {
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .review-section p {
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentStep = 1;
+        const totalSteps = 6;
+        const worldsData = {{ worlds_json|safe }};
+
+        // Initialize Materialize components
+        M.updateTextFields();
+
+        // Quest count slider
+        const questSlider = document.getElementById('num_quests');
+        const questDisplay = document.getElementById('quest-count-display');
+        if (questSlider) {
+            questSlider.addEventListener('input', function() {
+                questDisplay.textContent = this.value;
+            });
+        }
+
+        // Navigation
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const submitBtn = document.getElementById('submit-btn');
+
+        function updateProgress() {
+            // Update progress indicators
+            document.querySelectorAll('.progress-step').forEach(step => {
+                const stepNum = parseInt(step.dataset.step);
+                step.classList.remove('active', 'completed');
+                if (stepNum === currentStep) {
+                    step.classList.add('active');
+                } else if (stepNum < currentStep) {
+                    step.classList.add('completed');
+                }
+            });
+
+            // Show/hide steps
+            document.querySelectorAll('.wizard-step').forEach(step => {
+                step.style.display = parseInt(step.dataset.step) === currentStep ? 'block' : 'none';
+            });
+
+            // Update buttons
+            prevBtn.style.display = currentStep > 1 ? 'inline-block' : 'none';
+            nextBtn.style.display = currentStep < totalSteps ? 'inline-block' : 'none';
+            submitBtn.style.display = currentStep === totalSteps ? 'inline-block' : 'none';
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        function validateStep(step) {
+            if (step === 1) {
+                const name = document.getElementById('campaign_name').value.trim();
+                const genre = document.querySelector('input[name="genre"]:checked');
+                if (!name || !genre) {
+                    M.toast({html: 'Please provide campaign name and select a genre', classes: 'red'});
+                    return false;
+                }
+            } else if (step === 2) {
+                const world = document.querySelector('input[name="world_id"]:checked');
+                if (!world) {
+                    M.toast({html: 'Please select a world', classes: 'red'});
+                    return false;
+                }
+            } else if (step === 4) {
+                const story = document.getElementById('story_outline').value.trim();
+                if (!story) {
+                    M.toast({html: 'Please provide a story outline', classes: 'red'});
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        nextBtn.addEventListener('click', function() {
+            if (validateStep(currentStep)) {
+                // Special handling for step 2 -> 3 (populate regions)
+                if (currentStep === 2) {
+                    const selectedWorld = document.querySelector('input[name="world_id"]:checked');
+                    if (selectedWorld) {
+                        populateRegions(selectedWorld.value);
+                    }
+                }
+
+                // Special handling for step 5 -> 6 (populate review)
+                if (currentStep === 5) {
+                    populateReview();
+                }
+
+                currentStep++;
+                updateProgress();
+            }
+        });
+
+        prevBtn.addEventListener('click', function() {
+            currentStep--;
+            updateProgress();
+        });
+
+        // Genre selection filters worlds
+        document.querySelectorAll('input[name="genre"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                filterWorldsByGenre(this.value);
+            });
+        });
+
+        function filterWorldsByGenre(selectedGenre) {
+            const worldCards = document.querySelectorAll('.world-card');
+            worldCards.forEach(card => {
+                const worldGenre = card.dataset.genre;
+                if (worldGenre === selectedGenre.toLowerCase() || worldGenre.includes(selectedGenre.toLowerCase())) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // World search
+        const worldSearch = document.getElementById('world-search');
+        if (worldSearch) {
+            worldSearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                document.querySelectorAll('.world-card').forEach(card => {
+                    const name = card.dataset.name;
+                    if (name.includes(searchTerm)) {
+                        if (card.style.display !== 'none') {
+                            card.style.display = 'block';
+                        }
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        function populateRegions(worldId) {
+            const world = worldsData.find(w => w.world_id === worldId);
+            const regionList = document.getElementById('region-list');
+
+            // Clear existing regions (except "No Specific Region")
+            const noRegionOption = regionList.querySelector('label');
+            regionList.innerHTML = '';
+            regionList.appendChild(noRegionOption);
+
+            if (world && world.regions && world.regions.length > 0) {
+                world.regions.forEach(region => {
+                    const label = document.createElement('label');
+                    label.className = 'region-card';
+                    label.innerHTML = `
+                        <input type="radio" name="region_id" value="${region.region_id}">
+                        <div class="region-content">
+                            <strong style="color: var(--rpg-gold);">${region.region_name}</strong>
+                            <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
+                                ${region.description || 'No description available'}
+                            </p>
+                            <div style="margin-top: 10px;">
+                                <span style="color: var(--rpg-silver); font-size: 0.85rem;">
+                                    <i class="material-icons tiny">location_on</i> ${region.locations ? region.locations.length : 0} Locations
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    regionList.appendChild(label);
+                });
+            }
+        }
+
+        function populateReview() {
+            // Campaign name
+            document.getElementById('review-name').textContent = document.getElementById('campaign_name').value;
+
+            // Genre
+            const genre = document.querySelector('input[name="genre"]:checked');
+            document.getElementById('review-genre').textContent = genre ? genre.value : 'Not selected';
+
+            // World
+            const world = document.querySelector('input[name="world_id"]:checked');
+            if (world) {
+                const worldLabel = world.closest('.world-card').querySelector('.world-header strong').textContent;
+                document.getElementById('review-world').textContent = worldLabel;
+            }
+
+            // Region
+            const region = document.querySelector('input[name="region_id"]:checked');
+            if (region && region.value) {
+                const regionLabel = region.closest('.region-card').querySelector('strong').textContent;
+                document.getElementById('review-region').textContent = regionLabel;
+            } else {
+                document.getElementById('review-region').textContent = 'Entire World';
+            }
+
+            // Quest count
+            document.getElementById('review-quests').textContent = document.getElementById('num_quests').value;
+
+            // Story
+            document.getElementById('review-story').textContent = document.getElementById('story_outline').value;
+        }
+
+        // Show loading overlay on form submit
+        document.getElementById('wizard-form').addEventListener('submit', function() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        });
+
+        // Initialize
+        updateProgress();
+    });
+</script>
+{% endblock %}

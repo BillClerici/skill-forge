@@ -45,6 +45,14 @@ from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView
 )
+from campaigns.wizard_views import (
+    campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
+    campaign_wizard_select_story, campaign_wizard_regenerate_stories,
+    campaign_wizard_core_approval, campaign_wizard_approve_core,
+    campaign_wizard_progress, campaign_wizard_status, campaign_wizard_complete,
+    get_worlds_for_universe, get_regions_for_world
+)
+from campaigns import wizard_views_v2
 from characters.views import (
     CharacterCreateView, CharacterDetailView, CharacterSheetView, CharacterEditView, CharacterDeleteView,
     CharacterGenerateBackstoryView, CharacterSaveBackstoryView,
@@ -148,6 +156,34 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
+
+    # Campaign Wizard
+    path('campaigns/wizard/', campaign_wizard_start, name='campaign_wizard_start'),
+    path('campaigns/wizard/init/', campaign_wizard_init, name='campaign_wizard_init'),
+    path('campaigns/wizard/story-selection/', campaign_wizard_story_selection, name='campaign_wizard_story_selection'),
+    path('campaigns/wizard/select-story/', campaign_wizard_select_story, name='campaign_wizard_select_story'),
+    path('campaigns/wizard/regenerate-stories/', campaign_wizard_regenerate_stories, name='campaign_wizard_regenerate_stories'),
+    path('campaigns/wizard/core-approval/', campaign_wizard_core_approval, name='campaign_wizard_core_approval'),
+    path('campaigns/wizard/approve-core/', campaign_wizard_approve_core, name='campaign_wizard_approve_core'),
+    path('campaigns/wizard/progress/', campaign_wizard_progress, name='campaign_wizard_progress'),
+    path('campaigns/wizard/status/', campaign_wizard_status, name='campaign_wizard_status'),
+    path('campaigns/wizard/complete/', campaign_wizard_complete, name='campaign_wizard_complete'),
+
+    # Campaign Wizard AJAX helpers
+    path('api/worlds-for-universe/<str:universe_id>/', get_worlds_for_universe, name='get_worlds_for_universe'),
+    path('api/regions-for-world/<str:world_id>/', get_regions_for_world, name='get_regions_for_world'),
+
+    # Campaign Wizard V2 API Endpoints
+    path('campaigns/wizard/api/worlds/<str:universe_id>', wizard_views_v2.get_worlds_for_universe_api, name='get_worlds_for_universe_api'),
+    path('campaigns/wizard/api/regions/<str:world_id>', wizard_views_v2.get_regions_for_world_api, name='get_regions_for_world_api'),
+    path('campaigns/wizard/api/generate-stories', wizard_views_v2.generate_stories_api, name='generate_stories_api'),
+    path('campaigns/wizard/api/regenerate-stories', wizard_views_v2.regenerate_stories_api, name='regenerate_stories_api'),
+    path('campaigns/wizard/api/generate-core', wizard_views_v2.generate_core_api, name='generate_core_api'),
+    path('campaigns/wizard/api/approve-core', wizard_views_v2.approve_core_api, name='approve_core_api'),
+    path('campaigns/wizard/api/approve-quests', wizard_views_v2.approve_quests_api, name='approve_quests_api'),
+    path('campaigns/wizard/api/approve-places', wizard_views_v2.approve_places_api, name='approve_places_api'),
+    path('campaigns/wizard/api/status/<str:request_id>', wizard_views_v2.get_workflow_status_api, name='get_workflow_status_api'),
+    path('campaigns/wizard/api/finalize', wizard_views_v2.finalize_campaign_api, name='finalize_campaign_api'),
 
     # Characters
     path('players/<uuid:player_id>/characters/create/', CharacterCreateView.as_view(), name='character_create'),

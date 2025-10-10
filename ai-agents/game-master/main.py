@@ -1404,6 +1404,92 @@ Return ONLY the JSON array, no preamble or explanation."""
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating locations: {str(e)}")
 
+@app.post("/generate-locations-hierarchical")
+async def generate_locations_hierarchical(request: Dict[str, Any]):
+    """Generate locations with hierarchical type constraints enforced"""
+
+    # Extract hierarchy instruction if provided
+    hierarchy_instruction = request.get('hierarchy_instruction', '')
+    valid_location_types = request.get('valid_location_types', '')
+
+    # Build enhanced prompt with taxonomy constraints
+    prompt = f"""You are a creative world-builder for an RPG game. Generate {request.get('num_locations', 3)} unique and diverse locations.
+
+{hierarchy_instruction}
+
+World Context:
+- World Name: {request.get('world_name', 'Unknown')}
+- Genre: {request.get('world_genre', 'Fantasy')}
+
+{f"Parent Location: {request.get('parent_location_name')} ({request.get('parent_location_type')})" if request.get('parent_location_name') else ''}
+{f"Region: {request.get('region_name')}" if request.get('region_name') else ''}
+
+VALID LOCATION TYPES FOR THIS LEVEL:
+{valid_location_types}
+
+CRITICAL INSTRUCTIONS:
+1. ONLY use location types from the valid types listed above
+2. Ensure locations are appropriately sized for their hierarchy level
+3. Names should be creative and fit the world's genre
+4. Descriptions must emphasize the location is WITHIN/PART OF its parent
+
+For each location, generate:
+1. location_name: Creative name that fits the genre and parent
+2. location_type: MUST be one of the valid types listed above
+3. description: 1-2 sentences emphasizing its relationship to the parent
+4. features: Array of notable features
+5. backstory: 2-3 paragraphs (150-250 words) that connects to the world and parent
+
+Return the result as a JSON array of locations with this structure:
+{{
+  "location_name": "string",
+  "location_type": "string (MUST be from valid types)",
+  "description": "string",
+  "features": ["string"],
+  "backstory": "string"
+}}
+
+Return ONLY the JSON array, no preamble or explanation."""
+
+    try:
+        llm = ChatAnthropic(
+            model="claude-sonnet-4-20250514",
+            anthropic_api_key=ANTHROPIC_API_KEY,
+            temperature=0.8,
+            max_tokens=4000
+        )
+
+        messages = [HumanMessage(content=prompt)]
+        response = await llm.ainvoke(messages)
+
+        # Parse JSON
+        content = response.content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
+        locations_data = json.loads(content)
+
+        input_tokens = response.response_metadata.get("usage", {}).get("input_tokens", 0)
+        output_tokens = response.response_metadata.get("usage", {}).get("output_tokens", 0)
+        total_tokens = input_tokens + output_tokens
+        cost_usd = (input_tokens * 3.00 / 1_000_000) + (output_tokens * 15.00 / 1_000_000)
+
+        return {
+            "locations": locations_data,
+            "tokens_used": total_tokens,
+            "cost_usd": round(cost_usd, 6)
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse AI response as JSON: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating locations: {str(e)}")
+
 @app.post("/start-campaign-stream")
 async def start_campaign_stream(request: StartCampaignRequest):
     """Start a campaign with streaming narrative generation"""

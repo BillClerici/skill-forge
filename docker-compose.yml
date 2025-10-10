@@ -212,6 +212,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_URL=redis://redis:6379
       - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
       - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
       - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
@@ -297,6 +298,35 @@ services:
       - skillforge-network
     volumes:
       - ./services/world-factory:/app
+    command: python main.py
+    restart: unless-stopped
+
+  campaign-factory:
+    build: ./services/campaign-factory
+    container_name: skillforge-campaign-factory
+    environment:
+      - RABBITMQ_USER=skillforge
+      - RABBITMQ_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - MONGODB_URI=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - REDIS_URL=redis://redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ORCHESTRATOR_URL=http://agent-orchestrator:9000
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - rabbitmq
+      - mongodb
+      - neo4j
+      - redis
+      - agent-orchestrator
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/campaign-factory:/app
     command: python main.py
     restart: unless-stopped
 

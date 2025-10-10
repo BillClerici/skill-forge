@@ -36,6 +36,25 @@ class CampaignListView(View):
         # Add campaign_id field for template (Django doesn't allow _id)
         for campaign in campaigns:
             campaign['campaign_id'] = campaign['_id']
+
+            # Fetch world data for images
+            world_ids = campaign.get('world_ids', [])
+            if world_ids:
+                worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}}))
+
+                # Add primary_image_url for each world
+                for world in worlds:
+                    world['primary_image_url'] = None
+                    if world.get('world_images') and world.get('primary_image_index') is not None:
+                        images = world.get('world_images', [])
+                        primary_idx = world.get('primary_image_index')
+                        if 0 <= primary_idx < len(images):
+                            world['primary_image_url'] = images[primary_idx].get('url')
+
+                campaign['worlds'] = worlds
+            else:
+                campaign['worlds'] = []
+
         return render(request, 'campaigns/campaign_list.html', {'campaigns': campaigns})
 
 
@@ -175,9 +194,17 @@ class CampaignDetailView(View):
         world_ids = campaign.get('world_ids', [])
         worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}})) if world_ids else []
 
-        # Add id field for template (Django doesn't allow _id)
+        # Add id field and primary_image_url for template (Django doesn't allow _id)
         for world in worlds:
             world['id'] = world['_id']
+
+            # Get primary image URL
+            world['primary_image_url'] = None
+            if world.get('world_images') and world.get('primary_image_index') is not None:
+                images = world.get('world_images', [])
+                primary_idx = world.get('primary_image_index')
+                if 0 <= primary_idx < len(images):
+                    world['primary_image_url'] = images[primary_idx].get('url')
 
         # Get all players for this campaign from PostgreSQL
         player_ids = campaign.get('player_ids', [])
@@ -245,15 +272,48 @@ class CampaignStartView(View):
             messages.error(request, 'Campaign not found')
             return redirect('campaign_list')
 
+        # Get required data for start-campaign endpoint
+        world_ids = campaign.get('world_ids', [])
+        player_ids = campaign.get('player_ids', [])
+
+        if not world_ids or not player_ids:
+            messages.error(request, 'Campaign is missing world or player information')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+        # Get first world and player (for now)
+        world_id = world_ids[0]
+        player_id = player_ids[0]
+
+        # Get character for this player (if exists)
+        from characters.models import Character
+        character = Character.objects.filter(player_id=player_id).first()
+
+        if not character:
+            messages.error(request, 'No character found for this player. Please create a character first.')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+        # Get universe from world
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            messages.error(request, 'World not found')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+        universe_id = world.get('universe_id')
+        if not universe_id:
+            messages.error(request, 'World is not associated with a universe')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
         # Call orchestrator to generate opening scene
         try:
             with httpx.Client() as client:
                 response = client.post(
                     f"{ORCHESTRATOR_URL}/start-campaign",
                     json={
-                        'campaign_id': campaign_id,
-                        'world_id': campaign.get('world_id'),
-                        'player_id': campaign.get('player_id')
+                        'profile_id': player_id,
+                        'character_name': character.name,
+                        'universe_id': universe_id,
+                        'world_id': world_id,
+                        'campaign_name': campaign.get('campaign_name', 'Untitled Campaign')
                     },
                     timeout=60.0
                 )
@@ -455,71 +515,23 @@ class CampaignDeleteView(View):
 
 
 class CampaignDesignerWizardView(View):
-    """Multi-step wizard for designing a complete campaign with quests and tasks"""
+    """Multi-step wizard for designing a complete campaign with quests and tasks - NEW V2"""
 
     def get(self, request):
-        # Get all worlds with their regions, locations, and species
-        worlds = list(db.world_definitions.find())
+        # Fetch universes from MongoDB
+        universes_raw = list(db.universe_definitions.find({}))
 
-        # Enrich worlds with related data
-        for world in worlds:
-            world['world_id'] = world['_id']
+        # Convert _id to id for Django template compatibility
+        universes = []
+        for universe in universes_raw:
+            universe['id'] = str(universe['_id'])
+            universes.append(universe)
 
-            # Get regions for this world
-            region_ids = world.get('regions', [])
-            if region_ids:
-                regions = list(db.region_definitions.find({'_id': {'$in': region_ids}}))
-                for region in regions:
-                    region['region_id'] = region['_id']
-                    # Get locations for this region
-                    location_ids = region.get('locations', [])
-                    if location_ids:
-                        region['locations'] = list(db.location_definitions.find({'_id': {'$in': location_ids}}))
-                    else:
-                        region['locations'] = []
-                world['regions'] = regions
-            else:
-                world['regions'] = []
+        context = {
+            'universes': universes
+        }
 
-            # Get species for this world
-            species_ids = world.get('species', [])
-            if species_ids:
-                world['species'] = list(db.species_definitions.find({'_id': {'$in': species_ids}}))
-            else:
-                world['species'] = []
-
-        # Get players
-        players = Player.objects.filter(is_active=True).values(
-            'player_id', 'display_name', 'email', 'role'
-        )
-        players_list = [{
-            'id': str(p['player_id']),
-            'player_name': p['display_name'],
-            'email': p.get('email', ''),
-            'role': p['role']
-        } for p in players]
-
-        # Serialize worlds data for JavaScript (convert ObjectIds to strings)
-        import json
-        from bson import ObjectId
-
-        def convert_objectid(obj):
-            """Convert ObjectId to string for JSON serialization"""
-            if isinstance(obj, ObjectId):
-                return str(obj)
-            elif isinstance(obj, dict):
-                return {k: convert_objectid(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_objectid(item) for item in obj]
-            return obj
-
-        worlds_json = json.dumps(convert_objectid(worlds))
-
-        return render(request, 'campaigns/campaign_designer_wizard.html', {
-            'worlds': worlds,
-            'worlds_json': worlds_json,
-            'players': players_list
-        })
+        return render(request, 'campaigns/campaign_designer_wizard.html', context)
 
     def post(self, request):
         """Generate campaign with AI-powered quest and task generation"""

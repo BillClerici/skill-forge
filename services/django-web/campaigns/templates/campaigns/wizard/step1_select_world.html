@@ -1,0 +1,155 @@
+{% extends "campaigns/wizard/base_wizard.html" %}
+
+{% block wizard_content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Step 1: Select World and Region</h4>
+        <p class="mb-0">Choose the universe, world, and region where your campaign will take place</p>
+    </div>
+    <div class="card-body">
+        <form id="wizard-form" method="post" action="{% url 'campaign_wizard_init' %}">
+            {% csrf_token %}
+
+            <!-- Character Selection -->
+            <div class="mb-4">
+                <label for="character_id" class="form-label">Select Character</label>
+                <select class="form-select" id="character_id" name="character_id" required>
+                    <option value="">Choose a character...</option>
+                    {% for character in characters %}
+                    <option value="{{ character.id }}">{{ character.name }} - Bloom's Level {{ character.blooms_level }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">The character that will participate in this campaign</small>
+            </div>
+
+            <!-- Universe Selection -->
+            <div class="mb-4">
+                <label for="universe_id" class="form-label">Select Universe</label>
+                <select class="form-select" id="universe_id" name="universe_id" required>
+                    <option value="">Choose a universe...</option>
+                    {% for universe in universes %}
+                    <option value="{{ universe._id }}">{{ universe.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- World Selection -->
+            <div class="mb-4">
+                <label for="world_id" class="form-label">Select World</label>
+                <select class="form-select" id="world_id" name="world_id" required disabled>
+                    <option value="">Select a universe first...</option>
+                </select>
+            </div>
+
+            <!-- Region Selection -->
+            <div class="mb-4">
+                <label for="region_id" class="form-label">Select Region</label>
+                <select class="form-select" id="region_id" name="region_id" required disabled>
+                    <option value="">Select a world first...</option>
+                </select>
+            </div>
+
+            <!-- Optional Story Direction -->
+            <div class="mb-4">
+                <label for="user_story_idea" class="form-label">Story Direction (Optional)</label>
+                <textarea class="form-control" id="user_story_idea" name="user_story_idea" rows="3"
+                          placeholder="Provide a story direction or theme for the AI to consider when generating campaign ideas..."></textarea>
+                <small class="form-text text-muted">Leave blank for completely AI-generated stories</small>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{% url 'campaign_list' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Generate Story Ideas →</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// AJAX to load worlds when universe is selected
+document.getElementById('universe_id').addEventListener('change', function() {
+    const universeId = this.value;
+    const worldSelect = document.getElementById('world_id');
+    const regionSelect = document.getElementById('region_id');
+
+    if (!universeId) {
+        worldSelect.disabled = true;
+        worldSelect.innerHTML = '<option value="">Select a universe first...</option>';
+        regionSelect.disabled = true;
+        regionSelect.innerHTML = '<option value="">Select a world first...</option>';
+        return;
+    }
+
+    fetch(`/api/worlds-for-universe/${universeId}/`)
+        .then(response => response.json())
+        .then(data => {
+            worldSelect.disabled = false;
+            worldSelect.innerHTML = '<option value="">Choose a world...</option>';
+            data.worlds.forEach(world => {
+                const option = document.createElement('option');
+                option.value = world._id;
+                option.textContent = world.name;
+                worldSelect.appendChild(option);
+            });
+        });
+});
+
+// AJAX to load regions when world is selected
+document.getElementById('world_id').addEventListener('change', function() {
+    const worldId = this.value;
+    const regionSelect = document.getElementById('region_id');
+
+    if (!worldId) {
+        regionSelect.disabled = true;
+        regionSelect.innerHTML = '<option value="">Select a world first...</option>';
+        return;
+    }
+
+    fetch(`/api/regions-for-world/${worldId}/`)
+        .then(response => response.json())
+        .then(data => {
+            regionSelect.disabled = false;
+            regionSelect.innerHTML = '<option value="">Choose a region...</option>';
+            data.regions.forEach(region => {
+                const option = document.createElement('option');
+                option.value = region._id;
+                option.textContent = region.name;
+                regionSelect.appendChild(option);
+            });
+        });
+});
+
+// Form submission via AJAX
+document.getElementById('wizard-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const submitButton = this.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+
+    fetch('{% url "campaign_wizard_init" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Error: ' + data.error);
+            submitButton.disabled = false;
+            submitButton.innerHTML = 'Generate Story Ideas →';
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+        submitButton.disabled = false;
+        submitButton.innerHTML = 'Generate Story Ideas →';
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Campaign Wizard</h2>
+
+            <!-- Progress Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar {% if step >= 1 %}bg-success{% endif %}"
+                             role="progressbar"
+                             style="width: 20%">
+                            Step 1
+                        </div>
+                        <div class="progress-bar {% if step >= 2 %}bg-success{% else %}bg-secondary{% endif %}"
+                             role="progressbar"
+                             style="width: 20%">
+                            Step 2
+                        </div>
+                        <div class="progress-bar {% if step >= 3 %}bg-success{% else %}bg-secondary{% endif %}"
+                             role="progressbar"
+                             style="width: 20%">
+                            Step 3
+                        </div>
+                        <div class="progress-bar {% if step >= 4 %}bg-success{% else %}bg-secondary{% endif %}"
+                             role="progressbar"
+                             style="width: 20%">
+                            Step 4
+                        </div>
+                        <div class="progress-bar {% if step >= 5 %}bg-success{% else %}bg-secondary{% endif %}"
+                             role="progressbar"
+                             style="width: 20%">
+                            Complete
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small>Select World</small>
+                        <small>Story Ideas</small>
+                        <small>Campaign Core</small>
+                        <small>Generation</small>
+                        <small>Complete</small>
+                    </div>
+                </div>
+            </div>
+
+            {% block wizard_content %}
+            {% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}

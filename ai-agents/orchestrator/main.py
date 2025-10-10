@@ -691,6 +691,36 @@ async def generate_locations(request: GenerateLocationsRequest):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
 
+@app.post("/api/generate-locations-hierarchical", response_model=GenerateLocationsResponse)
+async def generate_locations_hierarchical(request: Dict[str, Any]):
+    """Generate locations with hierarchical type constraints using AI"""
+
+    account_id = UUID("b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f")
+    subscription_tier = "family"
+
+    if await is_account_throttled(account_id):
+        raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
+
+    async with httpx.AsyncClient(timeout=180.0) as client:  # 3 minute timeout
+        try:
+            response = await client.post(
+                f"{GAME_MASTER_URL}/generate-locations-hierarchical",
+                json=request,
+                headers={"Authorization": f"Bearer {MCP_AUTH_TOKEN}"}
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=response.text)
+
+            result = response.json()
+            await track_cost(account_id, subscription_tier, result.get("tokens_used", 0), result.get("cost_usd", 0))
+            return GenerateLocationsResponse(**result)
+
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="AI agent request timed out")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
+
 @app.post("/generate-character-backstory", response_model=GenerateBackstoryResponse)
 async def generate_character_backstory(request: GenerateCharacterBackstoryRequest):
     """Generate creative backstory for a character using AI"""
@@ -750,6 +780,208 @@ async def generate_campaign(request: GenerateCampaignRequest):
             raise HTTPException(status_code=504, detail="AI agent request timed out after 5 minutes")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error communicating with Game Master: {str(e)}")
+
+# ============================================
+# Campaign Wizard Endpoints
+# ============================================
+
+@app.post("/campaign-wizard/start")
+async def start_campaign_wizard(request: Dict[str, Any]):
+    """
+    Start campaign wizard workflow
+
+    Publishes message to RabbitMQ campaign_generation_queue
+    """
+    import aio_pika
+
+    account_id = UUID(request.get("user_id", "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"))
+    subscription_tier = request.get("subscription_tier", "family")
+
+    if await is_account_throttled(account_id):
+        raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
+
+    try:
+        # Connect to RabbitMQ
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            # Prepare campaign request message
+            campaign_message = {
+                "request_id": request.get("request_id", str(UUID(int=0))),
+                "user_id": str(account_id),
+                "character_id": request.get("character_id"),
+                "universe_id": request.get("universe_id"),
+                "universe_name": request.get("universe_name"),
+                "world_id": request.get("world_id"),
+                "world_name": request.get("world_name"),
+                "region_id": request.get("region_id"),
+                "region_name": request.get("region_name"),
+                "genre": request.get("genre"),
+                "user_story_idea": request.get("user_story_idea"),
+                "workflow_action": "start"
+            }
+
+            # Publish to campaign generation queue
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "started",
+                "request_id": campaign_message["request_id"],
+                "message": "Campaign generation workflow started"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error starting campaign workflow: {str(e)}")
+
+@app.post("/campaign-wizard/select-story")
+async def select_story(request: Dict[str, Any]):
+    """
+    User selects a story idea
+
+    Publishes message to resume workflow
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "selected_story_id": request.get("selected_story_id"),
+                "workflow_action": "select_story"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "story_selected",
+                "request_id": campaign_message["request_id"]
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error selecting story: {str(e)}")
+
+@app.post("/campaign-wizard/regenerate-stories")
+async def regenerate_stories(request: Dict[str, Any]):
+    """
+    User requests story regeneration
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "workflow_action": "regenerate_stories"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "regenerating",
+                "request_id": campaign_message["request_id"]
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error regenerating stories: {str(e)}")
+
+@app.post("/campaign-wizard/approve-core")
+async def approve_campaign_core(request: Dict[str, Any]):
+    """
+    User approves campaign core and provides quest specifications
+
+    This triggers the full campaign generation
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "user_approved_core": request.get("user_approved_core", True),
+                "num_quests": request.get("num_quests", 5),
+                "quest_difficulty": request.get("quest_difficulty", "Medium"),
+                "quest_playtime_minutes": request.get("quest_playtime_minutes", 90),
+                "generate_images": request.get("generate_images", True),
+                "workflow_action": "approve_core"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "generating",
+                "request_id": campaign_message["request_id"],
+                "message": "Full campaign generation started"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error approving campaign core: {str(e)}")
+
+@app.get("/campaign-wizard/status/{request_id}")
+async def get_campaign_status(request_id: str):
+    """
+    Get campaign generation status
+
+    Checks Redis for workflow progress
+    """
+    try:
+        # Get progress from Redis
+        progress_key = f"campaign:progress:{request_id}"
+        progress_data = await redis_client.get(progress_key)
+
+        if not progress_data:
+            raise HTTPException(status_code=404, detail="Campaign request not found")
+
+        return json.loads(progress_data)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting campaign status: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
