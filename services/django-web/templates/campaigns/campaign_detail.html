@@ -588,6 +588,74 @@ document.addEventListener('DOMContentLoaded', function() {
                             ${scene.npcs.map(npc => `<li style="color: #b8b8d1; margin-bottom: 6px;"><strong>${escapeHtml(npc.name)}</strong> - ${escapeHtml(npc.role)}</li>`).join('')}
                         </ul>
                     </div>` : ''}
+                    ${scene.challenges && scene.challenges.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">emoji_events</i> Challenges
+                        </h6>
+                        ${scene.challenges.map(challenge => `
+                            <div style="background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: #ff9800; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(challenge.name)}</span>
+                                    <span class="chip" style="background-color: rgba(255, 152, 0, 0.2); color: #ff9800; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(challenge.challenge_type)}</span>
+                                    <span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(challenge.difficulty)}</span>
+                                </div>
+                                <p style="color: #b8b8d1; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap;">${escapeHtml(challenge.description)}</p>
+                                ${challenge.success_rewards && Object.keys(challenge.success_rewards).length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: #4caf50; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">check_circle</i> Rewards:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${Object.entries(challenge.success_rewards).map(([key, value]) => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(key)}: ${escapeHtml(value)}</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
+                                ${challenge.failure_consequences && Object.keys(challenge.failure_consequences).length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: #f44336; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">cancel</i> Consequences:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${Object.entries(challenge.failure_consequences).map(([key, value]) => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(key)}: ${escapeHtml(value)}</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
+                    ${scene.events && scene.events.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">event</i> Events
+                        </h6>
+                        ${scene.events.map(event => `
+                            <div style="background: rgba(106, 90, 205, 0.1); border-left: 3px solid var(--rpg-purple); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: var(--rpg-purple); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(event.name)}</span>
+                                    <span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(event.event_type)}</span>
+                                </div>
+                                <p style="color: #b8b8d1; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap;">${escapeHtml(event.description)}</p>
+                                ${event.outcomes && event.outcomes.length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: var(--rpg-purple); font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">fork_right</i> Possible Outcomes:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${event.outcomes.map(outcome => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(outcome)}</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
+                    ${scene.discoveries && scene.discoveries.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">lightbulb</i> Discoveries & Knowledge
+                        </h6>
+                        ${scene.discoveries.map(discovery => `
+                            <div style="background: rgba(76, 110, 245, 0.1); border-left: 3px solid var(--rpg-blue); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: var(--rpg-blue); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(discovery.name)}</span>
+                                    <span class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(discovery.knowledge_type)}</span>
+                                    <span class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Level ${discovery.blooms_level}</span>
+                                </div>
+                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(discovery.description)}</p>
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
                 `;
             }
         }

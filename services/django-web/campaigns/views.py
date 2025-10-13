@@ -376,13 +376,63 @@ class CampaignDetailView(View):
                                 'role': str(npc_role)
                             })
 
+                    # Get Discoveries for this scene
+                    discovery_ids = scene.get('discovery_ids', [])
+                    # Filter out None/null values
+                    discovery_ids = [id for id in discovery_ids if id is not None and id != '']
+                    discoveries = []
+                    if discovery_ids:
+                        discoveries_raw = list(db.discoveries.find({'_id': {'$in': discovery_ids}}))
+                        for discovery in discoveries_raw:
+                            discoveries.append({
+                                'name': discovery.get('name', 'Unknown Discovery'),
+                                'description': discovery.get('description', ''),
+                                'knowledge_type': discovery.get('knowledge_type', 'information'),
+                                'blooms_level': discovery.get('blooms_level', 0)
+                            })
+
+                    # Get Events for this scene
+                    event_ids = scene.get('event_ids', [])
+                    # Filter out None/null values
+                    event_ids = [id for id in event_ids if id is not None and id != '']
+                    events = []
+                    if event_ids:
+                        events_raw = list(db.events.find({'_id': {'$in': event_ids}}))
+                        for event in events_raw:
+                            events.append({
+                                'name': event.get('name', 'Unknown Event'),
+                                'description': event.get('description', ''),
+                                'event_type': event.get('event_type', 'scripted'),
+                                'outcomes': event.get('outcomes', [])
+                            })
+
+                    # Get Challenges for this scene
+                    challenge_ids = scene.get('challenge_ids', [])
+                    # Filter out None/null values
+                    challenge_ids = [id for id in challenge_ids if id is not None and id != '']
+                    challenges = []
+                    if challenge_ids:
+                        challenges_raw = list(db.challenges.find({'_id': {'$in': challenge_ids}}))
+                        for challenge in challenges_raw:
+                            challenges.append({
+                                'name': challenge.get('name', 'Unknown Challenge'),
+                                'description': challenge.get('description', ''),
+                                'challenge_type': challenge.get('challenge_type', 'skill_check'),
+                                'difficulty': challenge.get('difficulty', 'Medium'),
+                                'success_rewards': challenge.get('success_rewards', {}),
+                                'failure_consequences': challenge.get('failure_consequences', {})
+                            })
+
                     scene_data = {
                         'id': str(scene['_id']),
                         'name': scene.get('name', ''),
                         'description': scene.get('description', ''),
                         'level_3_location_name': scene.get('level_3_location_name', ''),
                         'primary_image_url': scene.get('primary_image_url'),
-                        'npcs': npcs
+                        'npcs': npcs,
+                        'discoveries': discoveries,
+                        'events': events,
+                        'challenges': challenges
                     }
                     place_data['scenes'].append(scene_data)
 

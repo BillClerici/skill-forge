@@ -6,12 +6,18 @@ import os
 import logging
 import json
 import uuid
-from typing import List
+from typing import List, Dict
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate
 
 from .state import CampaignWorkflowState, QuestData
 from .utils import add_audit_entry, publish_progress, create_checkpoint, get_blooms_level_description
+from .objective_system import (
+    generate_quest_objectives,
+    create_knowledge_entities_from_objectives,
+    create_item_entities_from_objectives,
+    validate_objective_achievability
+)
 
 logger = logging.getLogger(__name__)
 
@@ -190,17 +196,68 @@ Generate {num_quests} quests that form a coherent campaign progression.""")
 
         state["quests"] = quests
 
+        # NEW: Phase 2 - Objective Linking System
+        # For each quest, generate structured objectives with knowledge/item requirements
+        logger.info("Generating structured objectives with knowledge/item requirements...")
+
+        all_knowledge_entities = []
+        all_item_entities = []
+
+        for quest in quests:
+            try:
+                # Generate structured objectives
+                structured_objectives = await generate_quest_objectives(
+                    quest,
+                    state["campaign_core"]["primary_objectives"],
+                    state
+                )
+
+                # Create knowledge entities from objectives
+                knowledge_entities = await create_knowledge_entities_from_objectives(
+                    structured_objectives,
+                    quest,
+                    state
+                )
+                all_knowledge_entities.extend(knowledge_entities)
+
+                # Create item entities from objectives
+                item_entities = await create_item_entities_from_objectives(
+                    structured_objectives,
+                    quest,
+                    state
+                )
+                all_item_entities.extend(item_entities)
+
+                # Store structured objectives back on the quest
+                quest["structured_objectives"] = structured_objectives
+
+                logger.info(f"Quest '{quest['name']}': {len(knowledge_entities)} knowledge, {len(item_entities)} items")
+
+            except Exception as e:
+                logger.error(f"Error processing objectives for quest '{quest['name']}': {str(e)}")
+                continue
+
+        # Store knowledge and item entities in state
+        state["knowledge_entities"] = all_knowledge_entities
+        state["item_entities"] = all_item_entities
+
+        logger.info(f"Total campaign resources: {len(all_knowledge_entities)} knowledge, {len(all_item_entities)} items")
+
         # Create checkpoint after quest generation
         create_checkpoint(state, "quests_generated")
 
         add_audit_entry(
             state,
             "generate_quests",
-            "Generated quests",
+            "Generated quests with objectives",
             {
                 "num_quests": len(quests),
                 "new_locations_created": len([q for q in quests if q["level_1_location_id"].startswith("new_loc_")]),
-                "quests": [{"name": q["name"], "location": q["level_1_location_name"]} for q in quests]
+                "quests": [{"name": q["name"], "location": q["level_1_location_name"]} for q in quests],
+                "total_knowledge_entities": len(all_knowledge_entities),
+                "total_item_entities": len(all_item_entities),
+                "knowledge_by_dimension": _count_by_dimension(all_knowledge_entities),
+                "items_by_type": _count_by_type(all_item_entities)
             },
             "success"
         )
@@ -226,3 +283,21 @@ Generate {num_quests} quests that form a coherent campaign progression.""")
         )
 
     return state
+
+
+def _count_by_dimension(knowledge_entities: List) -> Dict[str, int]:
+    """Helper to count knowledge entities by primary dimension"""
+    counts = {}
+    for kg in knowledge_entities:
+        dim = kg.get("primary_dimension", "unknown")
+        counts[dim] = counts.get(dim, 0) + 1
+    return counts
+
+
+def _count_by_type(item_entities: List) -> Dict[str, int]:
+    """Helper to count item entities by type"""
+    counts = {}
+    for item in item_entities:
+        item_type = item.get("item_type", "unknown")
+        counts[item_type] = counts.get(item_type, 0) + 1
+    return counts

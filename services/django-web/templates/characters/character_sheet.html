@@ -315,18 +315,27 @@
     <!-- Personal Evolution Arc Progress Tracker -->
     <div class="sheet-section">
         <div class="section-title">
-            <i class="material-icons">trending_up</i>
+            <i class="material-icons">self_improvement</i>
             Personal Evolution Arc
         </div>
+
+        <!-- What is Personal Evolution Arc? -->
+        <div style="background: rgba(106, 90, 205, 0.15); border-left: 4px solid var(--rpg-purple); padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+            <p style="color: white; line-height: 1.7; margin: 0; font-size: 0.95rem;">
+                <strong style="color: var(--rpg-purple);">Your Wisdom & Integration</strong><br>
+                Your Personal Evolution Arc represents your <strong>meta-cognitive development</strong> - your ability to reflect on, integrate, and synthesize learning across all 7 dimensions. It advances when you demonstrate <strong>balanced growth</strong>, not just specialized skills.
+            </p>
+        </div>
+
         <div class="progress-tracker">
             <div class="progress-step">
                 <div class="progress-icon {% if character.blooms_level == 'remembering' %}current{% else %}completed{% endif %}">
                     {% if character.blooms_level == 'remembering' %}●{% else %}✓{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'remembering' %}current{% endif %}">
-                    <strong>Novice</strong> - Recall facts and basic concepts
+                    <strong>Novice</strong> - Developing awareness across multiple dimensions
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Remember the names of regions, recall spell ingredients
+                        Beginning to recognize that there are multiple areas of growth beyond just combat or magic
                     </div>
                 </div>
             </div>
@@ -335,9 +344,9 @@
                     {% if character.blooms_level == 'understanding' %}●{% elif character.blooms_level == 'remembering' %}○{% else %}✓{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'understanding' %}current{% elif character.blooms_level == 'remembering' %}locked{% endif %}">
-                    <strong>Apprentice</strong> - Explain ideas or concepts
+                    <strong>Apprentice</strong> - Understanding connections between growth areas
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Explain why a faction acts a certain way, describe how magic works
+                        Seeing how physical training improves emotional resilience, or how spiritual values enhance social skills
                     </div>
                 </div>
             </div>
@@ -346,9 +355,9 @@
                     {% if character.blooms_level == 'applying' %}●{% elif character.blooms_level == 'remembering' or character.blooms_level == 'understanding' %}○{% else %}✓{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'applying' %}current{% elif character.blooms_level == 'remembering' or character.blooms_level == 'understanding' %}locked{% endif %}">
-                    <strong>Journeyman</strong> - Use information in new situations
+                    <strong>Journeyman</strong> - Applying integrated knowledge across domains
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Apply combat tactics to a new battle, use diplomacy in negotiations
+                        Using lessons from one dimension to improve in another - tactical thinking enhances social strategy
                     </div>
                 </div>
             </div>
@@ -357,9 +366,9 @@
                     {% if character.blooms_level == 'analyzing' %}●{% elif character.blooms_level == 'evaluating' or character.blooms_level == 'creating' %}✓{% else %}○{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'analyzing' %}current{% elif character.blooms_level == 'evaluating' or character.blooms_level == 'creating' %}{% else %}locked{% endif %}">
-                    <strong>Expert</strong> - Draw connections among ideas
+                    <strong>Expert</strong> - Analyzing patterns across all dimensions
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Connect political events to predict outcomes, analyze enemy weaknesses
+                        Recognizing how balanced development creates wisdom - understanding the interplay of all growth areas
                     </div>
                 </div>
             </div>
@@ -368,9 +377,9 @@
                     {% if character.blooms_level == 'evaluating' %}●{% elif character.blooms_level == 'creating' %}✓{% else %}○{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'evaluating' %}current{% elif character.blooms_level == 'creating' %}{% else %}locked{% endif %}">
-                    <strong>Master</strong> - Justify a stand or decision
+                    <strong>Master</strong> - Evaluating holistic development with wisdom
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Judge between two moral choices, defend a strategic plan
+                        Judging your entire developmental journey, making wise choices that reflect integrated understanding
                     </div>
                 </div>
             </div>
@@ -379,12 +388,117 @@
                     {% if character.blooms_level == 'creating' %}●{% else %}○{% endif %}
                 </div>
                 <div class="progress-label {% if character.blooms_level == 'creating' %}current{% else %}locked{% endif %}">
-                    <strong>Grandmaster</strong> - Produce new or original work
+                    <strong>Grandmaster</strong> - Creating transformative synthesis and original frameworks
                     <div style="font-size: 0.85rem; margin-top: 3px; font-style: italic; opacity: 0.8;">
-                        Example: Create a new spell, forge alliances, establish a new kingdom
+                        Developing new ways of integrating knowledge that transcend individual dimensions - true wisdom
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Requirements Info -->
+        {% if character.blooms_level != 'creating' %}
+        <div style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); padding: 15px; border-radius: 4px; margin-top: 20px;">
+            <h6 style="color: var(--rpg-gold); margin: 0 0 10px 0; font-weight: 600;">
+                <i class="material-icons tiny" style="vertical-align: middle;">arrow_upward</i>
+                Next Level Requirements
+            </h6>
+            <p style="color: white; margin: 0; font-size: 0.9rem;">
+                {% if character.blooms_level == 'remembering' %}
+                    <strong>Apprentice:</strong> Reach level 2+ in at least 5 dimensions (develop broadly across multiple areas)
+                {% elif character.blooms_level == 'understanding' %}
+                    <strong>Journeyman:</strong> Reach level 3+ in 4 dimensions, level 2+ in all dimensions (demonstrate balanced application)
+                {% elif character.blooms_level == 'applying' %}
+                    <strong>Expert:</strong> Reach level 4+ in 3 dimensions, level 3+ in 6 dimensions (show analytical depth)
+                {% elif character.blooms_level == 'analyzing' %}
+                    <strong>Master:</strong> Reach level 5+ in 2 dimensions, level 4+ in 5 dimensions (achieve mastery in multiple areas)
+                {% else %}
+                    <strong>Grandmaster:</strong> Reach level 6 in 1 dimension, level 5+ in 4 dimensions, level 4+ in all dimensions (transcendent wisdom)
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Dimensional Maturity Profile -->
+    <div class="sheet-section">
+        <div class="section-title">
+            <i class="material-icons">psychology</i>
+            Dimensional Maturity Profile
+        </div>
+
+        <p style="color: var(--rpg-silver); margin-bottom: 20px; line-height: 1.6; font-size: 0.95rem;">
+            Your dimensional maturity tracks your development across 7 key areas of growth. Each dimension progresses through Bloom's Taxonomy levels,
+            from Novice (Remember) to Grandmaster (Create), reflecting your cognitive and personal development.
+        </p>
+
+        <!-- Dimension Details -->
+        <div class="maturity-dimensions">
+            {% for dimension, data in character.dimensional_profile.items %}
+            <div class="dimension-row" style="margin: 15px 0; padding: 12px; background: rgba(212, 175, 55, 0.05); border-radius: 6px; border-left: 4px solid {{ data.color }};">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span class="stat-label" style="font-size: 1.05rem;">
+                        {{ dimension|title }} Dimension
+                    </span>
+                    <span class="stat-value" style="color: {{ data.color }};">
+                        Level {{ data.current_level }}: {{ data.friendly_name }}
+                    </span>
+                </div>
+
+                <!-- Bloom's Level Indicator -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="color: var(--rpg-silver); font-size: 0.9rem;">
+                        {{ data.bloom_level }} (Bloom's Taxonomy)
+                    </span>
+                    <span style="color: white; font-size: 0.9rem;">
+                        {{ data.experience_points }} / {{ data.next_level_threshold }} XP
+                    </span>
+                </div>
+
+                <!-- Progress bar to next level -->
+                <div style="background: rgba(255, 255, 255, 0.1); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                    <div style="background: linear-gradient(90deg, {{ data.color }}, var(--rpg-gold));
+                                width: {{ data.progress_percentage }}%; height: 100%; transition: width 0.3s ease;">
+                    </div>
+                </div>
+
+                <!-- Bloom's Level Progress Track -->
+                <div style="display: flex; justify-content: space-between; margin: 10px 0 8px 0;">
+                    {% for level in "123456" %}
+                    <div style="text-align: center; flex: 1;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 3px;
+                                    background: {% if level|add:'0' <= data.current_level %}{{ data.color }}{% else %}rgba(255,255,255,0.2){% endif %};
+                                    border: 2px solid {% if level|add:'0' == data.current_level %}var(--rpg-gold){% else %}rgba(255,255,255,0.3){% endif %};
+                                    display: flex; align-items: center; justify-content: center;
+                                    color: white; font-size: 0.7rem; font-weight: bold;">
+                            {% if level|add:'0' < data.current_level %}✓{% elif level|add:'0' == data.current_level %}●{% else %}○{% endif %}
+                        </div>
+                        <div style="font-size: 0.7rem; color: {% if level|add:'0' <= data.current_level %}white{% else %}rgba(255,255,255,0.4){% endif %};">
+                            {% if level == "1" %}Novice{% elif level == "2" %}Apprentice{% elif level == "3" %}Journeyman{% elif level == "4" %}Expert{% elif level == "5" %}Master{% elif level == "6" %}Grandmaster{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Dimension description -->
+                <p style="color: var(--rpg-silver); font-size: 0.85rem; margin: 8px 0 0 0; font-style: italic;">
+                    {{ data.description }}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="background: rgba(106, 90, 205, 0.1); border-left: 4px solid var(--rpg-purple); padding: 15px; border-radius: 4px; margin-top: 20px;">
+            <h6 style="color: var(--rpg-purple); margin: 0 0 10px 0; font-weight: 600;">
+                <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                How Dimensional Maturity Develops
+            </h6>
+            <p style="color: white; line-height: 1.7; margin: 0;">
+                Each of the 7 dimensions progresses through Bloom's Taxonomy levels as you engage in campaigns. Your actions are evaluated using
+                rubrics that assess the cognitive sophistication of your choices. Demonstrate higher-order thinking - analyzing situations,
+                evaluating options, and creating novel solutions - to advance through the levels. Experience points are awarded based on the quality
+                of your performance in each dimension, with level-ups occurring when you reach the threshold for the next Bloom's level.
+            </p>
         </div>
     </div>
 

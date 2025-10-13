@@ -23,14 +23,14 @@ class Character(models.Model):
         help_text="List of personality traits: brave, cunning, wise, etc."
     )
 
-    # Personal Evolution Arc (Bloom's Taxonomy Skill Level)
+    # Personal Evolution Arc (Meta-Cognitive Development & Integrated Wisdom)
     BLOOMS_LEVEL_CHOICES = [
-        ('remembering', 'Novice - Recall facts and basic concepts'),
-        ('understanding', 'Apprentice - Explain ideas or concepts'),
-        ('applying', 'Journeyman - Use information in new situations'),
-        ('analyzing', 'Expert - Draw connections among ideas'),
-        ('evaluating', 'Master - Justify a stand or decision'),
-        ('creating', 'Grandmaster - Produce new or original work'),
+        ('remembering', 'Novice - Developing awareness across multiple dimensions'),
+        ('understanding', 'Apprentice - Understanding connections between growth areas'),
+        ('applying', 'Journeyman - Applying integrated knowledge across domains'),
+        ('analyzing', 'Expert - Analyzing patterns across all dimensions'),
+        ('evaluating', 'Master - Evaluating holistic development with wisdom'),
+        ('creating', 'Grandmaster - Creating transformative synthesis and original frameworks'),
     ]
     blooms_level = models.CharField(
         max_length=20,
@@ -70,6 +70,12 @@ class Character(models.Model):
         help_text="Voice characteristics, accent, speaking patterns, and language proficiencies"
     )
 
+    # Dimensional Maturity (7 dimensions × 6 Bloom's levels)
+    dimensional_maturity = models.JSONField(
+        default=dict,
+        help_text="7-dimension maturity tracking: Physical, Emotional, Intellectual, Social, Spiritual, Vocational, Environmental"
+    )
+
     # Character Images (up to 4 AI-generated images)
     images = models.JSONField(
         default=list,
@@ -104,3 +110,100 @@ class Character(models.Model):
         if self.title:
             return f"{self.name} {self.title}"
         return self.name
+
+    # Bloom's Level Mapping
+    BLOOMS_FRIENDLY_NAMES = {
+        1: "Novice",
+        2: "Apprentice",
+        3: "Journeyman",
+        4: "Expert",
+        5: "Master",
+        6: "Grandmaster"
+    }
+
+    BLOOMS_TAXONOMY_LEVELS = {
+        1: "Remember",
+        2: "Understand",
+        3: "Apply",
+        4: "Analyze",
+        5: "Evaluate",
+        6: "Create"
+    }
+
+    DIMENSION_NAMES = [
+        "physical",
+        "emotional",
+        "intellectual",
+        "social",
+        "spiritual",
+        "vocational",
+        "environmental"
+    ]
+
+    @staticmethod
+    def get_default_dimensional_maturity():
+        """Default dimensional maturity for new characters (all at level 1)"""
+        return {
+            "physical": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "emotional": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "intellectual": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "social": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "spiritual": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "vocational": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100},
+            "environmental": {"current_level": 1, "bloom_level": "Remember", "experience_points": 0, "next_level_threshold": 100}
+        }
+
+    @property
+    def dimensional_profile(self):
+        """Get formatted dimensional maturity profile"""
+        if not self.dimensional_maturity:
+            maturity = self.get_default_dimensional_maturity()
+        else:
+            # Ensure all dimensions exist
+            default = self.get_default_dimensional_maturity()
+            maturity = {**default, **self.dimensional_maturity}
+
+        profile = {}
+        for dimension, data in maturity.items():
+            current_level = data.get("current_level", 1)
+            exp = data.get("experience_points", 0)
+            next_threshold = data.get("next_level_threshold", 100)
+
+            profile[dimension] = {
+                "current_level": current_level,
+                "bloom_level": data.get("bloom_level", self.BLOOMS_TAXONOMY_LEVELS[current_level]),
+                "friendly_name": self.BLOOMS_FRIENDLY_NAMES[current_level],
+                "experience_points": exp,
+                "next_level_threshold": next_threshold,
+                "progress_percentage": int((exp / next_threshold) * 100) if next_threshold > 0 else 100,
+                "color": self.get_dimension_color(current_level),
+                "description": self.get_dimension_description(dimension)
+            }
+        return profile
+
+    @staticmethod
+    def get_dimension_color(level):
+        """Return color based on Bloom's level (1-6)"""
+        colors = {
+            1: "#9e9e9e",  # Gray - Novice (Remember)
+            2: "#2196f3",  # Blue - Apprentice (Understand)
+            3: "#4caf50",  # Green - Journeyman (Apply)
+            4: "#ff9800",  # Orange - Expert (Analyze)
+            5: "#9c27b0",  # Purple - Master (Evaluate)
+            6: "#f44336"   # Red - Grandmaster (Create)
+        }
+        return colors.get(level, "#9e9e9e")
+
+    @staticmethod
+    def get_dimension_description(dimension):
+        """Get description for each of the 7 dimensions"""
+        descriptions = {
+            "physical": "Physical development, health, coordination, and bodily mastery",
+            "emotional": "Emotional intelligence, self-regulation, and affective awareness",
+            "intellectual": "Cognitive abilities, critical thinking, and knowledge acquisition",
+            "social": "Interpersonal skills, collaboration, and community engagement",
+            "spiritual": "Values, purpose, ethics, and connection to something greater",
+            "vocational": "Skills, competencies, and capabilities for meaningful work",
+            "environmental": "Awareness and stewardship of surroundings and nature"
+        }
+        return descriptions.get(dimension, "")

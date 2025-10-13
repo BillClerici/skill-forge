@@ -98,14 +98,53 @@ class NPCData(TypedDict):
     is_world_permanent: bool  # True if added to world's NPC pool
 
 
+class KnowledgePartialLevel(TypedDict):
+    """Partial understanding level for knowledge"""
+    level: int  # 1-4 (25%, 50%, 75%, 100%)
+    description: str
+    sufficient_for: List[str]  # Objective IDs this level can satisfy
+
+
+class AcquisitionMethod(TypedDict):
+    """Method to acquire knowledge or item"""
+    type: str  # npc_conversation, discovery, challenge, event
+    entity_id: str  # ID of the NPC, discovery, challenge, or event
+    difficulty: str  # Easy, Medium, Hard, Expert
+    max_level_obtainable: int  # For knowledge: 1-4, for items: 1 (binary)
+    rubric_id: str
+    conditions: Dict[str, Any]  # Prerequisites (required_knowledge, required_items, etc.)
+
+
+class KnowledgeData(TypedDict):
+    """Enhanced Knowledge entity with progression tracking"""
+    knowledge_id: Optional[str]
+    name: str
+    description: str
+    knowledge_type: str  # skill, lore, clue, secret, technique, insight
+    primary_dimension: str  # Which of 7 dimensions this primarily develops
+    bloom_level_target: int  # Target Bloom's level (1-6)
+    supports_objectives: List[str]  # Quest/Campaign objective IDs
+
+    # Progression system
+    partial_levels: List[KnowledgePartialLevel]  # 4 levels of understanding
+    acquisition_methods: List[AcquisitionMethod]  # Multiple ways to acquire
+
+    # Metadata
+    created_at: Optional[str]
+    scene_id: Optional[str]  # Scene where this knowledge originates
+
+
 class DiscoveryData(TypedDict):
-    """Discovery/Knowledge element"""
+    """Discovery/Knowledge element (DEPRECATED - use KnowledgeData)"""
     discovery_id: Optional[str]
     name: str
     description: str
     knowledge_type: str  # lore, secret, clue, information
     blooms_level: int
     unlocks_scenes: List[str]  # Scene IDs this unlocks
+
+    # NEW: Link to KnowledgeData
+    provides_knowledge_ids: List[str]  # Knowledge IDs this discovery provides
 
 
 class EventData(TypedDict):
@@ -118,16 +157,152 @@ class EventData(TypedDict):
     outcomes: List[Dict[str, Any]]
 
 
+class ItemData(TypedDict):
+    """Item entity with multiple acquisition paths"""
+    item_id: Optional[str]
+    name: str
+    description: str
+    item_type: str  # tool, consumable, key_item, quest_item, equipment, resource
+    supports_objectives: List[str]  # Quest/Campaign objective IDs
+
+    # Acquisition system
+    acquisition_methods: List[AcquisitionMethod]  # Multiple ways to acquire
+    quantity: int
+    is_consumable: bool
+    is_quest_critical: bool
+
+    # Metadata
+    created_at: Optional[str]
+    scene_id: Optional[str]
+
+
+class RubricCriterion(TypedDict):
+    """Single evaluation criterion in a rubric"""
+    criterion: str  # Name of what's being evaluated
+    weight: float  # 0.0-1.0, must sum to 1.0 across all criteria
+    bloom_level_target: int  # Target Bloom's level for this criterion (1-6)
+    levels: List[Dict[str, Any]]  # Score levels with descriptions
+
+
+class RubricData(TypedDict):
+    """Evaluation rubric for interactions"""
+    rubric_id: str
+    rubric_type: str  # npc_conversation, environmental_discovery, challenge, dynamic_event
+    interaction_name: str
+    entity_id: str  # ID of the NPC, discovery, challenge, or event
+
+    # Primary dimension this interaction develops
+    primary_dimension: str  # physical, emotional, intellectual, social, spiritual, vocational, environmental
+
+    # Secondary dimensions (can develop multiple)
+    secondary_dimensions: List[str]
+
+    # Evaluation criteria
+    evaluation_criteria: List[RubricCriterion]
+
+    # Mapping from average score to knowledge/item level
+    knowledge_level_mapping: Dict[str, int]  # "1.0-1.75": 1, "1.76-2.5": 2, etc.
+
+    # Rewards based on performance
+    rewards_by_performance: Dict[str, Dict[str, List[str]]]  # {"knowledge": {"1": [...], "2": [...]}, "items": {...}}
+
+    # Dimensional experience rewards
+    dimensional_rewards: Dict[str, Dict[str, Any]]  # dimension -> {bloom_target, experience_by_score}
+
+    # Consequences for poor performance (optional)
+    consequences_by_performance: Optional[Dict[str, Dict[str, Any]]]
+
+
 class ChallengeData(TypedDict):
-    """Challenge/Obstacle definition"""
+    """Enhanced Challenge/Obstacle definition"""
     challenge_id: Optional[str]
     name: str
     description: str
-    challenge_type: str  # combat, puzzle, social, skill_check
-    difficulty: str
+
+    # Challenge classification
+    challenge_type: str  # See expanded list below
+    challenge_category: str  # mental, physical, social, emotional, spiritual, vocational, environmental
+    primary_dimension: str  # Which dimension this primarily develops
+    secondary_dimensions: List[str]  # Other dimensions this engages
+
+    # Difficulty and requirements
+    difficulty: str  # Easy, Medium, Hard, Expert
     blooms_level: int
+    required_knowledge: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "min_level": 2}]
+    required_items: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+
+    # Rewards system
+    provides_knowledge_ids: List[str]  # Knowledge IDs this challenge can provide
+    provides_item_ids: List[str]  # Item IDs this challenge can provide
+    rubric_id: str  # Link to evaluation rubric
+
+    # Legacy support
     success_rewards: Dict[str, Any]
     failure_consequences: Dict[str, Any]
+
+
+"""
+EXPANDED CHALLENGE TYPES:
+
+A. Mental Challenges (Intellectual):
+- riddle, cipher, memory_game, strategy_game, mathematical_puzzle, lateral_thinking
+
+B. Physical Challenges (Physical):
+- combat, obstacle_course, endurance_test, precision_task, reflex_challenge, strength_test
+
+C. Social Challenges (Social):
+- negotiation, persuasion, deception_detection, team_coordination, leadership_test, cultural_navigation
+
+D. Emotional Challenges (Emotional):
+- stress_management, empathy_scenario, trauma_processing, temptation_resistance, fear_confrontation, relationship_repair
+
+E. Spiritual Challenges (Spiritual):
+- moral_dilemma, purpose_quest, value_conflict, sacrifice_decision, forgiveness_scenario, faith_test
+
+F. Vocational Challenges (Vocational):
+- craft_mastery, professional_puzzle, skill_competition, innovation_challenge, apprenticeship_test, quality_control
+
+G. Environmental Challenges (Environmental):
+- ecosystem_management, resource_optimization, pollution_solution, wildlife_interaction, climate_adaptation, conservation_decision
+"""
+
+
+class DimensionalMaturity(TypedDict):
+    """Character maturity in one dimension"""
+    current_level: int  # 1-6 (Bloom's levels)
+    bloom_level: str  # Remember, Understand, Apply, Analyze, Evaluate, Create
+    experience_points: int
+    next_level_threshold: int
+    strengths: List[str]
+    growth_areas: List[str]
+
+
+class CharacterDevelopmentProfile(TypedDict):
+    """Multi-dimensional character development tracking"""
+    character_id: str
+    dimensional_maturity: Dict[str, DimensionalMaturity]  # 7 dimensions
+
+    # Balance metrics
+    balance_score: float  # Average across all dimensions
+    most_developed: List[str]  # Top 3 dimensions
+    least_developed: List[str]  # Bottom 3 dimensions
+    recommended_focus: List[str]  # Dimensions to work on for balance
+
+    # Knowledge and items acquired
+    acquired_knowledge: Dict[str, Dict[str, Any]]  # knowledge_id -> {current_level, max_level, history}
+    acquired_items: Dict[str, Dict[str, Any]]  # item_id -> {quantity, acquisition_source, etc.}
+
+    # Quest progression
+    quest_progress: Dict[str, Dict[str, Any]]  # quest_id -> {status, objectives_completed, requirements_met}
+
+
+class QuestObjective(TypedDict):
+    """Quest objective with requirements"""
+    objective_id: str
+    description: str
+    required_knowledge: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "min_level": 2}]
+    required_items: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+    status: str  # not_started, in_progress, completed
 
 
 class CampaignWorkflowState(TypedDict):
@@ -187,9 +362,19 @@ class CampaignWorkflowState(TypedDict):
     places: List[PlaceData]
     scenes: List[SceneData]
     npcs: List[NPCData]
+
+    # Legacy elements (being phased out)
     discoveries: List[DiscoveryData]
     events: List[EventData]
     challenges: List[ChallengeData]
+
+    # NEW: Enhanced progression system
+    knowledge_entities: List[KnowledgeData]  # All knowledge in campaign
+    item_entities: List[ItemData]  # All items in campaign
+    rubrics: List[RubricData]  # All evaluation rubrics
+
+    # Character development
+    character_profile: Optional[CharacterDevelopmentProfile]  # Player character's development
 
     # World enrichment tracking
     new_species_ids: List[str]  # Species created and added to world

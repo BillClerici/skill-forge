@@ -328,18 +328,29 @@
         <div class="card">
             <div class="card-content">
                 <span class="card-title" style="color: var(--rpg-gold); display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="material-icons left">trending_up</i>Personal Evolution Arc</span>
+                    <span><i class="material-icons left">self_improvement</i>Personal Evolution Arc</span>
                     <a href="{% url 'character_sheet' character.character_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
                         <i class="material-icons left">description</i>Character Sheet
                     </a>
                 </span>
 
-                <div style="margin-top: 20px;">
-                    <p style="margin: 0 0 8px 0; color: var(--rpg-silver); font-size: 0.9rem; font-weight: 500;">
-                        Current Level
+                <!-- What is Personal Evolution Arc? -->
+                <div style="background: rgba(106, 90, 205, 0.15); border-left: 4px solid var(--rpg-purple); padding: 15px; border-radius: 4px; margin: 20px 0;">
+                    <p style="color: white; line-height: 1.7; margin: 0; font-size: 0.95rem;">
+                        <strong style="color: var(--rpg-purple);">Your Wisdom & Integration</strong><br>
+                        Your Personal Evolution Arc represents your <strong>meta-cognitive development</strong> - your ability to reflect on, integrate, and synthesize learning across all 7 dimensions. It advances when you demonstrate <strong>balanced growth</strong>, not just specialized skills.
                     </p>
-                    <p style="margin: 5px 0 20px 0; color: var(--rpg-purple); font-size: 1.3rem; font-weight: 600;">
+                </div>
+
+                <div style="margin-top: 25px;">
+                    <p style="margin: 0 0 8px 0; color: var(--rpg-silver); font-size: 0.9rem; font-weight: 500;">
+                        Current Evolution Level
+                    </p>
+                    <p style="margin: 5px 0 5px 0; color: var(--rpg-purple); font-size: 1.5rem; font-weight: 700;">
                         {{ character.get_blooms_level_display }}
+                    </p>
+                    <p style="margin: 0 0 20px 0; color: var(--rpg-silver); font-size: 0.85rem; font-style: italic;">
+                        {% if character.blooms_level == 'remembering' %}Beginning your journey of awareness{% elif character.blooms_level == 'understanding' %}Developing understanding across multiple areas{% elif character.blooms_level == 'applying' %}Applying knowledge practically across domains{% elif character.blooms_level == 'analyzing' %}Analyzing patterns across dimensions{% elif character.blooms_level == 'evaluating' %}Evaluating with integrated judgment{% else %}Creating transformative synthesis{% endif %}
                     </p>
 
                     <!-- Evolution Arc Progress Journey -->
@@ -388,16 +399,120 @@
                         </div>
                     </div>
 
-                    <div style="margin-top: 20px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
-                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
-                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">stars</i>
-                            Character Level {{ character.level }}
-                        </span>
-                        <span class="chip" style="font-size: 0.85rem; padding: 0 12px; height: 28px; line-height: 28px; display: inline-flex; align-items: center;">
-                            <i class="material-icons" style="font-size: 1rem; margin-right: 6px;">military_tech</i>
-                            {{ character.experience_points }} XP
-                        </span>
+                    <!-- Requirements for Next Level -->
+                    {% if character.blooms_level != 'creating' %}
+                    <div style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); padding: 15px; border-radius: 4px; margin-top: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin: 0 0 10px 0; font-weight: 600;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">arrow_upward</i>
+                            Next Level Requirements
+                        </h6>
+                        <p style="color: white; margin: 0; font-size: 0.9rem;">
+                            {% if character.blooms_level == 'remembering' %}
+                                <strong>Apprentice (Understand):</strong> Reach level 2+ in at least 5 dimensions
+                            {% elif character.blooms_level == 'understanding' %}
+                                <strong>Journeyman (Apply):</strong> Reach level 3+ in 4 dimensions, level 2+ in all dimensions
+                            {% elif character.blooms_level == 'applying' %}
+                                <strong>Expert (Analyze):</strong> Reach level 4+ in 3 dimensions, level 3+ in 6 dimensions
+                            {% elif character.blooms_level == 'analyzing' %}
+                                <strong>Master (Evaluate):</strong> Reach level 5+ in 2 dimensions, level 4+ in 5 dimensions
+                            {% else %}
+                                <strong>Grandmaster (Create):</strong> Reach level 6 in 1 dimension, level 5+ in 4 dimensions, level 4+ in all dimensions
+                            {% endif %}
+                        </p>
+                        <p style="color: var(--rpg-silver); margin: 10px 0 0 0; font-size: 0.85rem; font-style: italic;">
+                            Focus on balanced growth across your weakest dimensions to advance your Personal Evolution Arc.
+                        </p>
                     </div>
+                    {% else %}
+                    <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(106, 90, 205, 0.2)); border: 2px solid var(--rpg-gold); padding: 20px; border-radius: 8px; margin-top: 20px; text-align: center;">
+                        <i class="material-icons" style="font-size: 48px; color: var(--rpg-gold);">emoji_events</i>
+                        <h6 style="color: var(--rpg-gold); margin: 10px 0; font-weight: 700; font-size: 1.1rem;">
+                            Highest Evolution Achieved!
+                        </h6>
+                        <p style="color: white; margin: 0; font-size: 0.95rem;">
+                            You have reached Grandmaster level - the pinnacle of Personal Evolution. Continue to grow and share your wisdom with others.
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Dimensional Maturity Profile Card -->
+        <div class="card">
+            <div class="card-content">
+                <span class="card-title" style="color: var(--rpg-gold);">
+                    <i class="material-icons left">psychology</i>Dimensional Maturity Profile
+                </span>
+
+                <!-- What is Dimensional Maturity? -->
+                <div style="background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--rpg-gold); padding: 15px; border-radius: 4px; margin: 15px 0 20px 0;">
+                    <p style="color: white; line-height: 1.7; margin: 0; font-size: 0.95rem;">
+                        <strong style="color: var(--rpg-gold);">Your Specific Skills</strong><br>
+                        These 7 dimensions track your <strong>specific capabilities</strong> in each area. Unlike Personal Evolution Arc (which requires balance), you can specialize here - becoming a master in some dimensions while developing others.
+                    </p>
+                </div>
+
+                <div style="margin-top: 25px;">
+                    {% for dimension, data in character.dimensional_profile.items %}
+                    <div style="margin-bottom: 25px; padding: 15px; background: rgba(212, 175, 55, 0.05); border-radius: 8px; border-left: 4px solid {{ data.color }};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color: white; font-weight: 600; font-size: 1rem;">
+                                {{ dimension|title }} Dimension
+                            </span>
+                            <span style="color: {{ data.color }}; font-weight: 700; font-size: 1rem;">
+                                {{ data.friendly_name }}
+                            </span>
+                        </div>
+
+                        <!-- Bloom's Level Info -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color: var(--rpg-silver); font-size: 0.85rem;">
+                                Level {{ data.current_level }} - {{ data.bloom_level }}
+                            </span>
+                            <span style="color: var(--rpg-silver); font-size: 0.85rem;">
+                                {{ data.experience_points }} / {{ data.next_level_threshold }} XP
+                            </span>
+                        </div>
+
+                        <!-- Progress bar to next level -->
+                        <div style="background: rgba(255, 255, 255, 0.1); height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 10px;">
+                            <div style="background: linear-gradient(90deg, {{ data.color }}, var(--rpg-gold));
+                                        width: {{ data.progress_percentage }}%; height: 100%; transition: width 0.3s ease; border-radius: 5px;">
+                            </div>
+                        </div>
+
+                        <!-- Bloom's Level Progression -->
+                        <div style="display: flex; justify-content: space-between; gap: 2px; margin-bottom: 8px;">
+                            {% for level in "123456" %}
+                            <div style="flex: 1; text-align: center;">
+                                <div style="width: 20px; height: 20px; border-radius: 50%; margin: 0 auto;
+                                            background: {% if level|add:'0' <= data.current_level %}{{ data.color }}{% else %}rgba(255,255,255,0.2){% endif %};
+                                            border: 2px solid {% if level|add:'0' == data.current_level %}var(--rpg-gold){% else %}rgba(255,255,255,0.3){% endif %};
+                                            display: flex; align-items: center; justify-content: center;
+                                            color: white; font-size: 0.6rem; font-weight: bold;">
+                                    {% if level|add:'0' < data.current_level %}✓{% elif level|add:'0' == data.current_level %}●{% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Description -->
+                        <p style="color: var(--rpg-silver); font-size: 0.85rem; margin: 8px 0 0 0; font-style: italic;">
+                            {{ data.description }}
+                        </p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="background: rgba(106, 90, 205, 0.1); border-left: 4px solid var(--rpg-purple); padding: 15px; border-radius: 4px; margin-top: 20px;">
+                    <h6 style="color: var(--rpg-purple); margin: 0 0 10px 0; font-weight: 600;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                        How Dimensions Grow
+                    </h6>
+                    <p style="color: white; line-height: 1.7; margin: 0; font-size: 0.9rem;">
+                        <strong>Every interaction is evaluated</strong> - conversations, discoveries, challenges, and events all award experience points to relevant dimensions based on your performance. As dimensions reach higher levels, your <strong>Personal Evolution Arc advances</strong> when you demonstrate balanced growth across multiple areas.
+                    </p>
                 </div>
             </div>
         </div>
