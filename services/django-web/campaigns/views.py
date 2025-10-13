@@ -32,17 +32,23 @@ class CampaignListView(View):
     """List all campaigns"""
 
     def get(self, request):
-        campaigns = list(db.campaign_state.find())
-        # Add campaign_id field for template (Django doesn't allow _id)
-        for campaign in campaigns:
+        # Query both collections: old campaign_state and new AI-generated campaigns
+        old_campaigns = list(db.campaign_state.find())
+        new_campaigns = list(db.campaigns.find())
+
+        # Merge and normalize both formats
+        campaigns = []
+
+        # Process old format campaigns
+        for campaign in old_campaigns:
             campaign['campaign_id'] = campaign['_id']
+            campaign['campaign_name'] = campaign.get('campaign_name', 'Untitled Campaign')
+            campaign['campaign_description'] = campaign.get('campaign_description', '')
 
             # Fetch world data for images
             world_ids = campaign.get('world_ids', [])
             if world_ids:
                 worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}}))
-
-                # Add primary_image_url for each world
                 for world in worlds:
                     world['primary_image_url'] = None
                     if world.get('world_images') and world.get('primary_image_index') is not None:
@@ -50,10 +56,38 @@ class CampaignListView(View):
                         primary_idx = world.get('primary_image_index')
                         if 0 <= primary_idx < len(images):
                             world['primary_image_url'] = images[primary_idx].get('url')
-
                 campaign['worlds'] = worlds
             else:
                 campaign['worlds'] = []
+            campaigns.append(campaign)
+
+        # Process new AI-generated campaigns
+        for campaign in new_campaigns:
+            campaign['campaign_id'] = campaign['_id']
+            campaign['campaign_name'] = campaign.get('name', 'Untitled Campaign')
+            campaign['campaign_description'] = campaign.get('plot', '')
+
+            # Get world data
+            world_id = campaign.get('world_id')
+            if world_id:
+                world = db.world_definitions.find_one({'_id': world_id})
+                if world:
+                    world['primary_image_url'] = None
+                    if world.get('world_images') and world.get('primary_image_index') is not None:
+                        images = world.get('world_images', [])
+                        primary_idx = world.get('primary_image_index')
+                        if 0 <= primary_idx < len(images):
+                            world['primary_image_url'] = images[primary_idx].get('url')
+                    campaign['worlds'] = [world]
+                    campaign['world_names'] = [world.get('world_name', 'Unknown World')]
+                else:
+                    campaign['worlds'] = []
+                    campaign['world_names'] = []
+            else:
+                campaign['worlds'] = []
+                campaign['world_names'] = []
+
+            campaigns.append(campaign)
 
         return render(request, 'campaigns/campaign_list.html', {'campaigns': campaigns})
 
@@ -182,7 +216,12 @@ class CampaignDetailView(View):
     """View campaign details and interact with Game Master"""
 
     def get(self, request, campaign_id):
+        # Try both collections: old format and new AI-generated
         campaign = db.campaign_state.find_one({'_id': campaign_id})
+        is_new_format = False
+        if not campaign:
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            is_new_format = True
         if not campaign:
             messages.error(request, 'Campaign not found')
             return redirect('campaign_list')
@@ -190,21 +229,60 @@ class CampaignDetailView(View):
         # Add campaign_id field for template (Django doesn't allow _id)
         campaign['campaign_id'] = campaign['_id']
 
+        # Normalize campaign_name field
+        if 'name' in campaign and 'campaign_name' not in campaign:
+            campaign['campaign_name'] = campaign['name']
+
         # Get all worlds for this campaign
-        world_ids = campaign.get('world_ids', [])
-        worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}})) if world_ids else []
+        if is_new_format:
+            world_id = campaign.get('world_id')
+            worlds = [db.world_definitions.find_one({'_id': world_id})] if world_id else []
+        else:
+            world_ids = campaign.get('world_ids', [])
+            worlds = list(db.world_definitions.find({'_id': {'$in': world_ids}})) if world_ids else []
 
         # Add id field and primary_image_url for template (Django doesn't allow _id)
         for world in worlds:
-            world['id'] = world['_id']
+            if world:
+                world['id'] = world['_id']
+                # Get primary image URL
+                world['primary_image_url'] = None
+                if world.get('world_images') and world.get('primary_image_index') is not None:
+                    images = world.get('world_images', [])
+                    primary_idx = world.get('primary_image_index')
+                    if 0 <= primary_idx < len(images):
+                        world['primary_image_url'] = images[primary_idx].get('url')
 
-            # Get primary image URL
-            world['primary_image_url'] = None
-            if world.get('world_images') and world.get('primary_image_index') is not None:
-                images = world.get('world_images', [])
-                primary_idx = world.get('primary_image_index')
-                if 0 <= primary_idx < len(images):
-                    world['primary_image_url'] = images[primary_idx].get('url')
+        # Get hierarchical data for new AI-generated campaigns
+        quests = []
+        if is_new_format:
+            quest_ids = campaign.get('quest_ids', [])
+            if quest_ids:
+                quests_raw = list(db.quests.find({'_id': {'$in': quest_ids}}))
+
+                for quest in quests_raw:
+                    quest['quest_id'] = quest['_id']
+
+                    # Get places for this quest
+                    place_ids = quest.get('place_ids', [])
+                    places_raw = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
+
+                    places = []
+                    for place in places_raw:
+                        place['place_id'] = place['_id']
+
+                        # Get scenes for this place
+                        scene_ids = place.get('scene_ids', [])
+                        scenes_raw = list(db.scenes.find({'_id': {'$in': scene_ids}})) if scene_ids else []
+
+                        for scene in scenes_raw:
+                            scene['scene_id'] = scene['_id']
+
+                        place['scenes'] = scenes_raw
+                        places.append(place)
+
+                    quest['places'] = places
+                    quests.append(quest)
 
         # Get all players for this campaign from PostgreSQL
         player_ids = campaign.get('player_ids', [])
@@ -213,10 +291,113 @@ class CampaignDetailView(View):
             is_active=True
         ).values('player_id', 'display_name', 'email', 'role') if player_ids else []
 
+        # Helper function to normalize objectives (handle both strings and objects)
+        def normalize_objectives(objectives):
+            if not objectives:
+                return []
+            normalized = []
+            for obj in objectives:
+                if isinstance(obj, str):
+                    normalized.append(obj)
+                elif isinstance(obj, dict):
+                    # Try common keys for objective text
+                    text = obj.get('objective') or obj.get('description') or obj.get('text') or str(obj)
+                    normalized.append(text)
+                else:
+                    normalized.append(str(obj))
+            return normalized
+
+        # Normalize primary objectives in campaign data before passing to template
+        if 'primary_objectives' in campaign and campaign['primary_objectives']:
+            campaign['primary_objectives'] = normalize_objectives(campaign['primary_objectives'])
+
+        # Prepare JSON data for JavaScript
+        import json
+
+        # Get world image URL for campaign view (fallback)
+        world_image_url = None
+        if worlds and worlds[0] and worlds[0].get('primary_image_url'):
+            world_image_url = worlds[0]['primary_image_url']
+
+        # Prefer campaign's own image over world image
+        campaign_image_url = campaign.get('primary_image_url') or world_image_url
+
+        campaign_json = {
+            'campaign': {
+                'id': str(campaign['_id']),
+                'name': campaign.get('name', campaign.get('campaign_name', '')),
+                'plot': campaign.get('plot', ''),
+                'storyline': campaign.get('storyline', ''),
+                'primary_objectives': normalize_objectives(campaign.get('primary_objectives', [])),
+                'difficulty_level': campaign.get('difficulty_level', ''),
+                'estimated_duration_hours': campaign.get('estimated_duration_hours', 0),
+                'target_blooms_level': campaign.get('target_blooms_level', ''),
+                'stats': campaign.get('stats', {}),
+                'primary_image_url': campaign_image_url,
+                'world_image_url': world_image_url
+            },
+            'quests': []
+        }
+
+        for quest in quests:
+            quest_data = {
+                'id': str(quest['_id']),
+                'name': quest.get('name', ''),
+                'description': quest.get('description', ''),
+                'objectives': normalize_objectives(quest.get('objectives', [])),
+                'difficulty_level': quest.get('difficulty_level', ''),
+                'estimated_duration_minutes': quest.get('estimated_duration_minutes', 0),
+                'backstory': quest.get('backstory', ''),
+                'primary_image_url': quest.get('primary_image_url'),
+                'places': []
+            }
+
+            for place in quest.get('places', []):
+                place_data = {
+                    'id': str(place['_id']),
+                    'name': place.get('name', ''),
+                    'description': place.get('description', ''),
+                    'primary_image_url': place.get('primary_image_url'),
+                    'scenes': []
+                }
+
+                for scene in place.get('scenes', []):
+                    # Get NPCs for this scene
+                    npc_ids = scene.get('npc_ids', [])
+                    npcs = []
+                    if npc_ids:
+                        npcs_raw = list(db.npcs.find({'_id': {'$in': npc_ids}}))
+                        for npc in npcs_raw:
+                            npc_role = npc.get('role', '')
+                            if isinstance(npc_role, dict):
+                                npc_role = npc_role.get('type', str(npc_role))
+                            npcs.append({
+                                'name': npc.get('name', 'Unknown'),
+                                'role': str(npc_role)
+                            })
+
+                    scene_data = {
+                        'id': str(scene['_id']),
+                        'name': scene.get('name', ''),
+                        'description': scene.get('description', ''),
+                        'level_3_location_name': scene.get('level_3_location_name', ''),
+                        'primary_image_url': scene.get('primary_image_url'),
+                        'npcs': npcs
+                    }
+                    place_data['scenes'].append(scene_data)
+
+                quest_data['places'].append(place_data)
+
+            campaign_json['quests'].append(quest_data)
+
         return render(request, 'campaigns/campaign_detail.html', {
             'campaign': campaign,
             'worlds': worlds,
-            'players': list(players)
+            'players': list(players),
+            'quests': quests,
+            'is_new_format': is_new_format,
+            'members': list(players),  # For backwards compatibility
+            'campaign_json': json.dumps(campaign_json)
         })
 
     def post(self, request, campaign_id):
@@ -525,13 +706,16 @@ class CampaignDesignerWizardView(View):
         universes = []
         for universe in universes_raw:
             universe['id'] = str(universe['_id'])
+            # Remove _id to prevent template errors
+            if '_id' in universe:
+                del universe['_id']
             universes.append(universe)
 
         context = {
             'universes': universes
         }
 
-        return render(request, 'campaigns/campaign_designer_wizard.html', context)
+        return render(request, 'campaigns/campaign_designer_wizard_v2.html', context)
 
     def post(self, request):
         """Generate campaign with AI-powered quest and task generation"""
@@ -675,3 +859,524 @@ class CampaignDesignerWizardView(View):
             logger.error(f"ERROR creating campaign: {error_details}")
             messages.error(request, f'Error creating campaign: {str(e)}')
             return redirect('campaign_designer_wizard')
+
+
+from django.http import JsonResponse
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class CampaignGenerateImageView(View):
+    """Generate AI image for a campaign using DALL-E 3 API"""
+
+    def post(self, request, campaign_id):
+        campaign = db.campaigns.find_one({'_id': campaign_id})
+        if not campaign:
+            return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+        try:
+            # Get world context for richer prompts
+            world_id = campaign.get('world_id')
+            world = db.world_definitions.find_one({'_id': world_id}) if world_id else None
+
+            # Build comprehensive prompt from campaign + world context
+            plot = campaign.get('plot', '')
+            storyline = campaign.get('storyline', '')
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            # Strong anti-text prefix
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO scrolls, books, or documents with visible text
+- Pure visual imagery only"""
+
+            # Build campaign prompt
+            world_context = ""
+            if world:
+                world_context = f" Set in the world of {world.get('world_name', '')}: {world.get('description', '')[:200]}"
+
+            campaign_prompt = f"""{no_text_prefix}
+Epic campaign scene: {campaign.get('name', 'Campaign')}
+
+Plot: {plot[:300]}
+
+{world_context}
+
+Create a dramatic, cinematic scene that captures the essence of this campaign. Fantasy RPG art style, high detail, atmospheric.
+{no_text_suffix}"""
+
+            logger.info(f"Generating campaign image with prompt: {campaign_prompt[:200]}...")
+
+            # Generate image (16:9 ratio)
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=campaign_prompt,
+                size="1792x1024",
+                quality="standard",
+                n=1
+            )
+
+            image_url = response.data[0].url
+
+            # Download and save image
+            media_path = Path(settings.MEDIA_ROOT) / 'campaigns' / campaign_id
+            media_path.mkdir(parents=True, exist_ok=True)
+
+            image_filename = f"campaign_{uuid.uuid4().hex[:8]}.png"
+            image_path = media_path / image_filename
+
+            urllib.request.urlretrieve(image_url, str(image_path))
+
+            # Save to MongoDB
+            relative_url = f"/media/campaigns/{campaign_id}/{image_filename}"
+
+            current_images = campaign.get('campaign_images', [])
+            current_images.append({
+                'url': relative_url,
+                'prompt': campaign_prompt,
+                'created_at': str(uuid.uuid4())
+            })
+
+            db.campaigns.update_one(
+                {'_id': campaign_id},
+                {'$set': {'campaign_images': current_images}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'image_url': relative_url,
+                'images': current_images
+            })
+
+        except Exception as e:
+            logger.error(f"Error generating campaign image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class QuestGenerateImageView(View):
+    """Generate AI image for a quest using DALL-E 3 API"""
+
+    def post(self, request, campaign_id, quest_id):
+        quest = db.quests.find_one({'_id': quest_id})
+        if not quest:
+            return JsonResponse({'error': 'Quest not found'}, status=404)
+
+        campaign = db.campaigns.find_one({'_id': campaign_id})
+        if not campaign:
+            return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+        try:
+            # Build contextual prompt: Quest + Campaign context
+            quest_desc = quest.get('description', '')
+            quest_backstory = quest.get('backstory', '')
+            campaign_plot = campaign.get('plot', '')
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO scrolls, books, or documents with visible text
+- Pure visual imagery only"""
+
+            quest_prompt = f"""{no_text_prefix}
+Fantasy RPG Quest: {quest.get('name', 'Quest')}
+
+Quest Description: {quest_desc[:250]}
+
+Campaign Context: {campaign_plot[:150]}
+
+Backstory: {quest_backstory[:150] if quest_backstory else ''}
+
+Create an atmospheric scene depicting this quest. Fantasy RPG art style, dramatic lighting, high detail.
+{no_text_suffix}"""
+
+            logger.info(f"Generating quest image with prompt: {quest_prompt[:200]}...")
+
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=quest_prompt,
+                size="1792x1024",
+                quality="standard",
+                n=1
+            )
+
+            image_url = response.data[0].url
+
+            # Download and save
+            media_path = Path(settings.MEDIA_ROOT) / 'quests' / quest_id
+            media_path.mkdir(parents=True, exist_ok=True)
+
+            image_filename = f"quest_{uuid.uuid4().hex[:8]}.png"
+            image_path = media_path / image_filename
+
+            urllib.request.urlretrieve(image_url, str(image_path))
+
+            relative_url = f"/media/quests/{quest_id}/{image_filename}"
+
+            current_images = quest.get('quest_images', [])
+            current_images.append({
+                'url': relative_url,
+                'prompt': quest_prompt,
+                'created_at': str(uuid.uuid4())
+            })
+
+            db.quests.update_one(
+                {'_id': quest_id},
+                {'$set': {'quest_images': current_images}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'image_url': relative_url,
+                'images': current_images
+            })
+
+        except Exception as e:
+            logger.error(f"Error generating quest image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class PlaceGenerateImageView(View):
+    """Generate AI image for a place using DALL-E 3 API"""
+
+    def post(self, request, campaign_id, quest_id, place_id):
+        place = db.places.find_one({'_id': place_id})
+        if not place:
+            return JsonResponse({'error': 'Place not found'}, status=404)
+
+        quest = db.quests.find_one({'_id': quest_id})
+        campaign = db.campaigns.find_one({'_id': campaign_id})
+
+        try:
+            # Build contextual prompt: Place + Quest + Campaign
+            place_desc = place.get('description', '')
+            quest_desc = quest.get('description', '') if quest else ''
+            campaign_plot = campaign.get('plot', '') if campaign else ''
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO scrolls, books, or documents with visible text
+- Pure visual imagery only"""
+
+            place_prompt = f"""{no_text_prefix}
+Fantasy RPG Location: {place.get('name', 'Place')}
+
+Location Description: {place_desc[:300]}
+
+Quest Context: {quest_desc[:150] if quest_desc else ''}
+
+Campaign Setting: {campaign_plot[:100] if campaign_plot else ''}
+
+Create a detailed, atmospheric view of this location. Fantasy RPG art style, immersive environment, high detail.
+{no_text_suffix}"""
+
+            logger.info(f"Generating place image with prompt: {place_prompt[:200]}...")
+
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=place_prompt,
+                size="1792x1024",
+                quality="standard",
+                n=1
+            )
+
+            image_url = response.data[0].url
+
+            media_path = Path(settings.MEDIA_ROOT) / 'places' / place_id
+            media_path.mkdir(parents=True, exist_ok=True)
+
+            image_filename = f"place_{uuid.uuid4().hex[:8]}.png"
+            image_path = media_path / image_filename
+
+            urllib.request.urlretrieve(image_url, str(image_path))
+
+            relative_url = f"/media/places/{place_id}/{image_filename}"
+
+            current_images = place.get('place_images', [])
+            current_images.append({
+                'url': relative_url,
+                'prompt': place_prompt,
+                'created_at': str(uuid.uuid4())
+            })
+
+            db.places.update_one(
+                {'_id': place_id},
+                {'$set': {'place_images': current_images}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'image_url': relative_url,
+                'images': current_images
+            })
+
+        except Exception as e:
+            logger.error(f"Error generating place image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class SceneGenerateImageView(View):
+    """Generate AI image for a scene using DALL-E 3 API"""
+
+    def post(self, request, campaign_id, quest_id, place_id, scene_id):
+        scene = db.scenes.find_one({'_id': scene_id})
+        if not scene:
+            return JsonResponse({'error': 'Scene not found'}, status=404)
+
+        place = db.places.find_one({'_id': place_id})
+        quest = db.quests.find_one({'_id': quest_id})
+        campaign = db.campaigns.find_one({'_id': campaign_id})
+
+        try:
+            # Build contextual prompt: Scene + Place + Quest + Campaign
+            scene_desc = scene.get('description', '')
+            place_desc = place.get('description', '') if place else ''
+            quest_desc = quest.get('description', '') if quest else ''
+            campaign_plot = campaign.get('plot', '') if campaign else ''
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+
+            client = OpenAI(api_key=openai_api_key)
+
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO scrolls, books, or documents with visible text
+- Pure visual imagery only"""
+
+            scene_prompt = f"""{no_text_prefix}
+Fantasy RPG Scene: {scene.get('name', 'Scene')}
+
+Scene Description: {scene_desc[:250]}
+
+Location: {place.get('name', '')} - {place_desc[:100] if place_desc else ''}
+
+Quest: {quest_desc[:100] if quest_desc else ''}
+
+Campaign: {campaign_plot[:80] if campaign_plot else ''}
+
+Create a cinematic moment capturing this scene. Fantasy RPG art style, dramatic composition, high detail.
+{no_text_suffix}"""
+
+            logger.info(f"Generating scene image with prompt: {scene_prompt[:200]}...")
+
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=scene_prompt,
+                size="1792x1024",
+                quality="standard",
+                n=1
+            )
+
+            image_url = response.data[0].url
+
+            media_path = Path(settings.MEDIA_ROOT) / 'scenes' / scene_id
+            media_path.mkdir(parents=True, exist_ok=True)
+
+            image_filename = f"scene_{uuid.uuid4().hex[:8]}.png"
+            image_path = media_path / image_filename
+
+            urllib.request.urlretrieve(image_url, str(image_path))
+
+            relative_url = f"/media/scenes/{scene_id}/{image_filename}"
+
+            current_images = scene.get('scene_images', [])
+            current_images.append({
+                'url': relative_url,
+                'prompt': scene_prompt,
+                'created_at': str(uuid.uuid4())
+            })
+
+            db.scenes.update_one(
+                {'_id': scene_id},
+                {'$set': {'scene_images': current_images}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'image_url': relative_url,
+                'images': current_images
+            })
+
+        except Exception as e:
+            logger.error(f"Error generating scene image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class CampaignSetPrimaryImageView(View):
+    """Set primary image for a campaign"""
+
+    def post(self, request, campaign_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            image_url = data.get('image_url')
+
+            if not image_url:
+                return JsonResponse({'error': 'image_url required'}, status=400)
+
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+            # Update campaign with primary image URL
+            db.campaigns.update_one(
+                {'_id': campaign_id},
+                {'$set': {'primary_image_url': image_url}}
+            )
+
+            return JsonResponse({'success': True, 'image_url': image_url})
+
+        except Exception as e:
+            logger.error(f"Error setting campaign primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class QuestSetPrimaryImageView(View):
+    """Set primary image for a quest"""
+
+    def post(self, request, campaign_id, quest_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            image_url = data.get('image_url')
+
+            if not image_url:
+                return JsonResponse({'error': 'image_url required'}, status=400)
+
+            quest = db.quests.find_one({'_id': quest_id})
+            if not quest:
+                return JsonResponse({'error': 'Quest not found'}, status=404)
+
+            db.quests.update_one(
+                {'_id': quest_id},
+                {'$set': {'primary_image_url': image_url}}
+            )
+
+            return JsonResponse({'success': True, 'image_url': image_url})
+
+        except Exception as e:
+            logger.error(f"Error setting quest primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class PlaceSetPrimaryImageView(View):
+    """Set primary image for a place"""
+
+    def post(self, request, campaign_id, quest_id, place_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            image_url = data.get('image_url')
+
+            if not image_url:
+                return JsonResponse({'error': 'image_url required'}, status=400)
+
+            place = db.places.find_one({'_id': place_id})
+            if not place:
+                return JsonResponse({'error': 'Place not found'}, status=404)
+
+            db.places.update_one(
+                {'_id': place_id},
+                {'$set': {'primary_image_url': image_url}}
+            )
+
+            return JsonResponse({'success': True, 'image_url': image_url})
+
+        except Exception as e:
+            logger.error(f"Error setting place primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class SceneSetPrimaryImageView(View):
+    """Set primary image for a scene"""
+
+    def post(self, request, campaign_id, quest_id, place_id, scene_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            image_url = data.get('image_url')
+
+            if not image_url:
+                return JsonResponse({'error': 'image_url required'}, status=400)
+
+            scene = db.scenes.find_one({'_id': scene_id})
+            if not scene:
+                return JsonResponse({'error': 'Scene not found'}, status=404)
+
+            db.scenes.update_one(
+                {'_id': scene_id},
+                {'$set': {'primary_image_url': image_url}}
+            )
+
+            return JsonResponse({'success': True, 'image_url': image_url})
+
+        except Exception as e:
+            logger.error(f"Error setting scene primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)

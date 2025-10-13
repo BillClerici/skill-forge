@@ -67,12 +67,18 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
 
 Your task is to generate 3 diverse, compelling campaign story ideas based on the provided world context.
 
+CRITICAL REQUIREMENTS:
+- Story 1: Must be "Long" duration with "Medium" difficulty
+- Story 2: Must be "Medium" duration with "Medium" difficulty
+- Story 3: Must be "Short" duration with "Medium" difficulty
+
 Each story idea should:
 - Be unique and different from the others in theme and approach
 - Fit the world's genre and setting
 - Have clear narrative potential for a multi-quest campaign
 - Include interesting themes and conflicts
-- Be appropriate for the specified difficulty level
+- Match the specified duration (Long, Medium, or Short)
+- ALL stories must be Medium difficulty level
 
 Return your response as a JSON array with this structure:
 [
@@ -80,13 +86,27 @@ Return your response as a JSON array with this structure:
     "title": "Engaging campaign title",
     "summary": "2-3 sentence summary of the story",
     "themes": ["theme1", "theme2", "theme3"],
-    "estimated_length": "Short|Medium|Long",
-    "difficulty_level": "Easy|Medium|Hard|Expert"
+    "estimated_length": "Long",
+    "difficulty_level": "Medium"
+  }},
+  {{
+    "title": "Engaging campaign title",
+    "summary": "2-3 sentence summary of the story",
+    "themes": ["theme1", "theme2", "theme3"],
+    "estimated_length": "Medium",
+    "difficulty_level": "Medium"
+  }},
+  {{
+    "title": "Engaging campaign title",
+    "summary": "2-3 sentence summary of the story",
+    "themes": ["theme1", "theme2", "theme3"],
+    "estimated_length": "Short",
+    "difficulty_level": "Medium"
   }}
 ]
 
 CRITICAL: Return ONLY the JSON array, no other text."""),
-            ("user", "{context}{user_direction}\n\nGenerate 3 diverse campaign story ideas.")
+            ("user", "{context}{user_direction}\n\nGenerate 3 diverse campaign story ideas (1 Long, 1 Medium, 1 Short - all Medium difficulty).")
         ])
 
         # Generate story ideas

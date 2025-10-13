@@ -12,11 +12,17 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from pymongo import MongoClient
+import redis
 
 # MongoDB connection
 MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mongodb:27017')
 mongo_client = MongoClient(MONGODB_URL)
 mongo_db = mongo_client['skillforge']
+
+# Redis connection
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 # Orchestrator URL
 ORCHESTRATOR_URL = os.getenv('ORCHESTRATOR_URL', 'http://agent-orchestrator:9000')
@@ -109,6 +115,7 @@ def generate_stories_api(request):
                 json={
                     'request_id': request_id,
                     'user_id': user_id,
+                    'campaign_name': data.get('campaign_name', 'Untitled Campaign'),
                     'character_id': data.get('character_id'),
                     'universe_id': data['universe_id'],
                     'universe_name': data.get('universe_name'),
@@ -360,16 +367,69 @@ def finalize_campaign_api(request):
             if response.status_code != 200:
                 return JsonResponse({'error': 'Failed to finalize'}, status=500)
 
-            result = response.json()
+        # Return simple status - JavaScript will poll for completion
+        return JsonResponse({'status': 'finalizing'})
 
-            # Get the final campaign ID
-            campaign_id = result.get('campaign_id')
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
-            return JsonResponse({
-                'status': 'completed',
-                'campaign_id': campaign_id,
-                'message': 'Campaign created successfully!'
-            })
+
+@require_http_methods(["GET"])
+def list_in_progress_campaigns_api(request):
+    """
+    AJAX: List all in-progress campaign workflows
+    Returns campaigns that are not yet completed or failed
+    """
+    try:
+        # Query Redis for in-progress campaign workflows
+        # Get all campaign:progress:* keys
+        campaign_keys = redis_client.keys('campaign:progress:*')
+
+        campaigns = []
+        for key in campaign_keys:
+            campaign_data = redis_client.get(key)
+            if campaign_data:
+                campaign = json.loads(campaign_data)
+
+                # Check if campaign is in progress (not completed, not failed)
+                progress = campaign.get('progress_percentage', 0)
+                has_final_id = campaign.get('final_campaign_id') is not None
+                has_errors = len(campaign.get('errors', [])) > 0
+
+                # Include if: not completed AND not failed
+                if not has_final_id or progress < 100:
+                    # Try to get campaign name from top-level field first, then from campaign_core
+                    campaign_name = campaign.get('campaign_name')
+                    if not campaign_name:
+                        campaign_core = campaign.get('campaign_core')
+                        if campaign_core and isinstance(campaign_core, dict):
+                            campaign_name = campaign_core.get('name', 'Untitled Campaign')
+                        else:
+                            campaign_name = 'Untitled Campaign'
+
+                    campaigns.append({
+                        'request_id': campaign.get('request_id'),
+                        'campaign_name': campaign_name,
+                        'universe_name': campaign.get('universe_name', 'Unknown Universe'),
+                        'world_name': campaign.get('world_name', 'Unknown World'),
+                        'region_name': campaign.get('region_name', 'Entire World'),
+                        'progress_percentage': progress,
+                        'status_message': campaign.get('status_message', 'Processing...'),
+                        'current_phase': campaign.get('current_phase', 'init'),
+                        'created_at': campaign.get('created_at', '')
+                    })
+
+        # Sort by created_at descending (most recent first)
+        campaigns.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+
+        # Limit to 20 most recent
+        campaigns = campaigns[:20]
+
+        return JsonResponse({
+            'success': True,
+            'campaigns': campaigns,
+            'count': len(campaigns)
+        })
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

@@ -43,7 +43,9 @@ from worlds.views_world_factory import (
 )
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
-    CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView
+    CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView,
+    CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
+    CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView
 )
 from campaigns.wizard_views import (
     campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
@@ -156,6 +158,14 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
+    path('campaigns/<str:campaign_id>/generate-image/', CampaignGenerateImageView.as_view(), name='campaign_generate_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/generate-image/', QuestGenerateImageView.as_view(), name='quest_generate_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/generate-image/', PlaceGenerateImageView.as_view(), name='place_generate_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/scenes/<str:scene_id>/generate-image/', SceneGenerateImageView.as_view(), name='scene_generate_image'),
+    path('campaigns/<str:campaign_id>/set-primary-image/', CampaignSetPrimaryImageView.as_view(), name='campaign_set_primary_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/set-primary-image/', QuestSetPrimaryImageView.as_view(), name='quest_set_primary_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/set-primary-image/', PlaceSetPrimaryImageView.as_view(), name='place_set_primary_image'),
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/scenes/<str:scene_id>/set-primary-image/', SceneSetPrimaryImageView.as_view(), name='scene_set_primary_image'),
 
     # Campaign Wizard
     path('campaigns/wizard/', campaign_wizard_start, name='campaign_wizard_start'),
@@ -184,6 +194,7 @@ urlpatterns = [
     path('campaigns/wizard/api/approve-places', wizard_views_v2.approve_places_api, name='approve_places_api'),
     path('campaigns/wizard/api/status/<str:request_id>', wizard_views_v2.get_workflow_status_api, name='get_workflow_status_api'),
     path('campaigns/wizard/api/finalize', wizard_views_v2.finalize_campaign_api, name='finalize_campaign_api'),
+    path('campaigns/wizard/api/in-progress', wizard_views_v2.list_in_progress_campaigns_api, name='list_in_progress_campaigns_api'),
 
     # Characters
     path('players/<uuid:player_id>/characters/create/', CharacterCreateView.as_view(), name='character_create'),

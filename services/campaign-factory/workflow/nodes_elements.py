@@ -48,7 +48,8 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
 
         await publish_progress(state)
 
-        logger.info(f"Generating elements for {len(state['scenes'])} scenes")
+        total_scenes = len(state['scenes'])
+        logger.info(f"Generating elements for {total_scenes} scenes")
 
         all_npcs: List[NPCData] = []
         all_discoveries: List[DiscoveryData] = []
@@ -56,8 +57,14 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         all_challenges: List[ChallengeData] = []
 
         # Generate elements for each scene
-        for scene in state["scenes"]:
-            logger.info(f"Generating elements for scene: {scene['name']}")
+        for scene_idx, scene in enumerate(state["scenes"]):
+            # Update progress for each scene (95% to 98% range)
+            scene_progress = 95 + int((scene_idx / total_scenes) * 3)  # 95% to 98%
+            state["progress_percentage"] = scene_progress
+            state["status_message"] = f"Generating elements for scene {scene_idx + 1} of {total_scenes}..."
+            await publish_progress(state, f"Scene: {scene['name']}")
+
+            logger.info(f"Generating elements for scene {scene_idx + 1}/{total_scenes}: {scene['name']}")
 
             # Step 1: Determine what elements this scene needs
             elements_needed = await determine_scene_elements(scene, state)

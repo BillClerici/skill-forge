@@ -64,6 +64,10 @@ services/django-web/media/
 staticfiles/
 */staticfiles/
 
+# Campaign Factory
+audit_trails/
+*/audit_trails/
+
 # Flask stuff:
 instance/
 .webassets-cache

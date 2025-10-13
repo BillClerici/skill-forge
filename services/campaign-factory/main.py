@@ -82,7 +82,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
         "region_name": "Region Name",
         "genre": "fantasy",
         "user_story_idea": "Optional story direction",
-        "workflow_action": "start|select_story|approve_core|regenerate_stories",
+        "workflow_action": "start|select_story|approve_core|regenerate_stories|approve_quests|approve_places|finalize",
         "selected_story_id": "story_uuid",  # For select_story action
         "user_approved_core": true,  # For approve_core action
         "num_quests": 5,
@@ -146,6 +146,44 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 # Publish final campaign result
                 await publish_campaign_completion(result_state)
 
+            elif workflow_action == "approve_quests":
+                # Resume workflow with quest approval
+                state = await load_campaign_state(request_data["request_id"])
+                state["user_approved_quests"] = request_data.get("user_approved_quests", True)
+
+                # Continue workflow
+                result_state = await campaign_workflow.ainvoke(state)
+
+                # Save updated state
+                await save_campaign_state(result_state)
+
+            elif workflow_action == "approve_places":
+                # Resume workflow with place approval
+                state = await load_campaign_state(request_data["request_id"])
+                state["user_approved_places"] = request_data.get("user_approved_places", True)
+
+                # Continue workflow
+                result_state = await campaign_workflow.ainvoke(state)
+
+                # Save updated state
+                await save_campaign_state(result_state)
+
+            elif workflow_action == "finalize":
+                # Manually trigger finalization
+                state = await load_campaign_state(request_data["request_id"])
+
+                # Import finalization node
+                from workflow.nodes_finalize import finalize_campaign_node
+
+                # Run finalization
+                result_state = await finalize_campaign_node(state)
+
+                # Save updated state
+                await save_campaign_state(result_state)
+
+                # Publish completion
+                await publish_campaign_completion(result_state)
+
             logger.info(f"Campaign request processed: {request_data.get('request_id')}")
 
         except Exception as e:
@@ -196,6 +234,10 @@ async def initialize_campaign_state(request_data: dict) -> CampaignWorkflowState
         "quest_playtime_minutes": 90,
         "generate_images": True,
 
+        # User approval flags for workflow gates
+        "user_approved_quests": None,
+        "user_approved_places": None,
+
         # Generated content
         "quests": [],
         "places": [],
@@ -207,7 +249,8 @@ async def initialize_campaign_state(request_data: dict) -> CampaignWorkflowState
 
         # World enrichment tracking
         "new_species_ids": [],
-        "new_location_ids": [],
+        "new_location_ids": [],  # DEPRECATED
+        "new_locations": [],  # Full location details
         "new_npc_ids": [],
 
         # Workflow state management
@@ -262,9 +305,21 @@ async def save_campaign_state(state: CampaignWorkflowState):
             "progress_percentage": state.get("progress_percentage", 0),
             "status_message": state.get("status_message", "Processing..."),
             "current_phase": state.get("current_phase", "init"),
+            "current_node": state.get("current_node", ""),
             "story_ideas": state.get("story_ideas", []),
             "campaign_core": state.get("campaign_core"),
-            "errors": state.get("errors", [])
+            "quests": state.get("quests", []),
+            "places": state.get("places", []),
+            "scenes": state.get("scenes", []),
+            "npcs": state.get("npcs", []),
+            "discoveries": state.get("discoveries", []),
+            "events": state.get("events", []),
+            "challenges": state.get("challenges", []),
+            "new_location_ids": state.get("new_location_ids", []),  # DEPRECATED
+            "new_locations": state.get("new_locations", []),  # Full location details
+            "final_campaign_id": state.get("final_campaign_id"),
+            "errors": state.get("errors", []),
+            "warnings": state.get("warnings", [])
         }
         await redis_client.setex(progress_key, 86400, json.dumps(progress_data, default=str))
 

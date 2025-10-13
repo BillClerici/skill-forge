@@ -51,7 +51,18 @@ async def save_campaign_state(state: CampaignWorkflowState):
             "current_node": state.get("current_node", ""),
             "story_ideas": state.get("story_ideas", []),
             "campaign_core": state.get("campaign_core"),
-            "errors": state.get("errors", [])
+            "quests": state.get("quests", []),
+            "places": state.get("places", []),
+            "scenes": state.get("scenes", []),
+            "npcs": state.get("npcs", []),
+            "discoveries": state.get("discoveries", []),
+            "events": state.get("events", []),
+            "challenges": state.get("challenges", []),
+            "new_location_ids": state.get("new_location_ids", []),  # DEPRECATED
+            "new_locations": state.get("new_locations", []),  # Full location details
+            "final_campaign_id": state.get("final_campaign_id"),
+            "errors": state.get("errors", []),
+            "warnings": state.get("warnings", [])
         }
         await redis_client.setex(progress_key, 86400, json.dumps(progress_data, default=str))
 

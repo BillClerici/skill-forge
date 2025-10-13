@@ -42,13 +42,20 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
         await publish_progress(state)
 
-        logger.info(f"Generating places for {len(state['quests'])} quests")
+        total_quests = len(state['quests'])
+        logger.info(f"Generating places for {total_quests} quests")
 
         all_places: List[PlaceData] = []
 
         # Generate places for each quest
         for quest_idx, quest in enumerate(state["quests"]):
-            logger.info(f"Generating places for quest: {quest['name']}")
+            # Update progress for each quest (55% to 70% range)
+            quest_progress = 55 + int((quest_idx / total_quests) * 15)  # 55% to 70%
+            state["progress_percentage"] = quest_progress
+            state["status_message"] = f"Generating places for quest {quest_idx + 1} of {total_quests}..."
+            await publish_progress(state, f"Quest: {quest['name']}")
+
+            logger.info(f"Generating places for quest {quest_idx + 1}/{total_quests}: {quest['name']}")
 
             # TODO: Fetch existing Level 2 locations under quest's Level 1 location via MCP
             # For now, use placeholder
@@ -145,11 +152,24 @@ Generate 2-4 places where this quest's objectives occur.""")
                 else:
                     # Create new Level 2 location
                     new_location_id = f"new_place_{uuid.uuid4().hex[:8]}"
-                    state["new_location_ids"].append(new_location_id)
-                    location_id = new_location_id
                     location_name = location_info.get("new_location_name", "New Place")
+                    location_type = location_info.get("new_location_type", "Place")
+                    location_desc = location_info.get("new_location_description", "")
 
-                    logger.info(f"Place requires new location: {location_name} ({location_info.get('new_location_type')})")
+                    # Store full location details
+                    state["new_location_ids"].append(new_location_id)  # DEPRECATED
+                    state["new_locations"].append({
+                        "id": new_location_id,
+                        "name": location_name,
+                        "type": location_type,
+                        "description": location_desc,
+                        "level": 2,
+                        "parent_location_id": quest["level_1_location_id"]
+                    })
+
+                    location_id = new_location_id
+
+                    logger.info(f"Place requires new location: {location_name} ({location_type})")
 
                 place: PlaceData = {
                     "place_id": None,  # Will be set on persistence
@@ -224,13 +244,20 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
         await publish_progress(state)
 
-        logger.info(f"Generating scenes for {len(state['places'])} places")
+        total_places = len(state['places'])
+        logger.info(f"Generating scenes for {total_places} places")
 
         all_scenes: List[SceneData] = []
 
         # Generate scenes for each place
-        for place in state["places"]:
-            logger.info(f"Generating scenes for place: {place['name']}")
+        for place_idx, place in enumerate(state["places"]):
+            # Update progress for each place (75% to 90% range)
+            place_progress = 75 + int((place_idx / total_places) * 15)  # 75% to 90%
+            state["progress_percentage"] = place_progress
+            state["status_message"] = f"Generating scenes for place {place_idx + 1} of {total_places}..."
+            await publish_progress(state, f"Place: {place['name']}")
+
+            logger.info(f"Generating scenes for place {place_idx + 1}/{total_places}: {place['name']}")
 
             # TODO: Fetch existing Level 3 locations under place's Level 2 location via MCP
             existing_level3_locations = [
@@ -319,11 +346,24 @@ Generate 1-3 scenes within this place.""")
                 else:
                     # Create new Level 3 location
                     new_location_id = f"new_scene_{uuid.uuid4().hex[:8]}"
-                    state["new_location_ids"].append(new_location_id)
-                    location_id = new_location_id
                     location_name = location_info.get("new_location_name", "New Scene")
+                    location_type = location_info.get("new_location_type", "Scene")
+                    location_desc = location_info.get("new_location_description", "")
 
-                    logger.info(f"Scene requires new location: {location_name} ({location_info.get('new_location_type')})")
+                    # Store full location details
+                    state["new_location_ids"].append(new_location_id)  # DEPRECATED
+                    state["new_locations"].append({
+                        "id": new_location_id,
+                        "name": location_name,
+                        "type": location_type,
+                        "description": location_desc,
+                        "level": 3,
+                        "parent_location_id": place["level_2_location_id"]
+                    })
+
+                    location_id = new_location_id
+
+                    logger.info(f"Scene requires new location: {location_name} ({location_type})")
 
                 scene: SceneData = {
                     "scene_id": None,  # Will be set on persistence

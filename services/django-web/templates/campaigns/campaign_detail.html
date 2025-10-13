@@ -17,16 +17,183 @@
         <a href="{% url 'campaign_list' %}" class="btn waves-effect waves-light grey darken-2">
             <i class="material-icons left">arrow_back</i>Back to Campaigns
         </a>
+        {% if not is_new_format %}
         <a href="{% url 'campaign_update' campaign.campaign_id %}" class="btn waves-effect waves-light">
             <i class="material-icons left">edit</i>Edit Campaign
         </a>
         <a href="#deleteModal" class="btn waves-effect waves-light red darken-2 modal-trigger">
             <i class="material-icons left">delete</i>Delete Campaign
         </a>
+        {% endif %}
     </div>
 </div>
 
-<!-- Campaign Story -->
+<!-- Two-Panel Layout: Tree Navigation + Details -->
+{% if is_new_format %}
+<div class="row" style="margin-top: 20px;">
+    <!-- Left Panel: Tree Navigation -->
+    <div class="col s12 l4" style="height: calc(100vh - 250px); overflow-y: auto;">
+        <div class="card">
+            <div class="card-content" style="padding: 15px;">
+                <span class="card-title" style="font-size: 1.1rem; margin-bottom: 15px;">
+                    <i class="material-icons left" style="font-size: 1.3rem;">account_tree</i>
+                    Campaign Structure
+                </span>
+
+                <ul id="campaign-tree" style="list-style: none; padding-left: 0; margin: 0;">
+                    <!-- Campaign Root -->
+                    <li style="margin-bottom: 8px;">
+                        <div class="tree-item collapsible-trigger" data-type="campaign" data-id="{{ campaign.campaign_id }}"
+                             style="padding: 8px 12px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
+                            <i class="material-icons expand-icon" style="font-size: 1rem; color: var(--rpg-silver); transition: transform 0.2s; transform: rotate(90deg);">chevron_right</i>
+                            <i class="material-icons" style="font-size: 1.2rem; color: var(--rpg-gold);">campaign</i>
+                            <span style="color: var(--rpg-gold); font-weight: 500;">Campaign Details</span>
+                        </div>
+
+                        <!-- Quests -->
+                        <ul class="collapsible-content" style="list-style: none; padding-left: 20px; margin-top: 8px; display: block;">
+                            {% for quest in quests %}
+                            <li style="margin-bottom: 6px;">
+                                <div class="tree-item collapsible-trigger" data-type="quest" data-id="{{ quest.quest_id }}"
+                                     style="padding: 6px 10px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                    <i class="material-icons expand-icon" style="font-size: 0.9rem; color: var(--rpg-silver); transition: transform 0.2s; transform: rotate(90deg);">chevron_right</i>
+                                    <i class="material-icons" style="font-size: 1rem; color: var(--rpg-purple);">explore</i>
+                                    <span style="color: #b8b8d1; font-size: 0.95rem;">{{ quest.name }}</span>
+                                </div>
+
+                                <!-- Places -->
+                                <ul class="collapsible-content" style="list-style: none; padding-left: 20px; margin-top: 4px; display: block;">
+                                    {% for place in quest.places %}
+                                    <li style="margin-bottom: 4px;">
+                                        <div class="tree-item collapsible-trigger" data-type="place" data-id="{{ place.place_id }}"
+                                             style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                            <i class="material-icons expand-icon" style="font-size: 0.8rem; color: var(--rpg-silver); transition: transform 0.2s;">chevron_right</i>
+                                            <i class="material-icons" style="font-size: 0.9rem; color: var(--rpg-blue);">place</i>
+                                            <span style="color: #b8b8d1; font-size: 0.9rem;">{{ place.name }}</span>
+                                        </div>
+
+                                        <!-- Scenes -->
+                                        <ul class="collapsible-content" style="list-style: none; padding-left: 18px; margin-top: 4px; display: none;">
+                                            {% for scene in place.scenes %}
+                                            <li style="margin-bottom: 3px;">
+                                                <div class="tree-item" data-type="scene" data-id="{{ scene.scene_id }}"
+                                                     style="padding: 5px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                                    <i class="material-icons" style="font-size: 0.85rem; color: var(--rpg-green);">movie</i>
+                                                    <span style="color: #b8b8d1; font-size: 0.85rem;">{{ scene.name }}</span>
+                                                </div>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Details -->
+    <div class="col s12 l8">
+        <div class="card">
+            <div class="card-content" id="detail-content" style="min-height: 500px;">
+                <!-- Campaign details shown by default -->
+                <h5 id="detail-title" style="color: var(--rpg-gold); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons">campaign</i>
+                    Campaign: {{ campaign.campaign_name }}
+                </h5>
+
+                <!-- Image -->
+                <div id="detail-image" style="margin-bottom: 20px;">
+                    {% if campaign.primary_image_url %}
+                    <img src="{{ campaign.primary_image_url }}"
+                         alt="{{ campaign.campaign_name }}"
+                         style="width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
+                    {% elif worlds and worlds.0.primary_image_url %}
+                    <img src="{{ worlds.0.primary_image_url }}"
+                         alt="{{ worlds.0.world_name }}"
+                         style="width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
+                    {% else %}
+                    <div style="width: 100%; max-width: 600px; height: 300px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
+                        <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">campaign</i>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Accordion and Details -->
+                <div id="detail-body">
+                    <ul class="collapsible">
+                        {% if campaign.plot %}
+                        <li class="active">
+                            <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-gold);">auto_stories</i>
+                                <span style="color: var(--rpg-gold); font-weight: 500;">Plot</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold);">
+                                <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap; margin: 0;">{{ campaign.plot }}</p>
+                            </div>
+                        </li>
+                        {% endif %}
+
+                        {% if campaign.storyline %}
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-gold);">description</i>
+                                <span style="color: var(--rpg-gold); font-weight: 500;">Storyline</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold);">
+                                <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap; margin: 0;">{{ campaign.storyline }}</p>
+                            </div>
+                        </li>
+                        {% endif %}
+
+                        {% if campaign.primary_objectives %}
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-gold);">flag</i>
+                                <span style="color: var(--rpg-gold); font-weight: 500;">Primary Objectives</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold);">
+                                <ol style="margin: 0; padding-left: 20px;">
+                                    {% for objective in campaign.primary_objectives %}
+                                    <li style="color: #b8b8d1; margin-bottom: 6px;">{{ objective }}</li>
+                                    {% endfor %}
+                                </ol>
+                            </div>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <div style="margin-top: 20px;">
+                        <div class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple);">
+                            <i class="material-icons tiny">explore</i> {{ quests|length }} Quest(s)
+                        </div>
+                        <div class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue);">
+                            <i class="material-icons tiny">place</i> {{ campaign.stats.num_places }} Place(s)
+                        </div>
+                        <div class="chip" style="background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green);">
+                            <i class="material-icons tiny">movie</i> {{ campaign.stats.num_scenes }} Scene(s)
+                        </div>
+                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold);">
+                            <i class="material-icons tiny">people</i> {{ campaign.stats.num_npcs }} NPC(s)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden data for JavaScript -->
+<script id="campaign-data" type="application/json">
+{{ campaign_json|safe }}
+</script>
+
+{% else %}
+<!-- Old Format: Keep existing template -->
 {% if campaign.campaign_description %}
 <div class="row">
     <div class="col s12">
@@ -37,7 +204,6 @@
                     Campaign Story
                 </span>
                 <div style="display: flex; gap: 20px; margin-top: 15px;">
-                    <!-- World Image -->
                     {% if worlds and worlds.0.primary_image_url %}
                     <div style="flex-shrink: 0;">
                         <img src="{{ worlds.0.primary_image_url }}"
@@ -45,8 +211,6 @@
                              style="width: 200px; height: 200px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
                     </div>
                     {% endif %}
-
-                    <!-- Campaign Description -->
                     <div style="flex: 1;">
                         <p style="font-size: 1.1rem; line-height: 1.8; white-space: pre-wrap;">{{ campaign.campaign_description }}</p>
                     </div>
@@ -57,23 +221,6 @@
 </div>
 {% endif %}
 
-{% if campaign.campaign_backstory %}
-<div class="row">
-    <div class="col s12">
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title">
-                    <i class="material-icons left">history_edu</i>
-                    Backstory
-                </span>
-                <p style="font-size: 1.05rem; line-height: 1.7; margin-top: 15px; white-space: pre-wrap;">{{ campaign.campaign_backstory }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Campaign Overview -->
 <div class="row">
     <div class="col s12 l8">
         <div class="card">
@@ -82,171 +229,19 @@
                     <i class="material-icons left">info</i>
                     Campaign Overview
                 </span>
-
                 <div style="margin: 20px 0;">
                     {% for world in worlds %}
                     <div class="chip">
                         <i class="material-icons tiny">map</i>
-                        <a href="{% url 'world_detail' world.id %}" style="color: inherit;">{{ world.world_name }}</a>
+                        {{ world.world_name }}
                     </div>
                     {% endfor %}
-
                     {% for member in members %}
                     <div class="chip">
                         <i class="material-icons tiny">person</i>
                         {{ member.display_name }}
                     </div>
                     {% endfor %}
-
-                    {% if campaign.status == 'active' %}
-                        <span class="chip" style="background-color: rgba(47, 158, 68, 0.3); color: var(--rpg-green);">
-                            <i class="material-icons tiny">check_circle</i>
-                            Active
-                        </span>
-                    {% elif campaign.status == 'in_progress' %}
-                        <span class="chip" style="background-color: rgba(76, 110, 245, 0.3); color: var(--rpg-blue);">
-                            <i class="material-icons tiny">play_arrow</i>
-                            In Progress
-                        </span>
-                    {% elif campaign.status == 'completed' %}
-                        <span class="chip" style="background-color: rgba(212, 175, 55, 0.3); color: var(--rpg-gold);">
-                            <i class="material-icons tiny">done_all</i>
-                            Completed
-                        </span>
-                    {% else %}
-                        <span class="chip" style="background-color: rgba(192, 192, 192, 0.3); color: var(--rpg-silver);">
-                            {{ campaign.status }}
-                        </span>
-                    {% endif %}
-                </div>
-
-                {% if campaign.main_goals %}
-                <div style="margin-top: 25px;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">flag</i> Main Goals
-                    </h6>
-                    <ul class="collection" style="border: 1px solid rgba(212, 175, 55, 0.3);">
-                        {% for goal in campaign.main_goals %}
-                        <li class="collection-item" style="background-color: rgba(18, 18, 32, 0.6); border-bottom: 1px solid rgba(212, 175, 55, 0.2);">
-                            <i class="material-icons tiny" style="color: var(--rpg-gold); vertical-align: middle;">star</i>
-                            {{ goal }}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {% if campaign.primary_locations %}
-                <div style="margin-top: 20px;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">place</i> Key Locations
-                    </h6>
-                    <div>
-                        {% for location in campaign.primary_locations %}
-                        <span class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue);">
-                            <i class="material-icons tiny">location_on</i>
-                            {{ location }}
-                        </span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if campaign.key_npcs %}
-                <div style="margin-top: 20px;">
-                    <h6 style="color: var(--rpg-gold); margin-bottom: 10px;">
-                        <i class="material-icons tiny">people</i> Key NPCs
-                    </h6>
-                    <div>
-                        {% for npc in campaign.key_npcs %}
-                        <span class="chip" style="background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green);">
-                            <i class="material-icons tiny">person</i>
-                            {{ npc }}
-                        </span>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col s12 l4">
-        <div class="card stat-card">
-            <div class="card-content center-align">
-                <i class="material-icons" style="font-size: 64px; color: var(--rpg-gold);">book</i>
-                <h5 style="margin: 10px 0; color: white;">Campaign</h5>
-                <p style="color: white;">{{ worlds|length }} World(s), {{ members|length }} Player(s)</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Current Scene -->
-{% if campaign.current_scene %}
-<div class="row">
-    <div class="col s12">
-        <div class="card" style="background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); border: 2px solid var(--rpg-gold);">
-            <div class="card-content">
-                <span class="card-title" style="color: var(--rpg-gold);">
-                    <i class="material-icons left">description</i>
-                    Current Scene
-                </span>
-                <p style="color: #e0e0e0; line-height: 1.8; white-space: pre-wrap; margin-top: 16px;">{{ campaign.current_scene }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-
-<!-- Player Action Form -->
-{% if campaign.status == 'in_progress' %}
-<div class="row">
-    <div class="col s12">
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title">
-                    <i class="material-icons left">edit</i>
-                    Player Action
-                </span>
-                <form method="post" action="{% url 'campaign_detail' campaign.campaign_id %}">
-                    {% csrf_token %}
-                    <div class="input-field">
-                        <textarea id="player_action" name="player_action" class="materialize-textarea"
-                                  placeholder="What do you do next?" required></textarea>
-                        <label for="player_action">Your Action</label>
-                    </div>
-                    <div class="center-align" style="margin-top: 20px;">
-                        <button type="submit" class="btn-large waves-effect waves-light">
-                            <i class="material-icons left">send</i>Submit Action
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<!-- Scene History -->
-{% if campaign.scene_history %}
-<div class="row">
-    <div class="col s12">
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title">
-                    <i class="material-icons left">history</i>
-                    Scene History
-                </span>
-                <div style="margin-top: 20px;">
-                    <ul class="collection" style="border: none;">
-                        {% for scene in campaign.scene_history %}
-                        <li class="collection-item" style="background: rgba(212, 175, 55, 0.05); border-bottom: 1px solid rgba(212, 175, 55, 0.2); margin-bottom: 8px; border-radius: 8px;">
-                            <div style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">{{ scene }}</div>
-                        </li>
-                        {% endfor %}
-                    </ul>
                 </div>
             </div>
         </div>
@@ -262,28 +257,7 @@
             Delete Campaign
         </h4>
         <p style="font-size: 1.1rem; margin: 20px 0;">
-            You are about to permanently delete the campaign:
-        </p>
-        <div style="background: rgba(212, 175, 55, 0.1); padding: 15px; border-left: 4px solid var(--rpg-gold); margin: 20px 0; border-radius: 4px;">
-            <strong style="color: var(--rpg-gold); font-size: 1.2rem;">{{ campaign.campaign_name }}</strong>
-        </div>
-
-        <div style="background: rgba(255, 107, 107, 0.1); padding: 15px; border-left: 4px solid #ff6b6b; margin: 20px 0; border-radius: 4px;">
-            <p style="margin: 0; color: #ff6b6b;"><strong>⚠️ This action cannot be undone!</strong></p>
-        </div>
-
-        <p style="margin: 20px 0; line-height: 1.6;">
-            Deleting this campaign will:
-        </p>
-        <ul style="margin-left: 20px; line-height: 1.8;">
-            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Remove all campaign data from MongoDB</li>
-            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Delete all Neo4j relationships</li>
-            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Permanently erase {{ campaign.scene_history|length|default:0 }} scene(s) from history</li>
-            <li><i class="material-icons tiny" style="color: #ff6b6b;">close</i> Remove connections to {{ worlds|length }} world(s) and {{ members|length }} player(s)</li>
-        </ul>
-
-        <p style="margin: 20px 0; font-style: italic; color: #b8b8d1;">
-            The worlds and players themselves will not be affected, only their connection to this campaign.
+            Are you sure you want to delete this campaign?
         </p>
     </div>
     <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
@@ -299,20 +273,727 @@
     </div>
 </div>
 
+<!-- Image Viewer Modal -->
+<div id="imageViewerModal" class="modal" style="max-width: 90%; max-height: 90%;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #e0e0e0; padding: 10px;">
+        <img id="viewer-image" src="" alt="Full Size Image" style="width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 8px;">
+    </div>
+    <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
+            <i class="material-icons left">close</i>Close
+        </a>
+    </div>
+</div>
+
+<!-- Image Generation Modal -->
+<div id="imageGenerationModal" class="modal" style="max-width: 800px; max-height: 90%;">
+    <div class="modal-content" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #e0e0e0;">
+        <h4 style="color: var(--rpg-gold); display: flex; align-items: center; gap: 10px;">
+            <i class="material-icons">image</i>
+            <span id="modal-title">Generate Image</span>
+        </h4>
+
+        <!-- Loading State -->
+        <div id="loading-state" style="display: none; text-align: center; padding: 40px 20px;">
+            <div class="preloader-wrapper big active">
+                <div class="spinner-layer spinner-blue-only">
+                    <div class="circle-clipper left">
+                        <div class="circle"></div>
+                    </div>
+                    <div class="gap-patch">
+                        <div class="circle"></div>
+                    </div>
+                    <div class="circle-clipper right">
+                        <div class="circle"></div>
+                    </div>
+                </div>
+            </div>
+            <p style="margin-top: 20px; color: var(--rpg-gold); font-size: 1.1rem;">Generating your image...</p>
+            <p style="color: #b8b8d1; font-size: 0.9rem;">This may take up to 30 seconds</p>
+        </div>
+
+        <!-- Preview State -->
+        <div id="preview-state" style="display: none;">
+            <div style="margin: 20px 0;">
+                <img id="preview-image" src="" alt="Generated Image" style="width: 100%; max-height: 350px; height: auto; object-fit: contain; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
+            </div>
+            <p style="color: #b8b8d1; font-size: 0.95rem; margin-top: 15px;">
+                Do you want to use this image? Click "Save Image" to confirm or "Generate Another" to try again.
+            </p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" style="display: none; padding: 20px;">
+            <div style="background: rgba(255, 107, 107, 0.2); border-left: 4px solid #ff6b6b; padding: 15px; border-radius: 4px;">
+                <p style="color: #ff6b6b; margin: 0;">
+                    <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+                    <span id="error-message">Failed to generate image</span>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); display: flex; justify-content: space-between;">
+        <div style="display: flex; gap: 10px;">
+            <button id="generate-another-btn" class="btn waves-effect waves-light blue darken-2" style="display: none;">
+                <i class="material-icons left">refresh</i>Generate Another
+            </button>
+            <button id="save-image-btn" class="btn waves-effect waves-light green darken-2" style="display: none;">
+                <i class="material-icons left">check</i>Save Image
+            </button>
+        </div>
+        <div>
+            <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2" id="close-btn">
+                <i class="material-icons left">close</i>Close
+            </a>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize all textareas
-        var textareas = document.querySelectorAll('textarea');
-        textareas.forEach(function(textarea) {
-            M.textareaAutoResize(textarea);
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modals
+    var deleteModal = document.querySelectorAll('.modal');
+    M.Modal.init(deleteModal);
+
+    // Initialize collapsibles
+    var collapsibleElems = document.querySelectorAll('.collapsible');
+    M.Collapsible.init(collapsibleElems, {
+        accordion: true
+    });
+
+    // Get campaign data
+    const campaignDataEl = document.getElementById('campaign-data');
+    if (!campaignDataEl) return;
+
+    const data = JSON.parse(campaignDataEl.textContent);
+
+    // Handle tree item clicks
+    document.querySelectorAll('.tree-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+
+            // Remove active state from all items
+            document.querySelectorAll('.tree-item').forEach(el => {
+                el.style.background = '';
+                el.style.borderLeft = '';
+            });
+
+            // Add active state
+            this.style.background = 'rgba(212, 175, 55, 0.2)';
+            this.style.borderLeft = '3px solid var(--rpg-gold)';
+
+            const type = this.dataset.type;
+            const id = this.dataset.id;
+
+            // Display details based on type
+            displayDetails(type, id, data);
+        });
+    });
+
+    // Handle collapsible triggers
+    document.querySelectorAll('.collapsible-trigger').forEach(trigger => {
+        trigger.addEventListener('click', function(e) {
+            // Find the next collapsible content
+            const content = this.nextElementSibling;
+            if (content && content.classList.contains('collapsible-content')) {
+                const icon = this.querySelector('.expand-icon');
+                const isExpanded = content.style.display !== 'none';
+
+                // Toggle display
+                content.style.display = isExpanded ? 'none' : 'block';
+
+                // Rotate icon
+                if (icon) {
+                    icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(90deg)';
+                }
+            }
+        });
+    });
+
+    function displayDetails(type, id, data) {
+        let content = '';
+        let title = '';
+        let iconName = '';
+        let currentEntityData = null;
+
+        if (type === 'campaign') {
+            iconName = 'campaign';
+            title = `Campaign: ${data.campaign.name}`;
+
+            // Build accordion content
+            let accordionHtml = '<ul class="collapsible" style="border: none; box-shadow: none; margin-top: 20px;">';
+
+            // Plot accordion item (expanded by default)
+            if (data.campaign.plot) {
+                accordionHtml += `
+                    <li class="active">
+                        <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                            <i class="material-icons" style="color: var(--rpg-gold);">auto_stories</i>
+                            <span style="color: var(--rpg-gold); font-weight: 500;">Plot</span>
+                        </div>
+                        <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold); display: block;">
+                            <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap; margin: 0;">${escapeHtml(data.campaign.plot)}</p>
+                        </div>
+                    </li>
+                `;
+            }
+
+            // Storyline accordion item
+            if (data.campaign.storyline) {
+                accordionHtml += `
+                    <li>
+                        <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                            <i class="material-icons" style="color: var(--rpg-gold);">description</i>
+                            <span style="color: var(--rpg-gold); font-weight: 500;">Storyline</span>
+                        </div>
+                        <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold);">
+                            <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap; margin: 0;">${escapeHtml(data.campaign.storyline)}</p>
+                        </div>
+                    </li>
+                `;
+            }
+
+            // Primary Objectives accordion item
+            if (data.campaign.primary_objectives && data.campaign.primary_objectives.length > 0) {
+                accordionHtml += `
+                    <li>
+                        <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                            <i class="material-icons" style="color: var(--rpg-gold);">flag</i>
+                            <span style="color: var(--rpg-gold); font-weight: 500;">Primary Objectives</span>
+                        </div>
+                        <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold);">
+                            <ol style="margin: 0; padding-left: 20px;">
+                                ${data.campaign.primary_objectives.map(obj => `<li style="color: #b8b8d1; margin-bottom: 6px;">${escapeHtml(obj)}</li>`).join('')}
+                            </ol>
+                        </div>
+                    </li>
+                `;
+            }
+
+            accordionHtml += '</ul>';
+
+            // Add stats chips
+            accordionHtml += `
+                <div style="margin-top: 20px;">
+                    <div class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple);">
+                        <i class="material-icons tiny">explore</i> ${data.campaign.stats.num_quests} Quest(s)
+                    </div>
+                    <div class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue);">
+                        <i class="material-icons tiny">place</i> ${data.campaign.stats.num_places} Place(s)
+                    </div>
+                    <div class="chip" style="background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green);">
+                        <i class="material-icons tiny">movie</i> ${data.campaign.stats.num_scenes} Scene(s)
+                    </div>
+                    <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold);">
+                        <i class="material-icons tiny">people</i> ${data.campaign.stats.num_npcs} NPC(s)
+                    </div>
+                </div>
+            `;
+
+            content = accordionHtml;
+        }
+        else if (type === 'quest') {
+            const quest = findById(data.quests, id);
+            if (quest) {
+                iconName = 'explore';
+                title = `Quest: ${quest.name}`;
+                // Store quest data for image rendering
+                currentEntityData = quest;
+                content = `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">description</i> Description
+                        </h6>
+                        <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(quest.description)}</p>
+                    </div>
+                    ${quest.objectives.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">task_alt</i> Objectives
+                        </h6>
+                        <ol style="margin: 0; padding-left: 20px;">
+                            ${quest.objectives.map(obj => `<li style="color: #b8b8d1; margin-bottom: 6px;">${escapeHtml(obj)}</li>`).join('')}
+                        </ol>
+                    </div>` : ''}
+                    ${quest.backstory ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">history_edu</i> Backstory
+                        </h6>
+                        <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(quest.backstory)}</p>
+                    </div>` : ''}
+                    <div style="margin-top: 20px;">
+                        <div class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue);">
+                            <i class="material-icons tiny">place</i> ${quest.places.length} Place(s)
+                        </div>
+                        <div class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold);">
+                            <i class="material-icons tiny">timer</i> ~${quest.estimated_duration_minutes} min
+                        </div>
+                        <div class="chip" style="background-color: rgba(255, 152, 0, 0.2); color: #ff9800;">
+                            <i class="material-icons tiny">whatshot</i> ${quest.difficulty_level}
+                        </div>
+                    </div>
+                `;
+            }
+        } else if (type === 'place') {
+            const place = findPlace(data.quests, id);
+            if (place) {
+                iconName = 'place';
+                title = `Place: ${place.name}`;
+                // Store place data for image rendering
+                currentEntityData = place;
+                content = `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">description</i> Description
+                        </h6>
+                        <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(place.description)}</p>
+                    </div>
+                    <div style="margin-top: 20px;">
+                        <div class="chip" style="background-color: rgba(47, 158, 68, 0.2); color: var(--rpg-green);">
+                            <i class="material-icons tiny">movie</i> ${place.scenes.length} Scene(s)
+                        </div>
+                    </div>
+                `;
+            }
+        } else if (type === 'scene') {
+            const scene = findScene(data.quests, id);
+            if (scene) {
+                iconName = 'movie';
+                title = `Scene: ${scene.name}`;
+                // Store scene data for image rendering
+                currentEntityData = scene;
+                content = `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">place</i> Location
+                        </h6>
+                        <p style="color: #b8b8d1; line-height: 1.7;">${escapeHtml(scene.level_3_location_name)}</p>
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">description</i> Description
+                        </h6>
+                        <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(scene.description)}</p>
+                    </div>
+                    ${scene.npcs && scene.npcs.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">people</i> Primary NPCs
+                        </h6>
+                        <ul style="margin: 0; padding-left: 20px;">
+                            ${scene.npcs.map(npc => `<li style="color: #b8b8d1; margin-bottom: 6px;"><strong>${escapeHtml(npc.name)}</strong> - ${escapeHtml(npc.role)}</li>`).join('')}
+                        </ul>
+                    </div>` : ''}
+                `;
+            }
+        }
+
+        // Update the entire detail content area with proper layout
+        const detailContentEl = document.getElementById('detail-content');
+
+        if (type === 'campaign') {
+            // Campaign layout: Title → Image → Accordion
+            // Use campaign's primary image, fallback to world image
+            const campaignImageUrl = data.campaign.primary_image_url || data.campaign.world_image_url;
+
+            detailContentEl.innerHTML = `
+                <h5 style="color: var(--rpg-gold); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons">${iconName}</i> ${title}
+                </h5>
+                <div id="detail-image" style="margin-bottom: 20px;">
+                    ${campaignImageUrl ?
+                        `<img src="${campaignImageUrl}" alt="Campaign" style="width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">` :
+                        `<div style="width: 100%; max-width: 600px; height: 300px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
+                            <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">${iconName}</i>
+                        </div>`
+                    }
+                </div>
+                <div id="detail-body">${content}</div>
+            `;
+
+            // Reinitialize Materialize collapsible
+            const collapsibleElems = detailContentEl.querySelectorAll('.collapsible');
+            M.Collapsible.init(collapsibleElems, {
+                accordion: true
+            });
+        } else {
+            // Quest/Place/Scene layout: Title → (Image left + Details right)
+            // Check if entity has an image
+            const entityImageUrl = currentEntityData?.primary_image_url;
+
+            detailContentEl.innerHTML = `
+                <h5 style="color: var(--rpg-gold); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                    <i class="material-icons">${iconName}</i> ${title}
+                </h5>
+                <div style="display: flex; gap: 25px; margin-top: 20px;">
+                    <div id="detail-image" style="flex-shrink: 0; position: relative; width: 250px; height: 250px;">
+                        ${entityImageUrl ?
+                            `<img src="${entityImageUrl}" alt="${title}" style="width: 250px; height: 250px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">` :
+                            `<div style="width: 250px; height: 250px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
+                                <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">${iconName}</i>
+                            </div>`
+                        }
+                    </div>
+                    <div id="detail-body" style="flex: 1;">${content}</div>
+                </div>
+            `;
+        }
+    }
+
+
+    function findById(items, id) {
+        return items.find(item => item.id === id);
+    }
+
+    function findPlace(quests, placeId) {
+        for (const quest of quests) {
+            const place = quest.places.find(p => p.id === placeId);
+            if (place) return place;
+        }
+        return null;
+    }
+
+    function findScene(quests, sceneId) {
+        for (const quest of quests) {
+            for (const place of quest.places) {
+                const scene = place.scenes.find(s => s.id === sceneId);
+                if (scene) return scene;
+            }
+        }
+        return null;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Image Generation System
+    const imageGenModal = M.Modal.init(document.getElementById('imageGenerationModal'), {
+        dismissible: false
+    });
+
+    // Image Viewer Modal
+    const imageViewerModal = M.Modal.init(document.getElementById('imageViewerModal'), {
+        dismissible: true
+    });
+
+    let currentImageContext = null; // Stores {type, campaignId, questId, placeId, sceneId}
+
+    // Function to open image viewer
+    function openImageViewer(imageSrc) {
+        document.getElementById('viewer-image').src = imageSrc;
+        imageViewerModal.open();
+    }
+
+    // Function to make images clickable
+    function makeImageClickable(imageElement) {
+        if (!imageElement || imageElement.tagName !== 'IMG') return;
+
+        imageElement.style.cursor = 'pointer';
+        imageElement.title = 'Click to view full size';
+
+        imageElement.addEventListener('click', function(e) {
+            // Don't trigger if clicking the generate button
+            if (e.target.classList.contains('generate-image-btn')) return;
+
+            openImageViewer(this.src);
+        });
+    }
+
+    function showGenerateButton(imageContainer, context) {
+        // Add generate button to image container
+        const button = document.createElement('button');
+        button.className = 'btn btn-small waves-effect waves-light generate-image-btn';
+        button.style.cssText = `
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: linear-gradient(135deg, var(--rpg-gold), #d4af37);
+            color: #1a1a2e;
+            font-weight: 600;
+            font-size: 0.85rem;
+            z-index: 10;
+            box-shadow: 0 4px 8px rgba(212, 175, 55, 0.4);
+            padding: 0 12px;
+            height: 32px;
+            line-height: 32px;
+            border: 2px solid rgba(212, 175, 55, 0.6);
+            transition: all 0.3s ease;
+        `;
+        button.innerHTML = '<i class="material-icons left" style="font-size: 1rem; margin-right: 4px;">auto_awesome</i>Generate';
+        button.title = 'Generate / Regenerate Image';
+
+        // Add hover effect
+        button.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.05)';
+            this.style.boxShadow = '0 6px 12px rgba(212, 175, 55, 0.6)';
+        });
+        button.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 4px 8px rgba(212, 175, 55, 0.4)';
         });
 
-        // Initialize delete modal
-        var deleteModal = document.querySelectorAll('.modal');
-        M.Modal.init(deleteModal);
+        button.addEventListener('click', function(e) {
+            e.stopPropagation();
+            openImageGenerationModal(context);
+        });
+
+        // Make container relative if not already
+        imageContainer.style.position = 'relative';
+        imageContainer.appendChild(button);
+    }
+
+    function openImageGenerationModal(context) {
+        currentImageContext = context;
+
+        // Reset modal state
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('preview-state').style.display = 'none';
+        document.getElementById('error-state').style.display = 'none';
+        document.getElementById('generate-another-btn').style.display = 'none';
+        document.getElementById('save-image-btn').style.display = 'none';
+
+        // Set title
+        const titles = {
+            'campaign': 'Generate Campaign Image',
+            'quest': 'Generate Quest Image',
+            'place': 'Generate Place Image',
+            'scene': 'Generate Scene Image'
+        };
+        document.getElementById('modal-title').textContent = titles[context.type] || 'Generate Image';
+
+        imageGenModal.open();
+
+        // Start generation immediately
+        generateImage(context);
+    }
+
+    async function generateImage(context) {
+        // Show loading
+        document.getElementById('loading-state').style.display = 'block';
+        document.getElementById('preview-state').style.display = 'none';
+        document.getElementById('error-state').style.display = 'none';
+        document.getElementById('generate-another-btn').style.display = 'none';
+        document.getElementById('save-image-btn').style.display = 'none';
+
+        try {
+            // Build URL based on context
+            let url = `/campaigns/${context.campaignId}/generate-image/`;
+            if (context.type === 'quest') {
+                url = `/campaigns/${context.campaignId}/quests/${context.questId}/generate-image/`;
+            } else if (context.type === 'place') {
+                url = `/campaigns/${context.campaignId}/quests/${context.questId}/places/${context.placeId}/generate-image/`;
+            } else if (context.type === 'scene') {
+                url = `/campaigns/${context.campaignId}/quests/${context.questId}/places/${context.placeId}/scenes/${context.sceneId}/generate-image/`;
+            }
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Show preview
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('preview-state').style.display = 'block';
+                document.getElementById('preview-image').src = result.image_url;
+                document.getElementById('generate-another-btn').style.display = 'inline-block';
+                document.getElementById('save-image-btn').style.display = 'inline-block';
+            } else {
+                throw new Error(result.error || 'Failed to generate image');
+            }
+        } catch (error) {
+            console.error('Image generation error:', error);
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'block';
+            document.getElementById('error-message').textContent = error.message || 'Failed to generate image. Please try again.';
+            document.getElementById('close-btn').style.display = 'inline-block';
+        }
+    }
+
+    // Generate Another button
+    document.getElementById('generate-another-btn').addEventListener('click', function() {
+        if (currentImageContext) {
+            generateImage(currentImageContext);
+        }
     });
+
+    // Save Image button
+    document.getElementById('save-image-btn').addEventListener('click', async function() {
+        const previewUrl = document.getElementById('preview-image').src;
+
+        // Build URL for set-primary-image endpoint
+        let setPrimaryUrl = `/campaigns/${currentImageContext.campaignId}/set-primary-image/`;
+        if (currentImageContext.type === 'quest') {
+            setPrimaryUrl = `/campaigns/${currentImageContext.campaignId}/quests/${currentImageContext.questId}/set-primary-image/`;
+        } else if (currentImageContext.type === 'place') {
+            setPrimaryUrl = `/campaigns/${currentImageContext.campaignId}/quests/${currentImageContext.questId}/places/${currentImageContext.placeId}/set-primary-image/`;
+        } else if (currentImageContext.type === 'scene') {
+            setPrimaryUrl = `/campaigns/${currentImageContext.campaignId}/quests/${currentImageContext.questId}/places/${currentImageContext.placeId}/scenes/${currentImageContext.sceneId}/set-primary-image/`;
+        }
+
+        try {
+            // Save to database
+            const response = await fetch(setPrimaryUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ image_url: previewUrl })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                // Update the actual image in the detail view
+                const imageInView = document.querySelector('#detail-image img, #detail-image > div');
+                if (imageInView) {
+                    if (imageInView.tagName === 'IMG') {
+                        imageInView.src = previewUrl;
+                        // Make sure it's clickable
+                        makeImageClickable(imageInView);
+                    } else {
+                        // Replace placeholder with actual image
+                        const newImg = document.createElement('img');
+                        newImg.src = previewUrl;
+                        newImg.alt = 'Generated Image';
+
+                        // Use appropriate style based on entity type
+                        if (currentImageContext.type === 'campaign') {
+                            newImg.style.cssText = 'width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);';
+                        } else {
+                            // Quest/Place/Scene use square format
+                            newImg.style.cssText = 'width: 250px; height: 250px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);';
+                        }
+
+                        imageInView.parentNode.replaceChild(newImg, imageInView);
+                        // Make new image clickable
+                        makeImageClickable(newImg);
+                    }
+                }
+
+                // Update the data structure so image persists across navigation
+                if (currentImageContext.type === 'campaign') {
+                    data.campaign.primary_image_url = previewUrl;
+                } else if (currentImageContext.type === 'quest') {
+                    const quest = data.quests.find(q => q.id === currentImageContext.questId);
+                    if (quest) quest.primary_image_url = previewUrl;
+                } else if (currentImageContext.type === 'place') {
+                    const place = findPlace(data.quests, currentImageContext.placeId);
+                    if (place) place.primary_image_url = previewUrl;
+                } else if (currentImageContext.type === 'scene') {
+                    const scene = findScene(data.quests, currentImageContext.sceneId);
+                    if (scene) scene.primary_image_url = previewUrl;
+                }
+
+                M.toast({html: 'Image saved successfully!', classes: 'green'});
+                imageGenModal.close();
+            } else {
+                throw new Error(result.error || 'Failed to save image');
+            }
+        } catch (error) {
+            console.error('Error saving image:', error);
+            M.toast({html: 'Failed to save image: ' + error.message, classes: 'red'});
+        }
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Add generate buttons to existing images after displayDetails is called
+    const originalDisplayDetails = displayDetails;
+    displayDetails = function(type, id, data) {
+        originalDisplayDetails(type, id, data);
+
+        // Wait for DOM to update
+        setTimeout(() => {
+            const imageContainer = document.getElementById('detail-image');
+            if (imageContainer) {
+                // Remove existing button if any
+                const existingBtn = imageContainer.querySelector('.generate-image-btn');
+                if (existingBtn) existingBtn.remove();
+
+                // Make image clickable for full-size viewing
+                const imageEl = imageContainer.querySelector('img');
+                if (imageEl) {
+                    makeImageClickable(imageEl);
+                }
+
+                // Build context for this view
+                let context = { type, campaignId: data.campaign.id };
+
+                if (type === 'quest') {
+                    const quest = data.quests.find(q => q.id === id);
+                    if (quest) context.questId = id;
+                } else if (type === 'place') {
+                    for (const quest of data.quests) {
+                        const place = quest.places.find(p => p.id === id);
+                        if (place) {
+                            context.questId = quest.id;
+                            context.placeId = id;
+                            break;
+                        }
+                    }
+                } else if (type === 'scene') {
+                    for (const quest of data.quests) {
+                        for (const place of quest.places) {
+                            const scene = place.scenes.find(s => s.id === id);
+                            if (scene) {
+                                context.questId = quest.id;
+                                context.placeId = place.id;
+                                context.sceneId = id;
+                                break;
+                            }
+                        }
+                        if (context.sceneId) break;
+                    }
+                }
+
+                showGenerateButton(imageContainer, context);
+            }
+        }, 100);
+    };
+
+    // Add initial generate button for campaign view
+    setTimeout(() => {
+        const imageContainer = document.getElementById('detail-image');
+        if (imageContainer) {
+            // Make initial image clickable
+            const imageEl = imageContainer.querySelector('img');
+            if (imageEl) {
+                makeImageClickable(imageEl);
+            }
+
+            showGenerateButton(imageContainer, {
+                type: 'campaign',
+                campaignId: data.campaign.id
+            });
+        }
+    }, 500);
+});
 </script>
 {% endblock %}

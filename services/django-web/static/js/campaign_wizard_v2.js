@@ -1,5 +1,5 @@
 /**
- * Campaign Designer Wizard V2 - JavaScript
+ * Campaign Design Wizard V2 - JavaScript
  * Complete implementation with all 22 workflow steps
  */
 
@@ -36,6 +36,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Materialize components
     M.updateTextFields();
     M.FormSelect.init(document.querySelectorAll('select'));
+
+    // Check for in-progress campaigns on page load
+    checkInProgressCampaigns();
 
     // Navigation buttons
     const prevBtn = document.getElementById('prev-btn');
@@ -81,7 +84,18 @@ document.addEventListener('DOMContentLoaded', function() {
      * Update progress indicator
      */
     function updateProgress() {
-        // Update progress indicators
+        // Update sidebar navigation steps (V2)
+        document.querySelectorAll('.nav-step').forEach(step => {
+            const stepNum = parseInt(step.dataset.step);
+            step.classList.remove('active', 'completed');
+            if (stepNum === currentStep) {
+                step.classList.add('active');
+            } else if (stepNum < currentStep) {
+                step.classList.add('completed');
+            }
+        });
+
+        // Update old progress indicators if they exist (V1 compatibility)
         document.querySelectorAll('.progress-step').forEach(step => {
             const stepNum = parseInt(step.dataset.step);
             step.classList.remove('active', 'completed');
@@ -99,7 +113,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Update buttons
         prevBtn.style.display = currentStep > 1 ? 'inline-block' : 'none';
-        nextBtn.style.display = (currentStep < totalSteps && currentStep !== 4 && currentStep !== 5) ? 'inline-block' : 'none';
+        nextBtn.style.display = (currentStep < totalSteps && currentStep !== 4) ? 'inline-block' : 'none';
         generateStoriesBtn.style.display = currentStep === 4 ? 'inline-block' : 'none';
         finalizeBtn.style.display = currentStep === totalSteps ? 'inline-block' : 'none';
 
@@ -142,7 +156,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             wizardState.selected_story_id = story.value;
-            wizardState.selected_story = JSON.parse(story.dataset.story);
+            // Story data is stored directly on the element, not in dataset
+            wizardState.selected_story = story.storyData;
         }
         return true;
     }
@@ -401,6 +416,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             requestId = data.request_id;
 
+            // Save request_id to localStorage for resume functionality
+            localStorage.setItem('campaign_wizard_request_id', requestId);
+
             // Poll for story ideas
             await pollStoryIdeas();
         } catch (error) {
@@ -414,15 +432,21 @@ document.addEventListener('DOMContentLoaded', function() {
      * Poll for story ideas
      */
     async function pollStoryIdeas() {
-        const maxAttempts = 60; // 2 minutes max
+        const maxAttempts = 180; // 6 minutes max (was 2 minutes)
         let attempts = 0;
 
         pollInterval = setInterval(async () => {
             attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0) {
+                updateLoadingMessage('story', 'Generating story ideas...', `Still working... (${Math.floor(attempts / 30)} minute${attempts >= 60 ? 's' : ''} elapsed)`);
+            }
+
             if (attempts > maxAttempts) {
                 clearInterval(pollInterval);
                 hideLoadingOverlay();
-                M.toast({html: 'Story generation timed out', classes: 'red'});
+                M.toast({html: 'Story generation timed out. The generation may still be running in the background. Please refresh the page or check back later.', classes: 'orange', displayLength: 8000});
                 return;
             }
 
@@ -431,6 +455,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!response.ok) return;
 
                 const data = await response.json();
+
+                // Update loading message with progress if available
+                if (data.progress_percentage) {
+                    updateLoadingMessage('story', `Generating story ideas... ${data.progress_percentage}%`, data.status_message);
+                }
 
                 if (data.story_ideas && data.story_ideas.length > 0) {
                     clearInterval(pollInterval);
@@ -459,22 +488,34 @@ document.addEventListener('DOMContentLoaded', function() {
         storyIdeas.forEach((story, index) => {
             const card = document.createElement('label');
             card.className = 'story-idea-card';
-            card.innerHTML = `
-                <input type="radio" name="selected_story_id" value="${story.id}" data-story='${JSON.stringify(story)}'>
-                <div class="story-idea-content">
-                    <h6 style="color: var(--rpg-gold); margin-top: 0;">${story.title}</h6>
-                    <p style="color: #b8b8d1; font-size: 0.95rem; line-height: 1.6;">
-                        ${story.summary}
-                    </p>
-                    <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                        ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.8rem;">${theme}</span>`).join('')}
-                    </div>
-                    <div style="margin-top: 15px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
-                        <span><i class="material-icons tiny">timer</i> ${story.estimated_length}</span>
-                        <span><i class="material-icons tiny">trending_up</i> ${story.difficulty_level}</span>
-                    </div>
+
+            // Create the radio input separately to avoid HTML attribute issues
+            const radioInput = document.createElement('input');
+            radioInput.type = 'radio';
+            radioInput.name = 'selected_story_id';
+            radioInput.value = story.id;
+            // Store the story object directly on the element to avoid JSON escaping issues
+            radioInput.storyData = story;
+
+            card.appendChild(radioInput);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'story-idea-content';
+            contentDiv.innerHTML = `
+                <h6 style="color: var(--rpg-gold); margin-top: 0;">${story.title}</h6>
+                <p style="color: #b8b8d1; font-size: 0.95rem; line-height: 1.6;">
+                    ${story.summary}
+                </p>
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.8rem;">${theme}</span>`).join('')}
+                </div>
+                <div style="margin-top: 15px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
+                    <span><i class="material-icons tiny">timer</i> ${story.estimated_length}</span>
+                    <span><i class="material-icons tiny">trending_up</i> ${story.difficulty_level}</span>
                 </div>
             `;
+
+            card.appendChild(contentDiv);
             container.appendChild(card);
         });
 
@@ -498,28 +539,9 @@ document.addEventListener('DOMContentLoaded', function() {
      * Regenerate stories
      */
     async function regenerateStories() {
-        showLoadingOverlay('story', 'Regenerating story ideas...');
-
-        try {
-            const response = await fetch('/campaigns/wizard/api/regenerate-stories', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify({
-                    request_id: requestId
-                })
-            });
-
-            if (!response.ok) throw new Error('Failed to regenerate stories');
-
-            await pollStoryIdeas();
-        } catch (error) {
-            console.error('Error regenerating stories:', error);
-            M.toast({html: 'Error regenerating stories', classes: 'red'});
-            hideLoadingOverlay();
-        }
+        // Simply call generateStoryIdeas again with a fresh request
+        // This ensures we get NEW story ideas instead of cached ones
+        await generateStoryIdeas();
     }
 
     /**
@@ -555,15 +577,21 @@ document.addEventListener('DOMContentLoaded', function() {
      * Poll for campaign core
      */
     async function pollCampaignCore() {
-        const maxAttempts = 60;
+        const maxAttempts = 180; // 6 minutes max (was 2 minutes)
         let attempts = 0;
 
         pollInterval = setInterval(async () => {
             attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0) {
+                updateLoadingMessage('core', 'Generating campaign core...', `Still working... (${Math.floor(attempts / 30)} minute${attempts >= 60 ? 's' : ''} elapsed)`);
+            }
+
             if (attempts > maxAttempts) {
                 clearInterval(pollInterval);
                 hideLoadingOverlay();
-                M.toast({html: 'Campaign core generation timed out', classes: 'red'});
+                M.toast({html: 'Campaign core generation timed out. The generation may still be running in the background. Please refresh the page or check back later.', classes: 'orange', displayLength: 8000});
                 return;
             }
 
@@ -572,6 +600,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!response.ok) return;
 
                 const data = await response.json();
+
+                // Update loading message with progress if available
+                if (data.progress_percentage) {
+                    updateLoadingMessage('core', `Generating campaign core... ${data.progress_percentage}%`, data.status_message);
+                }
 
                 if (data.campaign_core) {
                     clearInterval(pollInterval);
@@ -615,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${core.primary_objectives.map(obj => `
                         <li style="margin-bottom: 10px;">
                             ${obj.description}
-                            <span class="blooms-tag blooms-${obj.blooms_level}">${getBl oomsLabel(obj.blooms_level)}</span>
+                            <span class="blooms-tag blooms-${obj.blooms_level}">${getBloomsLabel(obj.blooms_level)}</span>
                         </li>
                     `).join('')}
                 </ul>
@@ -671,15 +704,22 @@ document.addEventListener('DOMContentLoaded', function() {
      * Poll for quests
      */
     async function pollQuests() {
-        const maxAttempts = 120; // 4 minutes for quest generation
+        const maxAttempts = 300; // 10 minutes for quest generation (was 4 minutes)
         let attempts = 0;
 
         pollInterval = setInterval(async () => {
             attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0 && attempts < maxAttempts - 15) {
+                const minutesElapsed = Math.floor(attempts / 30);
+                updateLoadingMessage('quests', 'Generating quests...', `Still working... (${minutesElapsed} minute${minutesElapsed !== 1 ? 's' : ''} elapsed)`);
+            }
+
             if (attempts > maxAttempts) {
                 clearInterval(pollInterval);
                 hideLoadingOverlay();
-                M.toast({html: 'Quest generation timed out', classes: 'red'});
+                M.toast({html: 'Quest generation timed out. The quest generation may still be running in the background. Please check the campaign list or refresh the page.', classes: 'orange', displayLength: 8000});
                 return;
             }
 
@@ -794,15 +834,22 @@ document.addEventListener('DOMContentLoaded', function() {
      * Poll for places
      */
     async function pollPlaces() {
-        const maxAttempts = 120;
+        const maxAttempts = 180; // 6 minutes for place generation (was 4 minutes)
         let attempts = 0;
 
         pollInterval = setInterval(async () => {
             attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0 && attempts < maxAttempts - 15) {
+                const minutesElapsed = Math.floor(attempts / 30);
+                updateLoadingMessage('places', 'Generating places...', `Still working... (${minutesElapsed} minute${minutesElapsed !== 1 ? 's' : ''} elapsed)`);
+            }
+
             if (attempts > maxAttempts) {
                 clearInterval(pollInterval);
                 hideLoadingOverlay();
-                M.toast({html: 'Place generation timed out', classes: 'red'});
+                M.toast({html: 'Place generation timed out. The generation may still be running in the background. Please check back later.', classes: 'orange', displayLength: 8000});
                 return;
             }
 
@@ -819,8 +866,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.places && data.places.length > 0) {
                     clearInterval(pollInterval);
                     wizardState.places = data.places;
-                    wizardState.new_locations = wizardState.new_locations.concat(data.new_location_ids || []);
-                    displayPlaces(data.places, data.new_location_ids || []);
+                    wizardState.new_locations = wizardState.new_locations.concat(data.new_locations || []);
+                    displayPlaces(data.places, data.new_locations || []);
                     hideLoadingOverlay();
                     currentStep = 9;
                     updateProgress();
@@ -838,7 +885,7 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Display places
      */
-    function displayPlaces(places, newLocationIds) {
+    function displayPlaces(places, newLocations) {
         const container = document.getElementById('places-review-container');
         container.innerHTML = '';
 
@@ -873,11 +920,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Show new locations if any were created
-        if (newLocationIds.length > 0) {
+        const level2NewLocations = newLocations.filter(loc => loc.level === 2);
+        if (level2NewLocations.length > 0) {
             document.getElementById('new-locations-created-l2').style.display = 'block';
             const locationList = document.getElementById('new-locations-list-l2');
-            locationList.innerHTML = newLocationIds.map(locId => `
-                <li>Level 2 Location created (ID: ${locId})</li>
+            locationList.innerHTML = level2NewLocations.map(loc => `
+                <li><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
             `).join('');
         }
     }
@@ -914,15 +962,22 @@ document.addEventListener('DOMContentLoaded', function() {
      * Poll for scenes
      */
     async function pollScenes() {
-        const maxAttempts = 180; // 6 minutes for scene + element generation
+        const maxAttempts = 300; // 10 minutes for scene + element generation (was 6 minutes)
         let attempts = 0;
 
         pollInterval = setInterval(async () => {
             attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0 && attempts < maxAttempts - 15) {
+                const minutesElapsed = Math.floor(attempts / 30);
+                updateLoadingMessage('scenes', 'Generating scenes...', `Still working... (${minutesElapsed} minute${minutesElapsed !== 1 ? 's' : ''} elapsed)`);
+            }
+
             if (attempts > maxAttempts) {
                 clearInterval(pollInterval);
                 hideLoadingOverlay();
-                M.toast({html: 'Scene generation timed out', classes: 'red'});
+                M.toast({html: 'Scene generation timed out. The generation may still be running in the background. Please check back later.', classes: 'orange', displayLength: 8000});
                 return;
             }
 
@@ -939,8 +994,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.scenes && data.scenes.length > 0) {
                     clearInterval(pollInterval);
                     wizardState.scenes = data.scenes;
-                    wizardState.new_locations = wizardState.new_locations.concat(data.new_location_ids || []);
-                    displayScenes(data.scenes, data.new_location_ids || [], data.npcs || [], data.discoveries || []);
+                    wizardState.new_locations = wizardState.new_locations.concat(data.new_locations || []);
+                    displayScenes(data.scenes, data.new_locations || [], data.npcs || [], data.discoveries || []);
                     hideLoadingOverlay();
                     currentStep = 10;
                     updateProgress();
@@ -958,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Display scenes
      */
-    function displayScenes(scenes, newLocationIds, npcs, discoveries) {
+    function displayScenes(scenes, newLocations, npcs, discoveries) {
         const container = document.getElementById('scenes-review-container');
         container.innerHTML = '';
 
@@ -1031,11 +1086,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Show new locations if any were created
-        if (newLocationIds.length > 0) {
+        const level3NewLocations = newLocations.filter(loc => loc.level === 3);
+        if (level3NewLocations.length > 0) {
             document.getElementById('new-locations-created-l3').style.display = 'block';
             const locationList = document.getElementById('new-locations-list-l3');
-            locationList.innerHTML = newLocationIds.map(locId => `
-                <li>Level 3 Location created (ID: ${locId})</li>
+            locationList.innerHTML = level3NewLocations.map(loc => `
+                <li><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
             `).join('');
         }
     }
@@ -1078,17 +1134,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) throw new Error('Failed to finalize campaign');
 
-            const data = await response.json();
-            hideLoadingOverlay();
-
-            M.toast({html: 'Campaign created successfully!', classes: 'green'});
-
-            // Redirect to campaign detail
-            if (data.campaign_id) {
-                window.location.href = `/campaigns/${data.campaign_id}/`;
-            } else {
-                window.location.href = '/campaigns/';
-            }
+            // Start polling for completion instead of expecting immediate response
+            await pollFinalization();
         } catch (error) {
             console.error('Error finalizing campaign:', error);
             M.toast({html: 'Error finalizing campaign', classes: 'red'});
@@ -1103,6 +1150,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const overlay = document.getElementById('loading-overlay');
         overlay.style.display = 'flex';
 
+        // Reset progress bar
+        const progressBar = document.getElementById('progress-bar-fill');
+        if (progressBar) {
+            progressBar.style.width = '10%';
+        }
+
         // Update phases
         document.querySelectorAll('.phase-step').forEach(step => {
             step.classList.remove('active');
@@ -1115,6 +1168,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('loading-status-message').textContent = statusMessage;
         if (detailMessage) {
             document.getElementById('loading-detail-message').textContent = detailMessage;
+        } else {
+            document.getElementById('loading-detail-message').textContent = 'This may take a few minutes.';
         }
     }
 
@@ -1122,6 +1177,15 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('loading-status-message').textContent = statusMessage;
         if (detailMessage) {
             document.getElementById('loading-detail-message').textContent = detailMessage;
+        }
+
+        // Update progress bar based on phase
+        const progressBar = document.getElementById('progress-bar-fill');
+        if (progressBar) {
+            const phases = ['story', 'core', 'quests', 'places', 'scenes', 'finalize'];
+            const currentIndex = phases.indexOf(phase);
+            const progressPercentage = ((currentIndex + 1) / phases.length) * 100;
+            progressBar.style.width = progressPercentage + '%';
         }
 
         // Mark completed phases
@@ -1140,7 +1204,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function hideLoadingOverlay() {
-        document.getElementById('loading-overlay').style.display = 'none';
+        // Mark current phase as completed before hiding
+        const activePhase = document.querySelector('.phase-step.active');
+        if (activePhase) {
+            activePhase.classList.add('completed');
+            activePhase.classList.remove('active');
+        }
+
+        // Set progress bar to 100%
+        const progressBar = document.getElementById('progress-bar-fill');
+        if (progressBar) {
+            progressBar.style.width = '100%';
+        }
+
+        // Hide overlay after a brief delay to show completion
+        setTimeout(() => {
+            document.getElementById('loading-overlay').style.display = 'none';
+            // Reset for next use
+            if (progressBar) {
+                progressBar.style.width = '0%';
+            }
+        }, 500);
+
         if (pollInterval) {
             clearInterval(pollInterval);
             pollInterval = null;
@@ -1172,6 +1257,165 @@ document.addEventListener('DOMContentLoaded', function() {
             backstory.style.display = backstory.style.display === 'none' ? 'block' : 'none';
         }
     };
+
+    /**
+     * Check for in-progress campaigns
+     */
+    async function checkInProgressCampaigns() {
+        try {
+            const response = await fetch('/campaigns/wizard/api/in-progress');
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            if (data.success && data.campaigns && data.campaigns.length > 0) {
+                // Show banner with the most recent campaign
+                const campaign = data.campaigns[0];
+                displayInProgressBanner(campaign);
+            }
+        } catch (error) {
+            console.error('Error checking in-progress campaigns:', error);
+        }
+    }
+
+    /**
+     * Display in-progress banner
+     */
+    function displayInProgressBanner(campaign) {
+        const banner = document.getElementById('in-progress-banner');
+
+        // Update banner content
+        document.getElementById('in-progress-campaign-name').textContent = campaign.campaign_name || 'Untitled Campaign';
+        document.getElementById('in-progress-universe').textContent = campaign.universe_name || 'Unknown Universe';
+        document.getElementById('in-progress-world').textContent = campaign.world_name || 'Unknown World';
+        document.getElementById('in-progress-percentage').textContent = (campaign.progress_percentage || 0) + '%';
+        document.getElementById('in-progress-status').textContent = campaign.status_message || 'Processing...';
+        document.getElementById('in-progress-bar').style.width = (campaign.progress_percentage || 0) + '%';
+
+        // Show banner
+        banner.style.display = 'block';
+
+        // Setup resume button handler
+        document.getElementById('resume-campaign-btn').onclick = function() {
+            reopenProgressModal(campaign.request_id);
+        };
+    }
+
+    /**
+     * Reopen progress modal for existing campaign
+     */
+    async function reopenProgressModal(existingRequestId) {
+        // Set the request ID
+        requestId = existingRequestId;
+
+        // Save to localStorage
+        localStorage.setItem('campaign_wizard_request_id', requestId);
+
+        // Fetch current status to determine which phase to show
+        try {
+            const response = await fetch(`/campaigns/wizard/api/status/${requestId}`);
+            if (!response.ok) {
+                M.toast({html: 'Unable to resume campaign', classes: 'red'});
+                return;
+            }
+
+            const data = await response.json();
+
+            // Determine which phase to show based on what's been generated
+            let phase = 'story';
+            let statusMsg = 'Generating story ideas...';
+
+            if (data.scenes && data.scenes.length > 0) {
+                phase = 'finalize';
+                statusMsg = 'Finalizing campaign...';
+            } else if (data.places && data.places.length > 0) {
+                phase = 'scenes';
+                statusMsg = 'Generating scenes with NPCs, challenges, events, and discoveries...';
+            } else if (data.quests && data.quests.length > 0) {
+                phase = 'places';
+                statusMsg = 'Generating places...';
+            } else if (data.campaign_core) {
+                phase = 'quests';
+                statusMsg = 'Generating quests...';
+            } else if (data.story_ideas && data.story_ideas.length > 0) {
+                phase = 'core';
+                statusMsg = 'Generating campaign core...';
+            }
+
+            // Show loading overlay with current phase
+            showLoadingOverlay(phase, statusMsg);
+
+            // Start polling based on current phase
+            if (phase === 'finalize') {
+                // Already finalized, just poll to check completion
+                await pollFinalization();
+            } else if (phase === 'scenes') {
+                await pollScenes();
+            } else if (phase === 'places') {
+                await pollPlaces();
+            } else if (phase === 'quests') {
+                await pollQuests();
+            } else if (phase === 'core') {
+                await pollCampaignCore();
+            } else {
+                await pollStoryIdeas();
+            }
+        } catch (error) {
+            console.error('Error resuming campaign:', error);
+            M.toast({html: 'Error resuming campaign', classes: 'red'});
+        }
+    }
+
+    /**
+     * Poll for finalization completion
+     */
+    async function pollFinalization() {
+        const maxAttempts = 600; // 20 minutes max
+        let attempts = 0;
+
+        pollInterval = setInterval(async () => {
+            attempts++;
+
+            // Show "Still working..." message every 30 seconds
+            if (attempts % 15 === 0 && attempts < maxAttempts - 15) {
+                const minutesElapsed = Math.floor(attempts / 30);
+                updateLoadingMessage('finalize', 'Finalizing campaign...', `Still working... (${minutesElapsed} minute${minutesElapsed !== 1 ? 's' : ''} elapsed)`);
+            }
+
+            if (attempts > maxAttempts) {
+                clearInterval(pollInterval);
+                hideLoadingOverlay();
+                M.toast({html: 'Finalization timed out. The finalization may still be running in the background. Please check back later.', classes: 'orange', displayLength: 8000});
+                return;
+            }
+
+            try {
+                const response = await fetch(`/campaigns/wizard/api/status/${requestId}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                if (data.progress_percentage) {
+                    updateLoadingMessage('finalize', `Finalizing campaign... ${data.progress_percentage}%`, data.status_message);
+                }
+
+                if (data.final_campaign_id) {
+                    clearInterval(pollInterval);
+                    hideLoadingOverlay();
+                    // Clear localStorage since campaign is complete
+                    localStorage.removeItem('campaign_wizard_request_id');
+                    M.toast({html: 'Campaign created successfully!', classes: 'green'});
+                    window.location.href = `/campaigns/${data.final_campaign_id}/`;
+                } else if (data.errors && data.errors.length > 0) {
+                    clearInterval(pollInterval);
+                    hideLoadingOverlay();
+                    M.toast({html: 'Error: ' + data.errors[0], classes: 'red'});
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+        }, 2000);
+    }
 
     // Initialize
     updateProgress();

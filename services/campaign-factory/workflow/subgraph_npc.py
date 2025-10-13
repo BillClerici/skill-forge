@@ -95,8 +95,21 @@ Evaluate if existing species are appropriate or if a new species should be creat
             "species_list": species_str
         })
 
-        # Parse response
-        evaluation = json.loads(response.content.strip())
+        # Parse response with error handling
+        try:
+            evaluation = json.loads(response.content.strip())
+        except json.JSONDecodeError as json_err:
+            logger.error(f"JSON parsing failed for species evaluation: {json_err}")
+            logger.error(f"Raw response: {response.content[:500]}")
+            # Use fallback with default species (Human)
+            logger.warning("Using fallback: defaulting to Human species")
+            evaluation = {
+                "use_existing": True,
+                "species_id": "species1",
+                "species_name": "Human",
+                "reasoning": "Defaulted due to JSON parsing error",
+                "or_create_new": False
+            }
 
         state["species_evaluation"] = evaluation
 
@@ -199,13 +212,30 @@ Generate a complete NPC with personality and backstory.""")
             "context": state.get("narrative_context", "")
         })
 
-        # Parse response
-        npc_data = json.loads(response.content.strip())
+        # Parse response with error handling
+        try:
+            npc_data = json.loads(response.content.strip())
+        except json.JSONDecodeError as json_err:
+            logger.error(f"JSON parsing failed for NPC generation: {json_err}")
+            logger.error(f"Raw response: {response.content[:500]}")
+            # Use fallback with minimal NPC data
+            logger.warning("Using fallback: creating minimal NPC")
+            npc_data = {
+                "npc_name": f"{state.get('npc_role', 'Character').title()} NPC",
+                "personality_traits": ["mysterious", "reserved"],
+                "backstory": "A character whose full story remains to be told.",
+                "dialogue_style": "Speaks with measured words.",
+                "quirks": []
+            }
+
+        # Generate NPC ID immediately (same format as persistence layer expects)
+        npc_name = npc_data.get("npc_name", "Unnamed NPC")
+        npc_id = f"npc_{uuid.uuid4().hex[:16]}_{npc_name.replace(' ', '_').lower()}"
 
         # Create NPCData
         npc: NPCData = {
-            "npc_id": None,  # Will be set on persistence
-            "name": npc_data.get("npc_name", "Unnamed NPC"),
+            "npc_id": npc_id,  # Set immediately so scenes can reference it
+            "name": npc_name,
             "species_id": state.get("species_id", ""),
             "species_name": state.get("species_name", ""),
             "personality_traits": npc_data.get("personality_traits", []),

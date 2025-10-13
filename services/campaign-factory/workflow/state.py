@@ -176,6 +176,10 @@ class CampaignWorkflowState(TypedDict):
     quest_playtime_minutes: int  # User specified per quest
     generate_images: bool  # User specified
 
+    # User approval flags for workflow gates
+    user_approved_quests: Optional[bool]  # Phase 4 approval
+    user_approved_places: Optional[bool]  # Phase 5 approval
+
     # Generated content
     quests: List[QuestData]
     places: List[PlaceData]
@@ -187,7 +191,8 @@ class CampaignWorkflowState(TypedDict):
 
     # World enrichment tracking
     new_species_ids: List[str]  # Species created and added to world
-    new_location_ids: List[str]  # Locations created and added to world
+    new_location_ids: List[str]  # DEPRECATED: Use new_locations instead
+    new_locations: List[Dict[str, Any]]  # Full details of new locations (id, name, type, description, level)
     new_npc_ids: List[str]  # NPCs created and added to world
 
     # Workflow state management

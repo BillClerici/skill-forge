@@ -642,16 +642,19 @@ This is mandatory and non-negotiable."""
                 # Get description but remove potentially problematic content
                 original_desc = species.get('description', '')
 
-                # Remove references to violence, history, or conflict
-                safe_desc = original_desc
+                # Comprehensive list of potentially problematic words for OpenAI's content policy
                 problem_phrases = [
                     'war', 'War', 'battle', 'Battle', 'killed', 'kill', 'death', 'Death',
                     'scorched', 'spawned', 'Spawned', 'blood', 'corpse', 'dead', 'dying',
-                    'destroyed', 'attacking', 'aggressive'
+                    'destroyed', 'attacking', 'aggressive', 'Aggressive',
+                    'predatory', 'Predatory', 'prey', 'Prey', 'hunt', 'Hunt', 'hunting', 'Hunting',
+                    'paralyze', 'Paralyze', 'apex predator', 'Apex predator', 'apex Predator',
+                    'violence', 'violent', 'weapon', 'weapons', 'massacre', 'slaughter',
+                    'torture', 'terror', 'fear', 'Fear', 'victim', 'victims'
                 ]
 
-                # Split description into sentences and keep only physical descriptions
-                sentences = [s.strip() for s in safe_desc.split('.') if s.strip()]
+                # Split description into sentences and keep only physical/visual descriptions
+                sentences = [s.strip() for s in original_desc.split('.') if s.strip()]
                 safe_sentences = []
                 for sentence in sentences:
                     # Check if sentence contains problematic words
@@ -659,18 +662,21 @@ This is mandatory and non-negotiable."""
                     if not has_problem and len(sentence) > 10:
                         safe_sentences.append(sentence)
 
-                # If we have safe sentences, use them, otherwise extract visual keywords
+                # If we have safe sentences, use them, otherwise create a generic visual description
                 if safe_sentences:
                     visual_desc = '. '.join(safe_sentences[:2])  # Use first 2 safe sentences
                 else:
-                    visual_desc = f"A {species_type.lower()} with unique fantasy features"
+                    # Create a neutral description focusing on visual aspects only
+                    visual_desc = f"A {species_type.lower()} with distinctive fur patterns and unique physical features"
 
                 # Add traits if they're safe
                 traits = species.get('character_traits', [])[:3]
                 safe_traits = []
                 trait_replacements = {
-                    'aggressive': 'fierce', 'violent': 'intense', 'deadly': 'formidable',
-                    'killer': 'hunter', 'murderous': 'dangerous', 'evil': 'dark'
+                    'aggressive': 'bold', 'violent': 'intense', 'deadly': 'formidable',
+                    'killer': 'skilled', 'murderous': 'mysterious', 'evil': 'dark',
+                    'predatory': 'focused', 'territorial': 'protective', 'cunning': 'clever',
+                    'savage': 'wild', 'brutal': 'strong', 'vicious': 'fierce'
                 }
                 for trait in traits:
                     trait_lower = trait.lower()

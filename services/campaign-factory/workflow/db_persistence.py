@@ -57,43 +57,48 @@ async def persist_campaign_to_mongodb(state: CampaignWorkflowState) -> str:
     Returns:
         Campaign ID
     """
-    if not mongo_db:
+    if mongo_db is None:
         init_db_connections()
 
-    campaign_id = f"campaign_{state.request_id}"
+    campaign_id = f"campaign_{state['request_id']}"
 
     try:
         # Create campaign document
         campaign_doc = {
             "_id": campaign_id,
-            "name": state.campaign_core["name"],
-            "plot": state.campaign_core["plot"],
-            "storyline": state.campaign_core["storyline"],
-            "primary_objectives": state.campaign_core["primary_objectives"],
-            "universe_id": state.universe_id,
-            "world_id": state.world_id,
-            "region_id": state.region_id,
-            "genre": state.genre,
-            "character_id": state.character_id,
-            "user_id": state.user_id,
-            "difficulty_level": state.campaign_core["difficulty_level"],
-            "estimated_duration_hours": state.campaign_core["estimated_duration_hours"],
-            "target_blooms_level": state.campaign_core["target_blooms_level"],
+            "name": state["campaign_core"]["name"],
+            "plot": state["campaign_core"]["plot"],
+            "storyline": state["campaign_core"]["storyline"],
+            "primary_objectives": state["campaign_core"]["primary_objectives"],
+            "universe_id": state["universe_id"],
+            "world_id": state["world_id"],
+            "region_id": state["region_id"],
+            "genre": state["genre"],
+            "character_id": state["character_id"],
+            "user_id": state["user_id"],
+            "difficulty_level": state["campaign_core"]["difficulty_level"],
+            "estimated_duration_hours": state["campaign_core"]["estimated_duration_hours"],
+            "target_blooms_level": state["campaign_core"]["target_blooms_level"],
             "status": "active",
-            "created_at": state.created_at,
+            "created_at": state["created_at"],
             "quest_ids": [],
             "stats": {
-                "num_quests": len(state.quests),
-                "num_places": len(state.places),
-                "num_scenes": len(state.scenes),
-                "num_npcs": len(state.npcs),
-                "new_species_created": len(state.new_species_ids),
-                "new_locations_created": len(state.new_location_ids)
+                "num_quests": len(state["quests"]),
+                "num_places": len(state["places"]),
+                "num_scenes": len(state["scenes"]),
+                "num_npcs": len(state["npcs"]),
+                "new_species_created": len(state["new_species_ids"]),
+                "new_locations_created": len(state["new_location_ids"])
             }
         }
 
-        mongo_db.campaigns.insert_one(campaign_doc)
-        logger.info(f"Created campaign document: {campaign_id}")
+        # Use replace_one with upsert to handle retries gracefully
+        mongo_db.campaigns.replace_one(
+            {"_id": campaign_id},
+            campaign_doc,
+            upsert=True
+        )
+        logger.info(f"Created/updated campaign document: {campaign_id}")
 
         # Persist quests
         quest_ids = await persist_quests(state, campaign_id)
@@ -129,22 +134,22 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
     """
     quest_ids = []
 
-    for quest_idx, quest in enumerate(state.quests):
-        quest_id = f"quest_{state.request_id}_{quest_idx}"
+    for quest_idx, quest in enumerate(state["quests"]):
+        quest_id = f"quest_{state['request_id']}_{quest_idx}"
 
         # Find places for this quest
-        quest_places = [p for p in state.places if p.get("parent_quest_id") == quest.get("quest_id", "")]
+        quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
 
         place_ids = []
         for place in quest_places:
-            place_id = f"place_{state.request_id}_{len(place_ids)}"
+            place_id = f"place_{state['request_id']}_{len(place_ids)}"
 
             # Find scenes for this place
-            place_scenes = [s for s in state.scenes if s.get("parent_place_id") == place.get("place_id", "")]
+            place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
 
             scene_ids = []
             for scene in place_scenes:
-                scene_id = f"scene_{state.request_id}_{len(scene_ids)}"
+                scene_id = f"scene_{state['request_id']}_{len(scene_ids)}"
 
                 # Create scene document
                 scene_doc = {
@@ -165,7 +170,11 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
                     "created_at": datetime.utcnow().isoformat()
                 }
 
-                mongo_db.scenes.insert_one(scene_doc)
+                mongo_db.scenes.replace_one(
+                    {"_id": scene_id},
+                    scene_doc,
+                    upsert=True
+                )
                 scene_ids.append(scene_id)
 
             # Create place document
@@ -181,7 +190,11 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
                 "created_at": datetime.utcnow().isoformat()
             }
 
-            mongo_db.places.insert_one(place_doc)
+            mongo_db.places.replace_one(
+                {"_id": place_id},
+                place_doc,
+                upsert=True
+            )
             place_ids.append(place_id)
 
         # Create quest document
@@ -202,7 +215,11 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
             "created_at": datetime.utcnow().isoformat()
         }
 
-        mongo_db.quests.insert_one(quest_doc)
+        mongo_db.quests.replace_one(
+            {"_id": quest_id},
+            quest_doc,
+            upsert=True
+        )
         quest_ids.append(quest_id)
 
         logger.info(f"Persisted quest: {quest_id} with {len(place_ids)} places")
@@ -214,8 +231,13 @@ async def persist_npcs(state: CampaignWorkflowState):
     """
     Persist NPCs to world's NPC pool (world-permanent)
     """
-    for npc in state.npcs:
-        npc_id = f"npc_{state.request_id}_{npc['name'].replace(' ', '_').lower()}"
+    for npc in state["npcs"]:
+        # Use existing npc_id from the NPC data (generated in subgraph)
+        npc_id = npc.get("npc_id")
+        if not npc_id:
+            # Fallback: generate ID if somehow missing
+            npc_id = f"npc_{state['request_id']}_{npc['name'].replace(' ', '_').lower()}"
+            logger.warning(f"NPC missing ID, generated: {npc_id}")
 
         npc_doc = {
             "_id": npc_id,
@@ -226,16 +248,20 @@ async def persist_npcs(state: CampaignWorkflowState):
             "role": npc["role"],
             "dialogue_style": npc["dialogue_style"],
             "backstory": npc["backstory"],
-            "world_id": state.world_id,
+            "world_id": state["world_id"],
             "level_3_location_id": npc["level_3_location_id"],
             "is_world_permanent": npc.get("is_world_permanent", True),
-            "origin_campaign_id": f"campaign_{state.request_id}",
+            "origin_campaign_id": f"campaign_{state['request_id']}",
             "created_at": datetime.utcnow().isoformat()
         }
 
-        mongo_db.npcs.insert_one(npc_doc)
+        mongo_db.npcs.replace_one(
+            {"_id": npc_id},
+            npc_doc,
+            upsert=True
+        )
 
-    logger.info(f"Persisted {len(state.npcs)} NPCs to world pool")
+    logger.info(f"Persisted {len(state['npcs'])} NPCs to world pool")
 
 
 async def persist_scene_elements(state: CampaignWorkflowState):
@@ -243,8 +269,8 @@ async def persist_scene_elements(state: CampaignWorkflowState):
     Persist discoveries, events, challenges
     """
     # Discoveries
-    for idx, discovery in enumerate(state.discoveries):
-        discovery_id = f"discovery_{state.request_id}_{idx}"
+    for idx, discovery in enumerate(state["discoveries"]):
+        discovery_id = f"discovery_{state['request_id']}_{idx}"
 
         discovery_doc = {
             "_id": discovery_id,
@@ -256,11 +282,15 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "created_at": datetime.utcnow().isoformat()
         }
 
-        mongo_db.discoveries.insert_one(discovery_doc)
+        mongo_db.discoveries.replace_one(
+            {"_id": discovery_id},
+            discovery_doc,
+            upsert=True
+        )
 
     # Events
-    for idx, event in enumerate(state.events):
-        event_id = f"event_{state.request_id}_{idx}"
+    for idx, event in enumerate(state["events"]):
+        event_id = f"event_{state['request_id']}_{idx}"
 
         event_doc = {
             "_id": event_id,
@@ -272,11 +302,15 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "created_at": datetime.utcnow().isoformat()
         }
 
-        mongo_db.events.insert_one(event_doc)
+        mongo_db.events.replace_one(
+            {"_id": event_id},
+            event_doc,
+            upsert=True
+        )
 
     # Challenges
-    for idx, challenge in enumerate(state.challenges):
-        challenge_id = f"challenge_{state.request_id}_{idx}"
+    for idx, challenge in enumerate(state["challenges"]):
+        challenge_id = f"challenge_{state['request_id']}_{idx}"
 
         challenge_doc = {
             "_id": challenge_id,
@@ -290,9 +324,13 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "created_at": datetime.utcnow().isoformat()
         }
 
-        mongo_db.challenges.insert_one(challenge_doc)
+        mongo_db.challenges.replace_one(
+            {"_id": challenge_id},
+            challenge_doc,
+            upsert=True
+        )
 
-    logger.info(f"Persisted {len(state.discoveries)} discoveries, {len(state.events)} events, {len(state.challenges)} challenges")
+    logger.info(f"Persisted {len(state['discoveries'])} discoveries, {len(state['events'])} events, {len(state['challenges'])} challenges")
 
 
 async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: str) -> int:
@@ -302,23 +340,38 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
     Returns:
         Number of relationships created
     """
-    if not neo4j_driver:
+    if neo4j_driver is None:
         init_db_connections()
 
     relationships_created = 0
 
     with neo4j_driver.session() as session:
-        # Character participates in Campaign
+        # Create Campaign node first
         session.run(
             """
-            MATCH (c:Character {id: $character_id})
-            MATCH (camp:Campaign {id: $campaign_id})
-            MERGE (c)-[:PARTICIPATES_IN]->(camp)
+            MERGE (camp:Campaign {id: $campaign_id})
+            SET camp.name = $campaign_name,
+                camp.status = $status,
+                camp.created_at = $created_at
             """,
-            character_id=state.character_id,
-            campaign_id=campaign_id
+            campaign_id=campaign_id,
+            campaign_name=state["campaign_core"]["name"],
+            status="active",
+            created_at=state["created_at"]
         )
-        relationships_created += 1
+
+        # Character participates in Campaign (optional - only if character_id exists)
+        if state.get("character_id"):
+            session.run(
+                """
+                MATCH (camp:Campaign {id: $campaign_id})
+                MERGE (c:Character {id: $character_id})
+                MERGE (c)-[:PARTICIPATES_IN]->(camp)
+                """,
+                character_id=state["character_id"],
+                campaign_id=campaign_id
+            )
+            relationships_created += 1
 
         # Campaign takes place in World and Region
         session.run(
@@ -330,48 +383,131 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             MERGE (camp)-[:LOCATED_IN]->(r)
             """,
             campaign_id=campaign_id,
-            world_id=state.world_id,
-            region_id=state.region_id
+            world_id=state["world_id"],
+            region_id=state["region_id"]
         )
         relationships_created += 2
 
-        # Campaign contains Quests
-        for quest_idx, quest in enumerate(state.quests):
-            quest_id = f"quest_{state.request_id}_{quest_idx}"
+        # Campaign contains Quests, and create full hierarchy
+        for quest_idx, quest in enumerate(state["quests"]):
+            quest_id = f"quest_{state['request_id']}_{quest_idx}"
 
+            # Create Quest node and link to Campaign
             session.run(
                 """
                 MATCH (camp:Campaign {id: $campaign_id})
                 MERGE (q:Quest {id: $quest_id})
-                SET q.name = $quest_name, q.order_sequence = $order_sequence
+                SET q.name = $quest_name,
+                    q.order_sequence = $order_sequence,
+                    q.difficulty_level = $difficulty,
+                    q.estimated_duration_minutes = $duration
                 MERGE (camp)-[:CONTAINS]->(q)
-                MERGE (q)-[:LOCATED_AT]->(loc:Location {id: $location_id})
+                MERGE (loc:Location {id: $location_id})
+                SET loc.name = $location_name
+                MERGE (q)-[:LOCATED_AT]->(loc)
                 """,
                 campaign_id=campaign_id,
                 quest_id=quest_id,
                 quest_name=quest["name"],
                 order_sequence=quest["order_sequence"],
-                location_id=quest["level_1_location_id"]
+                difficulty=quest.get("difficulty_level", "Medium"),
+                duration=quest.get("estimated_duration_minutes", 0),
+                location_id=quest["level_1_location_id"],
+                location_name=quest.get("level_1_location_name", "Unknown Location")
             )
             relationships_created += 3
 
+            # Find places for this quest and create Place nodes
+            quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
+            for place_idx, place in enumerate(quest_places):
+                place_id = f"place_{state['request_id']}_{quest_idx}_{place_idx}"
+
+                session.run(
+                    """
+                    MATCH (q:Quest {id: $quest_id})
+                    MERGE (p:Place {id: $place_id})
+                    SET p.name = $place_name
+                    MERGE (q)-[:CONTAINS]->(p)
+                    MERGE (loc:Location {id: $location_id})
+                    SET loc.name = $location_name
+                    MERGE (p)-[:LOCATED_AT]->(loc)
+                    """,
+                    quest_id=quest_id,
+                    place_id=place_id,
+                    place_name=place["name"],
+                    location_id=place["level_2_location_id"],
+                    location_name=place.get("level_2_location_name", "Unknown Location")
+                )
+                relationships_created += 3
+
+                # Find scenes for this place and create Scene nodes
+                place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
+                for scene_idx, scene in enumerate(place_scenes):
+                    scene_id = f"scene_{state['request_id']}_{quest_idx}_{place_idx}_{scene_idx}"
+
+                    session.run(
+                        """
+                        MATCH (p:Place {id: $place_id})
+                        MERGE (sc:Scene {id: $scene_id})
+                        SET sc.name = $scene_name
+                        MERGE (p)-[:CONTAINS]->(sc)
+                        MERGE (loc:Location {id: $location_id})
+                        SET loc.name = $location_name
+                        MERGE (sc)-[:LOCATED_AT]->(loc)
+                        """,
+                        place_id=place_id,
+                        scene_id=scene_id,
+                        scene_name=scene["name"],
+                        location_id=scene["level_3_location_id"],
+                        location_name=scene.get("level_3_location_name", "Unknown Location")
+                    )
+                    relationships_created += 3
+
+                    # Link NPCs to this scene
+                    for npc_id in scene.get("npc_ids", []):
+                        if npc_id and npc_id != "None":  # Skip None values
+                            session.run(
+                                """
+                                MATCH (sc:Scene {id: $scene_id})
+                                MERGE (npc:NPC {id: $npc_id})
+                                MERGE (sc)-[:FEATURES]->(npc)
+                                """,
+                                scene_id=scene_id,
+                                npc_id=npc_id
+                            )
+                            relationships_created += 1
+
         # NPCs relationships with species and locations
-        for npc in state.npcs:
-            npc_id = f"npc_{state.request_id}_{npc['name'].replace(' ', '_').lower()}"
+        for npc in state["npcs"]:
+            # Use the NPC ID that was generated in the subgraph
+            npc_id = npc.get("npc_id")
+            if not npc_id:
+                # Fallback if somehow missing
+                npc_id = f"npc_{state['request_id']}_{npc['name'].replace(' ', '_').lower()}"
+
+            # Extract role as string (handle both dict and string formats)
+            npc_role = npc["role"]
+            if isinstance(npc_role, dict):
+                role_str = npc_role.get("type", str(npc_role))
+            else:
+                role_str = str(npc_role)
 
             session.run(
                 """
                 MERGE (npc:NPC {id: $npc_id})
                 SET npc.name = $npc_name, npc.role = $role
                 MERGE (s:Species {id: $species_id})
+                SET s.name = $species_name
                 MERGE (loc:Location {id: $location_id})
+                SET loc.name = $location_name
                 MERGE (npc)-[:IS_SPECIES]->(s)
                 MERGE (npc)-[:LOCATED_AT]->(loc)
                 """,
                 npc_id=npc_id,
                 npc_name=npc["name"],
-                role=npc["role"],
+                role=role_str,
                 species_id=npc["species_id"],
+                species_name=npc.get("species_name", "Unknown Species"),
                 location_id=npc["level_3_location_id"]
             )
             relationships_created += 3

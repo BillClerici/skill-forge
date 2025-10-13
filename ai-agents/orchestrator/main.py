@@ -801,6 +801,40 @@ async def start_campaign_wizard(request: Dict[str, Any]):
         raise HTTPException(status_code=429, detail="Daily AI budget limit reached")
 
     try:
+        request_id = request.get("request_id", str(UUID(int=0)))
+
+        # Create initial Redis progress entry BEFORE publishing to RabbitMQ
+        # This prevents 404 errors when frontend starts polling immediately
+        progress_key = f"campaign:progress:{request_id}"
+        initial_progress = {
+            "request_id": request_id,
+            "user_id": str(account_id),
+            "campaign_name": request.get("campaign_name", "Untitled Campaign"),
+            "universe_name": request.get("universe_name"),
+            "world_name": request.get("world_name"),
+            "region_name": request.get("region_name"),
+            "progress_percentage": 0,
+            "status_message": "Initializing campaign generation...",
+            "current_phase": "init",
+            "current_node": "",
+            "story_ideas": [],
+            "campaign_core": None,
+            "quests": [],
+            "places": [],
+            "scenes": [],
+            "npcs": [],
+            "discoveries": [],
+            "events": [],
+            "challenges": [],
+            "new_location_ids": [],
+            "new_locations": [],
+            "final_campaign_id": None,
+            "errors": [],
+            "warnings": [],
+            "created_at": datetime.now().isoformat()
+        }
+        await redis_client.setex(progress_key, 86400, json.dumps(initial_progress))
+
         # Connect to RabbitMQ
         rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672")
         connection = await aio_pika.connect_robust(rabbitmq_url)
@@ -810,7 +844,7 @@ async def start_campaign_wizard(request: Dict[str, Any]):
 
             # Prepare campaign request message
             campaign_message = {
-                "request_id": request.get("request_id", str(UUID(int=0))),
+                "request_id": request_id,
                 "user_id": str(account_id),
                 "character_id": request.get("character_id"),
                 "universe_id": request.get("universe_id"),
@@ -960,6 +994,149 @@ async def approve_campaign_core(request: Dict[str, Any]):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error approving campaign core: {str(e)}")
+
+@app.post("/campaign-wizard/approve-quests")
+async def approve_quests(request: Dict[str, Any]):
+    """
+    User approves quests and triggers place generation
+
+    This resumes the workflow to generate places (Level 2 locations)
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "user_approved_quests": request.get("user_approved_quests", True),
+                "workflow_action": "approve_quests"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "generating_places",
+                "request_id": campaign_message["request_id"],
+                "message": "Place generation started"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error approving quests: {str(e)}")
+
+@app.post("/campaign-wizard/approve-places")
+async def approve_places(request: Dict[str, Any]):
+    """
+    User approves places and triggers scene generation
+
+    This resumes the workflow to generate scenes (Level 3 locations) and elements
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "user_approved_places": request.get("user_approved_places", True),
+                "workflow_action": "approve_places"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            return {
+                "status": "generating_scenes",
+                "request_id": campaign_message["request_id"],
+                "message": "Scene and element generation started"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error approving places: {str(e)}")
+
+@app.post("/campaign-wizard/finalize")
+async def finalize_campaign(request: Dict[str, Any]):
+    """
+    Finalize campaign and persist to database
+
+    This triggers the final workflow step to save everything to MongoDB/Neo4j
+    """
+    import aio_pika
+
+    try:
+        rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://skillforge:password@rabbitmq:5672")
+        connection = await aio_pika.connect_robust(rabbitmq_url)
+
+        async with connection:
+            channel = await connection.channel()
+
+            campaign_message = {
+                "request_id": request.get("request_id"),
+                "user_id": request.get("user_id"),
+                "workflow_action": "finalize"
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(campaign_message).encode(),
+                    content_type="application/json"
+                ),
+                routing_key="campaign_generation_queue"
+            )
+
+            # Wait briefly for the workflow to process
+            # Then check Redis for the campaign ID
+            import asyncio
+            await asyncio.sleep(2)  # Give workflow time to start finalization
+
+            # Check Redis for completion (poll up to 30 seconds)
+            for _ in range(15):
+                progress_key = f"campaign:progress:{request.get('request_id')}"
+                progress_data = await redis_client.get(progress_key)
+
+                if progress_data:
+                    data = json.loads(progress_data)
+                    campaign_id = data.get("final_campaign_id")
+
+                    if campaign_id:
+                        return {
+                            "status": "completed",
+                            "campaign_id": campaign_id,
+                            "message": "Campaign finalized successfully"
+                        }
+
+                await asyncio.sleep(2)
+
+            # If we get here, finalization is still in progress
+            return {
+                "status": "finalizing",
+                "request_id": request.get("request_id"),
+                "message": "Finalization in progress"
+            }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error finalizing campaign: {str(e)}")
 
 @app.get("/campaign-wizard/status/{request_id}")
 async def get_campaign_status(request_id: str):

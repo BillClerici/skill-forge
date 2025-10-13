@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Campaigns - SkillForge RPG{% endblock %}
 
@@ -9,6 +10,42 @@
             <i class="material-icons left" style="font-size: 2.5rem;">book</i>
             Campaigns
         </h3>
+    </div>
+</div>
+
+<!-- In-Progress Campaign Banner -->
+<div id="in-progress-banner" class="card" style="display: none; margin-bottom: 20px; background: rgba(212, 175, 55, 0.1); border: 2px solid var(--rpg-gold);">
+    <div class="card-content" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+            <div style="flex: 1;">
+                <h6 style="color: var(--rpg-gold); margin: 0 0 10px 0;">
+                    <i class="material-icons left" style="font-size: 1.5rem;">pending_actions</i>
+                    Campaign Generation In Progress
+                </h6>
+                <p style="color: #b8b8d1; margin: 0; font-size: 0.95rem;">
+                    <strong id="in-progress-campaign-name" style="color: var(--rpg-gold);"></strong>
+                </p>
+                <p style="color: var(--rpg-silver); margin: 5px 0 0 0; font-size: 0.85rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle;">hub</i>
+                    <span id="in-progress-universe"></span>
+                    <i class="material-icons tiny" style="vertical-align: middle; margin-left: 10px;">public</i>
+                    <span id="in-progress-world"></span>
+                </p>
+                <div style="margin-top: 10px;">
+                    <div class="progress" style="height: 8px; background: rgba(27, 27, 46, 0.6);">
+                        <div id="in-progress-bar" class="determinate" style="width: 0%; background: linear-gradient(90deg, var(--rpg-purple), var(--rpg-gold));"></div>
+                    </div>
+                    <p style="color: var(--rpg-silver); margin: 5px 0 0 0; font-size: 0.85rem;">
+                        <span id="in-progress-percentage">0%</span> complete - <span id="in-progress-status"></span>
+                    </p>
+                </div>
+            </div>
+            <div style="flex-shrink: 0;">
+                <a href="{% url 'campaign_designer_wizard' %}" class="btn waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                    <i class="material-icons left">play_arrow</i>View Progress
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -31,18 +68,22 @@
     {% if campaigns %}
         {% for campaign in campaigns %}
         <div class="col s12 l6 campaign-card" data-name="{{ campaign.campaign_name|lower }}">
-            <div class="card hoverable">
+            <div class="card hoverable" style="cursor: pointer;" onclick="window.location.href='{% url 'campaign_detail' campaign.campaign_id %}'">
                 <div class="card-content">
                     <div style="display: flex; gap: 15px;">
-                        <!-- World Image -->
+                        <!-- Campaign/World Image -->
                         <div style="flex-shrink: 0;">
-                            {% if campaign.worlds and campaign.worlds.0.primary_image_url %}
+                            {% if campaign.primary_image_url %}
+                            <img src="{{ campaign.primary_image_url }}"
+                                 alt="{{ campaign.campaign_name }}"
+                                 style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
+                            {% elif campaign.worlds and campaign.worlds.0.primary_image_url %}
                             <img src="{{ campaign.worlds.0.primary_image_url }}"
                                  alt="{{ campaign.worlds.0.world_name }}"
                                  style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">
                             {% else %}
                             <div style="width: 120px; height: 120px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
-                                <i class="material-icons" style="font-size: 48px; color: var(--rpg-gold); opacity: 0.5;">public</i>
+                                <i class="material-icons" style="font-size: 48px; color: var(--rpg-gold); opacity: 0.5;">campaign</i>
                             </div>
                             {% endif %}
                         </div>
@@ -126,8 +167,8 @@
 
 {% block extra_js %}
 <script>
-    // Campaign search functionality
     document.addEventListener('DOMContentLoaded', function() {
+        // Campaign search functionality
         const searchInput = document.getElementById('campaign-search');
         if (searchInput) {
             searchInput.addEventListener('input', function(e) {
@@ -144,6 +185,47 @@
                 });
             });
         }
+
+        // Check for in-progress campaigns
+        checkInProgressCampaigns();
     });
+
+    /**
+     * Check for in-progress campaigns
+     */
+    async function checkInProgressCampaigns() {
+        try {
+            const response = await fetch('/campaigns/wizard/api/in-progress');
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            if (data.success && data.campaigns && data.campaigns.length > 0) {
+                // Show banner with the most recent campaign
+                const campaign = data.campaigns[0];
+                displayInProgressBanner(campaign);
+            }
+        } catch (error) {
+            console.error('Error checking in-progress campaigns:', error);
+        }
+    }
+
+    /**
+     * Display in-progress banner
+     */
+    function displayInProgressBanner(campaign) {
+        const banner = document.getElementById('in-progress-banner');
+
+        // Update banner content
+        document.getElementById('in-progress-campaign-name').textContent = campaign.campaign_name || 'Untitled Campaign';
+        document.getElementById('in-progress-universe').textContent = campaign.universe_name || 'Unknown Universe';
+        document.getElementById('in-progress-world').textContent = campaign.world_name || 'Unknown World';
+        document.getElementById('in-progress-percentage').textContent = (campaign.progress_percentage || 0) + '%';
+        document.getElementById('in-progress-status').textContent = campaign.status_message || 'Processing...';
+        document.getElementById('in-progress-bar').style.width = (campaign.progress_percentage || 0) + '%';
+
+        // Show banner
+        banner.style.display = 'block';
+    }
 </script>
 {% endblock %}

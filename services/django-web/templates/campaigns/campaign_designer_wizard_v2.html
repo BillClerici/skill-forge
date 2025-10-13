@@ -1,83 +1,118 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Campaign Designer Wizard - SkillForge RPG{% endblock %}
+{% block title %}Campaign Design Wizard - SkillForge RPG{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
             <i class="material-icons left" style="font-size: 2.5rem;">auto_awesome</i>
-            Campaign Designer Wizard
+            Campaign Design Wizard
         </h3>
     </div>
 </div>
 
-<!-- Enhanced Progress Indicator -->
-<div class="row">
-    <div class="col s12">
-        <div class="card" style="background: rgba(27, 27, 46, 0.6);">
-            <div class="card-content">
-                <div id="progress-container" style="display: flex; justify-content: space-between; align-items: center; position: relative; flex-wrap: wrap;">
-                    <div class="progress-step active" data-step="1">
-                        <div class="step-circle">1</div>
-                        <div class="step-label">Universe</div>
+<!-- In-Progress Campaign Banner -->
+<div id="in-progress-banner" class="card" style="display: none; margin-bottom: 20px; background: rgba(212, 175, 55, 0.1); border: 2px solid var(--rpg-gold);">
+    <div class="card-content" style="padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+            <div style="flex: 1;">
+                <h6 style="color: var(--rpg-gold); margin: 0 0 10px 0;">
+                    <i class="material-icons left" style="font-size: 1.5rem;">pending_actions</i>
+                    Campaign Generation In Progress
+                </h6>
+                <p style="color: #b8b8d1; margin: 0; font-size: 0.95rem;">
+                    <strong id="in-progress-campaign-name" style="color: var(--rpg-gold);"></strong>
+                </p>
+                <p style="color: var(--rpg-silver); margin: 5px 0 0 0; font-size: 0.85rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle;">hub</i>
+                    <span id="in-progress-universe"></span>
+                    <i class="material-icons tiny" style="vertical-align: middle; margin-left: 10px;">public</i>
+                    <span id="in-progress-world"></span>
+                </p>
+                <div style="margin-top: 10px;">
+                    <div class="progress" style="height: 8px; background: rgba(27, 27, 46, 0.6);">
+                        <div id="in-progress-bar" class="determinate" style="width: 0%; background: linear-gradient(90deg, var(--rpg-purple), var(--rpg-gold));"></div>
                     </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="2">
-                        <div class="step-circle">2</div>
-                        <div class="step-label">World</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="3">
-                        <div class="step-circle">3</div>
-                        <div class="step-label">Region</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="4">
-                        <div class="step-circle">4</div>
-                        <div class="step-label">Story Idea</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="5">
-                        <div class="step-circle">5</div>
-                        <div class="step-label">Select Story</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="6">
-                        <div class="step-circle">6</div>
-                        <div class="step-label">Campaign Core</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="7">
-                        <div class="step-circle">7</div>
-                        <div class="step-label">Quest Settings</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="8">
-                        <div class="step-circle">8</div>
-                        <div class="step-label">Review Quests</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="9">
-                        <div class="step-circle">9</div>
-                        <div class="step-label">Review Places</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="10">
-                        <div class="step-circle">10</div>
-                        <div class="step-label">Review Scenes</div>
-                    </div>
-                    <div class="progress-line"></div>
-                    <div class="progress-step" data-step="11">
-                        <div class="step-circle">11</div>
-                        <div class="step-label">Finalize</div>
-                    </div>
+                    <p style="color: var(--rpg-silver); margin: 5px 0 0 0; font-size: 0.85rem;">
+                        <span id="in-progress-percentage">0%</span> complete - <span id="in-progress-status"></span>
+                    </p>
                 </div>
+            </div>
+            <div style="flex-shrink: 0;">
+                <button type="button" id="resume-campaign-btn" class="btn waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                    <i class="material-icons left">play_arrow</i>View Progress
+                </button>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Wizard Layout with Left Sidebar -->
+<div class="row">
+    <!-- Left Sidebar Navigation -->
+    <div class="col s12 m4 l3">
+        <div class="wizard-sidebar" style="position: sticky; top: 20px;">
+            <div class="card" style="background: rgba(27, 27, 46, 0.6);">
+                <div class="card-content" style="padding: 12px;">
+                    <h6 style="color: var(--rpg-gold); margin-top: 0; margin-bottom: 15px; font-size: 0.85rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">list</i> Steps
+                    </h6>
+
+                    <nav id="wizard-nav" style="min-height: 500px; max-height: calc(100vh - 180px); overflow-y: auto;">
+                        <div class="nav-step active" data-step="1">
+                            <div class="nav-step-number">1</div>
+                            <div class="nav-step-label">Universe</div>
+                        </div>
+                        <div class="nav-step" data-step="2">
+                            <div class="nav-step-number">2</div>
+                            <div class="nav-step-label">World</div>
+                        </div>
+                        <div class="nav-step" data-step="3">
+                            <div class="nav-step-number">3</div>
+                            <div class="nav-step-label">Region</div>
+                        </div>
+                        <div class="nav-step" data-step="4">
+                            <div class="nav-step-number">4</div>
+                            <div class="nav-step-label">Story Idea</div>
+                        </div>
+                        <div class="nav-step" data-step="5">
+                            <div class="nav-step-number">5</div>
+                            <div class="nav-step-label">Select Story</div>
+                        </div>
+                        <div class="nav-step" data-step="6">
+                            <div class="nav-step-number">6</div>
+                            <div class="nav-step-label">Campaign Core</div>
+                        </div>
+                        <div class="nav-step" data-step="7">
+                            <div class="nav-step-number">7</div>
+                            <div class="nav-step-label">Quest Settings</div>
+                        </div>
+                        <div class="nav-step" data-step="8">
+                            <div class="nav-step-number">8</div>
+                            <div class="nav-step-label">Review Quests</div>
+                        </div>
+                        <div class="nav-step" data-step="9">
+                            <div class="nav-step-number">9</div>
+                            <div class="nav-step-label">Review Places</div>
+                        </div>
+                        <div class="nav-step" data-step="10">
+                            <div class="nav-step-number">10</div>
+                            <div class="nav-step-label">Review Scenes</div>
+                        </div>
+                        <div class="nav-step" data-step="11">
+                            <div class="nav-step-number">11</div>
+                            <div class="nav-step-label">Finalize</div>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="col s12 m8 l9">
 <form id="wizard-form">
     {% csrf_token %}
 
@@ -103,21 +138,22 @@
                     <span class="helper-text" style="color: #b8b8d1;">Give your campaign a unique and memorable name</span>
                 </div>
 
-                <div style="margin-bottom: 20px;">
-                    <p style="color: var(--rpg-gold); font-weight: bold; font-size: 1.1rem;">
-                        <i class="material-icons tiny" style="vertical-align: middle;">hub</i> Select Universe
-                    </p>
-                    <p style="color: #b8b8d1; font-size: 0.9rem;">
-                        Choose the universe where your campaign will take place.
-                    </p>
-                </div>
+                <div class="divider" style="margin: 30px 0; background-color: rgba(212, 175, 55, 0.2);"></div>
+
+                <h6 style="color: var(--rpg-gold); margin-bottom: 20px;">
+                    <i class="material-icons left" style="font-size: 1.2rem;">hub</i>Select Universe
+                </h6>
+
+                <p style="color: #b8b8d1; margin-bottom: 20px;">
+                    Choose the universe where your campaign will take place.
+                </p>
 
                 <div id="universe-list">
                     {% for universe in universes %}
                     <label class="universe-card">
-                        <input type="radio" name="universe_id" value="{{ universe._id }}" data-name="{{ universe.name }}" required>
+                        <input type="radio" name="universe_id" value="{{ universe.id }}" data-name="{{ universe.universe_name }}" required>
                         <div class="universe-content">
-                            <h6 style="color: var(--rpg-gold); margin: 0;">{{ universe.name }}</h6>
+                            <h6 style="color: var(--rpg-gold); margin: 0;">{{ universe.universe_name }}</h6>
                             <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 10px;">
                                 {{ universe.description|default:"A vast universe awaits exploration." }}
                             </p>
@@ -322,7 +358,7 @@
                                 <strong>Number of Quests: <span id="quest-count-display">5</span></strong>
                             </p>
                             <p>
-                                <input type="range" id="num_quests" name="num_quests" min="3" max="10" value="5" step="1">
+                                <input type="range" id="num_quests" name="num_quests" min="1" max="10" value="5" step="1">
                             </p>
                         </div>
                     </div>
@@ -557,44 +593,68 @@
             <button type="button" id="generate-stories-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-green); margin-left: 10px; display: none;">
                 <i class="material-icons left">auto_awesome</i>Generate Campaign Ideas
             </button>
-            <button type="submit" id="finalize-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-green); display: none;">
+            <button type="button" id="finalize-btn" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-green); display: none;">
                 <i class="material-icons left">done_all</i>Finalize Campaign
             </button>
         </div>
     </div>
 </form>
+    </div><!-- Close col s12 m8 l9 -->
+</div><!-- Close row -->
 
 <!-- Enhanced Loading Overlay with Phase Tracking -->
 <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 9999; justify-content: center; align-items: center;">
-    <div style="text-align: center; max-width: 600px;">
-        <div class="progress-phases" style="margin-bottom: 40px;">
-            <div class="phase-step" data-phase="story" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Story Ideas</span>
-            </div>
-            <div class="phase-step" data-phase="core" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Campaign Core</span>
-            </div>
-            <div class="phase-step" data-phase="quests" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Quests</span>
-            </div>
-            <div class="phase-step" data-phase="places" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Places</span>
-            </div>
-            <div class="phase-step" data-phase="scenes" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Scenes & Elements</span>
-            </div>
-            <div class="phase-step" data-phase="finalize" style="margin-bottom: 15px;">
-                <i class="material-icons phase-icon">pending</i>
-                <span class="phase-label">Finalizing</span>
-            </div>
+    <div class="loading-dialog-box">
+        <!-- Dialog Header -->
+        <div class="loading-dialog-header">
+            <i class="material-icons" style="margin-right: 10px;">auto_awesome</i>
+            <span>Campaign Generation Progress</span>
         </div>
-        <p id="loading-status-message" style="color: var(--rpg-gold); font-size: 1.2rem; margin-top: 20px;">Initializing...</p>
-        <p id="loading-detail-message" style="color: #b8b8d1; font-size: 0.9rem;">This may take a few minutes.</p>
+
+        <!-- Dialog Content -->
+        <div class="loading-dialog-content">
+            <div class="progress-phases" style="margin-bottom: 30px;">
+                <div class="phase-step" data-phase="story" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Story Ideas</span>
+                </div>
+                <div class="phase-step" data-phase="core" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Campaign Core</span>
+                </div>
+                <div class="phase-step" data-phase="quests" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Quests</span>
+                </div>
+                <div class="phase-step" data-phase="places" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Places</span>
+                </div>
+                <div class="phase-step" data-phase="scenes" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Scenes & Elements</span>
+                </div>
+                <div class="phase-step" data-phase="finalize" style="margin-bottom: 15px;">
+                    <i class="material-icons phase-icon">pending</i>
+                    <span class="phase-label">Finalizing</span>
+                </div>
+            </div>
+
+            <!-- Animated Progress Bar -->
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                <div class="progress-bar-shine"></div>
+            </div>
+
+            <p id="loading-status-message" style="color: var(--rpg-gold); font-size: 1.2rem; margin-top: 20px; text-align: center;">Initializing...</p>
+            <p id="loading-detail-message" style="color: #b8b8d1; font-size: 0.9rem; text-align: center;">This may take a few minutes.</p>
+        </div>
+
+        <!-- Dialog Footer -->
+        <div class="loading-dialog-footer">
+            <i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">info</i>
+            <span>Please do not close this window</span>
+        </div>
     </div>
 </div>
 
@@ -663,6 +723,130 @@
         margin: 0 10px;
         margin-bottom: 40px;
         min-width: 20px;
+    }
+
+    /* Left Sidebar Navigation */
+    .wizard-sidebar {
+        margin-bottom: 20px;
+    }
+
+    #wizard-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    /* Custom scrollbar for sidebar */
+    #wizard-nav::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #wizard-nav::-webkit-scrollbar-track {
+        background: rgba(27, 27, 46, 0.4);
+        border-radius: 3px;
+    }
+
+    #wizard-nav::-webkit-scrollbar-thumb {
+        background: rgba(212, 175, 55, 0.3);
+        border-radius: 3px;
+    }
+
+    #wizard-nav::-webkit-scrollbar-thumb:hover {
+        background: rgba(212, 175, 55, 0.5);
+    }
+
+    .nav-step {
+        display: flex;
+        align-items: center;
+        padding: 8px 8px;
+        background: rgba(27, 27, 46, 0.4);
+        border: 2px solid rgba(192, 192, 192, 0.2);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .nav-step:hover {
+        border-color: var(--rpg-purple);
+        background: rgba(106, 90, 205, 0.1);
+    }
+
+    .nav-step.active {
+        border-color: var(--rpg-gold);
+        background: rgba(212, 175, 55, 0.1);
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);
+    }
+
+    .nav-step.completed {
+        border-color: var(--rpg-green);
+        background: rgba(47, 158, 68, 0.1);
+    }
+
+    .nav-step-number {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: rgba(192, 192, 192, 0.2);
+        border: 2px solid var(--rpg-silver);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--rpg-silver);
+        font-weight: bold;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+        margin-right: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .nav-step.active .nav-step-number {
+        background: var(--rpg-purple);
+        border-color: var(--rpg-gold);
+        color: white;
+    }
+
+    .nav-step.completed .nav-step-number {
+        background: var(--rpg-green);
+        border-color: var(--rpg-green);
+        color: white;
+    }
+
+    .nav-step.completed .nav-step-number::before {
+        content: '\2713';
+        font-weight: bold;
+    }
+
+    .nav-step.completed .nav-step-number {
+        font-size: 0;
+    }
+
+    .nav-step.completed .nav-step-number::before {
+        font-size: 1rem;
+    }
+
+    .nav-step-label {
+        color: var(--rpg-silver);
+        font-size: 0.8rem;
+        line-height: 1.1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .nav-step.active .nav-step-label {
+        color: var(--rpg-gold);
+        font-weight: bold;
+    }
+
+    .nav-step.completed .nav-step-label {
+        color: var(--rpg-green);
+    }
+
+    /* Mobile: Hide sidebar, show horizontal instead */
+    @media (max-width: 768px) {
+        .wizard-sidebar {
+            display: none;
+        }
     }
 
     /* Universe Cards */
@@ -869,6 +1053,85 @@
         color: #b8b8d1;
     }
 
+    /* Loading Dialog Box */
+    .loading-dialog-box {
+        background: rgba(27, 27, 46, 0.98);
+        border: 3px solid var(--rpg-gold);
+        border-radius: 12px;
+        box-shadow: 0 0 40px rgba(212, 175, 55, 0.5);
+        max-width: 700px;
+        width: 90%;
+        overflow: hidden;
+    }
+
+    .loading-dialog-header {
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(106, 90, 205, 0.3) 100%);
+        border-bottom: 2px solid var(--rpg-gold);
+        padding: 20px 30px;
+        display: flex;
+        align-items: center;
+        color: var(--rpg-gold);
+        font-size: 1.3rem;
+        font-weight: bold;
+    }
+
+    .loading-dialog-content {
+        padding: 30px;
+    }
+
+    .loading-dialog-footer {
+        background: rgba(106, 90, 205, 0.2);
+        border-top: 2px solid var(--rpg-purple);
+        padding: 15px 30px;
+        text-align: center;
+        color: var(--rpg-silver);
+        font-size: 0.9rem;
+    }
+
+    /* Animated Progress Bar */
+    .progress-bar-container {
+        width: 100%;
+        height: 30px;
+        background: rgba(27, 27, 46, 0.8);
+        border: 2px solid var(--rpg-purple);
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+        margin: 20px 0;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--rpg-purple) 0%, var(--rpg-gold) 50%, var(--rpg-purple) 100%);
+        background-size: 200% 100%;
+        animation: progressBarGlow 2s linear infinite;
+        transition: width 0.3s ease;
+        width: 0%;
+        position: relative;
+        z-index: 1;
+    }
+
+    .progress-bar-shine {
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: progressBarShine 1.5s ease-in-out infinite;
+        z-index: 2;
+    }
+
+    @keyframes progressBarGlow {
+        0% { background-position: 200% 0; }
+        100% { background-position: 0% 0; }
+    }
+
+    @keyframes progressBarShine {
+        0% { left: -100%; }
+        100% { left: 200%; }
+    }
+
     /* Loading Overlay Phases */
     .phase-step {
         display: flex;
@@ -961,5 +1224,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/campaign_wizard_v2.js' %}"></script>
+<script src="{% static 'js/campaign_wizard_v2.js' %}?v=4"></script>
 {% endblock %}
