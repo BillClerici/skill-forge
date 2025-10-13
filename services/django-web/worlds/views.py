@@ -1864,11 +1864,11 @@ class WorldGenerateImageView(View):
 
         try:
             # Get current image count
-            # Admin pages can have up to 4 images, but generate 1 at a time
+            # Admin pages can have up to 3 images (plus 1 map), but generate 1 at a time
             current_images = world.get('world_images', [])
 
-            if len(current_images) >= 4:
-                return JsonResponse({'error': 'Already have 4 images. Delete some first to generate more.'}, status=400)
+            if len(current_images) >= 3:
+                return JsonResponse({'error': 'Already have 3 images. Delete some first to generate more.'}, status=400)
 
             # Generate only 1 image at a time
             images_to_generate = 1
@@ -2174,6 +2174,659 @@ class WorldSetPrimaryImageView(View):
 
 
 # ============================================
+# World Map Generation Views
+# ============================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WorldGenerateMapView(View):
+    """Generate a cartographic map for a world using DALL-E 3 API"""
+
+    def get_genre_map_style(self, genre):
+        """Return map styling instructions based on genre - PLAIN TERRAIN ONLY"""
+        genre_styles = {
+            'Fantasy': {
+                'style_name': 'medieval_fantasy',
+                'description': 'Natural terrain view with slightly muted, earthy colors',
+                'technical': 'Top-down terrain view, natural landscape, realistic geography'
+            },
+            'Western': {
+                'style_name': 'western_1800s',
+                'description': 'Natural terrain with warm, desert-influenced color palette',
+                'technical': 'Aerial terrain view, natural landscape photography'
+            },
+            'Sci-Fi': {
+                'style_name': 'sci_fi_holographic',
+                'description': 'Clean terrain view with slightly cooler tones',
+                'technical': 'Satellite imagery, clean terrain mapping, technical perspective'
+            },
+            'Post-Apocalyptic': {
+                'style_name': 'post_apocalyptic',
+                'description': 'Natural terrain with muted, desaturated colors',
+                'technical': 'Aerial terrain photography, natural geography'
+            },
+            'Steampunk': {
+                'style_name': 'steampunk_victorian',
+                'description': 'Natural terrain with sepia-toned color palette',
+                'technical': 'Vintage aerial photography, natural landscape'
+            },
+            'Cyberpunk': {
+                'style_name': 'cyberpunk_neon',
+                'description': 'Natural terrain with high contrast and darker tones',
+                'technical': 'Satellite terrain view, high-contrast mapping'
+            },
+            'Historical': {
+                'style_name': 'historical_authentic',
+                'description': 'Natural terrain with aged, historical color tones',
+                'technical': 'Period-appropriate aerial terrain view'
+            }
+        }
+
+        # Default to Fantasy if genre not found
+        return genre_styles.get(genre, genre_styles['Fantasy'])
+
+    def post(self, request, world_id):
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({'error': 'World not found'}, status=404)
+
+        try:
+            # Check if regenerating (replace existing) or generating new
+            regenerate = json.loads(request.body).get('regenerate', False) if request.body else False
+
+            # Get genre-specific map style
+            genre = world.get('genre', 'Fantasy')
+            map_style = self.get_genre_map_style(genre)
+
+            # Get regions for the map with full details
+            regions = list(db.region_definitions.find({'world_id': world_id}))
+            region_descriptions = []
+            for region in regions[:15]:  # Get more regions for better context
+                region_desc = f"{region.get('region_name')} - {region.get('region_type', 'region')}"
+                details = []
+                if region.get('climate'):
+                    details.append(f"{region.get('climate')} climate")
+                if region.get('terrain'):
+                    details.append(f"{region.get('terrain')} terrain")
+                if region.get('description'):
+                    # Add first 100 chars of description for context
+                    details.append(region.get('description')[:100])
+                if details:
+                    region_desc += f": {', '.join(details)}"
+                region_descriptions.append(region_desc)
+
+            # Extract all world properties for comprehensive map generation
+            physical = world.get('physical_properties', {})
+            biological = world.get('biological_properties', {})
+            technological = world.get('technological_properties', {})
+            societal = world.get('societal_properties', {})
+
+            world_name = world.get('world_name', 'Unknown World')
+            description = world.get('description', '')
+            backstory = world.get('backstory', '')
+            visual_style = world.get('visual_style', [])
+            themes = world.get('themes', [])
+
+            # Core map requirements - TERRAIN ONLY BACKGROUND
+            terrain_only_requirement = """
+ABSOLUTE CRITICAL REQUIREMENTS - READ CAREFULLY:
+
+THIS IS A TERRAIN BACKGROUND IMAGE ONLY - NOT A MAP WITH DECORATIONS!
+
+STRICTLY FORBIDDEN - DO NOT INCLUDE:
+❌ NO text of any kind (English, symbols, runes, fictional languages, etc.)
+❌ NO letters, numbers, characters, glyphs, or writing systems
+❌ NO compass roses (neither with nor without letters)
+❌ NO decorative borders or frames with any markings
+❌ NO legends, keys, or explanatory boxes
+❌ NO banners, scrolls, ribbons, or cartouches
+❌ NO title blocks or name plates
+❌ NO scale bars with markings
+❌ NO location markers, pins, or numbered circles
+❌ NO arrows, pointers, or directional indicators
+❌ NO emblems, crests, or heraldic symbols
+❌ NO decorative flourishes that look like text
+❌ NO anything that resembles writing, even stylized
+❌ NO map borders with decorative elements
+
+WHAT TO INCLUDE - TERRAIN ONLY:
+✓ Mountains, hills, and elevation changes
+✓ Forests, jungles, and vegetation
+✓ Deserts, plains, and barren areas
+✓ Water bodies: oceans, seas, rivers, lakes
+✓ Natural landmasses and continents
+✓ Coastlines and shorelines
+✓ Natural terrain colors and textures
+✓ Realistic geographic features
+✓ Elevation shading and depth
+
+STYLE: Think NASA satellite imagery, Google Earth view, or aerial photography
+- Pure, clean, UNMARKED terrain surface
+- No human-made decorative elements
+- Just the raw, natural geography
+- This is the BASE LAYER that will have clean markers added programmatically
+"""
+
+            # Build rich contextual information from backstory and description
+            world_context = description
+            if backstory:
+                # Extract first 500 chars of backstory for additional context
+                backstory_excerpt = backstory[:500].strip()
+                if backstory_excerpt and backstory_excerpt != description:
+                    world_context = f"{description}\n\nKey History: {backstory_excerpt}"
+
+            # Build detailed prompt with all world properties
+            map_prompt = f"""{terrain_only_requirement}
+
+Create a detailed, immersive cartographic map of the world: {world_name}
+
+=== WORLD CONTEXT ===
+{world_context if world_context else 'A rich and detailed world awaiting exploration'}
+
+=== VISUAL STYLE & THEMES ===
+Genre: {genre}
+Visual Style: {', '.join(visual_style) if visual_style else 'Epic and detailed'}
+Themes: {', '.join(themes) if themes else 'Adventure and exploration'}
+Map Style: {map_style['description']}
+
+=== PHYSICAL GEOGRAPHY (CRITICAL - DEPICT ACCURATELY) ===
+Terrain Features: {', '.join(physical.get('terrain', ['diverse landscapes']))}
+Climate: {physical.get('climate', 'Varied climates across regions')}
+Planet Type: {physical.get('planet_type', 'Earth-like')}
+Size: {physical.get('size', 'Standard planetary scale')}
+{f"Gravity: {physical.get('gravity')}" if physical.get('gravity') else ""}
+{f"Atmosphere: {physical.get('atmosphere')}" if physical.get('atmosphere') else ""}
+{f"Water Coverage: {physical.get('water_coverage')}" if physical.get('water_coverage') else ""}
+
+Bodies of Water: Show oceans, seas, major rivers, and lakes appropriate to the climate and terrain
+Mountain Ranges: Depict using symbolic mountain icons based on terrain data
+Volcanic/Seismic Activity: {f"Include volcanic regions - {physical.get('volcanic_activity')}" if physical.get('volcanic_activity') else "Standard geological features"}
+
+=== BIOLOGICAL FEATURES ===
+{f"Flora: Visually represent regions with {', '.join(biological.get('flora', [])[:5])}" if biological.get('flora') else "Vegetation appropriate to climate zones"}
+{f"Fauna: Consider ecosystems supporting {', '.join(biological.get('fauna', [])[:5])}" if biological.get('fauna') else "Standard biomes and ecosystems"}
+{f"Dominant Species: {', '.join(biological.get('dominant_species', []))}" if biological.get('dominant_species') else ""}
+
+=== CIVILIZATION & SETTLEMENTS ===
+Technology Level: {technological.get('technology_level', 'Varied development')}
+{f"Transportation: {technological.get('transportation')} - show appropriate trade routes and pathways" if technological.get('transportation') else ""}
+{f"Architecture Style: {technological.get('architecture')} - settlements should reflect this" if technological.get('architecture') else ""}
+{f"Population Distribution: {societal.get('population_distribution')}" if societal.get('population_distribution') else ""}
+{f"Major Governments: {', '.join(societal.get('government_type', []))[:100]}" if societal.get('government_type') else ""}
+
+=== GEOGRAPHIC REGIONS TO REPRESENT ===
+{f"This world contains {len(region_descriptions)} distinct geographic regions with varied terrain:" if region_descriptions else "Show diverse geographic variations across the world"}
+
+{chr(10).join([f"Area {i+1}: {r}" for i, r in enumerate(region_descriptions)]) if region_descriptions else ""}
+
+TERRAIN RENDERING REQUIREMENTS:
+• Show natural geographic variation across the world
+• Each region should have geographically distinct terrain matching its description
+• Use natural features to differentiate areas: mountains, forests, deserts, water, vegetation
+• Terrain should flow naturally with realistic geographic transitions
+• Show major landmasses, continents, islands
+• Depict water bodies: oceans, seas, major rivers, lakes
+• Mountain ranges: Use realistic mountain textures and elevation
+• Forests: Dense tree coverage in appropriate regions
+• Deserts: Sandy/rocky barren areas
+• Climate zones visible through terrain coloring and vegetation
+• Natural boundaries: Use geographic features (mountain ranges, rivers) to separate regions
+• Realistic biome distribution based on latitude and climate
+
+TECHNICAL REQUIREMENTS:
+- {map_style['technical']}
+- Top-down cartographic perspective showing full world geography
+- Professional quality with rich detail
+- Clear visual hierarchy (major features prominent, details subtle)
+- Balanced composition with good use of space
+- Appropriate aging/weathering effects for the chosen style
+- Colors and styling should evoke the world's themes and atmosphere
+
+FINAL RENDERING INSTRUCTIONS:
+Create a beautiful, realistic TERRAIN-ONLY view that looks like:
+- A NASA satellite photograph of the planet's surface
+- Google Earth / Google Maps terrain view (satellite mode)
+- An aerial photograph taken from space showing pure geography
+
+IMAGE MUST BE:
+✓ Completely clean and unmarked
+✓ Natural terrain colors and realistic textures
+✓ Geographic features clearly visible through terrain variation
+✓ Professional quality with proper shading and depth
+✓ {map_style['technical']} (style only - NO text elements from this style)
+✓ Top-down view showing the full world geography
+
+IMAGE MUST NOT HAVE:
+❌ Any text, letters, symbols, or markings whatsoever
+❌ Decorative borders, frames, or ornamental elements
+❌ Compass roses, legends, or map furniture
+❌ ANYTHING except pure, natural terrain
+
+Think: "What would this world look like from space?" - That's what you're creating.
+"""
+
+            # Use OpenAI DALL-E 3 for map generation
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+            from datetime import datetime
+
+            client = OpenAI(api_key=openai_api_key)
+
+            # Generate map with DALL-E 3
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=map_prompt[:4000],  # DALL-E has prompt limits
+                size="1792x1024",  # Landscape orientation for maps
+                quality="hd",  # Use HD quality for maps
+                n=1,
+            )
+
+            # Download and save map locally
+            dalle_url = response.data[0].url
+
+            # Create directory structure: media/worlds/[world_id]/maps/
+            world_maps_dir = Path(settings.MEDIA_ROOT) / 'worlds' / world_id / 'maps'
+            world_maps_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate unique filename
+            filename = f"map_{uuid.uuid4()}.png"
+            filepath = world_maps_dir / filename
+
+            # Download map from DALL-E URL
+            urllib.request.urlretrieve(dalle_url, filepath)
+
+            # HYBRID APPROACH: Overlay clean markers on terrain background
+            from PIL import Image, ImageDraw, ImageFont
+
+            # Load the generated terrain image
+            base_image = Image.open(filepath)
+
+            # CROP BORDERS to remove fake text decorations (typically in outer 5-8%)
+            img_width, img_height = base_image.size
+            crop_percent = 0.06  # Remove 6% from each edge
+            crop_left = int(img_width * crop_percent)
+            crop_top = int(img_height * crop_percent)
+            crop_right = int(img_width * (1 - crop_percent))
+            crop_bottom = int(img_height * (1 - crop_percent))
+
+            # Crop the image to remove decorative borders
+            base_image = base_image.crop((crop_left, crop_top, crop_right, crop_bottom))
+
+            # Save the clean terrain-only image (no markers)
+            # Markers will be added interactively by the user via the Map Editor
+            base_image.save(filepath, 'PNG', quality=95)
+
+            # Store relative path for URL generation
+            relative_path = f"worlds/{world_id}/maps/{filename}"
+            local_url = f"{settings.MEDIA_URL}{relative_path}"
+
+            # Prepare region legend data for the map
+            # Auto-assign initial coordinates in a grid pattern for user to adjust in editor
+            region_legend = []
+            import math
+            num_regions = min(len(regions), 15)
+            cols = math.ceil(math.sqrt(num_regions))
+
+            for i, region in enumerate(regions[:15]):
+                # Format terrain and climate properly (handle arrays)
+                terrain = region.get('terrain', '')
+                if isinstance(terrain, list):
+                    terrain = ', '.join(str(t) for t in terrain[:3])  # First 3 items
+                elif not terrain:
+                    terrain = ''
+
+                climate = region.get('climate', '')
+                if isinstance(climate, list):
+                    climate = ', '.join(str(c) for c in climate[:2])  # First 2 items
+                elif not climate:
+                    climate = ''
+
+                # Calculate initial grid position for this region
+                row = i // cols
+                col = i % cols
+                x = (col + 0.5) / cols
+                y = (row + 0.5) / math.ceil(num_regions / cols)
+
+                # Clamp to safe bounds
+                x = max(0.15, min(0.85, x))
+                y = max(0.15, min(0.85, y))
+
+                region_legend.append({
+                    'number': i + 1,
+                    'region_id': region['_id'],
+                    'name': region.get('region_name', f'Region {i+1}'),
+                    'type': region.get('region_type', 'region'),
+                    'climate': climate,
+                    'terrain': terrain,
+                    'x': x,  # Initial position - user can adjust in Map Editor
+                    'y': y   # Initial position - user can adjust in Map Editor
+                })
+
+            # Prepare map data with region legend
+            map_data = {
+                'url': local_url,
+                'prompt': map_prompt[:500],
+                'style': map_style['style_name'],
+                'generated_at': datetime.utcnow(),
+                'filepath': str(filepath),
+                'region_legend': region_legend,
+                'region_count': len(region_legend)
+            }
+
+            # Save map to MongoDB
+            db.world_definitions.update_one(
+                {'_id': world_id},
+                {'$set': {'world_map': map_data}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'map': map_data,
+                'regenerate': regenerate
+            })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Failed to generate map: {str(e)}'}, status=500)
+
+    def assign_region_coordinates(self, world_id, regions):
+        """Auto-assign coordinates to regions using a simple grid distribution"""
+        import math
+
+        if not regions:
+            return
+
+        # Simple grid distribution for initial placement
+        num_regions = len(regions)
+        cols = math.ceil(math.sqrt(num_regions))
+
+        region_coords = {}
+        for idx, region in enumerate(regions):
+            row = idx // cols
+            col = idx % cols
+
+            # Spread regions across the map with some variation
+            x = (col + 0.5) / cols + (hash(region['_id']) % 20 - 10) / 100
+            y = (row + 0.5) / math.ceil(num_regions / cols) + (hash(region['_id'][::-1]) % 20 - 10) / 100
+
+            # Clamp to valid range
+            x = max(0.1, min(0.9, x))
+            y = max(0.1, min(0.9, y))
+
+            region_coords[region['_id']] = {
+                'x': x,
+                'y': y,
+                'map_icon': self.get_region_icon(region.get('region_type', 'region'))
+            }
+
+        db.world_definitions.update_one(
+            {'_id': world_id},
+            {'$set': {'region_coordinates': region_coords}}
+        )
+
+    def get_region_icon(self, region_type):
+        """Return appropriate icon type for region"""
+        icon_map = {
+            'kingdom': 'kingdom',
+            'province': 'province',
+            'territory': 'territory',
+            'wilderness': 'wilderness',
+            'mountains': 'mountains',
+            'forest': 'forest',
+            'desert': 'desert',
+            'coast': 'coast',
+            'island': 'island',
+        }
+        return icon_map.get(region_type.lower(), 'region')
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class WorldDeleteMapView(View):
+    """Delete the world map"""
+
+    def post(self, request, world_id):
+        try:
+            world = db.world_definitions.find_one({'_id': world_id})
+            if not world:
+                return JsonResponse({'error': 'World not found'}, status=404)
+
+            # Remove map from MongoDB
+            db.world_definitions.update_one(
+                {'_id': world_id},
+                {'$unset': {'world_map': ''}}
+            )
+
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to delete map: {str(e)}'}, status=500)
+
+
+class WorldSaveMapCoordinatesView(View):
+    """Save updated marker coordinates and regenerate map image"""
+
+    def post(self, request, world_id):
+        try:
+            world = db.world_definitions.find_one({'_id': world_id})
+            if not world:
+                return JsonResponse({'error': 'World not found'}, status=404)
+
+            # Check if map exists
+            if 'world_map' not in world:
+                return JsonResponse({'error': 'No map found to update'}, status=400)
+
+            # Parse request body
+            data = json.loads(request.body)
+            markers = data.get('markers', [])
+
+            if not markers:
+                return JsonResponse({'error': 'No markers provided'}, status=400)
+
+            # Update region legend with new coordinates
+            # Fetch actual region data from database to populate legend properly
+            regions = list(db.region_definitions.find({'world_id': world_id}))
+            region_lookup = {str(r['_id']): r for r in regions}
+
+            updated_legend = []
+            for i, marker in enumerate(markers):
+                marker_region_id = marker.get('id', '')
+
+                # Try to find the actual region in the database
+                actual_region = None
+                if marker_region_id and marker_region_id in region_lookup:
+                    actual_region = region_lookup[marker_region_id]
+                elif i < len(regions):
+                    # Fallback: match by index if no ID match
+                    actual_region = regions[i]
+
+                # Use actual region data if found, otherwise use marker data
+                if actual_region:
+                    # Format terrain and climate properly (handle arrays)
+                    terrain = actual_region.get('terrain', '')
+                    if isinstance(terrain, list):
+                        terrain = ', '.join(str(t) for t in terrain[:3])
+
+                    climate = actual_region.get('climate', '')
+                    if isinstance(climate, list):
+                        climate = ', '.join(str(c) for c in climate[:2])
+
+                    updated_legend.append({
+                        'region_id': str(actual_region['_id']),
+                        'number': marker.get('number', i + 1),
+                        'name': actual_region.get('region_name', marker.get('name', f'Region {i+1}')),
+                        'x': marker.get('x', 0.5),
+                        'y': marker.get('y', 0.5),
+                        'type': actual_region.get('region_type', 'region'),
+                        'climate': climate,
+                        'terrain': terrain
+                    })
+                else:
+                    # No matching region - use generic marker data
+                    updated_legend.append({
+                        'region_id': marker.get('id', ''),
+                        'number': marker.get('number', i + 1),
+                        'name': marker.get('name', f'Region {i+1}'),
+                        'x': marker.get('x', 0.5),
+                        'y': marker.get('y', 0.5),
+                        'type': marker.get('type', 'region'),
+                        'climate': marker.get('climate', ''),
+                        'terrain': marker.get('terrain', '')
+                    })
+
+            # Get the current map data
+            current_map = world.get('world_map', {})
+
+            # Regenerate map image with new coordinates using PIL
+            # Use the filesystem path directly instead of HTTP request
+            map_filepath = current_map.get('filepath', '')
+            map_url = current_map.get('url', '')
+
+            if map_filepath or map_url:
+                from PIL import Image, ImageDraw, ImageFont
+                from io import BytesIO
+                import base64
+                from pathlib import Path
+                from django.conf import settings
+
+                # Load image from filesystem if we have the path
+                if map_filepath and Path(map_filepath).exists():
+                    base_image = Image.open(map_filepath).convert('RGBA')
+                elif map_url:
+                    # Fallback: construct filesystem path from URL
+                    # URL format: /media/worlds/{id}/maps/{filename}
+                    if map_url.startswith('/media/'):
+                        relative_path = map_url.replace('/media/', '')
+                        full_path = Path(settings.MEDIA_ROOT) / relative_path
+                        base_image = Image.open(full_path).convert('RGBA')
+                    elif map_url.startswith('data:image'):
+                        # Base64 encoded image
+                        import re
+                        img_data = re.sub('^data:image/.+;base64,', '', map_url)
+                        base_image = Image.open(BytesIO(base64.b64decode(img_data))).convert('RGBA')
+                    else:
+                        # Full URL - use requests
+                        import requests
+                        response = requests.get(map_url)
+                        base_image = Image.open(BytesIO(response.content)).convert('RGBA')
+                else:
+                    return JsonResponse({'error': 'No valid map image found'}, status=400)
+
+                # Note: Ideally we'd have the terrain-only version, but for now use existing
+                # In a future iteration, we could store terrain_background_url separately
+
+                # Crop borders (same as generation)
+                img_width, img_height = base_image.size
+                crop_percent = 0.06
+                crop_left = int(img_width * crop_percent)
+                crop_top = int(img_height * crop_percent)
+                crop_right = int(img_width * (1 - crop_percent))
+                crop_bottom = int(img_height * (1 - crop_percent))
+                base_image = base_image.crop((crop_left, crop_top, crop_right, crop_bottom))
+
+                img_width, img_height = base_image.size
+
+                # Create overlay for markers
+                draw = ImageDraw.Draw(base_image)
+
+                # Calculate marker size
+                marker_radius = int(img_height * 0.045)
+                font_size = int(marker_radius * 1.3)
+
+                # Try to load a font, fallback to default
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+
+                # Draw each marker
+                for marker in updated_legend:
+                    x = int(marker['x'] * img_width)
+                    y = int(marker['y'] * img_height)
+                    number = marker['number']
+
+                    # Draw shadow/glow
+                    shadow_offset = 4
+                    for shadow_layer in range(3):
+                        shadow_radius = marker_radius + (shadow_layer + 1) * 3
+                        alpha_val = 80 - (shadow_layer * 20)
+                        for _ in range(2):
+                            draw.ellipse(
+                                [x - shadow_radius + shadow_offset, y - shadow_radius + shadow_offset,
+                                 x + shadow_radius + shadow_offset, y + shadow_radius + shadow_offset],
+                                fill=(0, 0, 0, alpha_val),
+                                outline=None
+                            )
+
+                    # Draw outer border (black)
+                    border_width = max(4, marker_radius // 6)
+                    draw.ellipse(
+                        [x - marker_radius - border_width, y - marker_radius - border_width,
+                         x + marker_radius + border_width, y + marker_radius + border_width],
+                        fill='#000000',
+                        outline='#000000'
+                    )
+
+                    # Draw inner circle (gold)
+                    draw.ellipse(
+                        [x - marker_radius, y - marker_radius,
+                         x + marker_radius, y + marker_radius],
+                        fill='#FFD700',
+                        outline='#FFD700'
+                    )
+
+                    # Draw number
+                    # Get text bounding box for centering
+                    bbox = draw.textbbox((0, 0), str(number), font=font)
+                    text_width = bbox[2] - bbox[0]
+                    text_height = bbox[3] - bbox[1]
+                    text_x = x - text_width // 2
+                    text_y = y - text_height // 2 - 2
+
+                    draw.text((text_x, text_y), str(number), fill='#000000', font=font)
+
+                # Convert to base64 for storage
+                buffered = BytesIO()
+                base_image.convert('RGB').save(buffered, format='PNG')
+                img_data = base64.b64encode(buffered.getvalue()).decode()
+                new_map_url = f"data:image/png;base64,{img_data}"
+
+                # Update MongoDB with new coordinates and regenerated image
+                db.world_definitions.update_one(
+                    {'_id': world_id},
+                    {'$set': {
+                        'world_map.region_legend': updated_legend,
+                        'world_map.region_count': len(updated_legend),
+                        'world_map.url': new_map_url
+                    }}
+                )
+
+                return JsonResponse({'success': True, 'message': 'Map updated successfully'})
+
+            else:
+                # No existing map URL, just update coordinates
+                db.world_definitions.update_one(
+                    {'_id': world_id},
+                    {'$set': {
+                        'world_map.region_legend': updated_legend,
+                        'world_map.region_count': len(updated_legend)
+                    }}
+                )
+
+                return JsonResponse({'success': True, 'message': 'Coordinates saved'})
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Failed to save coordinates: {str(e)}'}, status=500)
+
+
+# ============================================
 # Region Image Generation Views
 # ============================================
 
@@ -2471,6 +3124,463 @@ class RegionSetPrimaryImageView(View):
             return JsonResponse({'error': f'Failed to set primary image: {str(e)}'}, status=500)
 
 
+# ============================================
+# Region Map Generation Views
+# ============================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionGenerateMapView(View):
+    """Generate a region map by zooming into the world map at the region's location"""
+
+    def post(self, request, world_id, region_id):
+        region = db.region_definitions.find_one({'_id': region_id})
+        if not region:
+            return JsonResponse({'error': 'Region not found'}, status=404)
+
+        world = db.world_definitions.find_one({'_id': world_id})
+        if not world:
+            return JsonResponse({'error': 'World not found'}, status=404)
+
+        try:
+            regenerate = json.loads(request.body).get('regenerate', False) if request.body else False
+
+            # Check if world has a map
+            world_map = world.get('world_map')
+            if not world_map or not world_map.get('filepath'):
+                return JsonResponse({'error': 'World map not found. Generate a world map first.'}, status=400)
+
+            # Find this region's coordinates in the world map legend
+            region_legend = world_map.get('region_legend', [])
+            region_coords = None
+            for legend_entry in region_legend:
+                if legend_entry.get('region_id') == region_id:
+                    region_coords = {
+                        'x': legend_entry.get('x', 0.5),
+                        'y': legend_entry.get('y', 0.5)
+                    }
+                    break
+
+            if not region_coords:
+                return JsonResponse({'error': 'Region not found on world map. Edit the world map to add this region.'}, status=400)
+
+            # Get locations in this region
+            locations = list(db.location_definitions.find({'region_id': region_id}))
+
+            # Load world map and zoom into region area
+            from PIL import Image, ImageDraw, ImageFont
+            from pathlib import Path
+            from django.conf import settings
+            from datetime import datetime
+            import math
+
+            # Load the world map from filesystem
+            world_map_path = Path(world_map['filepath'])
+            if not world_map_path.exists():
+                return JsonResponse({'error': 'World map file not found'}, status=500)
+
+            world_image = Image.open(world_map_path).convert('RGBA')
+            world_width, world_height = world_image.size
+
+            # Calculate zoom crop area (zoom into 25% of world map centered on region)
+            zoom_factor = 0.25  # Region map shows 25% of world map
+            crop_width = int(world_width * zoom_factor)
+            crop_height = int(world_height * zoom_factor)
+
+            # Center the crop on the region's coordinates
+            center_x = int(region_coords['x'] * world_width)
+            center_y = int(region_coords['y'] * world_height)
+
+            # Calculate crop bounds
+            left = max(0, center_x - crop_width // 2)
+            top = max(0, center_y - crop_height // 2)
+            right = min(world_width, left + crop_width)
+            bottom = min(world_height, top + crop_height)
+
+            # Adjust if crop goes beyond bounds
+            if right - left < crop_width:
+                if left == 0:
+                    right = min(world_width, crop_width)
+                else:
+                    left = max(0, right - crop_width)
+
+            if bottom - top < crop_height:
+                if top == 0:
+                    bottom = min(world_height, crop_height)
+                else:
+                    top = max(0, bottom - crop_height)
+
+            # Crop the region area
+            region_image = world_image.crop((left, top, right, bottom))
+
+            # Calculate coordinate transformation for locations
+            # Locations will be positioned relative to the cropped region
+            coord_offset_x = left / world_width
+            coord_offset_y = top / world_height
+            coord_scale_x = world_width / (right - left)
+            coord_scale_y = world_height / (bottom - top)
+
+            # Auto-assign initial grid coordinates to locations (Level 1 only)
+            level_1_locations = [loc for loc in locations if loc.get('level', 1) == 1]
+
+            import math
+            num_locations = len(level_1_locations)
+            cols = math.ceil(math.sqrt(num_locations))
+
+            location_legend = []
+            for i, location in enumerate(level_1_locations):
+                # Calculate grid position within region
+                row = i // cols
+                col = i % cols
+
+                # Position in region space (0.0-1.0)
+                x = (col + 0.5) / cols
+                y = (row + 0.5) / math.ceil(num_locations / cols)
+
+                # Add variation
+                x = max(0.15, min(0.85, x))
+                y = max(0.15, min(0.85, y))
+
+                # Format terrain and climate
+                terrain = location.get('terrain', '')
+                if isinstance(terrain, list):
+                    terrain = ', '.join(str(t) for t in terrain[:2])
+
+                climate = location.get('climate', '')
+                if isinstance(climate, list):
+                    climate = ', '.join(str(c) for c in climate[:2])
+
+                location_legend.append({
+                    'location_id': str(location['_id']),
+                    'number': i + 1,
+                    'name': location.get('location_name', f'Location {i+1}'),
+                    'type': location.get('location_type', 'location'),
+                    'x': x,
+                    'y': y,
+                    'terrain': terrain,
+                    'climate': climate
+                })
+
+            # Draw location markers on region map
+            draw = ImageDraw.Draw(region_image)
+            img_width, img_height = region_image.size
+
+            marker_radius = int(img_height * 0.035)  # Smaller than world markers
+            font_size = int(marker_radius * 1.2)
+
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+
+            # Draw each location marker
+            for loc_marker in location_legend:
+                x = int(loc_marker['x'] * img_width)
+                y = int(loc_marker['y'] * img_height)
+                number = loc_marker['number']
+
+                # Draw shadow
+                shadow_offset = 3
+                for _ in range(2):
+                    draw.ellipse(
+                        [x - marker_radius + shadow_offset, y - marker_radius + shadow_offset,
+                         x + marker_radius + shadow_offset, y + marker_radius + shadow_offset],
+                        fill=(0, 0, 0, 100),
+                        outline=None
+                    )
+
+                # Draw outer border
+                draw.ellipse(
+                    [x - marker_radius - 2, y - marker_radius - 2,
+                     x + marker_radius + 2, y + marker_radius + 2],
+                    fill='#000000',
+                    outline='#000000'
+                )
+
+                # Draw inner circle (blue for locations)
+                draw.ellipse(
+                    [x - marker_radius, y - marker_radius,
+                     x + marker_radius, y + marker_radius],
+                    fill='#4A90E2',  # Blue for locations
+                    outline='#4A90E2'
+                )
+
+                # Draw number
+                bbox = draw.textbbox((0, 0), str(number), font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                text_x = x - text_width // 2
+                text_y = y - text_height // 2 - 2
+
+                draw.text((text_x, text_y), str(number), fill='#FFFFFF', font=font)
+
+            # Save region map
+            region_maps_dir = Path(settings.MEDIA_ROOT) / 'regions' / region_id / 'maps'
+            region_maps_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = f"map_{uuid.uuid4()}.png"
+            filepath = region_maps_dir / filename
+
+            region_image.save(filepath, 'PNG', quality=95)
+
+            relative_path = f"regions/{region_id}/maps/{filename}"
+            local_url = f"{settings.MEDIA_URL}{relative_path}"
+
+            map_data = {
+                'url': local_url,
+                'filepath': str(filepath),
+                'generated_at': datetime.utcnow(),
+                'location_legend': location_legend,
+                'location_count': len(location_legend),
+                'zoom_factor': zoom_factor,
+                'source': 'world_map_zoom'
+            }
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$set': {'region_map': map_data}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'map': map_data,
+                'regenerate': regenerate
+            })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Failed to generate map: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionSaveMapCoordinatesView(View):
+    """Save updated location marker coordinates and regenerate region map"""
+
+    def post(self, request, world_id, region_id):
+        try:
+            region = db.region_definitions.find_one({'_id': region_id})
+            if not region:
+                return JsonResponse({'error': 'Region not found'}, status=404)
+
+            # Check if map exists
+            if 'region_map' not in region:
+                return JsonResponse({'error': 'No map found to update'}, status=400)
+
+            # Parse request body
+            data = json.loads(request.body)
+            markers = data.get('markers', [])
+
+            if not markers:
+                return JsonResponse({'error': 'No markers provided'}, status=400)
+
+            # Fetch actual location data from database
+            locations = list(db.location_definitions.find({'region_id': region_id}))
+            location_lookup = {str(loc['_id']): loc for loc in locations}
+
+            updated_legend = []
+            for i, marker in enumerate(markers):
+                marker_location_id = marker.get('id', '')
+
+                # Try to find the actual location in the database
+                actual_location = None
+                if marker_location_id and marker_location_id in location_lookup:
+                    actual_location = location_lookup[marker_location_id]
+                elif i < len(locations):
+                    actual_location = locations[i]
+
+                # Use actual location data if found
+                if actual_location:
+                    terrain = actual_location.get('terrain', '')
+                    if isinstance(terrain, list):
+                        terrain = ', '.join(str(t) for t in terrain[:2])
+
+                    climate = actual_location.get('climate', '')
+                    if isinstance(climate, list):
+                        climate = ', '.join(str(c) for c in climate[:2])
+
+                    updated_legend.append({
+                        'location_id': str(actual_location['_id']),
+                        'number': marker.get('number', i + 1),
+                        'name': actual_location.get('location_name', marker.get('name', f'Location {i+1}')),
+                        'type': actual_location.get('location_type', 'location'),
+                        'x': marker.get('x', 0.5),
+                        'y': marker.get('y', 0.5),
+                        'terrain': terrain,
+                        'climate': climate
+                    })
+                else:
+                    updated_legend.append({
+                        'location_id': marker.get('id', ''),
+                        'number': marker.get('number', i + 1),
+                        'name': marker.get('name', f'Location {i+1}'),
+                        'type': marker.get('type', 'location'),
+                        'x': marker.get('x', 0.5),
+                        'y': marker.get('y', 0.5),
+                        'terrain': marker.get('terrain', ''),
+                        'climate': marker.get('climate', '')
+                    })
+
+            # Get current map and regenerate with new markers
+            current_map = region.get('region_map', {})
+            map_filepath = current_map.get('filepath', '')
+            map_url = current_map.get('url', '')
+
+            if map_filepath or map_url:
+                from PIL import Image, ImageDraw, ImageFont
+                from io import BytesIO
+                from pathlib import Path
+                from django.conf import settings
+                import base64
+
+                # Load base image
+                if map_filepath and Path(map_filepath).exists():
+                    base_image = Image.open(map_filepath).convert('RGBA')
+                elif map_url.startswith('/media/'):
+                    relative_path = map_url.replace('/media/', '')
+                    full_path = Path(settings.MEDIA_ROOT) / relative_path
+                    base_image = Image.open(full_path).convert('RGBA')
+                else:
+                    return JsonResponse({'error': 'Map file not found'}, status=400)
+
+                # Reload the original world map crop (without markers)
+                # For now, just overlay new markers on existing image
+                # TODO: Store original terrain-only crop for cleaner regeneration
+
+                draw = ImageDraw.Draw(base_image)
+                img_width, img_height = base_image.size
+
+                marker_radius = int(img_height * 0.035)
+                font_size = int(marker_radius * 1.2)
+
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
+
+                # Draw each marker
+                for loc_marker in updated_legend:
+                    x = int(loc_marker['x'] * img_width)
+                    y = int(loc_marker['y'] * img_height)
+                    number = loc_marker['number']
+
+                    # Draw shadow
+                    for _ in range(2):
+                        draw.ellipse(
+                            [x - marker_radius + 3, y - marker_radius + 3,
+                             x + marker_radius + 3, y + marker_radius + 3],
+                            fill=(0, 0, 0, 100),
+                            outline=None
+                        )
+
+                    # Draw border
+                    draw.ellipse(
+                        [x - marker_radius - 2, y - marker_radius - 2,
+                         x + marker_radius + 2, y + marker_radius + 2],
+                        fill='#000000',
+                        outline='#000000'
+                    )
+
+                    # Draw inner circle
+                    draw.ellipse(
+                        [x - marker_radius, y - marker_radius,
+                         x + marker_radius, y + marker_radius],
+                        fill='#4A90E2',
+                        outline='#4A90E2'
+                    )
+
+                    # Draw number
+                    bbox = draw.textbbox((0, 0), str(number), font=font)
+                    text_width = bbox[2] - bbox[0]
+                    text_height = bbox[3] - bbox[1]
+                    text_x = x - text_width // 2
+                    text_y = y - text_height // 2 - 2
+
+                    draw.text((text_x, text_y), str(number), fill='#FFFFFF', font=font)
+
+                # Save updated map
+                base_image.save(map_filepath, 'PNG', quality=95)
+
+                # Update MongoDB
+                db.region_definitions.update_one(
+                    {'_id': region_id},
+                    {'$set': {
+                        'region_map.location_legend': updated_legend,
+                        'region_map.location_count': len(updated_legend)
+                    }}
+                )
+
+                return JsonResponse({'success': True, 'message': 'Map updated successfully'})
+
+            else:
+                return JsonResponse({'error': 'No map image found'}, status=400)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Failed to save coordinates: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionDeleteMapView(View):
+    """Delete the region map"""
+
+    def post(self, request, world_id, region_id):
+        try:
+            region = db.region_definitions.find_one({'_id': region_id})
+            if not region:
+                return JsonResponse({'error': 'Region not found'}, status=404)
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$unset': {'region_map': ''}}
+            )
+
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to delete map: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RegionUpdateLocationCoordinatesView(View):
+    """Update coordinates for a location on the region map"""
+
+    def post(self, request, world_id, region_id):
+        try:
+            data = json.loads(request.body)
+            location_id = data.get('location_id')
+            x = data.get('x')
+            y = data.get('y')
+
+            if not location_id or x is None or y is None:
+                return JsonResponse({'error': 'location_id, x, and y required'}, status=400)
+
+            # Validate coordinates
+            if not (0 <= x <= 1 and 0 <= y <= 1):
+                return JsonResponse({'error': 'Coordinates must be between 0 and 1'}, status=400)
+
+            region = db.region_definitions.find_one({'_id': region_id})
+            if not region:
+                return JsonResponse({'error': 'Region not found'}, status=404)
+
+            location_coordinates = region.get('location_coordinates', {})
+            if location_id not in location_coordinates:
+                location_coordinates[location_id] = {}
+
+            location_coordinates[location_id]['x'] = x
+            location_coordinates[location_id]['y'] = y
+
+            db.region_definitions.update_one(
+                {'_id': region_id},
+                {'$set': {'location_coordinates': location_coordinates}}
+            )
+
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to update coordinates: {str(e)}'}, status=500)
+
+
 class WorldTextToSpeechView(View):
     """Generate TTS audio for world backstory using ElevenLabs"""
 
@@ -2634,6 +3744,177 @@ class LocationTextToSpeechView(View):
                 'success': False,
                 'error': f'Error generating audio: {str(e)}'
             }, status=500)
+
+
+# ============================================
+# Location Map Generation Views
+# ============================================
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LocationGenerateMapView(View):
+    """Generate a cartographic map for a location using DALL-E 3 API"""
+
+    def get_genre_map_style(self, genre):
+        """Return map styling instructions based on genre"""
+        genre_styles = {
+            'Fantasy': {'style_name': 'medieval_fantasy', 'description': 'Medieval fantasy map style with parchment texture, hand-drawn style'},
+            'Western': {'style_name': 'western_1800s', 'description': '1800s survey map style with sepia tones'},
+            'Sci-Fi': {'style_name': 'sci_fi_holographic', 'description': 'Futuristic holographic HUD style'},
+            'Post-Apocalyptic': {'style_name': 'post_apocalyptic', 'description': 'Weathered, salvaged map style'},
+            'Steampunk': {'style_name': 'steampunk_victorian', 'description': 'Victorian steampunk cartography'},
+            'Cyberpunk': {'style_name': 'cyberpunk_neon', 'description': 'Cyberpunk digital map with neon'},
+            'Historical': {'style_name': 'historical_authentic', 'description': 'Authentic historical cartography'},
+        }
+        return genre_styles.get(genre, genre_styles['Fantasy'])
+
+    def post(self, request, world_id, region_id, location_id):
+        location = db.location_definitions.find_one({'_id': location_id})
+        if not location:
+            return JsonResponse({'error': 'Location not found'}, status=404)
+
+        world = db.world_definitions.find_one({'_id': world_id})
+        region = db.region_definitions.find_one({'_id': region_id})
+
+        try:
+            regenerate = json.loads(request.body).get('regenerate', False) if request.body else False
+
+            genre = world.get('genre', 'Fantasy') if world else 'Fantasy'
+            map_style = self.get_genre_map_style(genre)
+
+            location_name = location.get('location_name', 'Unknown Location')
+            location_type = location.get('location_type', 'location')
+            description = location.get('description', '')
+
+            # Determine map type based on location type
+            if location_type.lower() in ['city', 'town', 'village']:
+                map_type = 'settlement'
+                focus = 'streets, buildings, districts, and key landmarks'
+            elif location_type.lower() in ['dungeon', 'cave', 'ruins']:
+                map_type = 'interior'
+                focus = 'rooms, corridors, chambers, and hazards'
+            elif location_type.lower() in ['fortress', 'castle', 'temple']:
+                map_type = 'structure'
+                focus = 'floors, rooms, walls, and defensive features'
+            else:
+                map_type = 'area'
+                focus = 'layout, key features, and points of interest'
+
+            no_text_requirement = """
+CRITICAL MAP REQUIREMENTS:
+- NO text, labels, names, letters, or numbers
+- NO written language of any kind
+- Pure visual cartography with symbols and icons only
+"""
+
+            map_prompt = f"""{no_text_requirement}
+
+Create a detailed cartographic map of: {location_name}
+
+LOCATION: {description if description else f'A {location_type}'}
+TYPE: {location_type} ({map_type} map)
+
+MAP STYLE: {map_style['description']}
+
+FEATURES TO DEPICT:
+- {focus}
+- Entrances and exits
+- Notable features and areas
+- Paths and connections
+- Scale appropriate details
+
+VISUAL ELEMENTS:
+- Symbolic icons for different areas
+- Clear layout and structure
+- Visual hierarchy
+- Decorative border (period-appropriate)
+
+TECHNICAL:
+- Top-down or isometric view as appropriate
+- {location_type} map style
+- Clear, readable layout
+- Genre: {genre}
+
+IMPORTANT: NO TEXT - pure visual map.
+"""
+
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
+            from openai import OpenAI
+            import urllib.request
+            from pathlib import Path
+            from django.conf import settings
+            from datetime import datetime
+
+            client = OpenAI(api_key=openai_api_key)
+
+            response = client.images.generate(
+                model="dall-e-3",
+                prompt=map_prompt[:4000],
+                size="1792x1024",
+                quality="hd",
+                n=1,
+            )
+
+            dalle_url = response.data[0].url
+
+            # Create directory: media/locations/[location_id]/maps/
+            location_maps_dir = Path(settings.MEDIA_ROOT) / 'locations' / location_id / 'maps'
+            location_maps_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = f"map_{uuid.uuid4()}.png"
+            filepath = location_maps_dir / filename
+
+            urllib.request.urlretrieve(dalle_url, filepath)
+
+            relative_path = f"locations/{location_id}/maps/{filename}"
+            local_url = f"{settings.MEDIA_URL}{relative_path}"
+
+            map_data = {
+                'url': local_url,
+                'prompt': map_prompt[:500],
+                'style': map_style['style_name'],
+                'generated_at': datetime.utcnow(),
+                'filepath': str(filepath)
+            }
+
+            db.location_definitions.update_one(
+                {'_id': location_id},
+                {'$set': {'location_map': map_data}}
+            )
+
+            return JsonResponse({
+                'success': True,
+                'map': map_data,
+                'regenerate': regenerate
+            })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'error': f'Failed to generate map: {str(e)}'}, status=500)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class LocationDeleteMapView(View):
+    """Delete the location map"""
+
+    def post(self, request, world_id, region_id, location_id):
+        try:
+            location = db.location_definitions.find_one({'_id': location_id})
+            if not location:
+                return JsonResponse({'error': 'Location not found'}, status=404)
+
+            db.location_definitions.update_one(
+                {'_id': location_id},
+                {'$unset': {'location_map': ''}}
+            )
+
+            return JsonResponse({'success': True})
+
+        except Exception as e:
+            return JsonResponse({'error': f'Failed to delete map: {str(e)}'}, status=500)
 
 
 # Import Location Image Views

@@ -202,6 +202,26 @@ async def initialize_campaign_state(request_data: dict) -> CampaignWorkflowState
     Returns:
         Initialized CampaignWorkflowState
     """
+    # Fetch region details from MongoDB if region_id is provided
+    region_data = {}
+    if request_data.get("region_id"):
+        try:
+            mongo_db = mongo_client['skillforge']
+            region = mongo_db.region_definitions.find_one({"_id": request_data["region_id"]})
+            if region:
+                region_data = {
+                    "description": region.get("description", ""),
+                    "backstory": region.get("backstory", ""),
+                    "climate": region.get("climate", ""),
+                    "terrain": region.get("terrain", ""),
+                    "key_features": region.get("key_features", []),
+                    "notable_locations": region.get("notable_locations", []),
+                    "inhabitants": region.get("inhabitants", [])
+                }
+                logger.info(f"Loaded region data for {request_data['region_name']}")
+        except Exception as e:
+            logger.warning(f"Could not fetch region details: {e}")
+
     state: CampaignWorkflowState = {
         "request_id": request_data.get("request_id", str(uuid.uuid4())),
         "user_id": request_data["user_id"],
@@ -215,6 +235,7 @@ async def initialize_campaign_state(request_data: dict) -> CampaignWorkflowState
         "world_name": request_data["world_name"],
         "region_id": request_data["region_id"],
         "region_name": request_data["region_name"],
+        "region_data": region_data,  # Full region details for story generation
         "genre": request_data["genre"],
         "user_story_idea": request_data.get("user_story_idea"),
 

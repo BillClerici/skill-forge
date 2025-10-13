@@ -49,13 +49,38 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
 
         logger.info(f"Generating story ideas for world={state['world_name']}, region={state['region_name']}")
 
-        # TODO: Fetch world and region data from MongoDB via MCP
-        # For now, use placeholder context
-        world_context = f"""
-        World: {state['world_name']}
-        Region: {state['region_name']}
-        Genre: {state['genre']}
-        """
+        # Fetch world and region details from state (already fetched by workflow)
+        # Build rich context for story generation
+        world_context_parts = [
+            f"World: {state['world_name']}",
+            f"Genre: {state['genre']}"
+        ]
+
+        # Add region details if available
+        if state.get("region_id"):
+            region_context = f"\nRegion: {state['region_name']}"
+
+            # Include region description and backstory if available
+            region_data = state.get("region_data", {})
+            if region_data.get("description"):
+                region_context += f"\nDescription: {region_data['description']}"
+            if region_data.get("backstory"):
+                region_context += f"\nBackstory: {region_data['backstory']}"
+            if region_data.get("climate"):
+                region_context += f"\nClimate: {region_data['climate']}"
+            if region_data.get("terrain"):
+                region_context += f"\nTerrain: {region_data['terrain']}"
+            if region_data.get("key_features"):
+                if isinstance(region_data["key_features"], list):
+                    region_context += f"\nKey Features: {', '.join(region_data['key_features'])}"
+                else:
+                    region_context += f"\nKey Features: {region_data['key_features']}"
+
+            world_context_parts.append(region_context)
+        else:
+            world_context_parts.append(f"\nRegion: Entire World (no specific region selected)")
+
+        world_context = "\n".join(world_context_parts)
 
         user_direction = ""
         if state.get("user_story_idea"):
@@ -79,6 +104,13 @@ Each story idea should:
 - Include interesting themes and conflicts
 - Match the specified duration (Long, Medium, or Short)
 - ALL stories must be Medium difficulty level
+
+DIVERSITY REQUIREMENTS - Avoid these overused themes:
+- NO crystal/crystalline-based stories (shards, fragments, corrupted crystals, etc.)
+- NO "chosen one" prophecies or destiny narratives
+- Vary the core conflicts: political intrigue, survival, exploration, investigation, etc.
+- Use different scales: personal stakes, community-level, regional consequences
+- Mix tones: some grim, some hopeful, some mysterious
 
 Return your response as a JSON array with this structure:
 [

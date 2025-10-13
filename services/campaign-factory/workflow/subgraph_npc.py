@@ -37,12 +37,36 @@ async def evaluate_existing_species_node(state: Dict[str, Any]) -> Dict[str, Any
     try:
         logger.info(f"Evaluating existing species for NPC: {state.get('npc_role', 'unknown role')}")
 
-        # TODO: Fetch world species via MCP
-        # For now, use placeholder
-        world_species = [
-            {"id": "species1", "name": "Human", "description": "Standard human species"},
-            {"id": "species2", "name": "Elf", "description": "Graceful forest-dwelling species"},
-        ]
+        # Fetch world species via MCP
+        from .mcp_client import fetch_world_species
+        world_species = await fetch_world_species(state.get("world_id", ""))
+
+        if not world_species:
+            logger.warning(f"No existing species found for world {state.get('world_id')}")
+            # Fallback to basic species if world has none yet
+            world_species = [
+                {"id": "species_human_default", "name": "Human", "description": "Standard human species"},
+                {"id": "species_elf_default", "name": "Elf", "description": "Graceful forest-dwelling species"},
+            ]
+
+        # Prioritize species from region inhabitants
+        region_data = state.get("region_data", {})
+        region_inhabitants = region_data.get("inhabitants", [])
+
+        # Separate species into region inhabitants and others
+        region_species = []
+        other_species = []
+
+        for sp in world_species:
+            # Check if species name or ID is in region inhabitants
+            if any(inhabitant.lower() in sp['name'].lower() or
+                   inhabitant.lower() in str(sp.get('id', '')).lower()
+                   for inhabitant in region_inhabitants):
+                region_species.append(sp)
+            else:
+                other_species.append(sp)
+
+        logger.info(f"Found {len(region_species)} species native to region '{state.get('region_name', 'unknown')}'")
 
         # Create evaluation prompt
         prompt = ChatPromptTemplate.from_messages([
@@ -50,9 +74,12 @@ async def evaluate_existing_species_node(state: Dict[str, Any]) -> Dict[str, Any
 
 Your task is to evaluate if existing species are appropriate for an NPC role.
 
+CRITICAL: Strongly prefer species that are known inhabitants of the region. Only choose non-native species if there's a compelling narrative reason (e.g., traveler, invader, refugee).
+
 Consider:
 - Does the species fit the narrative context?
 - Does it make sense for this species to have this role?
+- Is this species native to the region?
 - Would using an existing species maintain world consistency?
 
 Return your response as JSON:
@@ -60,7 +87,7 @@ Return your response as JSON:
   "use_existing": true,
   "species_id": "species1",
   "species_name": "Human",
-  "reasoning": "Explanation of why this species is appropriate",
+  "reasoning": "Explanation of why this species is appropriate (mention if native to region)",
   "or_create_new": false,
   "new_species_suggestion": {{
     "name": "",
@@ -73,18 +100,27 @@ CRITICAL: Return ONLY the JSON object, no other text."""),
 Role: {role}
 Narrative Context: {context}
 Location: {location}
+Region: {region}
 
-Available World Species:
-{species_list}
+SPECIES NATIVE TO THIS REGION (strongly prefer these):
+{native_species}
 
-Evaluate if existing species are appropriate or if a new species should be created.""")
+Other Species in World:
+{other_species}
+
+Evaluate species appropriateness. Strongly prefer region-native species unless narrative requires otherwise.""")
         ])
 
-        # Format species list
-        species_str = "\n".join([
+        # Format species lists
+        native_species_str = "\n".join([
+            f"- {sp['name']}: {sp['description']} [ID: {sp['id']}] ⭐ NATIVE TO REGION"
+            for sp in region_species
+        ]) if region_species else "No species specifically marked as native to this region"
+
+        other_species_str = "\n".join([
             f"- {sp['name']}: {sp['description']} [ID: {sp['id']}]"
-            for sp in world_species
-        ])
+            for sp in other_species
+        ]) if other_species else "No other species available"
 
         # Evaluate
         chain = prompt | anthropic_client
@@ -92,7 +128,9 @@ Evaluate if existing species are appropriate or if a new species should be creat
             "role": state.get("npc_role", "Unknown"),
             "context": state.get("narrative_context", ""),
             "location": state.get("location_name", ""),
-            "species_list": species_str
+            "region": state.get("region_name", "Unknown Region"),
+            "native_species": native_species_str,
+            "other_species": other_species_str
         })
 
         # Parse response with error handling
@@ -243,6 +281,7 @@ Generate a complete NPC with personality and backstory.""")
             "dialogue_style": npc_data.get("dialogue_style", ""),
             "backstory": npc_data.get("backstory", ""),
             "level_3_location_id": state.get("level_3_location_id", ""),
+            "level_3_location_name": state.get("location_name", "Unknown Location"),
             "is_world_permanent": True  # All campaign NPCs are added to world
         }
 

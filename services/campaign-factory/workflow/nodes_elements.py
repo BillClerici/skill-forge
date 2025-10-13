@@ -77,6 +77,9 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                     "location_name": scene["level_3_location_name"],
                     "level_3_location_id": scene["level_3_location_id"],
                     "world_id": state["world_id"],
+                    "region_id": state["region_id"],
+                    "region_name": state["region_name"],
+                    "region_data": state.get("region_data", {}),  # Pass region inhabitants
                     "errors": []
                 }
 
@@ -213,11 +216,41 @@ Determine what elements this scene needs.""")
 
 
 async def generate_discovery(spec: dict, scene: dict, state: CampaignWorkflowState) -> DiscoveryData:
-    """Generate a discovery element"""
+    """Generate a discovery element with AI-enhanced details"""
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a master RPG designer creating discovery elements.
+
+Generate a compelling name and enriched description for a discovery.
+
+Return JSON:
+{{
+  "name": "Discovery name (3-5 words)",
+  "full_description": "Enhanced description with sensory details and narrative context (2-3 sentences)"
+}}
+
+CRITICAL: Return ONLY the JSON object, no other text."""),
+        ("user", """Scene: {scene_name}
+Scene Context: {scene_description}
+Discovery Type: {discovery_type}
+Discovery Base: {discovery_description}
+
+Create a compelling discovery element.""")
+    ])
+
+    chain = prompt | anthropic_client
+    response = await chain.ainvoke({
+        "scene_name": scene["name"],
+        "scene_description": scene["description"],
+        "discovery_type": spec.get("type", "information"),
+        "discovery_description": spec.get("description", "A piece of information")
+    })
+
+    enriched = json.loads(response.content.strip())
+
     discovery: DiscoveryData = {
         "discovery_id": None,  # Will be set on persistence
-        "name": f"Discovery in {scene['name']}",
-        "description": spec.get("description", ""),
+        "name": enriched.get("name", f"Discovery in {scene['name']}"),
+        "description": enriched.get("full_description", spec.get("description", "")),
         "knowledge_type": spec.get("type", "information"),
         "blooms_level": state["campaign_core"]["target_blooms_level"],
         "unlocks_scenes": []  # May be set based on narrative flow
@@ -226,28 +259,93 @@ async def generate_discovery(spec: dict, scene: dict, state: CampaignWorkflowSta
 
 
 async def generate_event(spec: dict, scene: dict, state: CampaignWorkflowState) -> EventData:
-    """Generate an event element"""
+    """Generate an event element with AI-enhanced details"""
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a master RPG designer creating dynamic event elements.
+
+Generate a compelling name and enriched description for an event.
+
+Return JSON:
+{{
+  "name": "Event name (3-5 words)",
+  "full_description": "Enhanced description with dramatic detail (2-3 sentences)",
+  "outcomes": ["outcome1", "outcome2"]
+}}
+
+CRITICAL: Return ONLY the JSON object, no other text."""),
+        ("user", """Scene: {scene_name}
+Scene Context: {scene_description}
+Event Type: {event_type}
+Event Base: {event_description}
+
+Create a compelling event element.""")
+    ])
+
+    chain = prompt | anthropic_client
+    response = await chain.ainvoke({
+        "scene_name": scene["name"],
+        "scene_description": scene["description"],
+        "event_type": spec.get("type", "scripted"),
+        "event_description": spec.get("description", "An event occurs")
+    })
+
+    enriched = json.loads(response.content.strip())
+
     event: EventData = {
         "event_id": None,  # Will be set on persistence
-        "name": f"Event in {scene['name']}",
-        "description": spec.get("description", ""),
+        "name": enriched.get("name", f"Event in {scene['name']}"),
+        "description": enriched.get("full_description", spec.get("description", "")),
         "event_type": spec.get("type", "scripted"),
         "trigger_conditions": {},
-        "outcomes": []
+        "outcomes": enriched.get("outcomes", [])
     }
     return event
 
 
 async def generate_challenge(spec: dict, scene: dict, state: CampaignWorkflowState) -> ChallengeData:
-    """Generate a challenge element"""
+    """Generate a challenge element with AI-enhanced details"""
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", """You are a master RPG designer creating challenge elements.
+
+Generate a compelling name and enriched description for a challenge.
+
+Return JSON:
+{{
+  "name": "Challenge name (3-5 words)",
+  "full_description": "Enhanced description with stakes and mechanics (2-3 sentences)",
+  "success_rewards": {{"reward_type": "reward_description"}},
+  "failure_consequences": {{"consequence_type": "consequence_description"}}
+}}
+
+CRITICAL: Return ONLY the JSON object, no other text."""),
+        ("user", """Scene: {scene_name}
+Scene Context: {scene_description}
+Challenge Type: {challenge_type}
+Challenge Base: {challenge_description}
+Difficulty: {difficulty}
+
+Create a compelling challenge element.""")
+    ])
+
+    chain = prompt | anthropic_client
+    response = await chain.ainvoke({
+        "scene_name": scene["name"],
+        "scene_description": scene["description"],
+        "challenge_type": spec.get("type", "skill_check"),
+        "challenge_description": spec.get("description", "A challenge to overcome"),
+        "difficulty": state["quest_difficulty"]
+    })
+
+    enriched = json.loads(response.content.strip())
+
     challenge: ChallengeData = {
         "challenge_id": None,  # Will be set on persistence
-        "name": f"Challenge in {scene['name']}",
-        "description": spec.get("description", ""),
+        "name": enriched.get("name", f"Challenge in {scene['name']}"),
+        "description": enriched.get("full_description", spec.get("description", "")),
         "challenge_type": spec.get("type", "skill_check"),
         "difficulty": state["quest_difficulty"],
         "blooms_level": state["campaign_core"]["target_blooms_level"],
-        "success_rewards": {},
-        "failure_consequences": {}
+        "success_rewards": enriched.get("success_rewards", {}),
+        "failure_consequences": enriched.get("failure_consequences", {})
     }
     return challenge

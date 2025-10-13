@@ -169,13 +169,13 @@ Generate {num_quests} quests that form a coherent campaign progression.""")
                 new_location_id = f"new_loc_{uuid.uuid4().hex[:8]}"
                 state["new_location_ids"].append(new_location_id)
                 location_id = new_location_id
-                location_name = location_info.get("new_location_name", "New Location")
+                location_name = location_info.get("new_location_name", f"Location for {quest_data.get('quest_name', 'Quest')}")
 
                 logger.info(f"Quest requires new location: {location_name} ({location_info.get('new_location_type')})")
 
             quest: QuestData = {
                 "quest_id": None,  # Will be set on persistence
-                "name": quest_data.get("quest_name", "Unnamed Quest"),
+                "name": quest_data.get("quest_name", f"{state['campaign_core']['name']} - Quest {len(quests) + 1}"),
                 "description": quest_data.get("description", ""),
                 "objectives": quest_data.get("objectives", []),
                 "level_1_location_id": location_id,

@@ -94,6 +94,7 @@ class NPCData(TypedDict):
     dialogue_style: str
     backstory: str
     level_3_location_id: str
+    level_3_location_name: str
     is_world_permanent: bool  # True if added to world's NPC pool
 
 
@@ -157,6 +158,7 @@ class CampaignWorkflowState(TypedDict):
     world_name: str
     region_id: str
     region_name: str
+    region_data: Dict[str, Any]  # Full region details (description, backstory, climate, terrain, inhabitants)
     genre: str
     user_story_idea: Optional[str]  # Optional user input for story direction
 

@@ -2,6 +2,36 @@
 
 {% block title %}Region: {{ region.region_name }} - SkillForge RPG{% endblock %}
 
+{% block extra_head %}
+<!-- Leaflet.js for interactive maps -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .leaflet-container {
+        background: #1a1a2e;
+        border-radius: 8px;
+    }
+    .location-marker {
+        background-color: #4A90E2;
+        border: 3px solid #000;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.5);
+    }
+    .location-marker:hover {
+        background-color: #FFD700;
+        transform: scale(1.15);
+        z-index: 1000 !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col s12">
@@ -343,6 +373,112 @@
     </div>
 </div>
 
+<!-- Region Map with Interactive Projection -->
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content" style="padding-left: 10px; padding-right: 10px;">
+                <span class="card-title" style="padding-left: 14px;">
+                    <i class="material-icons left">map</i>
+                    Interactive Region Map
+                </span>
+
+                <!-- Map Display -->
+                <div id="region-map-display" style="margin-top: 20px;">
+                    {% if region.region_map %}
+                    <!-- Leaflet Map Container -->
+                    <div id="region-leaflet-map" style="width: 100%; height: 500px; border-radius: 8px; border: 2px solid var(--rpg-gold); margin-bottom: 20px;"></div>
+
+                    <!-- Location Legend -->
+                    {% if region.region_map.location_legend %}
+                    <div style="background: linear-gradient(135deg, rgba(30, 30, 46, 0.95) 0%, rgba(20, 20, 36, 0.95) 100%); border-radius: 12px; padding: 20px; border: 2px solid rgba(74, 144, 226, 0.3); margin-top: 20px;">
+                        <h6 style="color: #4A90E2; margin: 0 0 15px 0; font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">
+                            <i class="material-icons" style="font-size: 1.3rem;">location_on</i>
+                            Location Legend
+                        </h6>
+                        <div style="font-size: 0.85rem; color: #b8b8d1; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid rgba(74, 144, 226, 0.2);">
+                            {{ region.region_map.location_count|default:"0" }} Locations Mapped
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto; padding-right: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+                            {% for location in region.region_map.location_legend %}
+                            <a href="{% url 'location_detail' world.world_id region.region_id location.location_id %}"
+                               style="text-decoration: none; color: inherit; transition: all 0.2s ease;">
+                                <div style="padding: 10px; background: rgba(74, 144, 226, 0.08); border-radius: 8px; border-left: 3px solid #4A90E2; cursor: pointer;"
+                                     onmouseover="this.style.background='rgba(74, 144, 226, 0.15)'"
+                                     onmouseout="this.style.background='rgba(74, 144, 226, 0.08)'">
+                                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                        <!-- Location Number Badge -->
+                                        <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 1rem; box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);">
+                                            {{ location.number }}
+                                        </div>
+                                        <!-- Location Info -->
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; color: #4A90E2; margin-bottom: 4px; font-size: 0.95rem;">
+                                                {{ location.name }}
+                                            </div>
+                                            <div style="color: #b8b8d1; font-size: 0.8rem; line-height: 1.4;">
+                                                <div style="margin-bottom: 2px;">
+                                                    <i class="material-icons tiny" style="font-size: 12px; vertical-align: middle; margin-right: 4px;">category</i>
+                                                    {{ location.type|title }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <i class="material-icons" style="color: #4A90E2; font-size: 18px;">arrow_forward</i>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Map Actions -->
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button id="edit-region-map-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); margin: 0 4px;">
+                            <i class="material-icons left">edit_location</i>Edit Map
+                        </button>
+                        <button id="regenerate-region-map-btn" class="btn waves-effect waves-light purple darken-2" style="margin: 0 4px;">
+                            <i class="material-icons left">refresh</i>Regenerate Map
+                        </button>
+                        <button id="delete-region-map-btn" class="btn waves-effect waves-light red darken-2" style="margin: 0 4px;">
+                            <i class="material-icons left">delete</i>Delete Map
+                        </button>
+                    </div>
+                    {% else %}
+                    <div id="no-region-map-placeholder" style="background-color: rgba(30, 30, 46, 0.5); border-radius: 8px; padding: 60px 20px; text-align: center; margin-bottom: 15px;">
+                        <i class="material-icons" style="font-size: 80px; color: #4A90E2; opacity: 0.3;">map</i>
+                        <p style="color: #b8b8d1; margin-top: 10px;">No region map generated yet</p>
+                        <p style="color: #888; font-size: 0.9rem; margin-top: 5px;">Generate an interactive map showing all locations in this region</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Map Generation Button -->
+                <div style="text-align: center;">
+                    {% if not region.region_map %}
+                    <button id="generate-region-map-btn" class="btn waves-effect waves-light" style="background: linear-gradient(135deg, #1e88e5 0%, #1565c0 100%);">
+                        <i class="material-icons left">map</i>Generate Interactive Region Map
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Map Generation Loading -->
+                <div id="region-map-generation-loading" style="display: none; margin-top: 20px;">
+                    <div class="progress" style="background-color: rgba(30, 136, 229, 0.2);">
+                        <div class="indeterminate" style="background-color: #1e88e5;"></div>
+                    </div>
+                    <p id="region-map-generation-status" class="center-align" style="color: #1e88e5; margin-top: 10px;">
+                        Generating region map...
+                    </p>
+                    <p id="region-map-generation-details" class="center-align" style="color: #b8b8d1; font-size: 0.9rem;">
+                        Zooming into world map and placing location markers...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Location Hierarchy Tree View -->
 {% if location_tree %}
 <div class="row">
@@ -578,6 +714,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Load Leaflet.js at end of body for better performance -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const generateBtn = document.getElementById('generate-btn');
@@ -1072,5 +1211,277 @@
             this.style.backgroundColor = '';
         });
     });
+
+    // ===== REGION MAP - Leaflet.js Interactive Map =====
+    {% if region.region_map %}
+    // Initialize Leaflet map for region
+    function initializeRegionMap() {
+        // Check if Leaflet is loaded
+        if (typeof L === 'undefined') {
+            console.error('Leaflet library not loaded');
+            const regionMapDiv = document.getElementById('region-leaflet-map');
+            if (regionMapDiv) {
+                regionMapDiv.innerHTML = '<div style="padding: 40px; text-align: center; color: #ff6b6b;"><i class="material-icons" style="font-size: 48px;">error</i><br>Map library failed to load. Please check your internet connection and refresh.</div>';
+            }
+            return;
+        }
+
+        const regionMapDiv = document.getElementById('region-leaflet-map');
+        if (!regionMapDiv) {
+            return;
+        }
+
+        // Ensure container has dimensions before initializing
+        if (regionMapDiv.offsetWidth === 0 || regionMapDiv.offsetHeight === 0) {
+            setTimeout(initializeRegionMap, 100);
+            return;
+        }
+
+        const mapImageUrl = '{{ region.region_map.url }}';
+        const img = new Image();
+
+        img.onload = function() {
+            const imgWidth = img.width;
+            const imgHeight = img.height;
+
+            // Set container height
+            regionMapDiv.style.height = '500px';
+
+            // Use NEGATIVE Y bounds to flip coordinate system (Y increases downward like image coordinates)
+            const bounds = [[0, 0], [-imgHeight, imgWidth]];
+
+            // Create Leaflet map with simple CRS
+            const map = L.map('region-leaflet-map', {
+                crs: L.CRS.Simple,
+                minZoom: -5,
+                maxZoom: 2,
+                zoomControl: true,
+                attributionControl: false
+            });
+
+            // Add the image overlay
+            L.imageOverlay(mapImageUrl, bounds).addTo(map);
+
+            // Fit to bounds
+            map.fitBounds(bounds);
+
+            // Wait for map to be ready, then add markers
+            map.whenReady(function() {
+                // Force one more invalidation to ensure proper sizing
+                setTimeout(function() {
+                    map.invalidateSize(true);
+                    map.fitBounds(bounds);
+
+                    // Add location markers
+                    addLocationMarkers(map, imgWidth, imgHeight);
+                }, 200);
+            });
+
+            // Marker creation function
+            function addLocationMarkers(map, imgWidth, imgHeight) {
+                {% if region.region_map.location_legend %}
+                const locationLegend = {{ region.region_map.location_legend|safe }};
+
+                locationLegend.forEach(function(location) {
+                    // Convert normalized (0-1) to pixel coordinates
+                    const pixelX = location.x * imgWidth;
+                    const pixelY = location.y * imgHeight;
+
+                    // Apply Y-axis offset correction for Leaflet coordinate system
+                    const yOffset = 236;
+                    const adjustedY = -pixelY + yOffset;
+
+                    const markerPosition = [adjustedY, pixelX];
+
+                    // Create blue numbered marker icon matching design
+                    const markerIcon = L.divIcon({
+                        className: 'location-marker',
+                        html: `<div style="background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%); border: 3px solid #000; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; font-weight: bold; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.5); cursor: pointer;">
+                                ${location.number}
+                            </div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]  // Center the icon on the coordinate
+                    });
+
+                    // Create and add marker
+                    const marker = L.marker(markerPosition, {
+                        icon: markerIcon,
+                        title: location.name
+                    }).addTo(map);
+
+                    // Popup
+                    marker.bindPopup(`
+                        <div style="text-align: center; min-width: 150px;">
+                            <strong style="color: #4A90E2; font-size: 1.1rem;">${location.name}</strong><br>
+                            <span style="color: #666; font-size: 0.9rem;">${location.type || 'Location'}</span>
+                        </div>
+                    `);
+
+                    // Click handler for navigation
+                    marker.on('click', function() {
+                        const url = '{% url "location_detail" world.world_id region.region_id "LOCATION_ID" %}'.replace('LOCATION_ID', location.location_id);
+                        window.location.href = url;
+                    });
+                });
+                {% endif %}
+            }
+        };
+
+        img.onerror = function() {
+            console.error('Failed to load region map image');
+            regionMapDiv.innerHTML = '<div style="padding: 40px; text-align: center; color: #ff6b6b;">Failed to load map image</div>';
+        };
+
+        img.src = mapImageUrl;
+    }
+
+    // Start initialization
+    initializeRegionMap();
+    {% endif %}
+
+    // ===== REGION MAP BUTTONS =====
+    const generateRegionMapBtn = document.getElementById('generate-region-map-btn');
+    const editRegionMapBtn = document.getElementById('edit-region-map-btn');
+    const regenerateRegionMapBtn = document.getElementById('regenerate-region-map-btn');
+    const deleteRegionMapBtn = document.getElementById('delete-region-map-btn');
+    const regionMapLoading = document.getElementById('region-map-generation-loading');
+
+    // Generate Region Map
+    if (generateRegionMapBtn) {
+        generateRegionMapBtn.addEventListener('click', async function() {
+            generateRegionMapBtn.disabled = true;
+            regionMapLoading.style.display = 'block';
+
+            try {
+                const response = await fetch('{% url "region_generate_map" world.world_id region.region_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: '<span>Region map generated successfully!</span>',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    // Reload page to show new map
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to generate region map');
+                }
+            } catch (error) {
+                console.error('Region map generation error:', error);
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                regionMapLoading.style.display = 'none';
+                generateRegionMapBtn.disabled = false;
+            }
+        });
+    }
+
+    // Regenerate Region Map
+    if (regenerateRegionMapBtn) {
+        regenerateRegionMapBtn.addEventListener('click', async function() {
+            if (!confirm('Regenerate the region map? This will create a new map from the world map.')) {
+                return;
+            }
+
+            regenerateRegionMapBtn.disabled = true;
+            regionMapLoading.style.display = 'block';
+
+            try {
+                const response = await fetch('{% url "region_generate_map" world.world_id region.region_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: '<span>Region map regenerated successfully!</span>',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to regenerate region map');
+                }
+            } catch (error) {
+                console.error('Region map regeneration error:', error);
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                regionMapLoading.style.display = 'none';
+                regenerateRegionMapBtn.disabled = false;
+            }
+        });
+    }
+
+    // Delete Region Map
+    if (deleteRegionMapBtn) {
+        deleteRegionMapBtn.addEventListener('click', async function() {
+            if (!confirm('Delete the region map? This cannot be undone.')) {
+                return;
+            }
+
+            deleteRegionMapBtn.disabled = true;
+
+            try {
+                const response = await fetch('{% url "region_delete_map" world.world_id region.region_id %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    M.toast({
+                        html: '<span>Region map deleted successfully!</span>',
+                        classes: 'green darken-2',
+                        displayLength: 3000
+                    });
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to delete region map');
+                }
+            } catch (error) {
+                console.error('Region map deletion error:', error);
+                M.toast({
+                    html: `<span>Error: ${error.message}</span>`,
+                    classes: 'red darken-2',
+                    displayLength: 4000
+                });
+                deleteRegionMapBtn.disabled = false;
+            }
+        });
+    }
+
+    // Edit Region Map (TODO: Implement similar to world map editor)
+    if (editRegionMapBtn) {
+        editRegionMapBtn.addEventListener('click', function() {
+            M.toast({
+                html: '<span>Region map editor coming soon!</span>',
+                classes: 'orange darken-2',
+                displayLength: 3000
+            });
+        });
+    }
 </script>
 {% endblock %}

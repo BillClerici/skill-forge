@@ -57,12 +57,13 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
             logger.info(f"Generating places for quest {quest_idx + 1}/{total_quests}: {quest['name']}")
 
-            # TODO: Fetch existing Level 2 locations under quest's Level 1 location via MCP
-            # For now, use placeholder
-            existing_level2_locations = [
-                {"id": "place1", "name": "The Silver Tavern", "type": "Tavern"},
-                {"id": "place2", "name": "Town Square", "type": "Plaza"},
-            ]
+            # Fetch existing Level 2 locations under quest's Level 1 location via MCP
+            from .mcp_client import fetch_level2_locations
+            existing_level2_locations = await fetch_level2_locations(quest["level_1_location_id"])
+
+            if not existing_level2_locations:
+                logger.info(f"No existing Level 2 locations found under {quest['level_1_location_name']}")
+                existing_level2_locations = []
 
             # Create prompt for place generation
             prompt = ChatPromptTemplate.from_messages([
@@ -152,7 +153,7 @@ Generate 2-4 places where this quest's objectives occur.""")
                 else:
                     # Create new Level 2 location
                     new_location_id = f"new_place_{uuid.uuid4().hex[:8]}"
-                    location_name = location_info.get("new_location_name", "New Place")
+                    location_name = location_info.get("new_location_name", f"Place in {quest['level_1_location_name']}")
                     location_type = location_info.get("new_location_type", "Place")
                     location_desc = location_info.get("new_location_description", "")
 
@@ -173,7 +174,7 @@ Generate 2-4 places where this quest's objectives occur.""")
 
                 place: PlaceData = {
                     "place_id": None,  # Will be set on persistence
-                    "name": place_data.get("place_name", "Unnamed Place"),
+                    "name": place_data.get("place_name", f"{quest['level_1_location_name']} - Place {len(quest_places) + 1}"),
                     "description": place_data.get("description", ""),
                     "level_2_location_id": location_id,
                     "level_2_location_name": location_name,
@@ -259,11 +260,13 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
             logger.info(f"Generating scenes for place {place_idx + 1}/{total_places}: {place['name']}")
 
-            # TODO: Fetch existing Level 3 locations under place's Level 2 location via MCP
-            existing_level3_locations = [
-                {"id": "scene1", "name": "The Bar", "type": "Bar Area"},
-                {"id": "scene2", "name": "Private Room", "type": "Private Room"},
-            ]
+            # Fetch existing Level 3 locations under place's Level 2 location via MCP
+            from .mcp_client import fetch_level3_locations
+            existing_level3_locations = await fetch_level3_locations(place["level_2_location_id"])
+
+            if not existing_level3_locations:
+                logger.info(f"No existing Level 3 locations found under {place['level_2_location_name']}")
+                existing_level3_locations = []
 
             # Create prompt for scene generation
             prompt = ChatPromptTemplate.from_messages([
@@ -346,7 +349,7 @@ Generate 1-3 scenes within this place.""")
                 else:
                     # Create new Level 3 location
                     new_location_id = f"new_scene_{uuid.uuid4().hex[:8]}"
-                    location_name = location_info.get("new_location_name", "New Scene")
+                    location_name = location_info.get("new_location_name", f"Scene in {place['level_2_location_name']}")
                     location_type = location_info.get("new_location_type", "Scene")
                     location_desc = location_info.get("new_location_description", "")
 
@@ -367,7 +370,7 @@ Generate 1-3 scenes within this place.""")
 
                 scene: SceneData = {
                     "scene_id": None,  # Will be set on persistence
-                    "name": scene_data.get("scene_name", "Unnamed Scene"),
+                    "name": scene_data.get("scene_name", f"{place['name']} - Scene {len(place_scenes) + 1}"),
                     "description": scene_data.get("description", ""),
                     "level_3_location_id": location_id,
                     "level_3_location_name": location_name,

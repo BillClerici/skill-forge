@@ -389,6 +389,10 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
         relationships_created += 2
 
         # Campaign contains Quests, and create full hierarchy
+        # Use same ID generation as MongoDB (flat counters, not nested indices)
+        global_place_counter = 0
+        global_scene_counter = 0
+
         for quest_idx, quest in enumerate(state["quests"]):
             quest_id = f"quest_{state['request_id']}_{quest_idx}"
 
@@ -396,6 +400,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             session.run(
                 """
                 MATCH (camp:Campaign {id: $campaign_id})
+                MATCH (w:World {id: $world_id})
                 MERGE (q:Quest {id: $quest_id})
                 SET q.name = $quest_name,
                     q.order_sequence = $order_sequence,
@@ -404,9 +409,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 MERGE (camp)-[:CONTAINS]->(q)
                 MERGE (loc:Location {id: $location_id})
                 SET loc.name = $location_name
+                MERGE (loc)-[:PART_OF]->(w)
                 MERGE (q)-[:LOCATED_AT]->(loc)
                 """,
                 campaign_id=campaign_id,
+                world_id=state["world_id"],
                 quest_id=quest_id,
                 quest_name=quest["name"],
                 order_sequence=quest["order_sequence"],
@@ -415,53 +422,75 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 location_id=quest["level_1_location_id"],
                 location_name=quest.get("level_1_location_name", "Unknown Location")
             )
-            relationships_created += 3
+            relationships_created += 4
 
             # Find places for this quest and create Place nodes
             quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
-            for place_idx, place in enumerate(quest_places):
-                place_id = f"place_{state['request_id']}_{quest_idx}_{place_idx}"
+            for place in quest_places:
+                # Use flat counter to match MongoDB ID generation
+                place_id = f"place_{state['request_id']}_{global_place_counter}"
+                global_place_counter += 1
 
                 session.run(
                     """
                     MATCH (q:Quest {id: $quest_id})
+                    MATCH (w:World {id: $world_id})
                     MERGE (p:Place {id: $place_id})
                     SET p.name = $place_name
                     MERGE (q)-[:CONTAINS]->(p)
                     MERGE (loc:Location {id: $location_id})
                     SET loc.name = $location_name
+                    MERGE (loc)-[:PART_OF]->(w)
                     MERGE (p)-[:LOCATED_AT]->(loc)
+
+                    // Link Level 2 Location to parent Level 1 Location
+                    WITH loc, w
+                    MERGE (parent:Location {id: $parent_location_id})
+                    MERGE (loc)-[:CHILD_OF]->(parent)
                     """,
                     quest_id=quest_id,
+                    world_id=state["world_id"],
                     place_id=place_id,
                     place_name=place["name"],
                     location_id=place["level_2_location_id"],
-                    location_name=place.get("level_2_location_name", "Unknown Location")
+                    location_name=place.get("level_2_location_name", "Unknown Location"),
+                    parent_location_id=quest["level_1_location_id"]
                 )
-                relationships_created += 3
+                relationships_created += 5
 
                 # Find scenes for this place and create Scene nodes
                 place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
-                for scene_idx, scene in enumerate(place_scenes):
-                    scene_id = f"scene_{state['request_id']}_{quest_idx}_{place_idx}_{scene_idx}"
+                for scene in place_scenes:
+                    # Use flat counter to match MongoDB ID generation
+                    scene_id = f"scene_{state['request_id']}_{global_scene_counter}"
+                    global_scene_counter += 1
 
                     session.run(
                         """
                         MATCH (p:Place {id: $place_id})
+                        MATCH (w:World {id: $world_id})
                         MERGE (sc:Scene {id: $scene_id})
                         SET sc.name = $scene_name
                         MERGE (p)-[:CONTAINS]->(sc)
                         MERGE (loc:Location {id: $location_id})
                         SET loc.name = $location_name
+                        MERGE (loc)-[:PART_OF]->(w)
                         MERGE (sc)-[:LOCATED_AT]->(loc)
+
+                        // Link Level 3 Location to parent Level 2 Location
+                        WITH loc, w
+                        MERGE (parent:Location {id: $parent_location_id})
+                        MERGE (loc)-[:CHILD_OF]->(parent)
                         """,
                         place_id=place_id,
+                        world_id=state["world_id"],
                         scene_id=scene_id,
                         scene_name=scene["name"],
                         location_id=scene["level_3_location_id"],
-                        location_name=scene.get("level_3_location_name", "Unknown Location")
+                        location_name=scene.get("level_3_location_name", "Unknown Location"),
+                        parent_location_id=place["level_2_location_id"]
                     )
-                    relationships_created += 3
+                    relationships_created += 5
 
                     # Link NPCs to this scene
                     for npc_id in scene.get("npc_ids", []):
@@ -494,23 +523,31 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
 
             session.run(
                 """
+                MATCH (w:World {id: $world_id})
                 MERGE (npc:NPC {id: $npc_id})
-                SET npc.name = $npc_name, npc.role = $role
+                SET npc.name = $npc_name,
+                    npc.role = $role,
+                    npc.description = $description
                 MERGE (s:Species {id: $species_id})
                 SET s.name = $species_name
+                MERGE (s)-[:NATIVE_TO]->(w)
                 MERGE (loc:Location {id: $location_id})
                 SET loc.name = $location_name
+                MERGE (loc)-[:PART_OF]->(w)
                 MERGE (npc)-[:IS_SPECIES]->(s)
                 MERGE (npc)-[:LOCATED_AT]->(loc)
                 """,
+                world_id=state["world_id"],
                 npc_id=npc_id,
                 npc_name=npc["name"],
                 role=role_str,
+                description=npc.get("backstory", ""),
                 species_id=npc["species_id"],
                 species_name=npc.get("species_name", "Unknown Species"),
-                location_id=npc["level_3_location_id"]
+                location_id=npc["level_3_location_id"],
+                location_name=npc.get("level_3_location_name", "Unknown Location")
             )
-            relationships_created += 3
+            relationships_created += 5
 
     logger.info(f"Created {relationships_created} Neo4j relationships")
 

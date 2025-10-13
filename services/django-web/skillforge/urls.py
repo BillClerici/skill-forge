@@ -23,14 +23,17 @@ from worlds.views import (
     WorldUpdateView, WorldDeleteView,
     WorldGenerateBackstoryView, WorldSaveBackstoryView, WorldGenerateRegionsView,
     WorldGenerateImageView, WorldDeleteImageView, WorldSetPrimaryImageView, WorldTextToSpeechView,
+    WorldGenerateMapView, WorldDeleteMapView, WorldSaveMapCoordinatesView,
     RegionListView, RegionCreateView, RegionDetailView,
     RegionUpdateView, RegionDeleteView,
     RegionGenerateBackstoryView, RegionSaveBackstoryView, RegionGenerateLocationsView,
     RegionGenerateImageView, RegionDeleteImageView, RegionSetPrimaryImageView, RegionTextToSpeechView,
+    RegionGenerateMapView, RegionDeleteMapView, RegionSaveMapCoordinatesView, RegionUpdateLocationCoordinatesView,
     LocationListView, LocationCreateView, LocationDetailView,
     LocationUpdateView, LocationDeleteView,
     LocationGenerateBackstoryView, LocationSaveBackstoryView,
-    LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView, LocationTextToSpeechView
+    LocationGenerateImageView, LocationDeleteImageView, LocationSetPrimaryImageView, LocationTextToSpeechView,
+    LocationGenerateMapView, LocationDeleteMapView
 )
 from worlds.views_species import (
     SpeciesCreateView, SpeciesDetailView, SpeciesEditView, SpeciesDeleteView,
@@ -104,6 +107,9 @@ urlpatterns = [
     path('worlds/<str:world_id>/delete-image/', WorldDeleteImageView.as_view(), name='world_delete_image'),
     path('worlds/<str:world_id>/set-primary-image/', WorldSetPrimaryImageView.as_view(), name='world_set_primary_image'),
     path('worlds/<str:world_id>/tts-backstory/', WorldTextToSpeechView.as_view(), name='world_tts_backstory'),
+    path('worlds/<str:world_id>/generate-map/', WorldGenerateMapView.as_view(), name='world_generate_map'),
+    path('worlds/<str:world_id>/delete-map/', WorldDeleteMapView.as_view(), name='world_delete_map'),
+    path('worlds/<str:world_id>/save-map-coordinates/', WorldSaveMapCoordinatesView.as_view(), name='world_save_map_coordinates'),
 
     # World Factory API
     path('api/world-factory/initiate/', WorldFactoryInitiateView.as_view(), name='world_factory_initiate'),
@@ -136,6 +142,10 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/delete-image/', RegionDeleteImageView.as_view(), name='region_delete_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/set-primary-image/', RegionSetPrimaryImageView.as_view(), name='region_set_primary_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/tts-backstory/', RegionTextToSpeechView.as_view(), name='region_tts_backstory'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/generate-map/', RegionGenerateMapView.as_view(), name='region_generate_map'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/delete-map/', RegionDeleteMapView.as_view(), name='region_delete_map'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/save-map-coordinates/', RegionSaveMapCoordinatesView.as_view(), name='region_save_map_coordinates'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/update-location-coordinates/', RegionUpdateLocationCoordinatesView.as_view(), name='region_update_location_coordinates'),
 
     # Locations
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/', LocationListView.as_view(), name='location_list'),
@@ -149,6 +159,8 @@ urlpatterns = [
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/delete-image/', LocationDeleteImageView.as_view(), name='location_delete_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/set-primary-image/', LocationSetPrimaryImageView.as_view(), name='location_set_primary_image'),
     path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/tts-backstory/', LocationTextToSpeechView.as_view(), name='location_tts_backstory'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/generate-map/', LocationGenerateMapView.as_view(), name='location_generate_map'),
+    path('worlds/<str:world_id>/regions/<str:region_id>/locations/<str:location_id>/delete-map/', LocationDeleteMapView.as_view(), name='location_delete_map'),
 
     # Campaigns
     path('campaigns/', CampaignListView.as_view(), name='campaign_list'),
