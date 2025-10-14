@@ -301,6 +301,7 @@ async def initialize_campaign_state(request_data: dict) -> CampaignWorkflowState
 
         # Progress tracking
         "progress_percentage": 0,
+        "step_progress": 0,
         "status_message": "Initializing campaign generation...",
 
         # Results
@@ -335,6 +336,7 @@ async def save_campaign_state(state: CampaignWorkflowState):
         progress_data = {
             "request_id": request_id,
             "progress_percentage": state.get("progress_percentage", 0),
+            "step_progress": state.get("step_progress", 0),
             "status_message": state.get("status_message", "Processing..."),
             "current_phase": state.get("current_phase", "init"),
             "current_node": state.get("current_node", ""),

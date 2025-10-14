@@ -48,6 +48,7 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         state["current_node"] = "generate_scene_elements"
         state["current_phase"] = "element_gen"
         state["progress_percentage"] = 95
+        state["step_progress"] = 0  # Initialize step progress for this phase
         state["status_message"] = "Generating scene elements (NPCs, discoveries, events, challenges)..."
 
         # Ensure state has all required list fields initialized
@@ -87,6 +88,10 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
             # Update progress for each scene (95% to 98% range)
             scene_progress = 95 + int((scene_idx / total_scenes) * 3)  # 95% to 98%
             state["progress_percentage"] = scene_progress
+
+            # Update step progress based on scene completion
+            state["step_progress"] = int(((scene_idx + 1) / total_scenes) * 100)  # 0-100% within this phase
+
             state["status_message"] = f"Generating elements for scene {scene_idx + 1} of {total_scenes}..."
             await publish_progress(state, f"Scene: {scene['name']}")
 
@@ -208,6 +213,9 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         logger.info(f"Generated {len(all_npcs)} NPCs, {len(all_discoveries)} discoveries, "
                    f"{len(all_events)} events, {len(all_challenges)} challenges, "
                    f"{len(all_knowledge_entities)} knowledge entities, {len(all_items)} items")
+
+        # Reset step progress for next phase
+        state["step_progress"] = 0
 
         # Clear errors on success
         state["errors"] = []

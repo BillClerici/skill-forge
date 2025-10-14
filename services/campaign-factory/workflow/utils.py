@@ -52,6 +52,7 @@ async def save_campaign_state(state: CampaignWorkflowState):
         progress_data = {
             "request_id": request_id,
             "progress_percentage": state.get("progress_percentage", 0),
+            "step_progress": state.get("step_progress", 0),
             "status_message": state.get("status_message", "Processing..."),
             "current_phase": state.get("current_phase", "init"),
             "current_node": state.get("current_node", ""),
@@ -105,6 +106,7 @@ async def publish_progress(state: CampaignWorkflowState, message: str = None):
                 "phase": state["current_phase"],
                 "node": state["current_node"],
                 "progress": state["progress_percentage"],
+                "step_progress": state.get("step_progress", 0),
                 "message": message or state["status_message"],
                 "timestamp": datetime.utcnow().isoformat(),
                 "errors": state["errors"],

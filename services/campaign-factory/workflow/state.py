@@ -401,6 +401,7 @@ class CampaignWorkflowState(TypedDict):
 
     # Progress tracking
     progress_percentage: int
+    step_progress: int  # Progress within current phase/step (0-100)
     status_message: str
 
     # Results

@@ -479,6 +479,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             """
             MERGE (camp:Campaign {id: $campaign_id})
             SET camp.name = $campaign_name,
+                camp.campaign_id = $campaign_id,
                 camp.status = $status,
                 camp.created_at = $created_at
             """,
@@ -651,21 +652,27 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                                 else:
                                     role_str = str(npc_role)
 
-                                # Create NPC with full properties
+                                # Create NPC with full properties including species and campaign
                                 session.run(
                                     """
                                     MATCH (sc:Scene {id: $scene_id})
                                     MERGE (npc:NPC {id: $npc_id})
                                     SET npc.name = $npc_name,
                                         npc.role = $role,
-                                        npc.description = $description
+                                        npc.description = $description,
+                                        npc.species_id = $species_id,
+                                        npc.species_name = $species_name,
+                                        npc.campaign_id = $campaign_id
                                     MERGE (sc)-[:FEATURES]->(npc)
                                     """,
                                     scene_id=scene_id,
                                     npc_id=npc_id,
                                     npc_name=npc_data.get("name", "Unknown NPC"),
                                     role=role_str,
-                                    description=npc_data.get("backstory", f"A {npc_data.get('species_name', 'character')} in this location.")
+                                    description=npc_data.get("backstory", f"A {npc_data.get('species_name', 'character')} in this location."),
+                                    species_id=npc_data.get("species_id", ""),
+                                    species_name=npc_data.get("species_name", ""),
+                                    campaign_id=campaign_id
                                 )
                             else:
                                 # Fallback: create NPC node with just ID (should not happen)
@@ -715,7 +722,10 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 MERGE (npc:NPC {id: $npc_id})
                 SET npc.name = $npc_name,
                     npc.role = $role,
-                    npc.description = $description
+                    npc.description = $description,
+                    npc.species_id = $species_id,
+                    npc.species_name = $species_name,
+                    npc.campaign_id = $campaign_id
 
                 // MERGE Species by name to avoid duplicates
                 MERGE (s:Species {name: $species_name, world_id: $world_id})
@@ -737,6 +747,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 npc_name=npc["name"],
                 role=role_str,
                 description=backstory,
+                campaign_id=campaign_id,
                 species_id=npc["species_id"],
                 species_name=npc.get("species_name", "Unknown Species"),
                 location_id=npc["level_3_location_id"],

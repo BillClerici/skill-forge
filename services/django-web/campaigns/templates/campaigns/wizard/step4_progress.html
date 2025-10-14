@@ -9,16 +9,33 @@
     <div class="card-body">
         <!-- Progress Display -->
         <div id="progress-container">
-            <!-- Progress Bar -->
+            <!-- Overall Progress Bar -->
             <div class="mb-4">
                 <div class="d-flex justify-content-between mb-2">
-                    <span id="status-message">Initializing...</span>
+                    <span><strong>Overall Progress</strong></span>
                     <span><span id="progress-percentage">0</span>%</span>
                 </div>
                 <div class="progress" style="height: 25px;">
                     <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
                          role="progressbar" style="width: 0%"></div>
                 </div>
+            </div>
+
+            <!-- Step Progress Bar -->
+            <div class="mb-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span><strong>Step Progress</strong></span>
+                    <span><span id="step-progress-percentage">0</span>%</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div id="step-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Status Message -->
+            <div class="alert alert-secondary mb-3">
+                <span id="status-message">Initializing...</span>
             </div>
 
             <!-- Current Phase -->
@@ -101,10 +118,15 @@ function pollProgress() {
 }
 
 function updateProgress(data) {
-    // Update progress bar
+    // Update overall progress bar
     const percentage = data.progress || 0;
     document.getElementById('progress-percentage').textContent = percentage;
     document.getElementById('progress-bar').style.width = percentage + '%';
+
+    // Update step progress bar
+    const stepPercentage = data.step_progress || 0;
+    document.getElementById('step-progress-percentage').textContent = stepPercentage;
+    document.getElementById('step-progress-bar').style.width = stepPercentage + '%';
 
     // Update status message
     if (data.message) {

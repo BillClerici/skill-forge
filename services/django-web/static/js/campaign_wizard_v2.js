@@ -460,7 +460,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress if available
                 if (data.progress_percentage) {
-                    updateLoadingMessage('story', `Generating story ideas... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('story', `Generating story ideas... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 if (data.story_ideas && data.story_ideas.length > 0) {
@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress if available
                 if (data.progress_percentage) {
-                    updateLoadingMessage('core', `Generating campaign core... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('core', `Generating campaign core... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 if (data.campaign_core) {
@@ -733,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress
                 if (data.progress_percentage) {
-                    updateLoadingMessage('quests', `Generating quests... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('quests', `Generating quests... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('places', `Generating places... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('places', `Generating places... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -1010,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('scenes', `Generating scenes... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('scenes', `Generating scenes... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -1271,11 +1271,13 @@ document.addEventListener('DOMContentLoaded', function() {
             overallProgress.textContent = Math.floor(progressPercentage);
         }
 
-        // Update Step Progress display - calculate within phase range
+        // Update Step Progress display - use backend value if available, otherwise calculate
         const stepProgress = document.getElementById('step-progress-percentage');
-        if (stepProgress && progressPercentage !== null) {
-            const calculatedStepProgress = calculateStepProgress(phase, progressPercentage);
-            stepProgress.textContent = Math.floor(calculatedStepProgress);
+        if (stepProgress) {
+            // Use backend step_progress if available (during element generation), otherwise calculate from phase
+            const stepProgressValue = (stepProgressPercentage !== null) ? stepProgressPercentage :
+                                     (progressPercentage !== null) ? calculateStepProgress(phase, progressPercentage) : 0;
+            stepProgress.textContent = Math.floor(stepProgressValue);
         }
 
         // Display errors if present
@@ -1563,7 +1565,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('finalize', `Finalizing campaign... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
+                    updateLoadingMessage('finalize', `Finalizing campaign... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, data.step_progress, data.errors);
                 }
 
                 if (data.final_campaign_id) {
