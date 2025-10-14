@@ -6,6 +6,8 @@ import os
 import logging
 import json
 import uuid
+import random
+from datetime import datetime
 from typing import List
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate
@@ -19,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Note: API key is read from ANTHROPIC_API_KEY environment variable
 anthropic_client = ChatAnthropic(
     model="claude-3-5-sonnet-20241022",
-    temperature=0.9,  # Higher creativity for story generation
+    temperature=1.0,  # Maximum creativity for story generation variety
     max_tokens=4096
 )
 
@@ -86,6 +88,13 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
         if state.get("user_story_idea"):
             user_direction = f"\n\nUser's Story Direction: {state['user_story_idea']}"
 
+        # Add randomization seed to ensure variety across generations
+        random_seed = random.randint(1000, 9999)
+        timestamp = datetime.utcnow().isoformat()
+        generation_count = state.get("story_regeneration_count", 0)
+
+        randomization_context = f"\n\nGeneration Context (for variety): Seed={random_seed}, Timestamp={timestamp}, Attempt={generation_count+1}"
+
         # Create prompt for story generation
         prompt = ChatPromptTemplate.from_messages([
             ("system", """You are a master storyteller and campaign designer for RPG games.
@@ -98,19 +107,45 @@ CRITICAL REQUIREMENTS:
 - Story 3: Must be "Short" duration with "Medium" difficulty
 
 Each story idea should:
-- Be unique and different from the others in theme and approach
-- Fit the world's genre and setting
+- Be COMPLETELY UNIQUE and different from the others in theme and approach
+- Fit the world's genre and setting authentically
 - Have clear narrative potential for a multi-quest campaign
 - Include interesting themes and conflicts
 - Match the specified duration (Long, Medium, or Short)
 - ALL stories must be Medium difficulty level
 
-DIVERSITY REQUIREMENTS - Avoid these overused themes:
+MANDATORY DIVERSITY REQUIREMENTS - You MUST vary these elements:
 - NO crystal/crystalline-based stories (shards, fragments, corrupted crystals, etc.)
 - NO "chosen one" prophecies or destiny narratives
-- Vary the core conflicts: political intrigue, survival, exploration, investigation, etc.
-- Use different scales: personal stakes, community-level, regional consequences
-- Mix tones: some grim, some hopeful, some mysterious
+- NO ancient evil awakening tropes
+- NO lost artifact quests unless truly unique
+- Vary the core conflicts: political intrigue, survival, exploration, investigation, mystery, heist, diplomacy, trade wars, cultural conflicts, natural disasters, etc.
+- Use different scales: personal stakes vs community-level vs regional consequences
+- Mix tones: some grim, some hopeful, some mysterious, some comedic, some tragic
+- Vary antagonist types: not just villains - consider natural forces, misunderstandings, rival factions, moral dilemmas
+- Explore different story structures: mystery reveal, race against time, territorial expansion, relationship drama, resource management
+
+CREATIVE INSPIRATION - Consider these diverse themes:
+- Economic collapse and reconstruction
+- Cultural preservation vs modernization
+- Environmental catastrophe response
+- Technological discovery consequences
+- Religious schism or reformation
+- Generational conflict
+- Immigration and integration
+- Plague or disease management
+- Labor uprising or workers' rights
+- Artistic/cultural renaissance
+- Scientific breakthrough implications
+- Diplomatic marriage alliance complications
+- Succession crisis
+- Memory loss epidemic
+- Time distortion effects
+- Communication breakdown across regions
+- Food shortage crisis
+- Wildlife migration patterns disrupting civilization
+- Architectural collapse revealing secrets
+- Lost language translation quest
 
 Return your response as a JSON array with this structure:
 [
@@ -137,15 +172,16 @@ Return your response as a JSON array with this structure:
   }}
 ]
 
-CRITICAL: Return ONLY the JSON array, no other text."""),
-            ("user", "{context}{user_direction}\n\nGenerate 3 diverse campaign story ideas (1 Long, 1 Medium, 1 Short - all Medium difficulty).")
+CRITICAL: Return ONLY the JSON array, no other text. Use the Generation Context seed to ensure maximum variety and avoid similar stories across different generations."""),
+            ("user", "{context}{user_direction}{randomization}\n\nGenerate 3 COMPLETELY DIFFERENT and diverse campaign story ideas (1 Long, 1 Medium, 1 Short - all Medium difficulty). Make each one wildly different from typical fantasy tropes.")
         ])
 
         # Generate story ideas
         chain = prompt | anthropic_client
         response = await chain.ainvoke({
             "context": world_context,
-            "user_direction": user_direction
+            "user_direction": user_direction,
+            "randomization": randomization_context
         })
 
         # Parse response

@@ -354,12 +354,10 @@
                 <div class="row">
                     <div class="col s12 m6">
                         <div style="padding: 20px;">
-                            <p style="color: var(--rpg-gold); margin-bottom: 20px;">
+                            <p style="color: var(--rpg-gold); margin-bottom: 10px; margin-top: 0;">
                                 <strong>Number of Quests: <span id="quest-count-display">5</span></strong>
                             </p>
-                            <p>
-                                <input type="range" id="num_quests" name="num_quests" min="1" max="10" value="5" step="1">
-                            </p>
+                            <input type="range" id="num_quests" name="num_quests" min="1" max="10" value="5" step="1">
                         </div>
                     </div>
 
@@ -471,7 +469,7 @@
                     <p style="color: #b8b8d1; font-size: 0.9rem;">
                         The following Level 2 locations were automatically generated for this campaign:
                     </p>
-                    <ul id="new-locations-list-l2" style="color: #b8b8d1; font-size: 0.9rem;"></ul>
+                    <ol id="new-locations-list-l2" style="color: #b8b8d1; font-size: 0.9rem;"></ol>
                     <p style="color: var(--rpg-green); font-size: 0.85rem; margin-bottom: 0;">
                         <i class="material-icons tiny">info</i> These locations are now part of your world and can be reused in future campaigns.
                     </p>
@@ -513,7 +511,7 @@
                     <p style="color: #b8b8d1; font-size: 0.9rem;">
                         The following Level 3 locations were automatically generated for scenes:
                     </p>
-                    <ul id="new-locations-list-l3" style="color: #b8b8d1; font-size: 0.9rem;"></ul>
+                    <ol id="new-locations-list-l3" style="color: #b8b8d1; font-size: 0.9rem;"></ol>
                     <p style="color: var(--rpg-green); font-size: 0.85rem; margin-bottom: 0;">
                         <i class="material-icons tiny">info</i> These scene locations are now part of your world.
                     </p>
@@ -608,7 +606,10 @@
         <!-- Dialog Header -->
         <div class="loading-dialog-header">
             <i class="material-icons" style="margin-right: 10px;">auto_awesome</i>
-            <span>Campaign Generation Progress</span>
+            <span style="flex: 1;">Campaign Generation Progress</span>
+            <button type="button" id="close-loading-overlay-btn" class="btn-flat" style="color: var(--rpg-silver); min-width: auto; padding: 0 10px;" title="Close overlay and view wizard screens">
+                <i class="material-icons">close</i>
+            </button>
         </div>
 
         <!-- Dialog Content -->

@@ -364,8 +364,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${region.description || 'No description available'}
                             </p>
                             <div style="margin-top: 10px;">
-                                <span style="color: var(--rpg-silver); font-size: 0.85rem;">
-                                    <i class="material-icons tiny">location_on</i> ${(region.locations || []).length} Locations
+                                <span style="color: var(--rpg-silver); font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+                                    <i class="material-icons tiny">location_on</i>
+                                    <span>${(region.locations || []).length} Locations</span>
                                 </span>
                             </div>
                         </div>
@@ -631,6 +632,16 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function displayCampaignCore(core) {
         const container = document.getElementById('campaign-core-container');
+
+        // Format plot and storyline into paragraphs
+        const formatTextParagraphs = (text) => {
+            if (!text) return '';
+            // Split by double newlines or periods followed by newlines, create <p> tags for each paragraph
+            return text.split(/\n\n+/).map(para =>
+                `<p style="color: #b8b8d1; line-height: 1.6; margin-bottom: 15px;">${para.trim()}</p>`
+            ).join('');
+        };
+
         container.innerHTML = `
             <div class="review-section">
                 <strong style="color: var(--rpg-gold);">Campaign Name:</strong>
@@ -638,22 +649,21 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="review-section">
                 <strong style="color: var(--rpg-gold);">Plot:</strong>
-                <p style="color: #b8b8d1; line-height: 1.6;">${core.plot}</p>
+                ${formatTextParagraphs(core.plot)}
             </div>
             <div class="review-section">
                 <strong style="color: var(--rpg-gold);">Storyline:</strong>
-                <p style="color: #b8b8d1; line-height: 1.6;">${core.storyline}</p>
+                ${formatTextParagraphs(core.storyline)}
             </div>
             <div class="review-section">
                 <strong style="color: var(--rpg-gold);">Primary Objectives:</strong>
-                <ul style="color: #b8b8d1;">
+                <ol style="color: #b8b8d1;">
                     ${core.primary_objectives.map(obj => `
                         <li style="margin-bottom: 10px;">
                             ${obj.description}
-                            <span class="blooms-tag blooms-${obj.blooms_level}">${getBloomsLabel(obj.blooms_level)}</span>
                         </li>
                     `).join('')}
-                </ul>
+                </ol>
             </div>
             ${core.backstory ? `
                 <div class="review-section">
@@ -666,8 +676,11 @@ document.addEventListener('DOMContentLoaded', function() {
             ` : ''}
         `;
 
-        // Show Bloom's info
-        document.getElementById('blooms-info').style.display = 'block';
+        // Hide Bloom's info section (removed per user request)
+        const bloomsInfo = document.getElementById('blooms-info');
+        if (bloomsInfo) {
+            bloomsInfo.style.display = 'none';
+        }
     }
 
     /**
@@ -785,14 +798,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div style="margin-top: 10px;">
                     <strong style="color: var(--rpg-gold); font-size: 0.9rem;">Objectives:</strong>
-                    <ul style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
+                    <ol style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
                         ${quest.objectives.map(obj => `
-                            <li style="margin-bottom: 5px;">
+                            <li style="margin-bottom: 8px;">
                                 ${obj.description}
-                                <span class="blooms-tag blooms-${obj.blooms_level}">${getBloomsLabel(obj.blooms_level)}</span>
                             </li>
                         `).join('')}
-                    </ul>
+                    </ol>
                 </div>
                 <div style="margin-top: 10px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
                     <span><i class="material-icons tiny">timer</i> ~${quest.estimated_duration_minutes} min</span>
@@ -928,13 +940,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 <h6>${quest ? quest.name : 'Quest'} - Places</h6>
                 ${questPlaces.map(place => `
                     <div style="margin-top: 15px; padding: 10px; background: rgba(27, 27, 46, 0.4); border-radius: 4px;">
-                        <strong style="color: var(--rpg-purple);">${place.name}</strong>
-                        <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
+                        <strong style="color: var(--rpg-purple); display: flex; align-items: center; gap: 8px;">
+                            <i class="material-icons" style="font-size: 1.2rem;">map</i>
+                            <span>${place.name}</span>
+                        </strong>
+                        <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 8px;">
                             ${place.description}
                         </p>
-                        <div style="margin-top: 5px; font-size: 0.85rem; color: var(--rpg-silver);">
-                            <i class="material-icons tiny">place</i> ${place.level_2_location_name}
-                        </div>
                     </div>
                 `).join('')}
             `;
@@ -946,9 +958,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (level2NewLocations.length > 0) {
             document.getElementById('new-locations-created-l2').style.display = 'block';
             const locationList = document.getElementById('new-locations-list-l2');
-            locationList.innerHTML = level2NewLocations.map(loc => `
-                <li><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
+            locationList.innerHTML = level2NewLocations.map((loc, idx) => `
+                <li style="margin-bottom: 12px;"><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
             `).join('');
+            // Change to ordered list
+            locationList.parentElement.querySelector('#new-locations-list-l2').style.listStyleType = 'decimal';
         }
     }
 
@@ -1073,30 +1087,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         <p style="color: #b8b8d1; font-size: 0.9rem; margin-top: 5px;">
                             ${scene.description}
                         </p>
-                        <div style="margin-top: 10px; font-size: 0.85rem; color: var(--rpg-silver);">
-                            <i class="material-icons tiny">movie</i> ${scene.level_3_location_name}
+                        <div style="margin-top: 10px; font-size: 0.85rem; color: var(--rpg-silver); display: flex; align-items: center; gap: 4px;">
+                            <i class="material-icons tiny">movie</i>
+                            <span>${scene.level_3_location_name}</span>
                         </div>
 
-                        ${scene.npc_ids && scene.npc_ids.length > 0 ? `
+                        ${(scene.npc_ids && scene.npc_ids.length > 0) || (npcs && npcs.length > 0) ? `
                             <div style="margin-top: 10px;">
                                 <strong style="color: var(--rpg-gold); font-size: 0.85rem;">NPCs:</strong>
                                 <div style="margin-top: 5px;">
-                                    ${scene.npc_ids.map(npcId => {
-                                        const npc = npcs.find(n => n.npc_id === npcId);
+                                    ${scene.npc_ids ? scene.npc_ids.map(npcId => {
+                                        const npc = npcs ? npcs.find(n => n.npc_id === npcId) : null;
                                         return npc ? `<span class="chip" style="background-color: rgba(212, 175, 55, 0.2); font-size: 0.75rem;">${npc.name} (${npc.role})</span>` : '';
-                                    }).join('')}
+                                    }).filter(html => html).join('') : ''}
                                 </div>
                             </div>
                         ` : ''}
 
-                        ${scene.discovery_ids && scene.discovery_ids.length > 0 ? `
+                        ${(scene.discovery_ids && scene.discovery_ids.length > 0) || (discoveries && discoveries.length > 0) ? `
                             <div style="margin-top: 10px;">
                                 <strong style="color: var(--rpg-gold); font-size: 0.85rem;">Knowledge & Discoveries:</strong>
                                 <div style="margin-top: 5px;">
-                                    ${scene.discovery_ids.map(discId => {
-                                        const disc = discoveries.find(d => d.discovery_id === discId);
+                                    ${scene.discovery_ids ? scene.discovery_ids.map(discId => {
+                                        const disc = discoveries ? discoveries.find(d => d.discovery_id === discId) : null;
                                         return disc ? `<span class="knowledge-item">${disc.name}</span>` : '';
-                                    }).join('')}
+                                    }).filter(html => html).join('') : ''}
                                 </div>
                             </div>
                         ` : ''}
@@ -1123,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('new-locations-created-l3').style.display = 'block';
             const locationList = document.getElementById('new-locations-list-l3');
             locationList.innerHTML = level3NewLocations.map(loc => `
-                <li><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
+                <li style="margin-bottom: 12px;"><strong>${loc.name}</strong> (${loc.type}) - ${loc.description || 'New location added to world'}</li>
             `).join('');
         }
     }
@@ -1471,6 +1486,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Close loading overlay manually
+     */
+    function closeLoadingOverlay() {
+        // Stop any active polling
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+
+        // Stop timer
+        stopTimer();
+
+        // Hide overlay
+        document.getElementById('loading-overlay').style.display = 'none';
+
+        M.toast({html: 'Progress overlay closed. Generation continues in background.', classes: 'blue'});
+    }
+
+    /**
      * Reopen progress modal for existing campaign
      */
     async function reopenProgressModal(existingRequestId) {
@@ -1490,26 +1524,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const data = await response.json();
 
-            // Determine which phase to show based on what's been generated
+            // Populate wizard state with what's been generated
+            if (data.campaign_name) wizardState.campaign_name = data.campaign_name;
+            if (data.universe_id) wizardState.universe_id = data.universe_id;
+            if (data.universe_name) wizardState.universe_name = data.universe_name;
+            if (data.world_id) wizardState.world_id = data.world_id;
+            if (data.world_name) wizardState.world_name = data.world_name;
+            if (data.world_genre) wizardState.world_genre = data.world_genre;
+            if (data.region_id) wizardState.region_id = data.region_id;
+            if (data.region_name) wizardState.region_name = data.region_name;
+            if (data.selected_story_id) wizardState.selected_story_id = data.selected_story_id;
+            if (data.selected_story) wizardState.selected_story = data.selected_story;
+            if (data.campaign_core) wizardState.campaign_core = data.campaign_core;
+            if (data.quests) wizardState.quests = data.quests;
+            if (data.places) wizardState.places = data.places;
+            if (data.scenes) wizardState.scenes = data.scenes;
+
+            // Determine which step to navigate to and what phase to show
+            let targetStep = 1;
             let phase = 'story';
             let statusMsg = 'Generating story ideas...';
 
             if (data.scenes && data.scenes.length > 0) {
+                targetStep = 10;
                 phase = 'finalize';
                 statusMsg = 'Finalizing campaign...';
+                // Display scenes
+                displayScenes(data.scenes, data.new_locations || [], data.npcs || [], data.discoveries || []);
             } else if (data.places && data.places.length > 0) {
+                targetStep = 9;
                 phase = 'scenes';
                 statusMsg = 'Generating scenes with NPCs, challenges, events, and discoveries...';
+                // Display places
+                displayPlaces(data.places, data.new_locations || []);
             } else if (data.quests && data.quests.length > 0) {
+                targetStep = 8;
                 phase = 'places';
                 statusMsg = 'Generating places...';
+                // Display quests
+                displayQuests(data.quests);
             } else if (data.campaign_core) {
+                targetStep = 6;
                 phase = 'quests';
                 statusMsg = 'Generating quests...';
+                // Display campaign core
+                displayCampaignCore(data.campaign_core);
             } else if (data.story_ideas && data.story_ideas.length > 0) {
+                targetStep = 5;
                 phase = 'core';
                 statusMsg = 'Generating campaign core...';
+                // Display story ideas
+                displayStoryIdeas(data.story_ideas);
             }
+
+            // Navigate to the appropriate wizard step
+            currentStep = targetStep;
+            updateProgress();
 
             // Show loading overlay with current phase
             showLoadingOverlay(phase, statusMsg);
@@ -1533,6 +1603,12 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error resuming campaign:', error);
             M.toast({html: 'Error resuming campaign', classes: 'red'});
         }
+    }
+
+    // Setup close button handler for loading overlay
+    const closeOverlayBtn = document.getElementById('close-loading-overlay-btn');
+    if (closeOverlayBtn) {
+        closeOverlayBtn.addEventListener('click', closeLoadingOverlay);
     }
 
     /**
