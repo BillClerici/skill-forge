@@ -9,9 +9,15 @@ from typing import Dict, Any, List
 from datetime import datetime
 import aio_pika
 from redis.asyncio import Redis
+from pymongo import MongoClient
 from .state import CampaignWorkflowState, AuditEntry
 
 logger = logging.getLogger(__name__)
+
+# Database connections
+MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
+mongo_client = MongoClient(MONGODB_URI)
+db = mongo_client['skillforge']
 
 # Redis client (will be set by main.py)
 redis_client: Redis = None
@@ -297,3 +303,55 @@ def get_blooms_level_description(level: int) -> str:
     }
 
     return levels.get(level, "Unknown level")
+
+
+async def publish_entity_event(entity_type: str, action: str, entity_id: str, entity_data: Dict[str, Any]):
+    """
+    Publish entity lifecycle event to RabbitMQ for Neo4j sync
+
+    Args:
+        entity_type: 'world', 'region', 'location', 'species', 'npc'
+        action: 'created', 'updated', 'deleted'
+        entity_id: Entity ID
+        entity_data: Dictionary with entity details
+    """
+    try:
+        routing_key = f'entity.{entity_type}.{action}'
+        event_data = {
+            'entity_type': entity_type,
+            'action': action,
+            'entity_id': entity_id,
+            'data': entity_data
+        }
+
+        # Publish to RabbitMQ entity exchange
+        connection = await aio_pika.connect_robust(
+            f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASS')}@"
+            f"{os.getenv('RABBITMQ_HOST', 'localhost')}:{os.getenv('RABBITMQ_PORT', '5672')}/"
+        )
+
+        async with connection:
+            channel = await connection.channel()
+
+            # Declare skillforge events exchange (same as Django and world-factory)
+            await channel.declare_exchange(
+                'skillforge.events',
+                aio_pika.ExchangeType.TOPIC,
+                durable=True
+            )
+
+            exchange = await channel.get_exchange('skillforge.events')
+
+            await exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(event_data).encode(),
+                    content_type="application/json",
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                ),
+                routing_key=routing_key
+            )
+
+        logger.info(f"Published entity event: {routing_key} for {entity_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to publish entity event: {e}")

@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalSteps = 11;
     let requestId = null;
     let pollInterval = null;
+    let timerInterval = null;
+    let timerStartTime = null;
 
     // Wizard state
     const wizardState = {
@@ -458,7 +460,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress if available
                 if (data.progress_percentage) {
-                    updateLoadingMessage('story', `Generating story ideas... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('story', `Generating story ideas... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 if (data.story_ideas && data.story_ideas.length > 0) {
@@ -603,7 +605,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress if available
                 if (data.progress_percentage) {
-                    updateLoadingMessage('core', `Generating campaign core... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('core', `Generating campaign core... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 if (data.campaign_core) {
@@ -731,7 +733,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Update loading message with progress
                 if (data.progress_percentage) {
-                    updateLoadingMessage('quests', `Generating quests... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('quests', `Generating quests... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -870,7 +872,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('places', `Generating places... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('places', `Generating places... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -1008,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('scenes', `Generating scenes... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('scenes', `Generating scenes... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 // Check if campaign already finalized (auto-finalization)
@@ -1186,6 +1188,21 @@ document.addEventListener('DOMContentLoaded', function() {
             progressBar.style.width = '10%';
         }
 
+        // Reset progress displays
+        const overallProgress = document.getElementById('overall-progress-percentage');
+        const stepProgress = document.getElementById('step-progress-percentage');
+        if (overallProgress) overallProgress.textContent = '0';
+        if (stepProgress) stepProgress.textContent = '0';
+
+        // Start timer
+        startTimer();
+
+        // Hide error notifications initially
+        const errorDiv = document.getElementById('progress-errors');
+        const warningDiv = document.getElementById('progress-warnings');
+        if (errorDiv) errorDiv.style.display = 'none';
+        if (warningDiv) warningDiv.style.display = 'none';
+
         // Update phases
         document.querySelectorAll('.phase-step').forEach(step => {
             step.classList.remove('active');
@@ -1203,19 +1220,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function updateLoadingMessage(phase, statusMessage, detailMessage = null) {
+    /**
+     * Calculate step progress within current phase
+     * Phase ranges based on backend: story(0-10), core(10-15), quests(15-35), places(35-55), scenes(55-98), finalize(98-100)
+     * Note: Backend has element generation at 95-98%, but frontend treats it as part of scenes phase
+     */
+    function calculateStepProgress(phase, overallProgress) {
+        const phaseRanges = {
+            'story': { start: 0, end: 10 },
+            'core': { start: 10, end: 15 },
+            'quests': { start: 15, end: 35 },
+            'places': { start: 35, end: 55 },
+            'scenes': { start: 55, end: 98 },  // Includes element generation (95-98%)
+            'finalize': { start: 98, end: 100 }
+        };
+
+        const range = phaseRanges[phase];
+        if (!range) return 0;
+
+        const phaseWidth = range.end - range.start;
+        const progressWithinPhase = overallProgress - range.start;
+        const stepPercentage = (progressWithinPhase / phaseWidth) * 100;
+
+        // Clamp between 0 and 100
+        return Math.max(0, Math.min(100, stepPercentage));
+    }
+
+    function updateLoadingMessage(phase, statusMessage, detailMessage = null, progressPercentage = null, stepProgressPercentage = null, errors = null) {
         document.getElementById('loading-status-message').textContent = statusMessage;
         if (detailMessage) {
             document.getElementById('loading-detail-message').textContent = detailMessage;
         }
 
-        // Update progress bar based on phase
+        // FIX: Update progress bar based on BACKEND progress_percentage instead of phase calculation
         const progressBar = document.getElementById('progress-bar-fill');
-        if (progressBar) {
+        if (progressBar && progressPercentage !== null) {
+            // Use backend progress percentage to keep status text and progress bar in sync
+            progressBar.style.width = progressPercentage + '%';
+        } else if (progressBar) {
+            // Fallback: Calculate based on phase if no percentage provided
             const phases = ['story', 'core', 'quests', 'places', 'scenes', 'finalize'];
             const currentIndex = phases.indexOf(phase);
-            const progressPercentage = ((currentIndex + 1) / phases.length) * 100;
-            progressBar.style.width = progressPercentage + '%';
+            const calculatedPercentage = ((currentIndex + 1) / phases.length) * 100;
+            progressBar.style.width = calculatedPercentage + '%';
+        }
+
+        // Update Overall Progress display
+        const overallProgress = document.getElementById('overall-progress-percentage');
+        if (overallProgress && progressPercentage !== null) {
+            overallProgress.textContent = Math.floor(progressPercentage);
+        }
+
+        // Update Step Progress display - calculate within phase range
+        const stepProgress = document.getElementById('step-progress-percentage');
+        if (stepProgress && progressPercentage !== null) {
+            const calculatedStepProgress = calculateStepProgress(phase, progressPercentage);
+            stepProgress.textContent = Math.floor(calculatedStepProgress);
+        }
+
+        // Display errors if present
+        if (errors && errors.length > 0) {
+            displayErrors(errors);
         }
 
         // Mark completed phases
@@ -1247,6 +1312,15 @@ document.addEventListener('DOMContentLoaded', function() {
             progressBar.style.width = '100%';
         }
 
+        // Update progress displays to 100%
+        const overallProgress = document.getElementById('overall-progress-percentage');
+        const stepProgress = document.getElementById('step-progress-percentage');
+        if (overallProgress) overallProgress.textContent = '100';
+        if (stepProgress) stepProgress.textContent = '100';
+
+        // Stop timer
+        stopTimer();
+
         // Hide overlay after a brief delay to show completion
         setTimeout(() => {
             document.getElementById('loading-overlay').style.display = 'none';
@@ -1260,6 +1334,69 @@ document.addEventListener('DOMContentLoaded', function() {
             clearInterval(pollInterval);
             pollInterval = null;
         }
+    }
+
+    /**
+     * Timer functions
+     */
+    function startTimer() {
+        // Clear any existing timer
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+
+        // Set start time
+        timerStartTime = Date.now();
+
+        // Update timer display immediately
+        updateTimerDisplay();
+
+        // Update timer every second
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+    }
+
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        timerStartTime = null;
+    }
+
+    function updateTimerDisplay() {
+        if (!timerStartTime) return;
+
+        const elapsed = Math.floor((Date.now() - timerStartTime) / 1000); // seconds
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+
+        const timerEl = document.getElementById('elapsed-timer');
+        if (timerEl) {
+            timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+    }
+
+    /**
+     * Error display function
+     */
+    function displayErrors(errors) {
+        const errorDiv = document.getElementById('progress-errors');
+        const errorList = document.getElementById('progress-error-list');
+
+        if (!errorDiv || !errorList) return;
+
+        // Clear existing errors
+        errorList.innerHTML = '';
+
+        // Add each error as a list item
+        errors.forEach(error => {
+            const li = document.createElement('li');
+            li.textContent = error;
+            errorList.appendChild(li);
+        });
+
+        // Show error div
+        errorDiv.style.display = 'block';
     }
 
     /**
@@ -1426,7 +1563,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.progress_percentage) {
-                    updateLoadingMessage('finalize', `Finalizing campaign... ${data.progress_percentage}%`, data.status_message);
+                    updateLoadingMessage('finalize', `Finalizing campaign... ${data.progress_percentage}%`, data.status_message, data.progress_percentage, null, data.errors);
                 }
 
                 if (data.final_campaign_id) {

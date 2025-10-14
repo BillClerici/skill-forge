@@ -301,16 +301,22 @@ async def persist_scene_elements(state: CampaignWorkflowState):
     Persist discoveries, events, challenges, knowledge entities, items, and rubrics
     """
     # Discoveries
+    campaign_id = f"campaign_{state['request_id']}"
     for idx, discovery in enumerate(state["discoveries"]):
-        discovery_id = f"discovery_{state['request_id']}_{idx}"
+        # FIX 2: Use original entity ID, don't regenerate
+        discovery_id = discovery.get("discovery_id", f"discovery_{state['request_id']}_{idx}")
 
+        # FIX 3 & 4: Fix field names and add campaign_id
         discovery_doc = {
             "_id": discovery_id,
-            "name": discovery["name"],
-            "description": discovery["description"],
-            "knowledge_type": discovery["knowledge_type"],
-            "blooms_level": discovery["blooms_level"],
+            "discovery_name": discovery.get("name", "Unknown Discovery"),
+            "name": discovery.get("name", "Unknown Discovery"),  # Duplicate for compatibility
+            "description": discovery.get("description", ""),
+            "knowledge_type": discovery.get("knowledge_type", "lore"),
+            "blooms_level": discovery.get("blooms_level", 2),
             "unlocks_scenes": discovery.get("unlocks_scenes", []),
+            "campaign_id": campaign_id,  # FIX 4: Add campaign_id
+            "scene_id": discovery.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
         }
 
@@ -322,15 +328,20 @@ async def persist_scene_elements(state: CampaignWorkflowState):
 
     # Events
     for idx, event in enumerate(state["events"]):
-        event_id = f"event_{state['request_id']}_{idx}"
+        # FIX 2: Use original entity ID, don't regenerate
+        event_id = event.get("event_id", f"event_{state['request_id']}_{idx}")
 
+        # FIX 3 & 4: Fix field names and add campaign_id
         event_doc = {
             "_id": event_id,
-            "name": event["name"],
-            "description": event["description"],
-            "event_type": event["event_type"],
+            "event_name": event.get("name", "Unknown Event"),
+            "name": event.get("name", "Unknown Event"),  # Duplicate for compatibility
+            "description": event.get("description", ""),
+            "event_type": event.get("event_type", "scripted"),
             "trigger_conditions": event.get("trigger_conditions", {}),
             "outcomes": event.get("outcomes", []),
+            "campaign_id": campaign_id,  # FIX 4: Add campaign_id
+            "scene_id": event.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
         }
 
@@ -342,17 +353,22 @@ async def persist_scene_elements(state: CampaignWorkflowState):
 
     # Challenges
     for idx, challenge in enumerate(state["challenges"]):
-        challenge_id = f"challenge_{state['request_id']}_{idx}"
+        # FIX 2: Use original entity ID, don't regenerate
+        challenge_id = challenge.get("challenge_id", f"challenge_{state['request_id']}_{idx}")
 
+        # FIX 3 & 4: Fix field names and add campaign_id
         challenge_doc = {
             "_id": challenge_id,
-            "name": challenge["name"],
-            "description": challenge["description"],
-            "challenge_type": challenge["challenge_type"],
-            "difficulty": challenge["difficulty"],
-            "blooms_level": challenge["blooms_level"],
+            "challenge_name": challenge.get("name", "Unknown Challenge"),
+            "name": challenge.get("name", "Unknown Challenge"),  # Duplicate for compatibility
+            "description": challenge.get("description", ""),
+            "challenge_type": challenge.get("challenge_type", "skill_check"),
+            "difficulty": challenge.get("difficulty", "Medium"),
+            "blooms_level": challenge.get("blooms_level", 3),
             "success_rewards": challenge.get("success_rewards", {}),
             "failure_consequences": challenge.get("failure_consequences", {}),
+            "campaign_id": campaign_id,  # FIX 4: Add campaign_id
+            "scene_id": challenge.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
         }
 
@@ -798,9 +814,16 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     relationships_created += 1
 
         # Items - create nodes and link to scenes
+        # FIX: Improved robustness - skip items without scene_id or ensure proper linking
         for item in state.get("item_entities", []):
             item_id = item.get("item_id")
             if not item_id:
+                logger.warning("Item missing item_id, skipping")
+                continue
+
+            # FIX: Skip items without names (incomplete data)
+            if not item.get("name"):
+                logger.warning(f"Item {item_id} missing name - SKIPPING to prevent orphaned item")
                 continue
 
             # Create Item node
@@ -819,17 +842,19 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 description=item.get("description", "")[:500]  # Truncate for Neo4j
             )
 
-            # Link Item to Scene
+            # FIX: Improved Item-Scene linking logic
             scene_id = item.get("scene_id")
+            item_linked_to_scene = False
             if scene_id:
                 # Find MongoDB scene ID that matches this internal scene ID
-                for scene in state.get("scenes", []):
-                    if scene.get("scene_id") == scene_id:
-                        # Find the persisted scene ID
-                        scene_internal_id = scene.get("scene_id", "")
-                        for idx, s in enumerate(state["scenes"]):
-                            if s.get("scene_id") == scene_internal_id:
-                                persisted_scene_id = f"scene_{state['request_id']}_{idx}"
+                scene_counter = 0
+                for quest_idx, quest in enumerate(state["quests"]):
+                    quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
+                    for place in quest_places:
+                        place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
+                        for scene in place_scenes:
+                            if scene.get("scene_id") == scene_id:
+                                persisted_scene_id = f"scene_{state['request_id']}_{scene_counter}"
                                 session.run(
                                     """
                                     MATCH (sc:Scene {id: $scene_id})
@@ -840,7 +865,13 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                                     item_id=item_id
                                 )
                                 relationships_created += 1
+                                item_linked_to_scene = True
+                                logger.info(f"Linked Item {item_id} to Scene {persisted_scene_id}")
                                 break
+                            scene_counter += 1
+                        if item_linked_to_scene:
+                            break
+                    if item_linked_to_scene:
                         break
 
             # Link Item acquisition methods to entities
@@ -864,11 +895,28 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     )
                     relationships_created += 1
 
+        # FIX 5: Create scene_id mapping for efficient lookups
+        scene_id_map = {}  # internal scene_id -> persisted scene_id
+        scene_counter = 0
+        for quest in state["quests"]:
+            quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
+            for place in quest_places:
+                place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
+                for scene in place_scenes:
+                    scene_internal_id = scene.get("scene_id", "")
+                    if scene_internal_id:
+                        persisted_scene_id = f"scene_{state['request_id']}_{scene_counter}"
+                        scene_id_map[scene_internal_id] = persisted_scene_id
+                    scene_counter += 1
+
+        logger.info(f"Created scene_id_map with {len(scene_id_map)} mappings")
+
         # Challenges - create nodes and link to scenes
         for idx, challenge in enumerate(state.get("challenges", [])):
-            challenge_id = f"challenge_{state['request_id']}_{idx}"
+            # FIX 2: Use original entity ID
+            challenge_id = challenge.get("challenge_id", f"challenge_{state['request_id']}_{idx}")
 
-            # Create Challenge node
+            # FIX 4: Create Challenge node with campaign_id
             session.run(
                 """
                 MERGE (ch:Challenge {id: $challenge_id})
@@ -876,60 +924,115 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     ch.challenge_type = $challenge_type,
                     ch.difficulty = $difficulty,
                     ch.blooms_level = $blooms_level,
-                    ch.description = $description
+                    ch.description = $description,
+                    ch.campaign_id = $campaign_id
                 """,
                 challenge_id=challenge_id,
+                campaign_id=campaign_id,
                 name=challenge.get("name", "Unknown Challenge"),
                 challenge_type=challenge.get("challenge_type", "combat"),
                 difficulty=challenge.get("difficulty", "Medium"),
                 blooms_level=challenge.get("blooms_level", 3),
                 description=challenge.get("description", "")[:500]
             )
-            # Note: Challenge-Scene linking would require tracking which scene each challenge belongs to
-            # For now, challenges exist but aren't linked to specific scenes
 
-        # Discoveries - create nodes
+            # FIX 5: Link Challenge to Scene using scene_id from entity
+            challenge_scene_id = challenge.get("scene_id")
+            if challenge_scene_id and challenge_scene_id in scene_id_map:
+                persisted_scene_id = scene_id_map[challenge_scene_id]
+                session.run(
+                    """
+                    MATCH (sc:Scene {id: $scene_id})
+                    MATCH (ch:Challenge {id: $challenge_id})
+                    MERGE (sc)-[:CONTAINS_CHALLENGE]->(ch)
+                    """,
+                    scene_id=persisted_scene_id,
+                    challenge_id=challenge_id
+                )
+                relationships_created += 1
+                logger.info(f"Linked Challenge {challenge_id} to Scene {persisted_scene_id}")
+
+        # Discoveries - create nodes and link to scenes
         for idx, discovery in enumerate(state.get("discoveries", [])):
-            discovery_id = f"discovery_{state['request_id']}_{idx}"
+            # FIX 2: Use original entity ID
+            discovery_id = discovery.get("discovery_id", f"discovery_{state['request_id']}_{idx}")
 
-            # Create Discovery node
+            # FIX 4: Create Discovery node with campaign_id
             session.run(
                 """
                 MERGE (d:Discovery {id: $discovery_id})
                 SET d.name = $name,
                     d.knowledge_type = $knowledge_type,
                     d.blooms_level = $blooms_level,
-                    d.description = $description
+                    d.description = $description,
+                    d.campaign_id = $campaign_id
                 """,
                 discovery_id=discovery_id,
+                campaign_id=campaign_id,
                 name=discovery.get("name", "Unknown Discovery"),
                 knowledge_type=discovery.get("knowledge_type", "lore"),
                 blooms_level=discovery.get("blooms_level", 2),
                 description=discovery.get("description", "")[:500]
             )
 
-        # Events - create nodes
-        for idx, event in enumerate(state.get("events", [])):
-            event_id = f"event_{state['request_id']}_{idx}"
+            # FIX 5: Link Discovery to Scene using scene_id from entity
+            discovery_scene_id = discovery.get("scene_id")
+            if discovery_scene_id and discovery_scene_id in scene_id_map:
+                persisted_scene_id = scene_id_map[discovery_scene_id]
+                session.run(
+                    """
+                    MATCH (sc:Scene {id: $scene_id})
+                    MATCH (d:Discovery {id: $discovery_id})
+                    MERGE (sc)-[:CONTAINS_DISCOVERY]->(d)
+                    """,
+                    scene_id=persisted_scene_id,
+                    discovery_id=discovery_id
+                )
+                relationships_created += 1
+                logger.info(f"Linked Discovery {discovery_id} to Scene {persisted_scene_id}")
 
-            # Create Event node
+        # Events - create nodes and link to scenes
+        for idx, event in enumerate(state.get("events", [])):
+            # FIX 2: Use original entity ID
+            event_id = event.get("event_id", f"event_{state['request_id']}_{idx}")
+
+            # FIX 4: Create Event node with campaign_id
             session.run(
                 """
                 MERGE (e:Event {id: $event_id})
                 SET e.name = $name,
                     e.event_type = $event_type,
-                    e.description = $description
+                    e.description = $description,
+                    e.campaign_id = $campaign_id
                 """,
                 event_id=event_id,
+                campaign_id=campaign_id,
                 name=event.get("name", "Unknown Event"),
                 event_type=event.get("event_type", "story"),
                 description=event.get("description", "")[:500]
             )
 
+            # FIX 5: Link Event to Scene using scene_id from entity
+            event_scene_id = event.get("scene_id")
+            if event_scene_id and event_scene_id in scene_id_map:
+                persisted_scene_id = scene_id_map[event_scene_id]
+                session.run(
+                    """
+                    MATCH (sc:Scene {id: $scene_id})
+                    MATCH (e:Event {id: $event_id})
+                    MERGE (sc)-[:CONTAINS_EVENT]->(e)
+                    """,
+                    scene_id=persisted_scene_id,
+                    event_id=event_id
+                )
+                relationships_created += 1
+                logger.info(f"Linked Event {event_id} to Scene {persisted_scene_id}")
+
         logger.info(f"Created {len(state.get('challenges', []))} Challenges, {len(state.get('discoveries', []))} Discoveries, {len(state.get('events', []))} Events in Neo4j")
 
         # Rubrics - create nodes and link to entities
         # IMPORTANT: Process rubrics AFTER all entities (NPCs, Challenges, Discoveries, Events) are created
+        # FIX: Skip rubrics with missing entity_id or entities not found in Neo4j to prevent orphaned rubrics
         for rubric in state.get("rubrics", []):
             rubric_id = rubric.get("rubric_id")
             entity_id = rubric.get("entity_id")
@@ -939,9 +1042,36 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 continue
 
             if not entity_id:
-                logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) missing entity_id - will be orphaned")
-                # Still create the rubric node for data integrity, but log the issue
+                logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) missing entity_id - SKIPPING to prevent orphaned rubric")
+                continue  # FIX: Skip instead of creating orphaned rubric
 
+            # First, check if the entity exists in Neo4j before creating the rubric
+            # This prevents orphaned rubrics
+            entity_check = session.run(
+                """
+                OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                OPTIONAL MATCH (d:Discovery {id: $entity_id})
+                OPTIONAL MATCH (e:Event {id: $entity_id})
+
+                RETURN
+                    CASE WHEN npc IS NOT NULL THEN 'npc'
+                         WHEN ch IS NOT NULL THEN 'challenge'
+                         WHEN d IS NOT NULL THEN 'discovery'
+                         WHEN e IS NOT NULL THEN 'event'
+                         ELSE NULL
+                    END as entity_type
+                """,
+                entity_id=entity_id
+            )
+
+            # Check if entity was found
+            entity_record = entity_check.single()
+            if not entity_record or not entity_record["entity_type"]:
+                logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) - entity {entity_id} not found in Neo4j - SKIPPING to prevent orphaned rubric")
+                continue  # FIX: Skip instead of creating orphaned rubric
+
+            # Entity exists, safe to create rubric and link it
             # Create Rubric node
             session.run(
                 """
@@ -957,47 +1087,32 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             )
 
             # Link Rubric to its entity (NPC, Challenge, Discovery, Event)
-            # Try all entity types - rubrics can evaluate any of these
-            if entity_id:
-                result = session.run(
-                    """
-                    MATCH (r:Rubric {id: $rubric_id})
-                    OPTIONAL MATCH (npc:NPC {id: $entity_id})
-                    OPTIONAL MATCH (ch:Challenge {id: $entity_id})
-                    OPTIONAL MATCH (d:Discovery {id: $entity_id})
-                    OPTIONAL MATCH (e:Event {id: $entity_id})
+            session.run(
+                """
+                MATCH (r:Rubric {id: $rubric_id})
+                OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                OPTIONAL MATCH (d:Discovery {id: $entity_id})
+                OPTIONAL MATCH (e:Event {id: $entity_id})
 
-                    FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
-                        MERGE (npc)-[:EVALUATED_BY]->(r)
-                    )
-                    FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
-                        MERGE (ch)-[:EVALUATED_BY]->(r)
-                    )
-                    FOREACH (_ IN CASE WHEN d IS NOT NULL THEN [1] ELSE [] END |
-                        MERGE (d)-[:EVALUATED_BY]->(r)
-                    )
-                    FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
-                        MERGE (e)-[:EVALUATED_BY]->(r)
-                    )
-
-                    RETURN
-                        CASE WHEN npc IS NOT NULL THEN 'npc'
-                             WHEN ch IS NOT NULL THEN 'challenge'
-                             WHEN d IS NOT NULL THEN 'discovery'
-                             WHEN e IS NOT NULL THEN 'event'
-                             ELSE NULL
-                        END as entity_type
-                    """,
-                    rubric_id=rubric_id,
-                    entity_id=entity_id
+                FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (npc)-[:EVALUATED_BY]->(r)
                 )
-
-                # Check if entity was found
-                record = result.single()
-                if record and record["entity_type"]:
-                    relationships_created += 1
-                else:
-                    logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) - entity {entity_id} not found in Neo4j (orphaned rubric)")
+                FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (ch)-[:EVALUATED_BY]->(r)
+                )
+                FOREACH (_ IN CASE WHEN d IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (d)-[:EVALUATED_BY]->(r)
+                )
+                FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (e)-[:EVALUATED_BY]->(r)
+                )
+                """,
+                rubric_id=rubric_id,
+                entity_id=entity_id
+            )
+            relationships_created += 1
+            logger.info(f"Created rubric {rubric_id} and linked to {entity_record['entity_type']} {entity_id}")
 
     logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
 

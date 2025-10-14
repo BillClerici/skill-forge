@@ -12,7 +12,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate
 
 from .state import CampaignWorkflowState, NPCData
-from .utils import add_audit_entry
+from .utils import add_audit_entry, publish_entity_event, db
 from .rubric_templates import get_template_for_interaction
 
 logger = logging.getLogger(__name__)
@@ -163,34 +163,100 @@ Evaluate species appropriateness. Strongly prefer region-native species unless n
 
 async def create_new_species_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Create new species for the world (if evaluation suggests it)
+    Create new species for the world (if evaluation suggests it) OR extract existing species info
 
     This node:
     1. Takes species suggestion from evaluation
-    2. Generates full species details
-    3. Creates species in world via orchestrator
+    2. If using existing: Extract species_id and species_name from evaluation
+    3. If creating new: Generates full species details and creates species in world
     4. Adds to world permanently (enriches world)
     """
     try:
         evaluation = state.get("species_evaluation", {})
 
         if not evaluation.get("or_create_new", False):
-            logger.info("Skipping species creation - using existing")
+            # FIX: Extract existing species info from evaluation result
+            logger.info("Using existing species - extracting from evaluation")
+            state["species_id"] = evaluation.get("species_id", "")
+            state["species_name"] = evaluation.get("species_name", "")
+            state["new_species_created"] = False
+
+            logger.info(f"Selected existing species: {state['species_name']} (ID: {state['species_id']})")
             return state
 
         logger.info("Creating new species for world")
 
         suggestion = evaluation.get("new_species_suggestion", {})
+        world_id = state.get("world_id", "")
 
-        # TODO: Call orchestrator to create full species via game-master
-        # For now, generate placeholder ID
-        new_species_id = f"new_species_{uuid.uuid4().hex[:8]}"
+        if not world_id:
+            error_msg = "Cannot create species without world_id"
+            logger.error(error_msg)
+            state["errors"] = state.get("errors", []) + [error_msg]
+            return state
+
+        # Generate proper UUID for species
+        new_species_id = str(uuid.uuid4())
+
+        # Create full species document (following same pattern as Django views)
+        species_name = suggestion.get("name", "New Species")
+        species_description = suggestion.get("description", "")
+
+        species_document = {
+            "_id": new_species_id,
+            "world_id": world_id,
+            "species_name": species_name,
+            "species_type": suggestion.get("species_type", "Humanoid"),
+            "category": suggestion.get("category", "Sentient"),
+            "description": species_description,
+            "backstory": suggestion.get("backstory", ""),
+            "character_traits": suggestion.get("character_traits", []),
+            "regions": [],  # Can be populated later if region data is available
+            "relationships": [],
+            "species_image": None
+        }
+
+        # Insert species into MongoDB
+        try:
+            db.species_definitions.insert_one(species_document)
+            logger.info(f"Inserted species into MongoDB: {new_species_id}")
+        except Exception as db_err:
+            error_msg = f"Failed to insert species into MongoDB: {db_err}"
+            logger.error(error_msg)
+            state["errors"] = state.get("errors", []) + [error_msg]
+            return state
+
+        # Update world's species list
+        try:
+            db.world_definitions.update_one(
+                {"_id": world_id},
+                {"$addToSet": {"species": new_species_id}}
+            )
+            logger.info(f"Added species {new_species_id} to world {world_id}")
+        except Exception as db_err:
+            error_msg = f"Failed to update world species list: {db_err}"
+            logger.error(error_msg)
+            state["errors"] = state.get("errors", []) + [error_msg]
+            # Don't return - species is created, just log the warning
+
+        # Publish RabbitMQ event to sync to Neo4j
+        try:
+            await publish_entity_event('species', 'created', new_species_id, {
+                'world_id': world_id,
+                'species_name': species_name,
+                'species_type': species_document['species_type'],
+                'category': species_document['category']
+            })
+            logger.info(f"Published species creation event for {new_species_id}")
+        except Exception as event_err:
+            logger.warning(f"Failed to publish species event (Neo4j sync may be delayed): {event_err}")
+            # Don't fail - species is created in MongoDB
 
         state["species_id"] = new_species_id
-        state["species_name"] = suggestion.get("name", "New Species")
+        state["species_name"] = species_name
         state["new_species_created"] = True
 
-        logger.info(f"Created new species: {state['species_name']} (ID: {new_species_id})")
+        logger.info(f"Created new species: {species_name} (ID: {new_species_id})")
 
     except Exception as e:
         logger.error(f"Error creating species: {e}")
@@ -278,12 +344,22 @@ Generate a complete NPC with personality and backstory.""")
         # Generate rubric ID for this NPC
         rubric_id = f"rubric_npc_{uuid.uuid4().hex[:8]}"
 
+        # CRITICAL VALIDATION: Ensure species is ALWAYS assigned
+        species_id = state.get("species_id", "")
+        species_name = state.get("species_name", "")
+
+        if not species_id or not species_name:
+            error_msg = f"CRITICAL ERROR: NPC '{npc_name}' cannot be created without species! species_id='{species_id}', species_name='{species_name}'"
+            logger.error(error_msg)
+            state["errors"] = state.get("errors", []) + [error_msg]
+            raise ValueError(error_msg)
+
         # Create NPCData
         npc: NPCData = {
             "npc_id": npc_id,  # Set immediately so scenes can reference it
             "name": npc_name,
-            "species_id": state.get("species_id", ""),
-            "species_name": state.get("species_name", ""),
+            "species_id": species_id,
+            "species_name": species_name,
             "personality_traits": npc_data.get("personality_traits", []),
             "role": state.get("npc_role", "neutral"),
             "dialogue_style": npc_data.get("dialogue_style", ""),

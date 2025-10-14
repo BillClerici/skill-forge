@@ -58,6 +58,24 @@ def route_after_core_generation(state: CampaignWorkflowState) -> str:
 def route_after_core_approval(state: CampaignWorkflowState) -> str:
     """Route after user approves campaign core"""
     if state.get("user_approved_core", False):
+        # FIX: Check if workflow has already progressed past quest generation
+        # This prevents restart from quest generation after finalization failures
+        if state.get("quests") and len(state.get("quests", [])) > 0:
+            # Quests already generated, skip to places or further
+            if state.get("scenes") and len(state.get("scenes", [])) > 0:
+                # Scenes generated, check if elements are done
+                if state.get("npcs") or state.get("discoveries") or state.get("challenges"):
+                    # Elements generated, go to finalize
+                    return "finalize"
+                else:
+                    # Need to generate elements
+                    return "generate_elements"
+            elif state.get("places") and len(state.get("places", [])) > 0:
+                # Places generated, need scenes
+                return "generate_scenes"
+            else:
+                # Quests generated, need places
+                return "generate_places"
         return "generate_quests"
     return "wait_for_approval"
 
@@ -93,6 +111,9 @@ def route_after_elements(state: CampaignWorkflowState) -> str:
 def route_after_finalize(state: CampaignWorkflowState) -> str:
     """Route after finalization"""
     if state.get("errors", []):
+        # FIX: Add retry logic for finalization instead of immediately failing
+        if state.get("retry_count", 0) < state.get("max_retries", 3):
+            return "retry_finalize"
         return "failed"
     return "completed"
 
@@ -174,6 +195,10 @@ def create_campaign_workflow() -> StateGraph:
         route_after_core_approval,
         {
             "generate_quests": "generate_quests",
+            "generate_places": "generate_places",
+            "generate_scenes": "generate_scenes",
+            "generate_elements": "generate_elements",
+            "finalize": "finalize",
             "wait_for_approval": "wait_for_core_approval"
         }
     )
@@ -223,6 +248,7 @@ def create_campaign_workflow() -> StateGraph:
         route_after_finalize,
         {
             "completed": END,
+            "retry_finalize": "finalize",  # FIX: Add retry route for finalization
             "failed": END
         }
     )

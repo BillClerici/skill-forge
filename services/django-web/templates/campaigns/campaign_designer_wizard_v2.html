@@ -646,8 +646,61 @@
                 <div class="progress-bar-shine"></div>
             </div>
 
+            <!-- Overall Progress & Step Progress Display -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding: 0 20px;">
+                <div style="flex: 1; text-align: left;">
+                    <p style="color: var(--rpg-silver); font-size: 0.85rem; margin: 0;">Overall Progress</p>
+                    <p style="color: var(--rpg-gold); font-size: 1.8rem; font-weight: bold; margin: 5px 0 0 0;">
+                        <span id="overall-progress-percentage">0</span>%
+                    </p>
+                </div>
+                <div style="flex: 1; text-align: center; padding: 0 20px;">
+                    <p style="color: var(--rpg-silver); font-size: 0.85rem; margin: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">schedule</i> Time Elapsed
+                    </p>
+                    <p style="color: #b8b8d1; font-size: 1.2rem; font-weight: bold; margin: 5px 0 0 0;">
+                        <span id="elapsed-timer">00:00</span>
+                    </p>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <p style="color: var(--rpg-silver); font-size: 0.85rem; margin: 0;">Step Progress</p>
+                    <p style="color: var(--rpg-purple); font-size: 1.8rem; font-weight: bold; margin: 5px 0 0 0;">
+                        <span id="step-progress-percentage">0</span>%
+                    </p>
+                </div>
+            </div>
+
             <p id="loading-status-message" style="color: var(--rpg-gold); font-size: 1.2rem; margin-top: 20px; text-align: center;">Initializing...</p>
             <p id="loading-detail-message" style="color: #b8b8d1; font-size: 0.9rem; text-align: center;">This may take a few minutes.</p>
+
+            <!-- Error/Warning Notification Area -->
+            <div id="progress-errors" style="display: none; margin-top: 20px; padding: 15px; background: rgba(244, 67, 54, 0.1); border: 2px solid #F44336; border-radius: 8px;">
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <i class="material-icons" style="color: #F44336; font-size: 2rem;">error_outline</i>
+                    <div style="flex: 1;">
+                        <h6 style="color: #F44336; margin: 0 0 10px 0;">
+                            <strong>Workflow Issues Detected</strong>
+                        </h6>
+                        <ul id="progress-error-list" style="color: #b8b8d1; margin: 0; padding-left: 20px; font-size: 0.9rem;"></ul>
+                        <p style="color: var(--rpg-silver); margin: 10px 0 0 0; font-size: 0.85rem;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                            The system is automatically retrying...
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="progress-warnings" style="display: none; margin-top: 20px; padding: 15px; background: rgba(255, 152, 0, 0.1); border: 2px solid #FF9800; border-radius: 8px;">
+                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <i class="material-icons" style="color: #FF9800; font-size: 2rem;">warning</i>
+                    <div style="flex: 1;">
+                        <h6 style="color: #FF9800; margin: 0 0 10px 0;">
+                            <strong>Warnings</strong>
+                        </h6>
+                        <ul id="progress-warning-list" style="color: #b8b8d1; margin: 0; padding-left: 20px; font-size: 0.9rem;"></ul>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Dialog Footer -->

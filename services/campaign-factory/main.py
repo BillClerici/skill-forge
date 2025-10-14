@@ -95,7 +95,18 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
         try:
             # Parse message
             request_data = json.loads(message.body.decode())
-            logger.info(f"Received campaign request: {request_data.get('request_id')}")
+            request_id = request_data.get('request_id')
+            logger.info(f"Received campaign request: {request_id}")
+
+            # FIX: Check if campaign already completed - prevent restart loop
+            if request_id:
+                progress_key = f"campaign:progress:{request_id}"
+                progress_data = await redis_client.get(progress_key)
+                if progress_data:
+                    progress = json.loads(progress_data)
+                    if progress.get("final_campaign_id"):
+                        logger.warning(f"Campaign {request_id} already completed with ID {progress['final_campaign_id']} - skipping duplicate request")
+                        return  # Acknowledge message but don't process
 
             workflow_action = request_data.get("workflow_action", "start")
 

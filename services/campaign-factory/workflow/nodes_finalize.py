@@ -39,26 +39,46 @@ async def finalize_campaign_node(state: CampaignWorkflowState) -> CampaignWorkfl
 
         logger.info(f"Finalizing campaign: {state['campaign_core']['name']}")
 
-        # Step 1: Validate campaign data
+        # Step 1: Validate campaign data (100% - 0% step progress)
+        state["step_progress"] = 0
+        state["status_message"] = "Validating campaign data..."
+        await publish_progress(state)
+
         validation_errors = validate_campaign(state)
         if validation_errors:
             state["errors"].extend(validation_errors)
             raise ValueError(f"Campaign validation failed: {', '.join(validation_errors)}")
 
-        # Step 2: Persist to MongoDB
+        # Step 2: Persist to MongoDB (100% - 10-40% step progress)
+        state["step_progress"] = 10
+        state["status_message"] = "Saving campaign to MongoDB..."
+        await publish_progress(state)
+
         campaign_id = await persist_campaign_to_mongodb(state)
         state["final_campaign_id"] = campaign_id
         state["mongodb_campaign_id"] = campaign_id
 
-        # Step 3: Create Neo4j relationships
+        # Step 3: Create Neo4j relationships (100% - 50-90% step progress)
+        state["step_progress"] = 50
+        state["status_message"] = "Creating Neo4j relationships..."
+        await publish_progress(state)
+
         relationships_created = await create_neo4j_relationships(state, campaign_id)
         state["neo4j_relationships_created"] = relationships_created
 
-        # Step 4: Update PostgreSQL for analytics
+        # Step 4: Update PostgreSQL for analytics (100% - 95% step progress)
+        state["step_progress"] = 95
+        state["status_message"] = "Updating analytics..."
+        await publish_progress(state)
+
         postgres_records = await update_postgres_analytics(state, campaign_id)
         state["postgres_records_created"] = postgres_records
 
-        # Step 5: Save audit trail
+        # Step 5: Save audit trail (100% - 100% step progress)
+        state["step_progress"] = 100
+        state["status_message"] = "Saving audit trail..."
+        await publish_progress(state)
+
         save_audit_trail(state)
 
         add_audit_entry(

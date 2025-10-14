@@ -456,7 +456,8 @@ Create a compelling discovery element.""")
         "blooms_level": state["campaign_core"]["target_blooms_level"],
         "unlocks_scenes": [],  # May be set based on narrative flow
         "provides_knowledge_ids": spec.get("provides_knowledge", []),
-        "rubric_id": rubric_id
+        "rubric_id": rubric_id,
+        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
     }
 
     # Generate rubric for this discovery
@@ -540,7 +541,8 @@ Create a compelling event element.""")
         "event_type": spec.get("type", "scripted"),
         "trigger_conditions": {},
         "outcomes": enriched.get("outcomes", []),
-        "rubric_id": rubric_id
+        "rubric_id": rubric_id,
+        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
     }
 
     # Generate rubric for this event
@@ -656,7 +658,10 @@ Create a compelling challenge element.""")
 
         # Legacy support
         "success_rewards": enriched.get("success_rewards", {}),
-        "failure_consequences": enriched.get("failure_consequences", {})
+        "failure_consequences": enriched.get("failure_consequences", {}),
+
+        # Scene linking
+        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
     }
 
     # Generate rubric for this challenge

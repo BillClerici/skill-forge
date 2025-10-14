@@ -21,10 +21,10 @@
         <a href="{% url 'campaign_update' campaign.campaign_id %}" class="btn waves-effect waves-light">
             <i class="material-icons left">edit</i>Edit Campaign
         </a>
+        {% endif %}
         <a href="#deleteModal" class="btn waves-effect waves-light red darken-2 modal-trigger">
             <i class="material-icons left">delete</i>Delete Campaign
         </a>
-        {% endif %}
     </div>
 </div>
 
@@ -250,15 +250,31 @@
 {% endif %}
 
 <!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="modal" style="max-width: 600px;">
+<div id="deleteModal" class="modal" style="max-width: 700px;">
     <div class="modal-content" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #e0e0e0;">
         <h4 style="color: #ff6b6b;">
             <i class="material-icons left" style="font-size: 2rem;">warning</i>
-            Delete Campaign
+            Delete Campaign - Comprehensive Cleanup
         </h4>
-        <p style="font-size: 1.1rem; margin: 20px 0;">
-            Are you sure you want to delete this campaign?
+        <p style="font-size: 1.1rem; margin: 20px 0; line-height: 1.6;">
+            <strong style="color: #ff6b6b;">WARNING:</strong> This action will permanently delete <strong>"{{ campaign.campaign_name }}"</strong> and ALL related data from:
         </p>
+        <div style="background: rgba(255, 107, 107, 0.1); border-left: 4px solid #ff6b6b; padding: 15px; margin: 15px 0; border-radius: 4px;">
+            <ul style="margin: 0; padding-left: 25px; line-height: 1.8;">
+                <li><strong>MongoDB:</strong> Campaign, Quests, Places, Scenes, NPCs, Discoveries, Events, Challenges, Knowledge, Items, and Rubrics</li>
+                <li><strong>Neo4j:</strong> All campaign entities, relationships, and graph connections</li>
+                <li><strong>PostgreSQL:</strong> Player-campaign associations and related records</li>
+            </ul>
+        </div>
+        <p style="font-size: 0.95rem; margin: 15px 0; color: #ffab40;">
+            <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+            <strong>This operation cannot be undone.</strong> All quest progress, generated content, and AI-created entities will be permanently removed.
+        </p>
+        {% if is_new_format and quests %}
+        <p style="font-size: 0.9rem; margin: 10px 0; color: #b8b8d1;">
+            This campaign contains <strong>{{ quests|length }} quest(s)</strong> with multiple locations, scenes, and interactive elements.
+        </p>
+        {% endif %}
     </div>
     <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
         <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
@@ -267,7 +283,7 @@
         <form method="post" action="{% url 'campaign_delete' campaign.campaign_id %}" style="display: inline;">
             {% csrf_token %}
             <button type="submit" class="btn waves-effect waves-light red darken-2">
-                <i class="material-icons left">delete_forever</i>Yes, Delete Campaign
+                <i class="material-icons left">delete_forever</i>Yes, Permanently Delete Everything
             </button>
         </form>
     </div>
@@ -582,7 +598,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 ${scene.npcs.map(npc => `
                                     <div style="background: rgba(212, 175, 55, 0.05); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
                                         <div style="color: var(--rpg-gold); font-weight: 600; font-size: 1.1rem; margin-bottom: 4px;">
-                                            ${escapeHtml(npc.name)}
+                                            ${escapeHtml(npc.name)}${npc.species_name ? ' - ' + escapeHtml(npc.species_name) : ''}
                                         </div>
                                         <div style="color: #b8b8d1; font-size: 0.9rem; font-style: italic;">
                                             ${escapeHtml(npc.role)}
@@ -600,7 +616,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <li>
                             <div class="collapsible-header" style="background: rgba(156, 39, 176, 0.1); border-left: 3px solid var(--rpg-purple); display: flex; align-items: center; gap: 8px;">
                                 <i class="material-icons" style="color: var(--rpg-purple);">school</i>
-                                <span style="color: var(--rpg-purple); font-weight: 500;">Knowledge Entities (${scene.knowledge.length})</span>
+                                <span style="color: var(--rpg-purple); font-weight: 500;">Knowledge (${scene.knowledge.length})</span>
                             </div>
                             <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-purple);">
                                 ${scene.knowledge.map(knowledge => `

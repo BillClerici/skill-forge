@@ -368,8 +368,11 @@ Generate 1-3 scenes within this place.""")
 
                     logger.info(f"Scene requires new location: {location_name} ({location_type})")
 
+                # Generate scene ID immediately (not during persistence)
+                scene_id = f"scene_{uuid.uuid4().hex[:16]}"
+
                 scene: SceneData = {
-                    "scene_id": None,  # Will be set on persistence
+                    "scene_id": scene_id,  # Generated immediately for entity linking
                     "name": scene_data.get("scene_name", f"{place['name']} - Scene {len(place_scenes) + 1}"),
                     "description": scene_data.get("description", ""),
                     "level_3_location_id": location_id,
