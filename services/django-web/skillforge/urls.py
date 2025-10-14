@@ -48,7 +48,8 @@ from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView,
     CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
-    CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView
+    CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
+    CampaignDeletionProgressView, CampaignDeletionStatusAPI
 )
 from campaigns.wizard_views import (
     campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
@@ -170,6 +171,10 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
+
+    # Campaign Deletion
+    path('campaigns/deletion/progress/<str:request_id>/', CampaignDeletionProgressView.as_view(), name='campaign_deletion_progress'),
+    path('api/campaigns/deletion/status/<str:request_id>/', CampaignDeletionStatusAPI.as_view(), name='campaign_deletion_status'),
     path('campaigns/<str:campaign_id>/generate-image/', CampaignGenerateImageView.as_view(), name='campaign_generate_image'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/generate-image/', QuestGenerateImageView.as_view(), name='quest_generate_image'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/generate-image/', PlaceGenerateImageView.as_view(), name='place_generate_image'),

@@ -16,6 +16,7 @@ import uuid
 from redis.asyncio import Redis
 
 from workflow import create_campaign_workflow, CampaignWorkflowState
+from workflow.campaign_deletion_workflow import create_campaign_deletion_workflow, CampaignDeletionState
 from workflow.utils import set_redis_client
 
 # Load environment variables
@@ -28,8 +29,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize workflow
+# Initialize workflows
 campaign_workflow = create_campaign_workflow()
+deletion_workflow = create_campaign_deletion_workflow()
 
 # Database connections
 mongo_client = None
@@ -533,9 +535,322 @@ async def publish_error_to_user(request_id: str, error: str):
         logger.error(f"Error publishing error notification: {e}")
 
 
+async def process_campaign_deletion_request(message: aio_pika.IncomingMessage):
+    """
+    Process campaign deletion request from RabbitMQ
+
+    Message format:
+    {
+        "request_id": "uuid",
+        "campaign_id": "campaign_uuid",
+        "user_id": "user_uuid"
+    }
+    """
+    async with message.process():
+        try:
+            # Parse message
+            request_data = json.loads(message.body.decode())
+            request_id = request_data.get('request_id', str(uuid.uuid4()))
+            campaign_id = request_data.get('campaign_id')
+            user_id = request_data.get('user_id')
+
+            logger.info(f"Received campaign deletion request: {request_id} for campaign: {campaign_id}")
+
+            if not campaign_id:
+                error_msg = "campaign_id is required"
+                logger.error(error_msg)
+                await publish_deletion_error(request_id, user_id, error_msg)
+                return
+
+            # Initialize deletion state
+            state: CampaignDeletionState = {
+                "request_id": request_id,
+                "campaign_id": campaign_id,
+                "user_id": user_id,
+                "campaign_name": "",
+                "is_new_format": False,
+                "world_id": "",
+
+                # Deletion tracking
+                "deleted_quests": [],
+                "deleted_places": [],
+                "deleted_scenes": [],
+                "deleted_npcs": [],
+                "deleted_discoveries": [],
+                "deleted_events": [],
+                "deleted_challenges": [],
+                "deleted_knowledge": [],
+                "deleted_items": [],
+                "deleted_rubrics": [],
+
+                # Species and Location cleanup
+                "campaign_created_species": [],
+                "campaign_created_locations": [],
+                "species_to_remove": [],
+                "locations_to_remove": [],
+                "species_dependencies": {},
+                "location_dependencies": {},
+
+                # Status tracking
+                "mongodb_deleted": False,
+                "neo4j_deleted": False,
+                "postgres_deleted": False,
+                "species_cleaned": False,
+                "locations_cleaned": False,
+
+                # Error tracking
+                "errors": [],
+                "warnings": [],
+
+                # Progress tracking
+                "current_phase": "init",
+                "progress_percentage": 0,
+                "step_progress": 0,
+                "status_message": "Initializing campaign deletion...",
+
+                # Audit
+                "deleted_at": "",
+                "deletion_log": []
+            }
+
+            # Save initial state to Redis
+            await save_deletion_state(state)
+
+            # Publish initial progress
+            await publish_deletion_progress(state)
+
+            # Run deletion workflow
+            result_state = await run_deletion_with_progress(state)
+
+            # Publish completion
+            await publish_deletion_completion(result_state)
+
+            logger.info(f"Campaign deletion completed: {campaign_id}")
+
+        except Exception as e:
+            logger.error(f"Error processing campaign deletion request: {e}")
+            await publish_deletion_error(
+                request_data.get("request_id", "unknown"),
+                request_data.get("user_id", "unknown"),
+                str(e)
+            )
+
+
+async def run_deletion_with_progress(state: CampaignDeletionState) -> CampaignDeletionState:
+    """
+    Run deletion workflow with progress updates published to RabbitMQ
+    """
+    try:
+        # Stream the workflow and publish progress after each node
+        async for event in deletion_workflow.astream(state):
+            # event is a dict with node names as keys
+            for node_name, node_state in event.items():
+                logger.info(f"Deletion workflow - Completed node: {node_name}")
+
+                # Update state
+                state.update(node_state)
+
+                # Save state to Redis
+                await save_deletion_state(state)
+
+                # Publish progress update
+                await publish_deletion_progress(state)
+
+        return state
+
+    except Exception as e:
+        logger.error(f"Error in deletion workflow: {e}")
+        state['errors'] = state.get('errors', []) + [str(e)]
+        await save_deletion_state(state)
+        await publish_deletion_progress(state)
+        return state
+
+
+async def save_deletion_state(state: CampaignDeletionState):
+    """
+    Save deletion workflow state to Redis for status tracking
+    """
+    try:
+        request_id = state['request_id']
+
+        # Save full state
+        state_key = f"campaign:deletion:state:{request_id}"
+        await redis_client.setex(state_key, 86400, json.dumps(state, default=str))
+
+        # Save progress data for status API
+        progress_key = f"campaign:deletion:progress:{request_id}"
+        progress_data = {
+            "request_id": request_id,
+            "campaign_id": state.get("campaign_id"),
+            "campaign_name": state.get("campaign_name"),
+            "current_phase": state.get("current_phase"),
+            "progress_percentage": state.get("progress_percentage", 0),
+            "step_progress": state.get("step_progress", 0),
+            "status_message": state.get("status_message", "Processing..."),
+            "deletion_log": state.get("deletion_log", []),
+            "errors": state.get("errors", []),
+            "warnings": state.get("warnings", []),
+            "deleted_counts": {
+                "quests": len(state.get("deleted_quests", [])),
+                "places": len(state.get("deleted_places", [])),
+                "scenes": len(state.get("deleted_scenes", [])),
+                "npcs": len(state.get("deleted_npcs", [])),
+                "discoveries": len(state.get("deleted_discoveries", [])),
+                "events": len(state.get("deleted_events", [])),
+                "challenges": len(state.get("deleted_challenges", [])),
+                "knowledge": len(state.get("deleted_knowledge", [])),
+                "items": len(state.get("deleted_items", [])),
+                "rubrics": len(state.get("deleted_rubrics", []))
+            },
+            "cleanup_stats": {
+                "species_removed": len(state.get("species_to_remove", [])),
+                "locations_removed": len(state.get("locations_to_remove", []))
+            }
+        }
+        await redis_client.setex(progress_key, 86400, json.dumps(progress_data, default=str))
+
+        logger.info(f"Saved deletion state to Redis: {request_id}")
+
+    except Exception as e:
+        logger.error(f"Error saving deletion state: {e}")
+
+
+async def publish_deletion_progress(state: CampaignDeletionState):
+    """
+    Publish deletion progress update via RabbitMQ
+    """
+    try:
+        connection = await aio_pika.connect_robust(
+            f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASS')}@"
+            f"{os.getenv('RABBITMQ_HOST', 'localhost')}:{os.getenv('RABBITMQ_PORT', '5672')}/"
+        )
+
+        async with connection:
+            channel = await connection.channel()
+
+            message_data = {
+                "request_id": state["request_id"],
+                "campaign_id": state.get("campaign_id"),
+                "workflow_phase": "deletion_progress",
+                "current_phase": state.get("current_phase"),
+                "progress_percentage": state.get("progress_percentage", 0),
+                "status_message": state.get("status_message", "Processing..."),
+                "errors": state.get("errors", []),
+                "warnings": state.get("warnings", [])
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(message_data).encode(),
+                    content_type="application/json"
+                ),
+                routing_key=f"campaign.deletion.progress.{state.get('user_id')}"
+            )
+
+            logger.info(f"Published deletion progress: {state.get('progress_percentage')}%")
+
+    except Exception as e:
+        logger.error(f"Error publishing deletion progress: {e}")
+
+
+async def publish_deletion_completion(state: CampaignDeletionState):
+    """
+    Publish deletion completion notification
+    """
+    try:
+        connection = await aio_pika.connect_robust(
+            f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASS')}@"
+            f"{os.getenv('RABBITMQ_HOST', 'localhost')}:{os.getenv('RABBITMQ_PORT', '5672')}/"
+        )
+
+        async with connection:
+            channel = await connection.channel()
+
+            message_data = {
+                "request_id": state["request_id"],
+                "campaign_id": state.get("campaign_id"),
+                "campaign_name": state.get("campaign_name"),
+                "workflow_phase": "deletion_completed",
+                "status": "success" if not state.get("errors") else "failed",
+                "errors": state.get("errors", []),
+                "warnings": state.get("warnings", []),
+                "deletion_log": state.get("deletion_log", []),
+                "stats": {
+                    "deleted_counts": {
+                        "quests": len(state.get("deleted_quests", [])),
+                        "places": len(state.get("deleted_places", [])),
+                        "scenes": len(state.get("deleted_scenes", [])),
+                        "npcs": len(state.get("deleted_npcs", [])),
+                        "total_entities": (
+                            len(state.get("deleted_quests", [])) +
+                            len(state.get("deleted_places", [])) +
+                            len(state.get("deleted_scenes", [])) +
+                            len(state.get("deleted_npcs", [])) +
+                            len(state.get("deleted_discoveries", [])) +
+                            len(state.get("deleted_events", [])) +
+                            len(state.get("deleted_challenges", [])) +
+                            len(state.get("deleted_knowledge", [])) +
+                            len(state.get("deleted_items", [])) +
+                            len(state.get("deleted_rubrics", []))
+                        )
+                    },
+                    "cleanup": {
+                        "species_removed": len(state.get("species_to_remove", [])),
+                        "locations_removed": len(state.get("locations_to_remove", []))
+                    }
+                }
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(message_data).encode(),
+                    content_type="application/json"
+                ),
+                routing_key=f"campaign.deletion.completed.{state.get('user_id')}"
+            )
+
+            logger.info(f"Published deletion completion for campaign: {state.get('campaign_id')}")
+
+    except Exception as e:
+        logger.error(f"Error publishing deletion completion: {e}")
+
+
+async def publish_deletion_error(request_id: str, user_id: str, error: str):
+    """
+    Publish deletion error notification
+    """
+    try:
+        connection = await aio_pika.connect_robust(
+            f"amqp://{os.getenv('RABBITMQ_USER')}:{os.getenv('RABBITMQ_PASS')}@"
+            f"{os.getenv('RABBITMQ_HOST', 'localhost')}:{os.getenv('RABBITMQ_PORT', '5672')}/"
+        )
+
+        async with connection:
+            channel = await connection.channel()
+
+            message_data = {
+                "request_id": request_id,
+                "workflow_phase": "deletion_error",
+                "error": error
+            }
+
+            await channel.default_exchange.publish(
+                aio_pika.Message(
+                    body=json.dumps(message_data).encode(),
+                    content_type="application/json"
+                ),
+                routing_key=f"campaign.deletion.error.{user_id}"
+            )
+
+            logger.info(f"Published deletion error notification: {request_id}")
+
+    except Exception as e:
+        logger.error(f"Error publishing deletion error: {e}")
+
+
 async def main():
     """
-    Main entry point - Start RabbitMQ consumer
+    Main entry point - Start RabbitMQ consumer for both generation and deletion
     """
     logger.info("Starting Campaign Factory service...")
 
@@ -555,16 +870,25 @@ async def main():
         # Set QoS
         await channel.set_qos(prefetch_count=1)
 
-        # Declare queue
-        queue = await channel.declare_queue(
+        # Declare campaign generation queue
+        generation_queue = await channel.declare_queue(
             "campaign_generation_queue",
+            durable=True
+        )
+
+        # Declare campaign deletion queue
+        deletion_queue = await channel.declare_queue(
+            "campaign_deletion_queue",
             durable=True
         )
 
         logger.info("Campaign Factory service ready. Waiting for campaign requests...")
 
-        # Start consuming
-        await queue.consume(process_campaign_request)
+        # Start consuming from both queues
+        await generation_queue.consume(process_campaign_request)
+        await deletion_queue.consume(process_campaign_deletion_request)
+
+        logger.info("Listening on queues: campaign_generation_queue, campaign_deletion_queue")
 
         # Keep running
         try:

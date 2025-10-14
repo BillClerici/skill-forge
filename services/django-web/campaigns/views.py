@@ -990,10 +990,13 @@ class CampaignUpdateView(View):
 
 
 class CampaignDeleteView(View):
-    """Delete a campaign with comprehensive cleanup across all databases"""
+    """Delete a campaign with comprehensive cleanup across all databases - async via RabbitMQ"""
 
     def post(self, request, campaign_id):
         import logging
+        import pika
+        import json
+        import uuid as uuid_lib
         logger = logging.getLogger(__name__)
 
         # Check if campaign exists (either format)
@@ -1009,298 +1012,104 @@ class CampaignDeleteView(View):
 
         campaign_name = campaign.get('campaign_name') or campaign.get('name', 'Unknown')
 
+        # Generate deletion request ID
+        deletion_request_id = str(uuid_lib.uuid4())
+
+        # Get user ID from request
+        user_id = request.user.id if hasattr(request, 'user') and request.user.is_authenticated else "system"
+
         try:
-            # Track deletion counts
-            deleted_counts = {
-                'quests': 0,
-                'places': 0,
-                'scenes': 0,
-                'npcs': 0,
-                'discoveries': 0,
-                'events': 0,
-                'challenges': 0,
-                'knowledge': 0,
-                'items': 0,
-                'rubrics': 0
+            # Publish deletion request to RabbitMQ instead of doing it synchronously
+            from utils.rabbitmq import publisher
+
+            deletion_request = {
+                "request_id": deletion_request_id,
+                "campaign_id": campaign_id,
+                "user_id": str(user_id)
             }
 
-            # Collect IDs for Neo4j deletion
-            npc_ids = []
-            location_ids = []  # scenes and places
-            knowledge_ids = []
-            item_ids = []
-            discovery_ids = []
-            event_ids = []
-            challenge_ids = []
+            # Publish to deletion queue
+            rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://skillforge:rabbitmq_pass@rabbitmq:5672')
+            params = pika.URLParameters(rabbitmq_url)
+            connection = pika.BlockingConnection(params)
+            channel = connection.channel()
 
-            if is_new_format:
-                logger.info(f"Deleting new format campaign: {campaign_id}")
+            # Declare deletion queue
+            channel.queue_declare(queue='campaign_deletion_queue', durable=True)
 
-                # 1. Find all quests for this campaign
-                quests = list(db.quests.find({'campaign_id': campaign_id}))
-                quest_ids = [q['_id'] for q in quests]
-                deleted_counts['quests'] = len(quest_ids)
-                logger.info(f"Found {len(quest_ids)} quests to delete")
-
-                # 2. Find all places for these quests
-                places = list(db.places.find({'quest_id': {'$in': quest_ids}})) if quest_ids else []
-                place_ids = [p['_id'] for p in places]
-                deleted_counts['places'] = len(place_ids)
-                location_ids.extend(place_ids)
-                logger.info(f"Found {len(place_ids)} places to delete")
-
-                # 3. Find all scenes for these places
-                scenes = list(db.scenes.find({'place_id': {'$in': place_ids}})) if place_ids else []
-                scene_ids = [s['_id'] for s in scenes]
-                deleted_counts['scenes'] = len(scene_ids)
-                location_ids.extend(scene_ids)
-                logger.info(f"Found {len(scene_ids)} scenes to delete")
-
-                # 4. Find and delete all scene elements
-                if scene_ids:
-                    # NPCs
-                    npcs = list(db.npcs.find({'level_3_location_id': {'$in': scene_ids}}))
-                    npc_ids = [n['_id'] for n in npcs]
-                    deleted_counts['npcs'] = len(npc_ids)
-                    db.npcs.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(npc_ids)} NPCs")
-
-                    # Discoveries
-                    discoveries = list(db.discoveries.find({'level_3_location_id': {'$in': scene_ids}}))
-                    discovery_ids = [d['_id'] for d in discoveries]
-                    deleted_counts['discoveries'] = len(discovery_ids)
-                    db.discoveries.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(discovery_ids)} discoveries")
-
-                    # Events
-                    events = list(db.events.find({'level_3_location_id': {'$in': scene_ids}}))
-                    event_ids = [e['_id'] for e in events]
-                    deleted_counts['events'] = len(event_ids)
-                    db.events.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(event_ids)} events")
-
-                    # Challenges
-                    challenges = list(db.challenges.find({'level_3_location_id': {'$in': scene_ids}}))
-                    challenge_ids = [c['_id'] for c in challenges]
-                    deleted_counts['challenges'] = len(challenge_ids)
-                    db.challenges.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(challenge_ids)} challenges")
-
-                    # Knowledge
-                    knowledge = list(db.knowledge.find({'level_3_location_id': {'$in': scene_ids}}))
-                    knowledge_ids = [k['_id'] for k in knowledge]
-                    deleted_counts['knowledge'] = len(knowledge_ids)
-                    db.knowledge.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(knowledge_ids)} knowledge entities")
-
-                    # Items
-                    items = list(db.items.find({'level_3_location_id': {'$in': scene_ids}}))
-                    item_ids = [i['_id'] for i in items]
-                    deleted_counts['items'] = len(item_ids)
-                    db.items.delete_many({'level_3_location_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(item_ids)} items")
-
-                # 5. Find and delete rubrics
-                rubrics = list(db.rubrics.find({'campaign_id': campaign_id}))
-                rubric_ids = [r['_id'] for r in rubrics]
-                deleted_counts['rubrics'] = len(rubric_ids)
-                db.rubrics.delete_many({'campaign_id': campaign_id})
-                logger.info(f"Deleted {len(rubric_ids)} rubrics")
-
-                # 6. Delete scenes
-                if scene_ids:
-                    db.scenes.delete_many({'_id': {'$in': scene_ids}})
-                    logger.info(f"Deleted {len(scene_ids)} scenes")
-
-                # 7. Delete places
-                if place_ids:
-                    db.places.delete_many({'_id': {'$in': place_ids}})
-                    logger.info(f"Deleted {len(place_ids)} places")
-
-                # 8. Delete quests
-                if quest_ids:
-                    db.quests.delete_many({'_id': {'$in': quest_ids}})
-                    logger.info(f"Deleted {len(quest_ids)} quests")
-
-                # 9. Delete campaign
-                db.campaigns.delete_one({'_id': campaign_id})
-                logger.info(f"Deleted campaign: {campaign_id}")
-
-            else:
-                # Old format campaign
-                logger.info(f"Deleting old format campaign: {campaign_id}")
-                db.campaign_state.delete_one({'_id': campaign_id})
-                logger.info(f"Deleted old format campaign: {campaign_id}")
-
-            # Delete from Neo4j
-            try:
-                with neo4j_driver.session() as session:
-                    # Delete NPC nodes
-                    if npc_ids:
-                        result = session.run("""
-                            MATCH (n:NPC)
-                            WHERE n.id IN $npc_ids
-                            DETACH DELETE n
-                            RETURN count(n) as deleted_count
-                        """, npc_ids=npc_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} NPC nodes")
-
-                    # Delete Scene nodes
-                    if scene_ids:
-                        result = session.run("""
-                            MATCH (s:Scene)
-                            WHERE s.id IN $scene_ids
-                            DETACH DELETE s
-                            RETURN count(s) as deleted_count
-                        """, scene_ids=scene_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Scene nodes")
-
-                    # Delete Place nodes
-                    if place_ids:
-                        result = session.run("""
-                            MATCH (p:Place)
-                            WHERE p.id IN $place_ids
-                            DETACH DELETE p
-                            RETURN count(p) as deleted_count
-                        """, place_ids=place_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Place nodes")
-
-                    # Delete Location nodes (generic - for any that weren't caught above)
-                    if location_ids:
-                        result = session.run("""
-                            MATCH (l:Location)
-                            WHERE l.id IN $location_ids
-                            DETACH DELETE l
-                            RETURN count(l) as deleted_count
-                        """, location_ids=location_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Location nodes")
-
-                    # Delete Knowledge nodes
-                    if knowledge_ids:
-                        result = session.run("""
-                            MATCH (k:Knowledge)
-                            WHERE k.id IN $knowledge_ids
-                            DETACH DELETE k
-                            RETURN count(k) as deleted_count
-                        """, knowledge_ids=knowledge_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Knowledge nodes")
-
-                    # Delete Item nodes
-                    if item_ids:
-                        result = session.run("""
-                            MATCH (i:Item)
-                            WHERE i.id IN $item_ids
-                            DETACH DELETE i
-                            RETURN count(i) as deleted_count
-                        """, item_ids=item_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Item nodes")
-
-                    # Delete Discovery nodes
-                    if discovery_ids:
-                        result = session.run("""
-                            MATCH (d:Discovery)
-                            WHERE d.id IN $discovery_ids
-                            DETACH DELETE d
-                            RETURN count(d) as deleted_count
-                        """, discovery_ids=discovery_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Discovery nodes")
-
-                    # Delete Event nodes
-                    if event_ids:
-                        result = session.run("""
-                            MATCH (e:Event)
-                            WHERE e.id IN $event_ids
-                            DETACH DELETE e
-                            RETURN count(e) as deleted_count
-                        """, event_ids=event_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Event nodes")
-
-                    # Delete Challenge nodes
-                    if challenge_ids:
-                        result = session.run("""
-                            MATCH (c:Challenge)
-                            WHERE c.id IN $challenge_ids
-                            DETACH DELETE c
-                            RETURN count(c) as deleted_count
-                        """, challenge_ids=challenge_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Challenge nodes")
-
-                    # Delete Quest nodes
-                    if quest_ids:
-                        result = session.run("""
-                            MATCH (q:Quest)
-                            WHERE q.id IN $quest_ids
-                            DETACH DELETE q
-                            RETURN count(q) as deleted_count
-                        """, quest_ids=quest_ids)
-                        count = result.single()['deleted_count']
-                        logger.warning(f"Neo4j: Deleted {count} Quest nodes")
-
-                    # Delete Campaign node and all remaining relationships
-                    result = session.run("""
-                        MATCH (c:Campaign {id: $campaign_id})
-                        DETACH DELETE c
-                        RETURN count(c) as deleted_count
-                    """, campaign_id=campaign_id)
-                    count = result.single()['deleted_count']
-                    logger.warning(f"Neo4j: Deleted {count} Campaign node")
-
-            except Exception as neo4j_error:
-                logger.warning(f"Neo4j deletion warning: {neo4j_error}")
-                messages.warning(request, f"Neo4j cleanup warning: {str(neo4j_error)}")
-
-            # Delete from PostgreSQL (non-critical)
-            try:
-                import psycopg2
-                POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
-                POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
-                POSTGRES_DB = os.getenv('POSTGRES_DB', 'skillforge')
-                POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
-                POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
-
-                conn = psycopg2.connect(
-                    host=POSTGRES_HOST,
-                    port=POSTGRES_PORT,
-                    database=POSTGRES_DB,
-                    user=POSTGRES_USER,
-                    password=POSTGRES_PASSWORD
+            # Publish deletion request
+            channel.basic_publish(
+                exchange='',
+                routing_key='campaign_deletion_queue',
+                body=json.dumps(deletion_request),
+                properties=pika.BasicProperties(
+                    delivery_mode=2,  # Make message persistent
+                    content_type='application/json'
                 )
+            )
 
-                try:
-                    with conn.cursor() as cursor:
-                        cursor.execute("""
-                            DELETE FROM campaigns_playercampaign
-                            WHERE campaign_id = %s
-                        """, (campaign_id,))
-                        pg_deleted_count = cursor.rowcount
-                        conn.commit()
-                        logger.info(f"Deleted {pg_deleted_count} player-campaign associations from PostgreSQL")
-                finally:
-                    conn.close()
+            connection.close()
 
-            except Exception as pg_error:
-                logger.warning(f"PostgreSQL deletion warning: {pg_error}")
-                # Non-critical - don't show warning to user
+            logger.info(f"Published campaign deletion request: {deletion_request_id} for campaign: {campaign_id}")
 
-            # Calculate total deleted entities
-            total_deleted = sum(deleted_counts.values())
+            # Redirect to deletion progress page instead of campaign list
+            messages.success(request, f'Campaign "{campaign_name}" deletion has been started. You will be notified when complete.')
 
-            messages.success(request, f'Campaign "{campaign_name}" and {total_deleted} related entities have been permanently deleted')
+            # Store deletion request ID in session for progress tracking
+            request.session['deletion_request_id'] = deletion_request_id
+            request.session['deleting_campaign_id'] = campaign_id
+
+            # Redirect to a deletion progress page (we'll create this)
+            return redirect('campaign_deletion_progress', request_id=deletion_request_id)
 
         except Exception as e:
-            logger.error(f"Error during campaign deletion: {e}", exc_info=True)
-            messages.error(request, f'Failed to delete campaign: {str(e)}')
+            logger.error(f"Error publishing deletion request: {e}", exc_info=True)
+            messages.error(request, f'Failed to start campaign deletion: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
 
-        return redirect('campaign_list')
+
+class CampaignDeletionProgressView(View):
+    """View for tracking campaign deletion progress"""
+
+    def get(self, request, request_id):
+        return render(request, 'campaigns/campaign_deletion_progress.html', {
+            'request_id': request_id
+        })
+
+
+class CampaignDeletionStatusAPI(View):
+    """API endpoint for getting deletion progress status from Redis"""
+
+    def get(self, request, request_id):
+        import redis
+        import json
+
+        try:
+            # Connect to Redis
+            redis_host = os.getenv('REDIS_HOST', 'redis')
+            redis_port = int(os.getenv('REDIS_PORT', '6379'))
+            redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
+
+            # Get progress data from Redis
+            progress_key = f"campaign:deletion:progress:{request_id}"
+            progress_data = redis_client.get(progress_key)
+
+            if not progress_data:
+                return JsonResponse({
+                    'status': 'not_found',
+                    'message': 'Deletion request not found'
+                }, status=404)
+
+            # Parse and return progress data
+            progress = json.loads(progress_data)
+            return JsonResponse(progress)
+
+        except Exception as e:
+            logger.error(f"Error fetching deletion status: {e}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
 
 
 class CampaignDesignerWizardView(View):

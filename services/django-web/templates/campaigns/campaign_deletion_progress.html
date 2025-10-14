@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Campaign Deletion - SkillForge RPG{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col s12" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); margin: 0;">
+            <i class="material-icons left" style="font-size: 2.5rem;">delete_sweep</i>
+            Campaign Deletion in Progress
+        </h3>
+        <a href="/campaigns/" class="btn waves-effect waves-light" style="background-color: var(--rpg-purple);">
+            <i class="material-icons left">arrow_back</i>Return to Campaigns
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <!-- Progress Bar -->
+                <div style="margin-bottom: 30px;">
+                    <div class="progress" style="background-color: rgba(27, 27, 46, 0.6); height: 30px; border-radius: 8px; overflow: hidden;">
+                        <div id="progress-bar" class="determinate" style="width: 0%; background: linear-gradient(90deg, var(--rpg-purple) 0%, var(--rpg-gold) 100%); height: 100%; transition: width 0.5s ease;">
+                            <span id="progress-percentage" style="position: absolute; width: 100%; text-align: center; line-height: 30px; color: white; font-weight: bold;">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Status -->
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <h5 id="current-status" style="color: var(--rpg-gold); margin-bottom: 10px;">
+                        Initializing deletion process...
+                    </h5>
+                    <p id="status-message" style="color: #b8b8d1; font-size: 1.1rem;">
+                        Please wait while we prepare to delete the campaign and its related data.
+                    </p>
+                </div>
+
+                <!-- Phase Steps -->
+                <div class="progress-phases" style="margin-bottom: 40px;">
+                    <div class="phase-step" data-phase="fetch" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; background: rgba(27, 27, 46, 0.4); border: 2px solid rgba(192, 192, 192, 0.2); border-radius: 8px;">
+                        <i class="material-icons phase-icon" style="font-size: 2rem; color: var(--rpg-silver);">search</i>
+                        <div style="flex: 1;">
+                            <div class="phase-label" style="font-size: 1.1rem; color: var(--rpg-silver); font-weight: bold;">Fetching Campaign Data</div>
+                            <div class="phase-detail" style="font-size: 0.9rem; color: #b8b8d1; margin-top: 5px;">Loading campaign information and dependencies</div>
+                        </div>
+                    </div>
+                    <div class="phase-step" data-phase="delete_entities" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; background: rgba(27, 27, 46, 0.4); border: 2px solid rgba(192, 192, 192, 0.2); border-radius: 8px;">
+                        <i class="material-icons phase-icon" style="font-size: 2rem; color: var(--rpg-silver);">delete</i>
+                        <div style="flex: 1;">
+                            <div class="phase-label" style="font-size: 1.1rem; color: var(--rpg-silver); font-weight: bold;">Deleting Campaign Entities</div>
+                            <div class="phase-detail" style="font-size: 0.9rem; color: #b8b8d1; margin-top: 5px;">Removing quests, places, scenes, NPCs, and other campaign data</div>
+                        </div>
+                    </div>
+                    <div class="phase-step" data-phase="cleanup_species" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; background: rgba(27, 27, 46, 0.4); border: 2px solid rgba(192, 192, 192, 0.2); border-radius: 8px;">
+                        <i class="material-icons phase-icon" style="font-size: 2rem; color: var(--rpg-silver);">diversity_3</i>
+                        <div style="flex: 1;">
+                            <div class="phase-label" style="font-size: 1.1rem; color: var(--rpg-silver); font-weight: bold;">Cleaning Up Species</div>
+                            <div class="phase-detail" style="font-size: 0.9rem; color: #b8b8d1; margin-top: 5px;">Removing species that are no longer used</div>
+                        </div>
+                    </div>
+                    <div class="phase-step" data-phase="cleanup_locations" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; background: rgba(27, 27, 46, 0.4); border: 2px solid rgba(192, 192, 192, 0.2); border-radius: 8px;">
+                        <i class="material-icons phase-icon" style="font-size: 2rem; color: var(--rpg-silver);">location_off</i>
+                        <div style="flex: 1;">
+                            <div class="phase-label" style="font-size: 1.1rem; color: var(--rpg-silver); font-weight: bold;">Cleaning Up Locations</div>
+                            <div class="phase-detail" style="font-size: 0.9rem; color: #b8b8d1; margin-top: 5px;">Removing locations that are no longer used</div>
+                        </div>
+                    </div>
+                    <div class="phase-step" data-phase="finalize" style="display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 10px; background: rgba(27, 27, 46, 0.4); border: 2px solid rgba(192, 192, 192, 0.2); border-radius: 8px;">
+                        <i class="material-icons phase-icon" style="font-size: 2rem; color: var(--rpg-silver);">done_all</i>
+                        <div style="flex: 1;">
+                            <div class="phase-label" style="font-size: 1.1rem; color: var(--rpg-silver); font-weight: bold;">Finalizing</div>
+                            <div class="phase-detail" style="font-size: 0.9rem; color: #b8b8d1; margin-top: 5px;">Completing deletion and cleaning up resources</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deletion Statistics -->
+                <div id="deletion-stats" style="display: none; margin-top: 30px; padding: 20px; background: rgba(47, 158, 68, 0.1); border-left: 3px solid var(--rpg-green); border-radius: 4px;">
+                    <h6 style="color: var(--rpg-green); margin-top: 0;">
+                        <i class="material-icons left">bar_chart</i>Deletion Summary
+                    </h6>
+                    <div id="deletion-stats-content" style="color: #b8b8d1; font-size: 0.95rem;"></div>
+                </div>
+
+                <!-- Audit Trail -->
+                <div id="audit-trail-section" style="margin-top: 30px;">
+                    <h6 style="color: var(--rpg-gold); margin-bottom: 15px;">
+                        <i class="material-icons left">receipt_long</i>Audit Trail
+                    </h6>
+                    <div id="audit-trail" style="max-height: 400px; overflow-y: auto; padding: 15px; background: rgba(27, 27, 46, 0.4); border-radius: 8px;">
+                        <p style="color: #b8b8d1; font-size: 0.9rem;">Deletion process starting...</p>
+                    </div>
+                </div>
+
+                <!-- Errors Section -->
+                <div id="errors-section" style="display: none; margin-top: 30px; padding: 20px; background: rgba(244, 67, 54, 0.1); border-left: 3px solid #F44336; border-radius: 4px;">
+                    <h6 style="color: #F44336; margin-top: 0;">
+                        <i class="material-icons left">error</i>Errors Encountered
+                    </h6>
+                    <div id="errors-content" style="color: #b8b8d1; font-size: 0.9rem;"></div>
+                </div>
+
+                <!-- Completion Actions -->
+                <div id="completion-actions" style="display: none; margin-top: 30px; text-align: center;">
+                    <a href="/campaigns/" class="btn-large waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                        <i class="material-icons left">arrow_back</i>Return to Campaigns
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Phase step active state */
+    .phase-step.active {
+        border-color: var(--rpg-gold);
+        background: rgba(212, 175, 55, 0.1);
+    }
+
+    .phase-step.active .phase-icon {
+        color: var(--rpg-gold);
+        animation: pulse 1.5s infinite;
+    }
+
+    .phase-step.active .phase-label {
+        color: var(--rpg-gold);
+    }
+
+    /* Phase step completed state */
+    .phase-step.completed {
+        border-color: var(--rpg-green);
+        background: rgba(47, 158, 68, 0.1);
+    }
+
+    .phase-step.completed .phase-icon {
+        color: var(--rpg-green);
+    }
+
+    .phase-step.completed .phase-icon::before {
+        content: 'check_circle';
+    }
+
+    .phase-step.completed .phase-label {
+        color: var(--rpg-green);
+    }
+
+    /* Phase step error state */
+    .phase-step.error {
+        border-color: #F44336;
+        background: rgba(244, 67, 54, 0.1);
+    }
+
+    .phase-step.error .phase-icon {
+        color: #F44336;
+    }
+
+    .phase-step.error .phase-icon::before {
+        content: 'error';
+    }
+
+    .phase-step.error .phase-label {
+        color: #F44336;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    /* Audit trail scrollbar */
+    #audit-trail::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #audit-trail::-webkit-scrollbar-track {
+        background: rgba(27, 27, 46, 0.4);
+        border-radius: 3px;
+    }
+
+    #audit-trail::-webkit-scrollbar-thumb {
+        background: rgba(212, 175, 55, 0.3);
+        border-radius: 3px;
+    }
+
+    #audit-trail::-webkit-scrollbar-thumb:hover {
+        background: rgba(212, 175, 55, 0.5);
+    }
+
+    /* Audit log entry */
+    .audit-entry {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(192, 192, 192, 0.1);
+    }
+
+    .audit-entry:last-child {
+        border-bottom: none;
+    }
+
+    .audit-timestamp {
+        color: var(--rpg-silver);
+        font-size: 0.8rem;
+        margin-right: 10px;
+    }
+
+    .audit-action {
+        color: var(--rpg-gold);
+        font-weight: bold;
+    }
+
+    .audit-status-success {
+        color: var(--rpg-green);
+    }
+
+    .audit-status-error {
+        color: #F44336;
+    }
+
+    .audit-status-warning {
+        color: #FF9800;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const requestId = "{{ request_id }}";
+    let pollInterval = null;
+    let isComplete = false;
+
+    /**
+     * Poll for deletion status
+     */
+    function pollDeletionStatus() {
+        pollInterval = setInterval(async () => {
+            if (isComplete) {
+                clearInterval(pollInterval);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/campaigns/deletion/status/${requestId}/`);
+                if (!response.ok) {
+                    console.error('Failed to fetch deletion status');
+                    return;
+                }
+
+                const data = await response.json();
+                updateUI(data);
+
+                // Check if deletion is complete or failed
+                if (data.status === 'completed') {
+                    isComplete = true;
+                    clearInterval(pollInterval);
+                    handleCompletion(data);
+                } else if (data.status === 'failed') {
+                    isComplete = true;
+                    clearInterval(pollInterval);
+                    handleFailure(data);
+                }
+            } catch (error) {
+                console.error('Error polling deletion status:', error);
+            }
+        }, 2000); // Poll every 2 seconds
+    }
+
+    /**
+     * Update UI based on deletion status
+     */
+    function updateUI(data) {
+        // Update progress bar
+        const progressPercentage = data.progress_percentage || 0;
+        document.getElementById('progress-bar').style.width = progressPercentage + '%';
+        document.getElementById('progress-percentage').textContent = progressPercentage + '%';
+
+        // Update current status
+        const currentPhase = data.current_phase || 'fetch';
+        const statusMessage = data.status_message || 'Processing...';
+        document.getElementById('current-status').textContent = getPhaseTitle(currentPhase);
+        document.getElementById('status-message').textContent = statusMessage;
+
+        // Update phase steps
+        updatePhaseSteps(currentPhase);
+
+        // Update audit trail
+        if (data.deletion_log && data.deletion_log.length > 0) {
+            updateAuditTrail(data.deletion_log);
+        }
+
+        // Update deletion statistics if available
+        if (data.deletion_stats) {
+            updateDeletionStats(data.deletion_stats);
+        }
+
+        // Show errors if any
+        if (data.errors && data.errors.length > 0) {
+            showErrors(data.errors);
+        }
+    }
+
+    /**
+     * Get phase title
+     */
+    function getPhaseTitle(phase) {
+        const titles = {
+            'fetch': 'Fetching Campaign Data',
+            'delete_entities': 'Deleting Campaign Entities',
+            'cleanup_species': 'Cleaning Up Species',
+            'cleanup_locations': 'Cleaning Up Locations',
+            'finalize': 'Finalizing Deletion'
+        };
+        return titles[phase] || 'Processing';
+    }
+
+    /**
+     * Update phase steps visual state
+     */
+    function updatePhaseSteps(currentPhase) {
+        const phases = ['fetch', 'delete_entities', 'cleanup_species', 'cleanup_locations', 'finalize'];
+        const currentIndex = phases.indexOf(currentPhase);
+
+        phases.forEach((phase, index) => {
+            const stepEl = document.querySelector(`.phase-step[data-phase="${phase}"]`);
+            stepEl.classList.remove('active', 'completed', 'error');
+
+            if (index < currentIndex) {
+                stepEl.classList.add('completed');
+            } else if (index === currentIndex) {
+                stepEl.classList.add('active');
+            }
+        });
+    }
+
+    /**
+     * Format details for display
+     */
+    function formatDetails(details) {
+        if (!details) return '';
+
+        // If it's a string, return as-is
+        if (typeof details === 'string') {
+            return details;
+        }
+
+        // If it's an object, format it nicely
+        if (typeof details === 'object') {
+            const entries = Object.entries(details);
+            if (entries.length === 0) return '';
+
+            return entries
+                .map(([key, value]) => {
+                    // Format the key nicely (convert snake_case to Title Case)
+                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    return `${formattedKey}: ${value}`;
+                })
+                .join(', ');
+        }
+
+        return String(details);
+    }
+
+    /**
+     * Update audit trail
+     */
+    function updateAuditTrail(deletionLog) {
+        const auditTrail = document.getElementById('audit-trail');
+        auditTrail.innerHTML = '';
+
+        deletionLog.forEach(entry => {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'audit-entry';
+
+            const timestamp = new Date(entry.timestamp).toLocaleTimeString();
+            const statusClass = entry.status === 'success' ? 'audit-status-success' :
+                              entry.status === 'error' ? 'audit-status-error' :
+                              entry.status === 'warning' ? 'audit-status-warning' : '';
+
+            const formattedDetails = formatDetails(entry.details);
+
+            entryDiv.innerHTML = `
+                <span class="audit-timestamp">${timestamp}</span>
+                <span class="audit-action">${entry.action}</span>
+                ${entry.status ? `<span class="${statusClass}"> - ${entry.status}</span>` : ''}
+                ${formattedDetails ? `<div style="margin-left: 90px; color: #b8b8d1; font-size: 0.85rem; margin-top: 3px;">${formattedDetails}</div>` : ''}
+            `;
+
+            auditTrail.appendChild(entryDiv);
+        });
+
+        // Auto-scroll to bottom
+        auditTrail.scrollTop = auditTrail.scrollHeight;
+    }
+
+    /**
+     * Update deletion statistics
+     */
+    function updateDeletionStats(stats) {
+        const statsSection = document.getElementById('deletion-stats');
+        const statsContent = document.getElementById('deletion-stats-content');
+
+        let statsHtml = '<ul style="margin: 10px 0; list-style: none; padding: 0;">';
+
+        if (stats.quests_deleted !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.quests_deleted} quest(s) deleted</li>`;
+        }
+        if (stats.places_deleted !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.places_deleted} place(s) deleted</li>`;
+        }
+        if (stats.scenes_deleted !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.scenes_deleted} scene(s) deleted</li>`;
+        }
+        if (stats.npcs_deleted !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.npcs_deleted} NPC(s) deleted</li>`;
+        }
+        if (stats.species_removed !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.species_removed} species removed</li>`;
+        }
+        if (stats.locations_removed !== undefined) {
+            statsHtml += `<li><i class="material-icons tiny" style="vertical-align: middle;">check</i> ${stats.locations_removed} location(s) removed</li>`;
+        }
+
+        statsHtml += '</ul>';
+        statsContent.innerHTML = statsHtml;
+        statsSection.style.display = 'block';
+    }
+
+    /**
+     * Show errors
+     */
+    function showErrors(errors) {
+        const errorsSection = document.getElementById('errors-section');
+        const errorsContent = document.getElementById('errors-content');
+
+        let errorsHtml = '<ul style="margin: 10px 0;">';
+        errors.forEach(error => {
+            errorsHtml += `<li style="margin-bottom: 5px;">${error}</li>`;
+        });
+        errorsHtml += '</ul>';
+
+        errorsContent.innerHTML = errorsHtml;
+        errorsSection.style.display = 'block';
+    }
+
+    /**
+     * Handle completion
+     */
+    function handleCompletion(data) {
+        document.getElementById('current-status').textContent = 'Campaign Deleted Successfully';
+        document.getElementById('progress-bar').style.width = '100%';
+        document.getElementById('progress-percentage').textContent = '100%';
+
+        // Mark all phases as completed
+        document.querySelectorAll('.phase-step').forEach(step => {
+            step.classList.remove('active');
+            step.classList.add('completed');
+        });
+
+        // Show completion actions
+        document.getElementById('completion-actions').style.display = 'block';
+
+        // Show success toast
+        M.toast({html: 'Campaign deleted successfully!', classes: 'green', displayLength: 4000});
+
+        // Countdown redirect
+        let countdown = 3;
+        document.getElementById('status-message').textContent = `The campaign and all related data have been removed. Redirecting in ${countdown} seconds...`;
+
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                document.getElementById('status-message').textContent = `The campaign and all related data have been removed. Redirecting in ${countdown} seconds...`;
+            } else {
+                clearInterval(countdownInterval);
+                window.location.href = '/campaigns/';
+            }
+        }, 1000);
+    }
+
+    /**
+     * Handle failure
+     */
+    function handleFailure(data) {
+        document.getElementById('current-status').textContent = 'Deletion Failed';
+        document.getElementById('status-message').textContent = 'An error occurred during the deletion process.';
+
+        // Mark current phase as error
+        const currentPhase = data.current_phase || 'fetch';
+        const stepEl = document.querySelector(`.phase-step[data-phase="${currentPhase}"]`);
+        if (stepEl) {
+            stepEl.classList.remove('active');
+            stepEl.classList.add('error');
+        }
+
+        // Show completion actions
+        document.getElementById('completion-actions').style.display = 'block';
+
+        // Show error toast
+        M.toast({html: 'Campaign deletion failed. Please check the audit trail for details.', classes: 'red'});
+    }
+
+    // Start polling
+    pollDeletionStatus();
+});
+</script>
+{% endblock %}
