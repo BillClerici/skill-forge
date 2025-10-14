@@ -566,6 +566,129 @@ document.addEventListener('DOMContentLoaded', function() {
                 title = `Scene: ${scene.name}`;
                 // Store scene data for image rendering
                 currentEntityData = scene;
+
+                // Build accordion content
+                let accordionHtml = '<ul class="collapsible" style="border: none; box-shadow: none; margin-top: 20px;">';
+
+                // Primary NPCs accordion
+                if (scene.npcs && scene.npcs.length > 0) {
+                    accordionHtml += `
+                        <li class="active">
+                            <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-gold);">people</i>
+                                <span style="color: var(--rpg-gold); font-weight: 500;">Primary NPCs (${scene.npcs.length})</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold); display: block;">
+                                ${scene.npcs.map(npc => `
+                                    <div style="background: rgba(212, 175, 55, 0.05); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                        <div style="color: var(--rpg-gold); font-weight: 600; font-size: 1.1rem; margin-bottom: 4px;">
+                                            ${escapeHtml(npc.name)}
+                                        </div>
+                                        <div style="color: #b8b8d1; font-size: 0.9rem; font-style: italic;">
+                                            ${escapeHtml(npc.role)}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </li>
+                    `;
+                }
+
+                // Knowledge Entities accordion
+                if (scene.knowledge && scene.knowledge.length > 0) {
+                    accordionHtml += `
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(156, 39, 176, 0.1); border-left: 3px solid var(--rpg-purple); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-purple);">school</i>
+                                <span style="color: var(--rpg-purple); font-weight: 500;">Knowledge Entities (${scene.knowledge.length})</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-purple);">
+                                ${scene.knowledge.map(knowledge => `
+                                    <div style="background: rgba(156, 39, 176, 0.05); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                        <div style="color: var(--rpg-purple); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                            <span>${escapeHtml(knowledge.name)}</span>
+                                            <span class="chip" style="background-color: rgba(156, 39, 176, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.knowledge_type)}</span>
+                                            <span class="chip" style="background-color: rgba(33, 150, 243, 0.2); color: #2196F3; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.primary_dimension)}</span>
+                                        </div>
+                                        <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap; margin-bottom: 8px;">${escapeHtml(knowledge.description)}</p>
+                                        ${knowledge.acquisition_methods && knowledge.acquisition_methods.length > 0 ? `
+                                        <div style="margin-top: 8px;">
+                                            <strong style="color: var(--rpg-purple); font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">school</i> How to Learn:</strong>
+                                            <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                                ${knowledge.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.display || method.type + ' (' + method.difficulty + ')')}</li>`).join('')}
+                                            </ul>
+                                        </div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </li>
+                    `;
+                }
+
+                // Tools (Items) accordion
+                if (scene.items && scene.items.length > 0) {
+                    accordionHtml += `
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(255, 193, 7, 0.1); border-left: 3px solid #FFC107; display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: #FFC107;">inventory_2</i>
+                                <span style="color: #FFC107; font-weight: 500;">Tools (${scene.items.length})</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid #FFC107;">
+                                ${scene.items.map(item => `
+                                    <div style="background: rgba(255, 193, 7, 0.05); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                        <div style="color: #FFC107; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                            <span>${escapeHtml(item.name)}</span>
+                                            <span class="chip" style="background-color: rgba(255, 193, 7, 0.2); color: #FFC107; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(item.item_type)}</span>
+                                            ${item.is_quest_critical ? `<span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Quest Critical</span>` : ''}
+                                        </div>
+                                        <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap; margin-bottom: 8px;">${escapeHtml(item.description)}</p>
+                                        ${item.acquisition_methods && item.acquisition_methods.length > 0 ? `
+                                        <div style="margin-top: 8px;">
+                                            <strong style="color: #FFC107; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">download</i> How to Get:</strong>
+                                            <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                                ${item.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.display || method.type + ' (' + method.difficulty + ')')}</li>`).join('')}
+                                            </ul>
+                                        </div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </li>
+                    `;
+                }
+
+                // Evaluation Rubrics accordion
+                if (scene.rubrics && scene.rubrics.length > 0) {
+                    accordionHtml += `
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(0, 150, 136, 0.1); border-left: 3px solid #009688; display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: #009688;">rule</i>
+                                <span style="color: #009688; font-weight: 500;">Evaluation Rubrics (${scene.rubrics.length})</span>
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid #009688;">
+                                ${scene.rubrics.map(rubric => `
+                                    <div style="background: rgba(0, 150, 136, 0.05); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                        <div style="color: #009688; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                            <span>${escapeHtml(rubric.interaction_name)}</span>
+                                            <span class="chip" style="background-color: rgba(0, 150, 136, 0.2); color: #009688; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.rubric_type)}</span>
+                                            <span class="chip" style="background-color: rgba(103, 58, 183, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.primary_dimension)}</span>
+                                        </div>
+                                        ${rubric.evaluation_criteria && rubric.evaluation_criteria.length > 0 ? `
+                                        <div style="margin-top: 8px;">
+                                            <strong style="color: #009688; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">checklist</i> Evaluation Criteria:</strong>
+                                            <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                                ${rubric.evaluation_criteria.map(criterion => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(criterion.criterion)} (Weight: ${(criterion.weight * 100).toFixed(0)}%)</li>`).join('')}
+                                            </ul>
+                                        </div>` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </li>
+                    `;
+                }
+
+                accordionHtml += '</ul>';
+
+                // Location and Description sections (above accordions)
                 content = `
                     <div style="margin-bottom: 20px;">
                         <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
@@ -579,151 +702,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </h6>
                         <p style="color: #b8b8d1; line-height: 1.7; white-space: pre-wrap;">${escapeHtml(scene.description)}</p>
                     </div>
-                    ${scene.npcs && scene.npcs.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">people</i> Primary NPCs
-                        </h6>
-                        <ul style="margin: 0; padding-left: 20px;">
-                            ${scene.npcs.map(npc => `<li style="color: #b8b8d1; margin-bottom: 6px;"><strong>${escapeHtml(npc.name)}</strong> - ${escapeHtml(npc.role)}</li>`).join('')}
-                        </ul>
-                    </div>` : ''}
-                    ${scene.challenges && scene.challenges.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">emoji_events</i> Challenges
-                        </h6>
-                        ${scene.challenges.map(challenge => `
-                            <div style="background: rgba(255, 152, 0, 0.1); border-left: 3px solid #ff9800; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: #ff9800; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(challenge.name)}</span>
-                                    <span class="chip" style="background-color: rgba(255, 152, 0, 0.2); color: #ff9800; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(challenge.challenge_type)}</span>
-                                    <span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(challenge.difficulty)}</span>
-                                </div>
-                                <p style="color: #b8b8d1; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap;">${escapeHtml(challenge.description)}</p>
-                                ${challenge.success_rewards && Object.keys(challenge.success_rewards).length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: #4caf50; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">check_circle</i> Rewards:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${Object.entries(challenge.success_rewards).map(([key, value]) => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(key)}: ${escapeHtml(value)}</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                                ${challenge.failure_consequences && Object.keys(challenge.failure_consequences).length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: #f44336; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">cancel</i> Consequences:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${Object.entries(challenge.failure_consequences).map(([key, value]) => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(key)}: ${escapeHtml(value)}</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    ${scene.events && scene.events.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">event</i> Events
-                        </h6>
-                        ${scene.events.map(event => `
-                            <div style="background: rgba(106, 90, 205, 0.1); border-left: 3px solid var(--rpg-purple); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: var(--rpg-purple); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(event.name)}</span>
-                                    <span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(event.event_type)}</span>
-                                </div>
-                                <p style="color: #b8b8d1; line-height: 1.6; margin-bottom: 8px; white-space: pre-wrap;">${escapeHtml(event.description)}</p>
-                                ${event.outcomes && event.outcomes.length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: var(--rpg-purple); font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">fork_right</i> Possible Outcomes:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${event.outcomes.map(outcome => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(outcome)}</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    ${scene.discoveries && scene.discoveries.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">lightbulb</i> Discoveries
-                        </h6>
-                        ${scene.discoveries.map(discovery => `
-                            <div style="background: rgba(76, 110, 245, 0.1); border-left: 3px solid var(--rpg-blue); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: var(--rpg-blue); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(discovery.name)}</span>
-                                    <span class="chip" style="background-color: rgba(76, 110, 245, 0.2); color: var(--rpg-blue); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(discovery.knowledge_type)}</span>
-                                    <span class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Level ${discovery.blooms_level}</span>
-                                </div>
-                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(discovery.description)}</p>
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    ${scene.knowledge && scene.knowledge.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">school</i> Knowledge Entities
-                        </h6>
-                        ${scene.knowledge.map(knowledge => `
-                            <div style="background: rgba(156, 39, 176, 0.1); border-left: 3px solid var(--rpg-purple); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: var(--rpg-purple); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(knowledge.name)}</span>
-                                    <span class="chip" style="background-color: rgba(156, 39, 176, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.knowledge_type)}</span>
-                                    <span class="chip" style="background-color: rgba(33, 150, 243, 0.2); color: #2196F3; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.primary_dimension)}</span>
-                                </div>
-                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(knowledge.description)}</p>
-                                ${knowledge.acquisition_methods && knowledge.acquisition_methods.length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: var(--rpg-purple); font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">download</i> Acquisition Methods:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${knowledge.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.type)} (${escapeHtml(method.difficulty)})</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    ${scene.items && scene.items.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">inventory_2</i> Items
-                        </h6>
-                        ${scene.items.map(item => `
-                            <div style="background: rgba(255, 193, 7, 0.1); border-left: 3px solid #FFC107; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: #FFC107; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(item.name)}</span>
-                                    <span class="chip" style="background-color: rgba(255, 193, 7, 0.2); color: #FFC107; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(item.item_type)}</span>
-                                    ${item.is_quest_critical ? `<span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Quest Critical</span>` : ''}
-                                </div>
-                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(item.description)}</p>
-                                ${item.acquisition_methods && item.acquisition_methods.length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: #FFC107; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">download</i> How to Obtain:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${item.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.type)} (${escapeHtml(method.difficulty)})</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
-                    ${scene.rubrics && scene.rubrics.length > 0 ? `
-                    <div style="margin-bottom: 20px;">
-                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">rule</i> Evaluation Rubrics (${scene.rubrics.length})
-                        </h6>
-                        ${scene.rubrics.map(rubric => `
-                            <div style="background: rgba(0, 150, 136, 0.1); border-left: 3px solid #009688; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-                                <div style="color: #009688; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
-                                    <span>${escapeHtml(rubric.interaction_name)}</span>
-                                    <span class="chip" style="background-color: rgba(0, 150, 136, 0.2); color: #009688; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.rubric_type)}</span>
-                                    <span class="chip" style="background-color: rgba(103, 58, 183, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.primary_dimension)}</span>
-                                </div>
-                                ${rubric.evaluation_criteria && rubric.evaluation_criteria.length > 0 ? `
-                                <div style="margin-top: 8px;">
-                                    <strong style="color: #009688; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">checklist</i> Evaluation Criteria:</strong>
-                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
-                                        ${rubric.evaluation_criteria.map(criterion => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(criterion.criterion)} (Weight: ${(criterion.weight * 100).toFixed(0)}%)</li>`).join('')}
-                                    </ul>
-                                </div>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>` : ''}
+                    ${accordionHtml}
                 `;
             }
         }
@@ -731,19 +710,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update the entire detail content area with proper layout
         const detailContentEl = document.getElementById('detail-content');
 
-        if (type === 'campaign') {
-            // Campaign layout: Title → Image → Accordion
-            // Use campaign's primary image, fallback to world image
-            const campaignImageUrl = data.campaign.primary_image_url || data.campaign.world_image_url;
+        if (type === 'campaign' || type === 'scene') {
+            // Campaign/Scene layout: Title → Image (full width) → Content (stacked)
+            const entityImageUrl = type === 'campaign'
+                ? (data.campaign.primary_image_url || data.campaign.world_image_url)
+                : currentEntityData?.primary_image_url;
 
             detailContentEl.innerHTML = `
                 <h5 style="color: var(--rpg-gold); margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
                     <i class="material-icons">${iconName}</i> ${title}
                 </h5>
-                <div id="detail-image" style="margin-bottom: 20px;">
-                    ${campaignImageUrl ?
-                        `<img src="${campaignImageUrl}" alt="Campaign" style="width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">` :
-                        `<div style="width: 100%; max-width: 600px; height: 300px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
+                <div id="detail-image" style="margin-bottom: 20px; position: relative;">
+                    ${entityImageUrl ?
+                        `<img src="${entityImageUrl}" alt="${title}" style="width: 100%; max-width: 700px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);">` :
+                        `<div style="width: 100%; max-width: 700px; height: 300px; background: linear-gradient(135deg, rgba(27, 27, 46, 0.9) 0%, rgba(106, 90, 205, 0.2) 100%); border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3); display: flex; align-items: center; justify-content: center;">
                             <i class="material-icons" style="font-size: 80px; color: var(--rpg-gold); opacity: 0.3;">${iconName}</i>
                         </div>`
                     }
@@ -751,14 +731,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div id="detail-body">${content}</div>
             `;
 
-            // Reinitialize Materialize collapsible
-            const collapsibleElems = detailContentEl.querySelectorAll('.collapsible');
-            M.Collapsible.init(collapsibleElems, {
-                accordion: true
-            });
+            // Reinitialize Materialize collapsible for scenes with accordions
+            if (type === 'scene') {
+                const collapsibleElems = detailContentEl.querySelectorAll('.collapsible');
+                M.Collapsible.init(collapsibleElems, {
+                    accordion: true
+                });
+            } else {
+                // Campaign
+                const collapsibleElems = detailContentEl.querySelectorAll('.collapsible');
+                M.Collapsible.init(collapsibleElems, {
+                    accordion: true
+                });
+            }
         } else {
-            // Quest/Place/Scene layout: Title → (Image left + Details right)
-            // Check if entity has an image
+            // Quest/Place layout: Title → (Image left + Details right)
             const entityImageUrl = currentEntityData?.primary_image_url;
 
             detailContentEl.innerHTML = `
@@ -1007,10 +994,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         newImg.alt = 'Generated Image';
 
                         // Use appropriate style based on entity type
-                        if (currentImageContext.type === 'campaign') {
-                            newImg.style.cssText = 'width: 100%; max-width: 600px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);';
+                        if (currentImageContext.type === 'campaign' || currentImageContext.type === 'scene') {
+                            // Campaign and Scene use full-width format
+                            newImg.style.cssText = 'width: 100%; max-width: 700px; height: auto; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);';
                         } else {
-                            // Quest/Place/Scene use square format
+                            // Quest/Place use square format
                             newImg.style.cssText = 'width: 250px; height: 250px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(212, 175, 55, 0.3);';
                         }
 

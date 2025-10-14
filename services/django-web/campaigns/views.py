@@ -369,11 +369,43 @@ class CampaignDetailView(View):
                         npcs_raw = list(db.npcs.find({'_id': {'$in': npc_ids}}))
                         for npc in npcs_raw:
                             npc_role = npc.get('role', '')
+
+                            # Handle role being a complex dict (full NPC spec)
                             if isinstance(npc_role, dict):
-                                npc_role = npc_role.get('type', str(npc_role))
+                                # Check if it's the full NPC spec with provides_knowledge, etc.
+                                if 'provides_knowledge' in npc_role or 'provides_items' in npc_role:
+                                    # Extract meaningful information
+                                    role_parts = []
+
+                                    # Add dimension if available
+                                    dimension = npc_role.get('dimension', '')
+                                    if dimension:
+                                        role_parts.append(f"{dimension.capitalize()} specialist")
+
+                                    # Add knowledge expertise
+                                    knowledge = npc_role.get('provides_knowledge', [])
+                                    if knowledge:
+                                        if len(knowledge) == 1:
+                                            role_parts.append(f"Expert in {knowledge[0]}")
+                                        else:
+                                            role_parts.append(f"Knowledgeable in {len(knowledge)} areas")
+
+                                    # Add item provider info
+                                    items = npc_role.get('provides_items', [])
+                                    if items:
+                                        if len(items) == 1:
+                                            role_parts.append(f"Provides {items[0]}")
+                                        else:
+                                            role_parts.append(f"Provides {len(items)} items")
+
+                                    npc_role = " • ".join(role_parts) if role_parts else "Character"
+                                else:
+                                    # It's a dict with a 'type' field
+                                    npc_role = npc_role.get('type', 'Character')
+
                             npcs.append({
                                 'name': npc.get('name', 'Unknown'),
-                                'role': str(npc_role)
+                                'role': str(npc_role) if npc_role else 'Character'
                             })
 
                     # Get Discoveries for this scene
@@ -431,12 +463,105 @@ class CampaignDetailView(View):
                     if knowledge_ids:
                         knowledge_raw = list(db.knowledge.find({'_id': {'$in': knowledge_ids}}))
                         for kg in knowledge_raw:
+                            # Format acquisition methods with entity names
+                            # Group methods by type to avoid duplicates
+                            methods_by_type = {}
+
+                            for method in kg.get('acquisition_methods', []):
+                                entity_id = method.get('entity_id')
+                                method_type = method.get('type', 'unknown')
+                                difficulty = method.get('difficulty', 'Medium')
+
+                                # Look up entity name based on type
+                                entity_name = None
+                                if method_type == 'npc_conversation' and entity_id:
+                                    npc = db.npcs.find_one({'_id': entity_id})
+                                    if npc:
+                                        entity_name = npc.get('name', None)
+                                elif method_type == 'challenge' and entity_id:
+                                    challenge = db.challenges.find_one({'_id': entity_id})
+                                    if challenge:
+                                        entity_name = challenge.get('name', None)
+                                elif method_type == 'environmental_discovery' and entity_id:
+                                    discovery = db.discoveries.find_one({'_id': entity_id})
+                                    if discovery:
+                                        entity_name = discovery.get('name', None)
+                                elif method_type == 'dynamic_event' and entity_id:
+                                    event = db.events.find_one({'_id': entity_id})
+                                    if event:
+                                        entity_name = event.get('name', None)
+
+                                # Only add if we found a valid entity
+                                if entity_name:
+                                    if method_type not in methods_by_type:
+                                        methods_by_type[method_type] = {}  # Use dict for deduplication
+
+                                    # Use entity_name as key to prevent duplicates (same name = duplicate from user perspective)
+                                    if entity_name not in methods_by_type[method_type]:
+                                        methods_by_type[method_type][entity_name] = {
+                                            'name': entity_name,
+                                            'difficulty': difficulty
+                                        }
+
+                            # Create concise display for each method type
+                            acquisition_methods = []
+                            for method_type, entities_dict in methods_by_type.items():
+                                # Convert dict values to list
+                                entities = list(entities_dict.values())
+
+                                if method_type == 'npc_conversation':
+                                    # Show each NPC individually so users can see their names
+                                    for entity in entities:
+                                        acquisition_methods.append({
+                                            'display': f"Talk to {entity['name']} ({entity['difficulty']})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'challenge':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"Complete {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"Complete {len(entities)} challenges ({diff_str})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'environmental_discovery':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"Discover {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"Make {len(entities)} discoveries ({diff_str})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'dynamic_event':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"During {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"During {len(entities)} events ({diff_str})",
+                                            'type': method_type
+                                        })
+
                             knowledge.append({
                                 'name': kg.get('name', 'Unknown Knowledge'),
                                 'description': kg.get('description', ''),
                                 'knowledge_type': kg.get('knowledge_type', 'information'),
                                 'primary_dimension': kg.get('primary_dimension', ''),
-                                'acquisition_methods': kg.get('acquisition_methods', [])
+                                'acquisition_methods': acquisition_methods
                             })
 
                     # Get Items for this scene
@@ -447,12 +572,105 @@ class CampaignDetailView(View):
                     if item_ids:
                         items_raw = list(db.items.find({'_id': {'$in': item_ids}}))
                         for item in items_raw:
+                            # Format acquisition methods with entity names
+                            # Group methods by type to avoid duplicates
+                            methods_by_type = {}
+
+                            for method in item.get('acquisition_methods', []):
+                                entity_id = method.get('entity_id')
+                                method_type = method.get('type', 'unknown')
+                                difficulty = method.get('difficulty', 'Medium')
+
+                                # Look up entity name based on type
+                                entity_name = None
+                                if method_type == 'npc_conversation' and entity_id:
+                                    npc = db.npcs.find_one({'_id': entity_id})
+                                    if npc:
+                                        entity_name = npc.get('name', None)
+                                elif method_type == 'challenge' and entity_id:
+                                    challenge = db.challenges.find_one({'_id': entity_id})
+                                    if challenge:
+                                        entity_name = challenge.get('name', None)
+                                elif method_type == 'environmental_discovery' and entity_id:
+                                    discovery = db.discoveries.find_one({'_id': entity_id})
+                                    if discovery:
+                                        entity_name = discovery.get('name', None)
+                                elif method_type == 'dynamic_event' and entity_id:
+                                    event = db.events.find_one({'_id': entity_id})
+                                    if event:
+                                        entity_name = event.get('name', None)
+
+                                # Only add if we found a valid entity
+                                if entity_name:
+                                    if method_type not in methods_by_type:
+                                        methods_by_type[method_type] = {}  # Use dict for deduplication
+
+                                    # Use entity_name as key to prevent duplicates (same name = duplicate from user perspective)
+                                    if entity_name not in methods_by_type[method_type]:
+                                        methods_by_type[method_type][entity_name] = {
+                                            'name': entity_name,
+                                            'difficulty': difficulty
+                                        }
+
+                            # Create concise display for each method type
+                            acquisition_methods = []
+                            for method_type, entities_dict in methods_by_type.items():
+                                # Convert dict values to list
+                                entities = list(entities_dict.values())
+
+                                if method_type == 'npc_conversation':
+                                    # Show each NPC individually so users can see their names
+                                    for entity in entities:
+                                        acquisition_methods.append({
+                                            'display': f"Receive from {entity['name']} ({entity['difficulty']})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'challenge':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"Earn by completing {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"Earn by completing {len(entities)} challenges ({diff_str})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'environmental_discovery':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"Find at {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"Find at {len(entities)} discoveries ({diff_str})",
+                                            'type': method_type
+                                        })
+                                elif method_type == 'dynamic_event':
+                                    if len(entities) == 1:
+                                        acquisition_methods.append({
+                                            'display': f"Obtain during {entities[0]['name']} ({entities[0]['difficulty']})",
+                                            'type': method_type
+                                        })
+                                    else:
+                                        difficulties = list(set([e['difficulty'] for e in entities]))
+                                        diff_str = ', '.join(difficulties)
+                                        acquisition_methods.append({
+                                            'display': f"Obtain during {len(entities)} events ({diff_str})",
+                                            'type': method_type
+                                        })
+
                             items.append({
                                 'name': item.get('name', 'Unknown Item'),
                                 'description': item.get('description', ''),
                                 'item_type': item.get('item_type', 'item'),
                                 'is_quest_critical': item.get('is_quest_critical', False),
-                                'acquisition_methods': item.get('acquisition_methods', [])
+                                'acquisition_methods': acquisition_methods
                             })
 
                     # Get Rubrics for this scene

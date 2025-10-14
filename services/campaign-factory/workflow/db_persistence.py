@@ -617,18 +617,55 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     )
                     relationships_created += 5
 
-                    # Link NPCs to this scene
+                    # Link NPCs to this scene with full NPC data
                     for npc_id in scene.get("npc_ids", []):
                         if npc_id and npc_id != "None":  # Skip None values
-                            session.run(
-                                """
-                                MATCH (sc:Scene {id: $scene_id})
-                                MERGE (npc:NPC {id: $npc_id})
-                                MERGE (sc)-[:FEATURES]->(npc)
-                                """,
-                                scene_id=scene_id,
-                                npc_id=npc_id
-                            )
+                            # Find the NPC data from state to create node with full properties
+                            npc_data = None
+                            for npc in state.get("npcs", []):
+                                if npc.get("npc_id") == npc_id:
+                                    npc_data = npc
+                                    break
+
+                            if npc_data:
+                                # Extract role as string
+                                npc_role = npc_data["role"]
+                                if isinstance(npc_role, dict):
+                                    role_str = npc_role.get("type", str(npc_role))
+                                else:
+                                    role_str = str(npc_role)
+
+                                # Create NPC with full properties
+                                session.run(
+                                    """
+                                    MATCH (sc:Scene {id: $scene_id})
+                                    MERGE (npc:NPC {id: $npc_id})
+                                    SET npc.name = $npc_name,
+                                        npc.role = $role,
+                                        npc.description = $description
+                                    MERGE (sc)-[:FEATURES]->(npc)
+                                    """,
+                                    scene_id=scene_id,
+                                    npc_id=npc_id,
+                                    npc_name=npc_data.get("name", "Unknown NPC"),
+                                    role=role_str,
+                                    description=npc_data.get("backstory", f"A {npc_data.get('species_name', 'character')} in this location.")
+                                )
+                            else:
+                                # Fallback: create NPC node with just ID (should not happen)
+                                logger.warning(f"NPC {npc_id} not found in state, creating with minimal data")
+                                session.run(
+                                    """
+                                    MATCH (sc:Scene {id: $scene_id})
+                                    MERGE (npc:NPC {id: $npc_id})
+                                    SET npc.name = 'Unknown NPC',
+                                        npc.role = 'unknown',
+                                        npc.description = 'An NPC whose details are yet to be discovered.'
+                                    MERGE (sc)-[:FEATURES]->(npc)
+                                    """,
+                                    scene_id=scene_id,
+                                    npc_id=npc_id
+                                )
                             relationships_created += 1
 
         # NPCs relationships with species and locations
@@ -651,6 +688,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 logger.warning(f"Skipping Neo4j relationships for NPC {npc_id} - missing species_id or location_id")
                 continue
 
+            # Ensure backstory/description is not empty
+            backstory = npc.get("backstory", "").strip()
+            if not backstory:
+                backstory = f"A {npc.get('species_name', 'character')} {role_str} whose story is connected to {npc.get('level_3_location_name', 'this location')}."
+
             session.run(
                 """
                 MATCH (w:World {id: $world_id})
@@ -663,7 +705,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 MERGE (s:Species {name: $species_name, world_id: $world_id})
                 ON CREATE SET s.id = $species_id
                 ON MATCH SET s.id = COALESCE(s.id, $species_id)
-                MERGE (s)-[:NATIVE_TO]->(w)
+                MERGE (s)-[:IN_WORLD]->(w)
 
                 // MERGE Location by hierarchical path (world + name) to avoid duplicates
                 MERGE (loc:Location {name: $location_name, world_id: $world_id})
@@ -678,7 +720,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 npc_id=npc_id,
                 npc_name=npc["name"],
                 role=role_str,
-                description=npc.get("backstory", ""),
+                description=backstory,
                 species_id=npc["species_id"],
                 species_name=npc.get("species_name", "Unknown Species"),
                 location_id=npc["level_3_location_id"],
@@ -822,12 +864,83 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     )
                     relationships_created += 1
 
+        # Challenges - create nodes and link to scenes
+        for idx, challenge in enumerate(state.get("challenges", [])):
+            challenge_id = f"challenge_{state['request_id']}_{idx}"
+
+            # Create Challenge node
+            session.run(
+                """
+                MERGE (ch:Challenge {id: $challenge_id})
+                SET ch.name = $name,
+                    ch.challenge_type = $challenge_type,
+                    ch.difficulty = $difficulty,
+                    ch.blooms_level = $blooms_level,
+                    ch.description = $description
+                """,
+                challenge_id=challenge_id,
+                name=challenge.get("name", "Unknown Challenge"),
+                challenge_type=challenge.get("challenge_type", "combat"),
+                difficulty=challenge.get("difficulty", "Medium"),
+                blooms_level=challenge.get("blooms_level", 3),
+                description=challenge.get("description", "")[:500]
+            )
+            # Note: Challenge-Scene linking would require tracking which scene each challenge belongs to
+            # For now, challenges exist but aren't linked to specific scenes
+
+        # Discoveries - create nodes
+        for idx, discovery in enumerate(state.get("discoveries", [])):
+            discovery_id = f"discovery_{state['request_id']}_{idx}"
+
+            # Create Discovery node
+            session.run(
+                """
+                MERGE (d:Discovery {id: $discovery_id})
+                SET d.name = $name,
+                    d.knowledge_type = $knowledge_type,
+                    d.blooms_level = $blooms_level,
+                    d.description = $description
+                """,
+                discovery_id=discovery_id,
+                name=discovery.get("name", "Unknown Discovery"),
+                knowledge_type=discovery.get("knowledge_type", "lore"),
+                blooms_level=discovery.get("blooms_level", 2),
+                description=discovery.get("description", "")[:500]
+            )
+
+        # Events - create nodes
+        for idx, event in enumerate(state.get("events", [])):
+            event_id = f"event_{state['request_id']}_{idx}"
+
+            # Create Event node
+            session.run(
+                """
+                MERGE (e:Event {id: $event_id})
+                SET e.name = $name,
+                    e.event_type = $event_type,
+                    e.description = $description
+                """,
+                event_id=event_id,
+                name=event.get("name", "Unknown Event"),
+                event_type=event.get("event_type", "story"),
+                description=event.get("description", "")[:500]
+            )
+
+        logger.info(f"Created {len(state.get('challenges', []))} Challenges, {len(state.get('discoveries', []))} Discoveries, {len(state.get('events', []))} Events in Neo4j")
+
         # Rubrics - create nodes and link to entities
+        # IMPORTANT: Process rubrics AFTER all entities (NPCs, Challenges, Discoveries, Events) are created
         for rubric in state.get("rubrics", []):
             rubric_id = rubric.get("rubric_id")
             entity_id = rubric.get("entity_id")
-            if not rubric_id or not entity_id:
+
+            if not rubric_id:
+                logger.warning("Rubric missing rubric_id, skipping")
                 continue
+
+            if not entity_id:
+                logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) missing entity_id - will be orphaned")
+                # Still create the rubric node for data integrity, but log the issue
 
             # Create Rubric node
             session.run(
@@ -844,22 +957,47 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             )
 
             # Link Rubric to its entity (NPC, Challenge, Discovery, Event)
-            session.run(
-                """
-                MATCH (r:Rubric {id: $rubric_id})
-                OPTIONAL MATCH (npc:NPC {id: $entity_id})
-                OPTIONAL MATCH (ch:Challenge {id: $entity_id})
-                FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
-                    MERGE (npc)-[:EVALUATED_BY]->(r)
+            # Try all entity types - rubrics can evaluate any of these
+            if entity_id:
+                result = session.run(
+                    """
+                    MATCH (r:Rubric {id: $rubric_id})
+                    OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                    OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                    OPTIONAL MATCH (d:Discovery {id: $entity_id})
+                    OPTIONAL MATCH (e:Event {id: $entity_id})
+
+                    FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
+                        MERGE (npc)-[:EVALUATED_BY]->(r)
+                    )
+                    FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
+                        MERGE (ch)-[:EVALUATED_BY]->(r)
+                    )
+                    FOREACH (_ IN CASE WHEN d IS NOT NULL THEN [1] ELSE [] END |
+                        MERGE (d)-[:EVALUATED_BY]->(r)
+                    )
+                    FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
+                        MERGE (e)-[:EVALUATED_BY]->(r)
+                    )
+
+                    RETURN
+                        CASE WHEN npc IS NOT NULL THEN 'npc'
+                             WHEN ch IS NOT NULL THEN 'challenge'
+                             WHEN d IS NOT NULL THEN 'discovery'
+                             WHEN e IS NOT NULL THEN 'event'
+                             ELSE NULL
+                        END as entity_type
+                    """,
+                    rubric_id=rubric_id,
+                    entity_id=entity_id
                 )
-                FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
-                    MERGE (ch)-[:EVALUATED_BY]->(r)
-                )
-                """,
-                rubric_id=rubric_id,
-                entity_id=entity_id
-            )
-            relationships_created += 1
+
+                # Check if entity was found
+                record = result.single()
+                if record and record["entity_type"]:
+                    relationships_created += 1
+                else:
+                    logger.warning(f"Rubric {rubric_id} ({rubric.get('interaction_name', 'unknown')}) - entity {entity_id} not found in Neo4j (orphaned rubric)")
 
     logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
 

@@ -254,6 +254,10 @@ Generate a complete NPC with personality and backstory.""")
         # Parse response with error handling
         try:
             npc_data = json.loads(response.content.strip())
+            # Ensure backstory is always present
+            if not npc_data.get("backstory") or npc_data.get("backstory").strip() == "":
+                logger.warning(f"NPC {npc_data.get('npc_name', 'unknown')} has no backstory, generating default")
+                npc_data["backstory"] = f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}."
         except json.JSONDecodeError as json_err:
             logger.error(f"JSON parsing failed for NPC generation: {json_err}")
             logger.error(f"Raw response: {response.content[:500]}")
@@ -262,7 +266,7 @@ Generate a complete NPC with personality and backstory.""")
             npc_data = {
                 "npc_name": f"{state.get('npc_role', 'Character').title()} NPC",
                 "personality_traits": ["mysterious", "reserved"],
-                "backstory": "A character whose full story remains to be told.",
+                "backstory": f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}.",
                 "dialogue_style": "Speaks with measured words.",
                 "quirks": []
             }

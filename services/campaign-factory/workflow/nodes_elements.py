@@ -469,12 +469,22 @@ Create a compelling discovery element.""")
 
         # Only store rubric if it was successfully generated
         if rubric is not None:
-            # Store rubric in state
+            # Check for duplicate rubrics (by interaction_name + rubric_type)
             if "rubrics" not in state:
                 state["rubrics"] = []
-            state["rubrics"].append(rubric)
 
-            logger.info(f"Generated rubric for discovery: {discovery['name']}")
+            # Create dedup key
+            dedup_key = f"{rubric.get('rubric_type')}:{rubric.get('interaction_name')}"
+            existing_keys = [
+                f"{r.get('rubric_type')}:{r.get('interaction_name')}"
+                for r in state["rubrics"]
+            ]
+
+            if dedup_key not in existing_keys:
+                state["rubrics"].append(rubric)
+                logger.info(f"Generated rubric for discovery: {discovery['name']}")
+            else:
+                logger.warning(f"Skipping duplicate rubric: {discovery['name']} (interaction already exists)")
         else:
             logger.warning(f"Rubric generation returned None for discovery: {discovery['name']}")
 
@@ -543,12 +553,22 @@ Create a compelling event element.""")
 
         # Only store rubric if it was successfully generated
         if rubric is not None:
-            # Store rubric in state
+            # Check for duplicate rubrics (by interaction_name + rubric_type)
             if "rubrics" not in state:
                 state["rubrics"] = []
-            state["rubrics"].append(rubric)
 
-            logger.info(f"Generated rubric for event: {event['name']}")
+            # Create dedup key
+            dedup_key = f"{rubric.get('rubric_type')}:{rubric.get('interaction_name')}"
+            existing_keys = [
+                f"{r.get('rubric_type')}:{r.get('interaction_name')}"
+                for r in state["rubrics"]
+            ]
+
+            if dedup_key not in existing_keys:
+                state["rubrics"].append(rubric)
+                logger.info(f"Generated rubric for event: {event['name']}")
+            else:
+                logger.warning(f"Skipping duplicate rubric: {event['name']} (interaction already exists)")
         else:
             logger.warning(f"Rubric generation returned None for event: {event['name']}")
 
@@ -649,12 +669,22 @@ Create a compelling challenge element.""")
 
         # Only store rubric if it was successfully generated
         if rubric is not None:
-            # Store rubric in state
+            # Check for duplicate rubrics (by interaction_name + rubric_type)
             if "rubrics" not in state:
                 state["rubrics"] = []
-            state["rubrics"].append(rubric)
 
-            logger.info(f"Generated rubric for challenge: {challenge['name']}")
+            # Create dedup key
+            dedup_key = f"{rubric.get('rubric_type')}:{rubric.get('interaction_name')}"
+            existing_keys = [
+                f"{r.get('rubric_type')}:{r.get('interaction_name')}"
+                for r in state["rubrics"]
+            ]
+
+            if dedup_key not in existing_keys:
+                state["rubrics"].append(rubric)
+                logger.info(f"Generated rubric for challenge: {challenge['name']}")
+            else:
+                logger.warning(f"Skipping duplicate rubric: {challenge['name']} (interaction already exists)")
         else:
             logger.warning(f"Rubric generation returned None for challenge: {challenge['name']}")
 

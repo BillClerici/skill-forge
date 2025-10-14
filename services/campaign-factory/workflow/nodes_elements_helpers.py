@@ -22,6 +22,22 @@ anthropic_client = ChatAnthropic(
 )
 
 
+def _normalize_name(name: str) -> str:
+    """
+    Normalize knowledge/item names to prevent duplicates with different formatting.
+
+    Examples:
+        "Syndicate surveillance methods" -> "syndicate_surveillance_methods"
+        "surveillance_detection" -> "surveillance_detection"
+        "Formation Markers" -> "formation_markers"
+        "formation_markers" -> "formation_markers"
+
+    Returns:
+        Normalized name (lowercase with underscores)
+    """
+    return name.strip().lower().replace(" ", "_").replace("-", "_")
+
+
 def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str, scene: dict, knowledge_tracker: dict):
     """
     Track knowledge from a spec (NPC, discovery, event, challenge).
@@ -41,9 +57,13 @@ def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str
         if not knowledge_name or knowledge_name.strip() == "":
             continue
 
+        # Normalize name to prevent duplicates with different formatting
+        normalized_name = _normalize_name(knowledge_name)
+
         # Initialize tracker for this knowledge if not exists
-        if knowledge_name not in knowledge_tracker:
-            knowledge_tracker[knowledge_name] = {
+        if normalized_name not in knowledge_tracker:
+            knowledge_tracker[normalized_name] = {
+                "display_name": knowledge_name,  # Preserve original formatting for first occurrence
                 "scenes": [],
                 "acquisition_methods": [],
                 "dimension": dimension
@@ -51,8 +71,8 @@ def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str
 
         # Add scene if not already added
         scene_id = scene.get("scene_id", "")
-        if scene_id and scene_id not in knowledge_tracker[knowledge_name]["scenes"]:
-            knowledge_tracker[knowledge_name]["scenes"].append(scene_id)
+        if scene_id and scene_id not in knowledge_tracker[normalized_name]["scenes"]:
+            knowledge_tracker[normalized_name]["scenes"].append(scene_id)
 
         # Add acquisition method
         acquisition_method = {
@@ -64,7 +84,7 @@ def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str
             "conditions": {}
         }
 
-        knowledge_tracker[knowledge_name]["acquisition_methods"].append(acquisition_method)
+        knowledge_tracker[normalized_name]["acquisition_methods"].append(acquisition_method)
 
 
 def _track_items_from_spec(spec: dict, entity_id: str, interaction_type: str, scene: dict, item_tracker: dict):
@@ -85,17 +105,21 @@ def _track_items_from_spec(spec: dict, entity_id: str, interaction_type: str, sc
         if not item_name or item_name.strip() == "":
             continue
 
+        # Normalize name to prevent duplicates with different formatting
+        normalized_name = _normalize_name(item_name)
+
         # Initialize tracker for this item if not exists
-        if item_name not in item_tracker:
-            item_tracker[item_name] = {
+        if normalized_name not in item_tracker:
+            item_tracker[normalized_name] = {
+                "display_name": item_name,  # Preserve original formatting for first occurrence
                 "scenes": [],
                 "acquisition_methods": []
             }
 
         # Add scene if not already added
         scene_id = scene.get("scene_id", "")
-        if scene_id and scene_id not in item_tracker[item_name]["scenes"]:
-            item_tracker[item_name]["scenes"].append(scene_id)
+        if scene_id and scene_id not in item_tracker[normalized_name]["scenes"]:
+            item_tracker[normalized_name]["scenes"].append(scene_id)
 
         # Add acquisition method
         acquisition_method = {
@@ -107,7 +131,7 @@ def _track_items_from_spec(spec: dict, entity_id: str, interaction_type: str, sc
             "conditions": {}
         }
 
-        item_tracker[item_name]["acquisition_methods"].append(acquisition_method)
+        item_tracker[normalized_name]["acquisition_methods"].append(acquisition_method)
 
 
 async def generate_knowledge_entities(knowledge_tracker: dict, state: dict) -> List[KnowledgeData]:
@@ -123,8 +147,11 @@ async def generate_knowledge_entities(knowledge_tracker: dict, state: dict) -> L
     """
     knowledge_entities = []
 
-    for knowledge_name, tracker_data in knowledge_tracker.items():
+    for normalized_name, tracker_data in knowledge_tracker.items():
         try:
+            # Use display_name (original formatting) for user-facing content
+            display_name = tracker_data.get("display_name", normalized_name)
+
             # Generate knowledge ID
             knowledge_id = f"knowledge_{uuid.uuid4().hex[:16]}"
 
@@ -151,7 +178,7 @@ Generate detailed knowledge information.""")
 
             chain = prompt | anthropic_client
             response = await chain.ainvoke({
-                "knowledge_name": knowledge_name,
+                "knowledge_name": display_name,
                 "dimension": tracker_data["dimension"],
                 "campaign_plot": state.get("campaign_core", {}).get("plot", "")[:200],
                 "blooms_level": state.get("campaign_core", {}).get("target_blooms_level", 3)
@@ -163,22 +190,22 @@ Generate detailed knowledge information.""")
             partial_levels: List[KnowledgePartialLevel] = [
                 {
                     "level": 1,
-                    "description": f"Basic understanding of {knowledge_name}",
+                    "description": f"Basic understanding of {display_name}",
                     "sufficient_for": []
                 },
                 {
                     "level": 2,
-                    "description": f"Intermediate knowledge of {knowledge_name}",
+                    "description": f"Intermediate knowledge of {display_name}",
                     "sufficient_for": []
                 },
                 {
                     "level": 3,
-                    "description": f"Advanced mastery of {knowledge_name}",
+                    "description": f"Advanced mastery of {display_name}",
                     "sufficient_for": []
                 },
                 {
                     "level": 4,
-                    "description": f"Complete mastery of {knowledge_name}",
+                    "description": f"Complete mastery of {display_name}",
                     "sufficient_for": []
                 }
             ]
@@ -189,8 +216,8 @@ Generate detailed knowledge information.""")
             # Create KnowledgeData
             knowledge: KnowledgeData = {
                 "knowledge_id": knowledge_id,
-                "name": knowledge_name,
-                "description": enriched.get("description", f"Knowledge about {knowledge_name}"),
+                "name": display_name,  # Use display_name for consistency
+                "description": enriched.get("description", f"Knowledge about {display_name}"),
                 "knowledge_type": enriched.get("knowledge_type", "skill"),
                 "primary_dimension": tracker_data["dimension"],
                 "bloom_level_target": state.get("campaign_core", {}).get("target_blooms_level", 3),
@@ -202,10 +229,10 @@ Generate detailed knowledge information.""")
             }
 
             knowledge_entities.append(knowledge)
-            logger.info(f"Generated knowledge entity: {knowledge_name} (ID: {knowledge_id})")
+            logger.info(f"Generated knowledge entity: {display_name} (ID: {knowledge_id})")
 
         except Exception as e:
-            logger.error(f"Error generating knowledge entity for '{knowledge_name}': {e}")
+            logger.error(f"Error generating knowledge entity for '{normalized_name}': {e}")
             # Continue with next knowledge
 
     return knowledge_entities
@@ -224,8 +251,11 @@ async def generate_item_entities(item_tracker: dict, state: dict) -> List[ItemDa
     """
     item_entities = []
 
-    for item_name, tracker_data in item_tracker.items():
+    for normalized_name, tracker_data in item_tracker.items():
         try:
+            # Use display_name (original formatting) for user-facing content
+            display_name = tracker_data.get("display_name", normalized_name)
+
             # Generate item ID
             item_id = f"item_{uuid.uuid4().hex[:16]}"
 
@@ -251,7 +281,7 @@ Generate detailed item information.""")
 
             chain = prompt | anthropic_client
             response = await chain.ainvoke({
-                "item_name": item_name,
+                "item_name": display_name,
                 "campaign_plot": state.get("campaign_core", {}).get("plot", "")[:200]
             })
 
@@ -263,8 +293,8 @@ Generate detailed item information.""")
             # Create ItemData
             item: ItemData = {
                 "item_id": item_id,
-                "name": item_name,
-                "description": enriched.get("description", f"A useful item: {item_name}"),
+                "name": display_name,  # Use display_name for consistency
+                "description": enriched.get("description", f"A useful item: {display_name}"),
                 "item_type": enriched.get("item_type", "tool"),
                 "supports_objectives": [],  # TODO: Link to objectives
                 "acquisition_methods": tracker_data["acquisition_methods"],
@@ -276,10 +306,10 @@ Generate detailed item information.""")
             }
 
             item_entities.append(item)
-            logger.info(f"Generated item entity: {item_name} (ID: {item_id})")
+            logger.info(f"Generated item entity: {display_name} (ID: {item_id})")
 
         except Exception as e:
-            logger.error(f"Error generating item entity for '{item_name}': {e}")
+            logger.error(f"Error generating item entity for '{normalized_name}': {e}")
             # Continue with next item
 
     return item_entities

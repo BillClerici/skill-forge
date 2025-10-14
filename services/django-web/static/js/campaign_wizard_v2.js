@@ -507,7 +507,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${story.summary}
                 </p>
                 <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.8rem;">${theme}</span>`).join('')}
+                    ${story.themes.map(theme => `<span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: white; font-size: 0.8rem;">${theme}</span>`).join('')}
                 </div>
                 <div style="margin-top: 15px; display: flex; gap: 15px; font-size: 0.85rem; color: var(--rpg-silver);">
                     <span><i class="material-icons tiny">timer</i> ${story.estimated_length}</span>
@@ -734,6 +734,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateLoadingMessage('quests', `Generating quests... ${data.progress_percentage}%`, data.status_message);
                 }
 
+                // Check if campaign already finalized (auto-finalization)
+                if (data.final_campaign_id) {
+                    clearInterval(pollInterval);
+                    hideLoadingOverlay();
+                    localStorage.removeItem('campaign_wizard_request_id');
+                    M.toast({html: 'Campaign created successfully!', classes: 'green'});
+                    window.location.href = `/campaigns/${data.final_campaign_id}/`;
+                    return;
+                }
+
                 if (data.quests && data.quests.length > 0) {
                     clearInterval(pollInterval);
                     wizardState.quests = data.quests;
@@ -863,6 +873,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateLoadingMessage('places', `Generating places... ${data.progress_percentage}%`, data.status_message);
                 }
 
+                // Check if campaign already finalized (auto-finalization)
+                if (data.final_campaign_id) {
+                    clearInterval(pollInterval);
+                    hideLoadingOverlay();
+                    localStorage.removeItem('campaign_wizard_request_id');
+                    M.toast({html: 'Campaign created successfully!', classes: 'green'});
+                    window.location.href = `/campaigns/${data.final_campaign_id}/`;
+                    return;
+                }
+
                 if (data.places && data.places.length > 0) {
                     clearInterval(pollInterval);
                     wizardState.places = data.places;
@@ -989,6 +1009,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.progress_percentage) {
                     updateLoadingMessage('scenes', `Generating scenes... ${data.progress_percentage}%`, data.status_message);
+                }
+
+                // Check if campaign already finalized (auto-finalization)
+                if (data.final_campaign_id) {
+                    clearInterval(pollInterval);
+                    hideLoadingOverlay();
+                    localStorage.removeItem('campaign_wizard_request_id');
+                    M.toast({html: 'Campaign created successfully!', classes: 'green'});
+                    window.location.href = `/campaigns/${data.final_campaign_id}/`;
+                    return;
                 }
 
                 if (data.scenes && data.scenes.length > 0) {
