@@ -16,6 +16,7 @@ from .subgraph_npc import create_npc_subgraph
 from .objective_system import map_knowledge_to_scenes, map_items_to_scenes
 from .rubric_engine import generate_rubric_for_interaction
 from .rubric_templates import get_template_for_interaction
+from .nodes_elements_helpers import _track_knowledge_from_spec, _track_items_from_spec, generate_knowledge_entities, generate_item_entities
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,14 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         state["progress_percentage"] = 95
         state["status_message"] = "Generating scene elements (NPCs, discoveries, events, challenges)..."
 
+        # Ensure state has all required list fields initialized
+        if "rubrics" not in state or state["rubrics"] is None:
+            state["rubrics"] = []
+        if "new_species_ids" not in state or state["new_species_ids"] is None:
+            state["new_species_ids"] = []
+        if "errors" not in state or state["errors"] is None:
+            state["errors"] = []
+
         await publish_progress(state)
 
         total_scenes = len(state['scenes'])
@@ -59,8 +68,22 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         all_events: List[EventData] = []
         all_challenges: List[ChallengeData] = []
 
+        # NEW: Collect knowledge and items from all specs
+        knowledge_tracker = {}  # knowledge_name -> {scenes, acquisition_methods, dimension}
+        item_tracker = {}  # item_name -> {scenes, acquisition_methods}
+
         # Generate elements for each scene
         for scene_idx, scene in enumerate(state["scenes"]):
+            # Ensure scene has all required list fields initialized (defensive programming)
+            if "npc_ids" not in scene or scene["npc_ids"] is None:
+                scene["npc_ids"] = []
+            if "discovery_ids" not in scene or scene["discovery_ids"] is None:
+                scene["discovery_ids"] = []
+            if "event_ids" not in scene or scene["event_ids"] is None:
+                scene["event_ids"] = []
+            if "challenge_ids" not in scene or scene["challenge_ids"] is None:
+                scene["challenge_ids"] = []
+
             # Update progress for each scene (95% to 98% range)
             scene_progress = 95 + int((scene_idx / total_scenes) * 3)  # 95% to 98%
             state["progress_percentage"] = scene_progress
@@ -83,7 +106,8 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                     "region_id": state["region_id"],
                     "region_name": state["region_name"],
                     "region_data": state.get("region_data", {}),  # Pass region inhabitants
-                    "errors": []
+                    "errors": [],
+                    "rubrics": []  # Initialize rubrics list for subgraph
                 }
 
                 # Run NPC subgraph
@@ -92,7 +116,20 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 if "npc" in result_state:
                     npc = result_state["npc"]
                     all_npcs.append(npc)
-                    scene["npc_ids"].append(npc.get("npc_id", ""))
+                    npc_id = npc.get("npc_id", "")
+                    scene["npc_ids"].append(npc_id)
+
+                    # Track knowledge/items provided by this NPC
+                    if isinstance(npc_role, dict):
+                        _track_knowledge_from_spec(npc_role, npc_id, "npc_conversation", scene, knowledge_tracker)
+                        _track_items_from_spec(npc_role, npc_id, "npc_conversation", scene, item_tracker)
+
+                    # Add NPC rubric to main state if generated
+                    if "npc_rubric" in result_state:
+                        if "rubrics" not in state:
+                            state["rubrics"] = []
+                        state["rubrics"].append(result_state["npc_rubric"])
+                        logger.info(f"Added rubric for NPC: {npc['name']}")
 
                     # Track new species if created
                     if result_state.get("new_species_created", False):
@@ -104,25 +141,50 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
             for discovery_spec in elements_needed.get("discoveries", []):
                 discovery = await generate_discovery(discovery_spec, scene, state)
                 all_discoveries.append(discovery)
-                scene["discovery_ids"].append(discovery.get("discovery_id", ""))
+                discovery_id = discovery.get("discovery_id", "")
+                scene["discovery_ids"].append(discovery_id)
+
+                # Track knowledge/items from discovery
+                _track_knowledge_from_spec(discovery_spec, discovery_id, "environmental_discovery", scene, knowledge_tracker)
+                _track_items_from_spec(discovery_spec, discovery_id, "environmental_discovery", scene, item_tracker)
 
             # Step 4: Generate events
             for event_spec in elements_needed.get("events", []):
                 event = await generate_event(event_spec, scene, state)
                 all_events.append(event)
-                scene["event_ids"].append(event.get("event_id", ""))
+                event_id = event.get("event_id", "")
+                scene["event_ids"].append(event_id)
+
+                # Track knowledge/items from event
+                _track_knowledge_from_spec(event_spec, event_id, "dynamic_event", scene, knowledge_tracker)
+                _track_items_from_spec(event_spec, event_id, "dynamic_event", scene, item_tracker)
 
             # Step 5: Generate challenges
             for challenge_spec in elements_needed.get("challenges", []):
                 challenge = await generate_challenge(challenge_spec, scene, state)
                 all_challenges.append(challenge)
-                scene["challenge_ids"].append(challenge.get("challenge_id", ""))
+                challenge_id = challenge.get("challenge_id", "")
+                scene["challenge_ids"].append(challenge_id)
+
+                # Track knowledge/items from challenge
+                _track_knowledge_from_spec(challenge_spec, challenge_id, "challenge", scene, knowledge_tracker)
+                _track_items_from_spec(challenge_spec, challenge_id, "challenge", scene, item_tracker)
+
+        # Step 6: Generate Knowledge Entities from collected data
+        logger.info(f"Generating knowledge entities from {len(knowledge_tracker)} unique knowledge items")
+        all_knowledge_entities = await generate_knowledge_entities(knowledge_tracker, state)
+
+        # Step 7: Generate Items from collected data
+        logger.info(f"Generating items from {len(item_tracker)} unique items")
+        all_items = await generate_item_entities(item_tracker, state)
 
         # Update state with all generated elements
         state["npcs"] = all_npcs
         state["discoveries"] = all_discoveries
         state["events"] = all_events
         state["challenges"] = all_challenges
+        state["knowledge_entities"] = all_knowledge_entities
+        state["item_entities"] = all_items
 
         # Create checkpoint after element generation
         create_checkpoint(state, "elements_generated")
@@ -136,13 +198,16 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 "num_discoveries": len(all_discoveries),
                 "num_events": len(all_events),
                 "num_challenges": len(all_challenges),
+                "num_knowledge_entities": len(all_knowledge_entities),
+                "num_items": len(all_items),
                 "new_species_created": len(state["new_species_ids"])
             },
             "success"
         )
 
         logger.info(f"Generated {len(all_npcs)} NPCs, {len(all_discoveries)} discoveries, "
-                   f"{len(all_events)} events, {len(all_challenges)} challenges")
+                   f"{len(all_events)} events, {len(all_challenges)} challenges, "
+                   f"{len(all_knowledge_entities)} knowledge entities, {len(all_items)} items")
 
         # Clear errors on success
         state["errors"] = []
@@ -377,14 +442,45 @@ Create a compelling discovery element.""")
 
     enriched = json.loads(response.content.strip())
 
+    # Generate discovery ID immediately
+    discovery_id = f"discovery_{uuid.uuid4().hex[:16]}"
+
+    # Generate rubric ID for this discovery
+    rubric_id = f"rubric_discovery_{uuid.uuid4().hex[:8]}"
+
     discovery: DiscoveryData = {
-        "discovery_id": None,  # Will be set on persistence
+        "discovery_id": discovery_id,
         "name": enriched.get("name", f"Discovery in {scene['name']}"),
         "description": enriched.get("full_description", spec.get("description", "")),
         "knowledge_type": spec.get("type", "information"),
         "blooms_level": state["campaign_core"]["target_blooms_level"],
-        "unlocks_scenes": []  # May be set based on narrative flow
+        "unlocks_scenes": [],  # May be set based on narrative flow
+        "provides_knowledge_ids": spec.get("provides_knowledge", []),
+        "rubric_id": rubric_id
     }
+
+    # Generate rubric for this discovery
+    try:
+        rubric = get_template_for_interaction(
+            "environmental_discovery",
+            spec.get("type", "information"),
+            {"id": discovery_id, "name": discovery["name"], "discovery_type": spec.get("type", "information")}
+        )
+
+        # Only store rubric if it was successfully generated
+        if rubric is not None:
+            # Store rubric in state
+            if "rubrics" not in state:
+                state["rubrics"] = []
+            state["rubrics"].append(rubric)
+
+            logger.info(f"Generated rubric for discovery: {discovery['name']}")
+        else:
+            logger.warning(f"Rubric generation returned None for discovery: {discovery['name']}")
+
+    except Exception as e:
+        logger.error(f"Error generating rubric for discovery: {str(e)}")
+
     return discovery
 
 
@@ -421,14 +517,44 @@ Create a compelling event element.""")
 
     enriched = json.loads(response.content.strip())
 
+    # Generate event ID immediately
+    event_id = f"event_{uuid.uuid4().hex[:16]}"
+
+    # Generate rubric ID for this event
+    rubric_id = f"rubric_event_{uuid.uuid4().hex[:8]}"
+
     event: EventData = {
-        "event_id": None,  # Will be set on persistence
+        "event_id": event_id,
         "name": enriched.get("name", f"Event in {scene['name']}"),
         "description": enriched.get("full_description", spec.get("description", "")),
         "event_type": spec.get("type", "scripted"),
         "trigger_conditions": {},
-        "outcomes": enriched.get("outcomes", [])
+        "outcomes": enriched.get("outcomes", []),
+        "rubric_id": rubric_id
     }
+
+    # Generate rubric for this event
+    try:
+        rubric = get_template_for_interaction(
+            "dynamic_event",
+            spec.get("type", "scripted"),
+            {"id": event_id, "name": event["name"], "event_type": spec.get("type", "scripted")}
+        )
+
+        # Only store rubric if it was successfully generated
+        if rubric is not None:
+            # Store rubric in state
+            if "rubrics" not in state:
+                state["rubrics"] = []
+            state["rubrics"].append(rubric)
+
+            logger.info(f"Generated rubric for event: {event['name']}")
+        else:
+            logger.warning(f"Rubric generation returned None for event: {event['name']}")
+
+    except Exception as e:
+        logger.error(f"Error generating rubric for event: {str(e)}")
+
     return event
 
 
@@ -479,12 +605,15 @@ Create a compelling challenge element.""")
     challenge_type = spec.get("type", "skill_check")
     challenge_category, primary_dimension, secondary_dimensions = _map_challenge_to_dimensions(challenge_type)
 
-    # Generate rubric ID (will be generated later)
+    # Generate challenge ID immediately
+    challenge_id = f"challenge_{uuid.uuid4().hex[:16]}"
+
+    # Generate rubric ID
     rubric_id = f"rubric_challenge_{uuid.uuid4().hex[:8]}"
 
     # Enhanced ChallengeData with all new fields
     challenge: ChallengeData = {
-        "challenge_id": None,  # Will be set on persistence
+        "challenge_id": challenge_id,
         "name": enriched.get("name", f"Challenge in {scene['name']}"),
         "description": enriched.get("full_description", spec.get("description", "")),
 
@@ -515,15 +644,19 @@ Create a compelling challenge element.""")
         rubric = get_template_for_interaction(
             "challenge",
             challenge_type,
-            {"id": rubric_id, "name": challenge["name"], "difficulty": challenge["difficulty"]}
+            {"id": challenge_id, "name": challenge["name"], "difficulty": challenge["difficulty"]}
         )
 
-        # Store rubric in state
-        if "rubrics" not in state:
-            state["rubrics"] = []
-        state["rubrics"].append(rubric)
+        # Only store rubric if it was successfully generated
+        if rubric is not None:
+            # Store rubric in state
+            if "rubrics" not in state:
+                state["rubrics"] = []
+            state["rubrics"].append(rubric)
 
-        logger.info(f"Generated rubric for challenge: {challenge['name']}")
+            logger.info(f"Generated rubric for challenge: {challenge['name']}")
+        else:
+            logger.warning(f"Rubric generation returned None for challenge: {challenge['name']}")
 
     except Exception as e:
         logger.error(f"Error generating rubric for challenge: {str(e)}")

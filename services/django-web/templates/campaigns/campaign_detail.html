@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ${scene.discoveries && scene.discoveries.length > 0 ? `
                     <div style="margin-bottom: 20px;">
                         <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
-                            <i class="material-icons tiny">lightbulb</i> Discoveries & Knowledge
+                            <i class="material-icons tiny">lightbulb</i> Discoveries
                         </h6>
                         ${scene.discoveries.map(discovery => `
                             <div style="background: rgba(76, 110, 245, 0.1); border-left: 3px solid var(--rpg-blue); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
@@ -653,6 +653,74 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <span class="chip" style="background-color: rgba(212, 175, 55, 0.2); color: var(--rpg-gold); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Level ${discovery.blooms_level}</span>
                                 </div>
                                 <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(discovery.description)}</p>
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
+                    ${scene.knowledge && scene.knowledge.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">school</i> Knowledge Entities
+                        </h6>
+                        ${scene.knowledge.map(knowledge => `
+                            <div style="background: rgba(156, 39, 176, 0.1); border-left: 3px solid var(--rpg-purple); padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: var(--rpg-purple); font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(knowledge.name)}</span>
+                                    <span class="chip" style="background-color: rgba(156, 39, 176, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.knowledge_type)}</span>
+                                    <span class="chip" style="background-color: rgba(33, 150, 243, 0.2); color: #2196F3; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(knowledge.primary_dimension)}</span>
+                                </div>
+                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(knowledge.description)}</p>
+                                ${knowledge.acquisition_methods && knowledge.acquisition_methods.length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: var(--rpg-purple); font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">download</i> Acquisition Methods:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${knowledge.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.type)} (${escapeHtml(method.difficulty)})</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
+                    ${scene.items && scene.items.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">inventory_2</i> Items
+                        </h6>
+                        ${scene.items.map(item => `
+                            <div style="background: rgba(255, 193, 7, 0.1); border-left: 3px solid #FFC107; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: #FFC107; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(item.name)}</span>
+                                    <span class="chip" style="background-color: rgba(255, 193, 7, 0.2); color: #FFC107; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(item.item_type)}</span>
+                                    ${item.is_quest_critical ? `<span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">Quest Critical</span>` : ''}
+                                </div>
+                                <p style="color: #b8b8d1; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(item.description)}</p>
+                                ${item.acquisition_methods && item.acquisition_methods.length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: #FFC107; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">download</i> How to Obtain:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${item.acquisition_methods.map(method => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(method.type)} (${escapeHtml(method.difficulty)})</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>` : ''}
+                    ${scene.rubrics && scene.rubrics.length > 0 ? `
+                    <div style="margin-bottom: 20px;">
+                        <h6 style="color: var(--rpg-gold); margin-bottom: 8px;">
+                            <i class="material-icons tiny">rule</i> Evaluation Rubrics (${scene.rubrics.length})
+                        </h6>
+                        ${scene.rubrics.map(rubric => `
+                            <div style="background: rgba(0, 150, 136, 0.1); border-left: 3px solid #009688; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
+                                <div style="color: #009688; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                                    <span>${escapeHtml(rubric.interaction_name)}</span>
+                                    <span class="chip" style="background-color: rgba(0, 150, 136, 0.2); color: #009688; font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.rubric_type)}</span>
+                                    <span class="chip" style="background-color: rgba(103, 58, 183, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 20px; line-height: 20px; padding: 0 8px;">${escapeHtml(rubric.primary_dimension)}</span>
+                                </div>
+                                ${rubric.evaluation_criteria && rubric.evaluation_criteria.length > 0 ? `
+                                <div style="margin-top: 8px;">
+                                    <strong style="color: #009688; font-size: 0.85rem;"><i class="material-icons tiny" style="vertical-align: middle;">checklist</i> Evaluation Criteria:</strong>
+                                    <ul style="margin: 4px 0 0 20px; padding: 0;">
+                                        ${rubric.evaluation_criteria.map(criterion => `<li style="color: #b8b8d1; font-size: 0.85rem;">${escapeHtml(criterion.criterion)} (Weight: ${(criterion.weight * 100).toFixed(0)}%)</li>`).join('')}
+                                    </ul>
+                                </div>` : ''}
                             </div>
                         `).join('')}
                     </div>` : ''}

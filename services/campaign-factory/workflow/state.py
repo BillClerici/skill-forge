@@ -96,6 +96,7 @@ class NPCData(TypedDict):
     level_3_location_id: str
     level_3_location_name: str
     is_world_permanent: bool  # True if added to world's NPC pool
+    rubric_id: Optional[str]  # Link to evaluation rubric for conversations
 
 
 class KnowledgePartialLevel(TypedDict):
@@ -145,6 +146,7 @@ class DiscoveryData(TypedDict):
 
     # NEW: Link to KnowledgeData
     provides_knowledge_ids: List[str]  # Knowledge IDs this discovery provides
+    rubric_id: Optional[str]  # Link to evaluation rubric for environmental discovery
 
 
 class EventData(TypedDict):
@@ -155,6 +157,7 @@ class EventData(TypedDict):
     event_type: str  # scripted, conditional, random
     trigger_conditions: Dict[str, Any]
     outcomes: List[Dict[str, Any]]
+    rubric_id: Optional[str]  # Link to evaluation rubric for dynamic event
 
 
 class ItemData(TypedDict):

@@ -423,6 +423,53 @@ class CampaignDetailView(View):
                                 'failure_consequences': challenge.get('failure_consequences', {})
                             })
 
+                    # Get Knowledge Entities for this scene
+                    knowledge_ids = scene.get('knowledge_ids', [])
+                    # Filter out None/null values
+                    knowledge_ids = [id for id in knowledge_ids if id is not None and id != '']
+                    knowledge = []
+                    if knowledge_ids:
+                        knowledge_raw = list(db.knowledge.find({'_id': {'$in': knowledge_ids}}))
+                        for kg in knowledge_raw:
+                            knowledge.append({
+                                'name': kg.get('name', 'Unknown Knowledge'),
+                                'description': kg.get('description', ''),
+                                'knowledge_type': kg.get('knowledge_type', 'information'),
+                                'primary_dimension': kg.get('primary_dimension', ''),
+                                'acquisition_methods': kg.get('acquisition_methods', [])
+                            })
+
+                    # Get Items for this scene
+                    item_ids = scene.get('item_ids', [])
+                    # Filter out None/null values
+                    item_ids = [id for id in item_ids if id is not None and id != '']
+                    items = []
+                    if item_ids:
+                        items_raw = list(db.items.find({'_id': {'$in': item_ids}}))
+                        for item in items_raw:
+                            items.append({
+                                'name': item.get('name', 'Unknown Item'),
+                                'description': item.get('description', ''),
+                                'item_type': item.get('item_type', 'item'),
+                                'is_quest_critical': item.get('is_quest_critical', False),
+                                'acquisition_methods': item.get('acquisition_methods', [])
+                            })
+
+                    # Get Rubrics for this scene
+                    rubric_ids = scene.get('rubric_ids', [])
+                    # Filter out None/null values
+                    rubric_ids = [id for id in rubric_ids if id is not None and id != '']
+                    rubrics = []
+                    if rubric_ids:
+                        rubrics_raw = list(db.rubrics.find({'_id': {'$in': rubric_ids}}))
+                        for rubric in rubrics_raw:
+                            rubrics.append({
+                                'interaction_name': rubric.get('interaction_name', 'Unknown Interaction'),
+                                'rubric_type': rubric.get('rubric_type', 'evaluation'),
+                                'primary_dimension': rubric.get('primary_dimension', ''),
+                                'evaluation_criteria': rubric.get('evaluation_criteria', [])
+                            })
+
                     scene_data = {
                         'id': str(scene['_id']),
                         'name': scene.get('name', ''),
@@ -432,7 +479,10 @@ class CampaignDetailView(View):
                         'npcs': npcs,
                         'discoveries': discoveries,
                         'events': events,
-                        'challenges': challenges
+                        'challenges': challenges,
+                        'knowledge': knowledge,
+                        'items': items,
+                        'rubrics': rubrics
                     }
                     place_data['scenes'].append(scene_data)
 

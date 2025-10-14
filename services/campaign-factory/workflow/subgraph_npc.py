@@ -13,6 +13,7 @@ from langchain.prompts import ChatPromptTemplate
 
 from .state import CampaignWorkflowState, NPCData
 from .utils import add_audit_entry
+from .rubric_templates import get_template_for_interaction
 
 logger = logging.getLogger(__name__)
 
@@ -270,6 +271,9 @@ Generate a complete NPC with personality and backstory.""")
         npc_name = npc_data.get("npc_name", "Unnamed NPC")
         npc_id = f"npc_{uuid.uuid4().hex[:16]}_{npc_name.replace(' ', '_').lower()}"
 
+        # Generate rubric ID for this NPC
+        rubric_id = f"rubric_npc_{uuid.uuid4().hex[:8]}"
+
         # Create NPCData
         npc: NPCData = {
             "npc_id": npc_id,  # Set immediately so scenes can reference it
@@ -282,10 +286,46 @@ Generate a complete NPC with personality and backstory.""")
             "backstory": npc_data.get("backstory", ""),
             "level_3_location_id": state.get("level_3_location_id", ""),
             "level_3_location_name": state.get("location_name", "Unknown Location"),
-            "is_world_permanent": True  # All campaign NPCs are added to world
+            "is_world_permanent": True,  # All campaign NPCs are added to world
+            "rubric_id": rubric_id
         }
 
         state["npc"] = npc
+
+        # Generate rubric for NPC conversation
+        try:
+            # Extract role string (handle both string and dict formats)
+            npc_role = state.get("npc_role", "neutral")
+            if isinstance(npc_role, dict):
+                npc_role_str = npc_role.get("type", "neutral")
+            else:
+                npc_role_str = str(npc_role)
+
+            rubric = get_template_for_interaction(
+                "npc_conversation",
+                npc_role_str,
+                {"id": npc_id, "name": npc["name"], "role": npc["role"]}
+            )
+
+            # Only store rubric if it was successfully generated
+            if rubric is not None:
+                # Store rubric in parent state (if available)
+                if "rubrics" in state:
+                    state["rubrics"].append(rubric)
+                else:
+                    # Initialize rubrics list if not present (shouldn't happen, but defensive)
+                    state["rubrics"] = [rubric]
+
+                # Also store rubric in a way the subgraph can return it
+                state["npc_rubric"] = rubric
+
+                logger.info(f"Generated rubric for NPC: {npc['name']}")
+            else:
+                logger.warning(f"Rubric generation returned None for NPC: {npc['name']}")
+
+        except Exception as e:
+            logger.error(f"Error generating rubric for NPC: {str(e)}")
+            # Don't fail NPC generation if rubric fails
 
         logger.info(f"Generated NPC: {npc['name']} ({npc['species_name']} {npc['role']})")
 

@@ -397,7 +397,8 @@ def list_in_progress_campaigns_api(request):
                 has_errors = len(campaign.get('errors', [])) > 0
 
                 # Include if: not completed AND not failed
-                if not has_final_id or progress < 100:
+                # Campaign is truly in-progress only if it has NO final_campaign_id AND hasn't failed
+                if not has_final_id and not has_errors:
                     # Try to get campaign name from top-level field first, then from campaign_core
                     campaign_name = campaign.get('campaign_name')
                     if not campaign_name:

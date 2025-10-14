@@ -151,6 +151,35 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
             for scene in place_scenes:
                 scene_id = f"scene_{state['request_id']}_{len(scene_ids)}"
 
+                # Collect knowledge, item, and rubric IDs for this scene
+                knowledge_ids = []
+                item_ids = []
+                rubric_ids = []
+
+                # Get scene ID for filtering
+                scene_internal_id = scene.get("scene_id", "")
+
+                # Collect knowledge IDs for this scene
+                for kg in state.get("knowledge_entities", []):
+                    if kg.get("scene_id") == scene_internal_id:
+                        knowledge_ids.append(kg.get("knowledge_id", ""))
+
+                # Collect item IDs for this scene
+                for item in state.get("item_entities", []):
+                    if item.get("scene_id") == scene_internal_id:
+                        item_ids.append(item.get("item_id", ""))
+
+                # Collect rubric IDs for this scene
+                for rubric in state.get("rubrics", []):
+                    # Rubrics are linked via entity IDs (NPCs, challenges, etc.)
+                    entity_id = rubric.get("entity_id", "")
+                    # Check if this rubric's entity is in this scene
+                    if entity_id in scene.get("npc_ids", []) or \
+                       entity_id in scene.get("challenge_ids", []) or \
+                       entity_id in scene.get("discovery_ids", []) or \
+                       entity_id in scene.get("event_ids", []):
+                        rubric_ids.append(rubric.get("rubric_id", ""))
+
                 # Create scene document
                 scene_doc = {
                     "_id": scene_id,
@@ -164,6 +193,9 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
                     "discovery_ids": scene.get("discovery_ids", []),
                     "event_ids": scene.get("event_ids", []),
                     "challenge_ids": scene.get("challenge_ids", []),
+                    "knowledge_ids": knowledge_ids,
+                    "item_ids": item_ids,
+                    "rubric_ids": rubric_ids,
                     "required_knowledge": scene.get("required_knowledge", []),
                     "required_items": scene.get("required_items", []),
                     "order_sequence": scene.get("order_sequence", 0),
@@ -266,7 +298,7 @@ async def persist_npcs(state: CampaignWorkflowState):
 
 async def persist_scene_elements(state: CampaignWorkflowState):
     """
-    Persist discoveries, events, challenges
+    Persist discoveries, events, challenges, knowledge entities, items, and rubrics
     """
     # Discoveries
     for idx, discovery in enumerate(state["discoveries"]):
@@ -330,7 +362,87 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             upsert=True
         )
 
+    # Knowledge Entities
+    for knowledge in state.get("knowledge_entities", []):
+        knowledge_id = knowledge.get("knowledge_id")
+        if not knowledge_id:
+            continue
+
+        knowledge_doc = {
+            "_id": knowledge_id,
+            "name": knowledge["name"],
+            "description": knowledge["description"],
+            "knowledge_type": knowledge["knowledge_type"],
+            "primary_dimension": knowledge["primary_dimension"],
+            "bloom_level_target": knowledge["bloom_level_target"],
+            "supports_objectives": knowledge.get("supports_objectives", []),
+            "partial_levels": knowledge.get("partial_levels", []),
+            "acquisition_methods": knowledge.get("acquisition_methods", []),
+            "scene_id": knowledge.get("scene_id"),
+            "created_at": knowledge.get("created_at", datetime.utcnow().isoformat())
+        }
+
+        mongo_db.knowledge.replace_one(
+            {"_id": knowledge_id},
+            knowledge_doc,
+            upsert=True
+        )
+
+    # Items
+    for item in state.get("item_entities", []):
+        item_id = item.get("item_id")
+        if not item_id:
+            continue
+
+        item_doc = {
+            "_id": item_id,
+            "name": item["name"],
+            "description": item["description"],
+            "item_type": item["item_type"],
+            "supports_objectives": item.get("supports_objectives", []),
+            "acquisition_methods": item.get("acquisition_methods", []),
+            "quantity": item.get("quantity", 1),
+            "is_consumable": item.get("is_consumable", False),
+            "is_quest_critical": item.get("is_quest_critical", False),
+            "scene_id": item.get("scene_id"),
+            "created_at": item.get("created_at", datetime.utcnow().isoformat())
+        }
+
+        mongo_db.items.replace_one(
+            {"_id": item_id},
+            item_doc,
+            upsert=True
+        )
+
+    # Rubrics
+    for rubric in state.get("rubrics", []):
+        rubric_id = rubric.get("rubric_id")
+        if not rubric_id:
+            continue
+
+        rubric_doc = {
+            "_id": rubric_id,
+            "rubric_type": rubric["rubric_type"],
+            "interaction_name": rubric["interaction_name"],
+            "entity_id": rubric["entity_id"],
+            "primary_dimension": rubric["primary_dimension"],
+            "secondary_dimensions": rubric.get("secondary_dimensions", []),
+            "evaluation_criteria": rubric.get("evaluation_criteria", []),
+            "knowledge_level_mapping": rubric.get("knowledge_level_mapping", {}),
+            "rewards_by_performance": rubric.get("rewards_by_performance", {}),
+            "dimensional_rewards": rubric.get("dimensional_rewards", {}),
+            "consequences_by_performance": rubric.get("consequences_by_performance", {}),
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        mongo_db.rubrics.replace_one(
+            {"_id": rubric_id},
+            rubric_doc,
+            upsert=True
+        )
+
     logger.info(f"Persisted {len(state['discoveries'])} discoveries, {len(state['events'])} events, {len(state['challenges'])} challenges")
+    logger.info(f"Persisted {len(state.get('knowledge_entities', []))} knowledge entities, {len(state.get('item_entities', []))} items, {len(state.get('rubrics', []))} rubrics")
 
 
 async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: str) -> int:
@@ -407,8 +519,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     q.difficulty_level = $difficulty,
                     q.estimated_duration_minutes = $duration
                 MERGE (camp)-[:CONTAINS]->(q)
-                MERGE (loc:Location {id: $location_id})
-                SET loc.name = $location_name
+
+                // MERGE Location by name + world to avoid duplicates
+                MERGE (loc:Location {name: $location_name, world_id: $world_id})
+                ON CREATE SET loc.id = $location_id
+                ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
                 MERGE (loc)-[:PART_OF]->(w)
                 MERGE (q)-[:LOCATED_AT]->(loc)
                 """,
@@ -438,14 +553,18 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     MERGE (p:Place {id: $place_id})
                     SET p.name = $place_name
                     MERGE (q)-[:CONTAINS]->(p)
-                    MERGE (loc:Location {id: $location_id})
-                    SET loc.name = $location_name
+
+                    // MERGE Location by name + world to avoid duplicates
+                    MERGE (loc:Location {name: $location_name, world_id: $world_id})
+                    ON CREATE SET loc.id = $location_id
+                    ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
                     MERGE (loc)-[:PART_OF]->(w)
                     MERGE (p)-[:LOCATED_AT]->(loc)
 
-                    // Link Level 2 Location to parent Level 1 Location
+                    // Link Level 2 Location to parent Level 1 Location (by name + world)
                     WITH loc, w
-                    MERGE (parent:Location {id: $parent_location_id})
+                    MERGE (parent:Location {name: $parent_location_name, world_id: $world_id})
+                    ON CREATE SET parent.id = $parent_location_id
                     MERGE (loc)-[:CHILD_OF]->(parent)
                     """,
                     quest_id=quest_id,
@@ -454,7 +573,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     place_name=place["name"],
                     location_id=place["level_2_location_id"],
                     location_name=place.get("level_2_location_name", "Unknown Location"),
-                    parent_location_id=quest["level_1_location_id"]
+                    parent_location_id=quest["level_1_location_id"],
+                    parent_location_name=quest.get("level_1_location_name", "Unknown Location")
                 )
                 relationships_created += 5
 
@@ -472,14 +592,18 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         MERGE (sc:Scene {id: $scene_id})
                         SET sc.name = $scene_name
                         MERGE (p)-[:CONTAINS]->(sc)
-                        MERGE (loc:Location {id: $location_id})
-                        SET loc.name = $location_name
+
+                        // MERGE Location by name + world to avoid duplicates
+                        MERGE (loc:Location {name: $location_name, world_id: $world_id})
+                        ON CREATE SET loc.id = $location_id
+                        ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
                         MERGE (loc)-[:PART_OF]->(w)
                         MERGE (sc)-[:LOCATED_AT]->(loc)
 
-                        // Link Level 3 Location to parent Level 2 Location
+                        // Link Level 3 Location to parent Level 2 Location (by name + world)
                         WITH loc, w
-                        MERGE (parent:Location {id: $parent_location_id})
+                        MERGE (parent:Location {name: $parent_location_name, world_id: $world_id})
+                        ON CREATE SET parent.id = $parent_location_id
                         MERGE (loc)-[:CHILD_OF]->(parent)
                         """,
                         place_id=place_id,
@@ -488,7 +612,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         scene_name=scene["name"],
                         location_id=scene["level_3_location_id"],
                         location_name=scene.get("level_3_location_name", "Unknown Location"),
-                        parent_location_id=place["level_2_location_id"]
+                        parent_location_id=place["level_2_location_id"],
+                        parent_location_name=place.get("level_2_location_name", "Unknown Location")
                     )
                     relationships_created += 5
 
@@ -521,6 +646,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             else:
                 role_str = str(npc_role)
 
+            # Skip if species_id or location_id is empty
+            if not npc["species_id"] or npc["species_id"] == "" or not npc["level_3_location_id"]:
+                logger.warning(f"Skipping Neo4j relationships for NPC {npc_id} - missing species_id or location_id")
+                continue
+
             session.run(
                 """
                 MATCH (w:World {id: $world_id})
@@ -528,12 +658,19 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 SET npc.name = $npc_name,
                     npc.role = $role,
                     npc.description = $description
-                MERGE (s:Species {id: $species_id})
-                SET s.name = $species_name
+
+                // MERGE Species by name to avoid duplicates
+                MERGE (s:Species {name: $species_name, world_id: $world_id})
+                ON CREATE SET s.id = $species_id
+                ON MATCH SET s.id = COALESCE(s.id, $species_id)
                 MERGE (s)-[:NATIVE_TO]->(w)
-                MERGE (loc:Location {id: $location_id})
-                SET loc.name = $location_name
+
+                // MERGE Location by hierarchical path (world + name) to avoid duplicates
+                MERGE (loc:Location {name: $location_name, world_id: $world_id})
+                ON CREATE SET loc.id = $location_id
+                ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
                 MERGE (loc)-[:PART_OF]->(w)
+
                 MERGE (npc)-[:IS_SPECIES]->(s)
                 MERGE (npc)-[:LOCATED_AT]->(loc)
                 """,
@@ -549,7 +686,182 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             )
             relationships_created += 5
 
-    logger.info(f"Created {relationships_created} Neo4j relationships")
+        # Knowledge Entities - create nodes and link to scenes
+        for knowledge in state.get("knowledge_entities", []):
+            knowledge_id = knowledge.get("knowledge_id")
+            if not knowledge_id:
+                continue
+
+            # Create Knowledge node
+            session.run(
+                """
+                MERGE (k:Knowledge {id: $knowledge_id})
+                SET k.name = $name,
+                    k.knowledge_type = $knowledge_type,
+                    k.primary_dimension = $primary_dimension,
+                    k.bloom_level_target = $bloom_level_target,
+                    k.description = $description
+                """,
+                knowledge_id=knowledge_id,
+                name=knowledge.get("name", "Unknown Knowledge"),
+                knowledge_type=knowledge.get("knowledge_type", "skill"),
+                primary_dimension=knowledge.get("primary_dimension", "intellectual"),
+                bloom_level_target=knowledge.get("bloom_level_target", 3),
+                description=knowledge.get("description", "")[:500]  # Truncate for Neo4j
+            )
+
+            # Link Knowledge to Scene
+            scene_id = knowledge.get("scene_id")
+            if scene_id:
+                # Find MongoDB scene ID that matches this internal scene ID
+                for scene in state.get("scenes", []):
+                    if scene.get("scene_id") == scene_id:
+                        # Find the persisted scene ID
+                        scene_internal_id = scene.get("scene_id", "")
+                        for idx, s in enumerate(state["scenes"]):
+                            if s.get("scene_id") == scene_internal_id:
+                                persisted_scene_id = f"scene_{state['request_id']}_{idx}"
+                                session.run(
+                                    """
+                                    MATCH (sc:Scene {id: $scene_id})
+                                    MATCH (k:Knowledge {id: $knowledge_id})
+                                    MERGE (sc)-[:PROVIDES]->(k)
+                                    """,
+                                    scene_id=persisted_scene_id,
+                                    knowledge_id=knowledge_id
+                                )
+                                relationships_created += 1
+                                break
+                        break
+
+            # Link Knowledge acquisition methods to entities (NPCs, Challenges, etc.)
+            for acq_method in knowledge.get("acquisition_methods", []):
+                entity_id = acq_method.get("entity_id")
+                if entity_id:
+                    session.run(
+                        """
+                        MATCH (k:Knowledge {id: $knowledge_id})
+                        OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                        OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                        FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
+                            MERGE (npc)-[:TEACHES]->(k)
+                        )
+                        FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
+                            MERGE (ch)-[:GRANTS]->(k)
+                        )
+                        """,
+                        knowledge_id=knowledge_id,
+                        entity_id=entity_id
+                    )
+                    relationships_created += 1
+
+        # Items - create nodes and link to scenes
+        for item in state.get("item_entities", []):
+            item_id = item.get("item_id")
+            if not item_id:
+                continue
+
+            # Create Item node
+            session.run(
+                """
+                MERGE (i:Item {id: $item_id})
+                SET i.name = $name,
+                    i.item_type = $item_type,
+                    i.is_quest_critical = $is_quest_critical,
+                    i.description = $description
+                """,
+                item_id=item_id,
+                name=item.get("name", "Unknown Item"),
+                item_type=item.get("item_type", "tool"),
+                is_quest_critical=item.get("is_quest_critical", False),
+                description=item.get("description", "")[:500]  # Truncate for Neo4j
+            )
+
+            # Link Item to Scene
+            scene_id = item.get("scene_id")
+            if scene_id:
+                # Find MongoDB scene ID that matches this internal scene ID
+                for scene in state.get("scenes", []):
+                    if scene.get("scene_id") == scene_id:
+                        # Find the persisted scene ID
+                        scene_internal_id = scene.get("scene_id", "")
+                        for idx, s in enumerate(state["scenes"]):
+                            if s.get("scene_id") == scene_internal_id:
+                                persisted_scene_id = f"scene_{state['request_id']}_{idx}"
+                                session.run(
+                                    """
+                                    MATCH (sc:Scene {id: $scene_id})
+                                    MATCH (i:Item {id: $item_id})
+                                    MERGE (sc)-[:CONTAINS_ITEM]->(i)
+                                    """,
+                                    scene_id=persisted_scene_id,
+                                    item_id=item_id
+                                )
+                                relationships_created += 1
+                                break
+                        break
+
+            # Link Item acquisition methods to entities
+            for acq_method in item.get("acquisition_methods", []):
+                entity_id = acq_method.get("entity_id")
+                if entity_id:
+                    session.run(
+                        """
+                        MATCH (i:Item {id: $item_id})
+                        OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                        OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                        FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
+                            MERGE (npc)-[:GIVES]->(i)
+                        )
+                        FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
+                            MERGE (ch)-[:REWARDS]->(i)
+                        )
+                        """,
+                        item_id=item_id,
+                        entity_id=entity_id
+                    )
+                    relationships_created += 1
+
+        # Rubrics - create nodes and link to entities
+        for rubric in state.get("rubrics", []):
+            rubric_id = rubric.get("rubric_id")
+            entity_id = rubric.get("entity_id")
+            if not rubric_id or not entity_id:
+                continue
+
+            # Create Rubric node
+            session.run(
+                """
+                MERGE (r:Rubric {id: $rubric_id})
+                SET r.rubric_type = $rubric_type,
+                    r.interaction_name = $interaction_name,
+                    r.primary_dimension = $primary_dimension
+                """,
+                rubric_id=rubric_id,
+                rubric_type=rubric.get("rubric_type", "evaluation"),
+                interaction_name=rubric.get("interaction_name", "Unknown Interaction"),
+                primary_dimension=rubric.get("primary_dimension", "intellectual")
+            )
+
+            # Link Rubric to its entity (NPC, Challenge, Discovery, Event)
+            session.run(
+                """
+                MATCH (r:Rubric {id: $rubric_id})
+                OPTIONAL MATCH (npc:NPC {id: $entity_id})
+                OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (npc)-[:EVALUATED_BY]->(r)
+                )
+                FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
+                    MERGE (ch)-[:EVALUATED_BY]->(r)
+                )
+                """,
+                rubric_id=rubric_id,
+                entity_id=entity_id
+            )
+            relationships_created += 1
+
+    logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
 
     return relationships_created
 
