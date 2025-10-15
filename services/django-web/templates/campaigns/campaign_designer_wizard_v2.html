@@ -707,7 +707,7 @@
         <!-- Dialog Footer -->
         <div class="loading-dialog-footer">
             <i class="material-icons tiny" style="vertical-align: middle; margin-right: 5px;">info</i>
-            <span>Please do not close this window</span>
+            <span>Campaign generation is in progress. You can safely navigate away and return later.</span>
         </div>
     </div>
 </div>
@@ -1220,10 +1220,17 @@
 
     .phase-step.completed .phase-icon {
         color: var(--rpg-green);
+        visibility: hidden;
+        position: relative;
     }
 
     .phase-step.completed .phase-icon::before {
         content: 'check_circle';
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 2rem;
     }
 
     .phase-label {

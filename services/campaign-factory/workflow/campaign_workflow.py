@@ -16,6 +16,7 @@ from .nodes_core import (
     generate_campaign_core_node,
     wait_for_core_approval_node
 )
+from .nodes_narrative_planner import plan_campaign_narrative
 from .nodes_quest import generate_quests_node
 from .nodes_place_scene import (
     generate_places_node,
@@ -76,8 +77,16 @@ def route_after_core_approval(state: CampaignWorkflowState) -> str:
             else:
                 # Quests generated, need places
                 return "generate_places"
-        return "generate_quests"
+        # NEW: Go to narrative planning first
+        return "plan_narrative"
     return "wait_for_approval"
+
+
+def route_after_narrative_planning(state: CampaignWorkflowState) -> str:
+    """Route after narrative planning"""
+    if state.get("errors", []):
+        return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_narrative"
+    return "generate_quests"
 
 
 def route_after_quests(state: CampaignWorkflowState) -> str:
@@ -127,11 +136,12 @@ def create_campaign_workflow() -> StateGraph:
     2. Story Selection - User selects or regenerates
     3. Campaign Core - Generate plot, storyline, objectives
     4. Core Approval - User approves or modifies
-    5. Quest Generation - Generate quests with locations
-    6. Place Generation - Generate Level 2 locations (places)
-    7. Scene Generation - Generate Level 3 locations (scenes)
-    8. Element Generation - Generate NPCs, discoveries, events, challenges
-    9. Finalization - Validate and persist
+    5. Narrative Planning - Plan entire campaign story arc (NEW)
+    6. Quest Generation - Generate quests from narrative blueprint
+    7. Place Generation - Generate Level 2 locations (places)
+    8. Scene Generation - Generate Level 3 locations (scenes)
+    9. Element Generation - Generate NPCs, discoveries, events, challenges
+    10. Finalization - Validate and persist
 
     Human-in-the-loop gates:
     - Story selection (can regenerate)
@@ -147,6 +157,7 @@ def create_campaign_workflow() -> StateGraph:
     workflow.add_node("handle_story_regeneration", handle_story_regeneration_node)
     workflow.add_node("generate_campaign_core", generate_campaign_core_node)
     workflow.add_node("wait_for_core_approval", wait_for_core_approval_node)
+    workflow.add_node("plan_narrative", plan_campaign_narrative)  # NEW: Narrative planning
     workflow.add_node("generate_quests", generate_quests_node)
     workflow.add_node("generate_places", generate_places_node)
     workflow.add_node("generate_scenes", generate_scenes_node)
@@ -194,12 +205,23 @@ def create_campaign_workflow() -> StateGraph:
         "wait_for_core_approval",
         route_after_core_approval,
         {
+            "plan_narrative": "plan_narrative",  # NEW: Route to narrative planning
             "generate_quests": "generate_quests",
             "generate_places": "generate_places",
             "generate_scenes": "generate_scenes",
             "generate_elements": "generate_elements",
             "finalize": "finalize",
             "wait_for_approval": "wait_for_core_approval"
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "plan_narrative",
+        route_after_narrative_planning,
+        {
+            "generate_quests": "generate_quests",
+            "retry_narrative": "plan_narrative",
+            "failed": END
         }
     )
 
@@ -254,6 +276,7 @@ def create_campaign_workflow() -> StateGraph:
     )
 
     # Compile the workflow
+    # Note: recursion_limit is set at invocation time in main.py
     return workflow.compile()
 
 

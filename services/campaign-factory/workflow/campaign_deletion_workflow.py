@@ -298,89 +298,119 @@ async def delete_mongodb_campaign_node(state: CampaignDeletionState) -> Campaign
 
 async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDeletionState:
     """
-    Delete all campaign-related entities from Neo4j by traversing relationships from Campaign node
+    Delete all campaign-related entities from Neo4j using ID pattern matching
+    This is more reliable than relationship traversal since relationships may not exist
     """
     try:
         campaign_id = state['campaign_id']
         logger.info(f"Starting Neo4j deletion for campaign: {campaign_id}")
 
-        with neo4j_driver.session() as session:
-            # Delete all entities by traversing from Campaign node
-            # This is more reliable than trying to match MongoDB IDs
+        total_deleted = 0
 
-            # 1. Delete all Quests and their connected entities
+        with neo4j_driver.session() as session:
+            # Delete all campaign entities by ID pattern
+            # This works regardless of whether relationships were created properly
+
+            # 1. Delete Quest nodes
             result = session.run("""
-                MATCH (c:Campaign {id: $campaign_id})-[:HAS_QUEST]->(q:Quest)
-                OPTIONAL MATCH (q)-[r]->(connected)
-                WHERE NOT connected:Campaign
-                WITH q, collect(DISTINCT connected) as connected_nodes
-                FOREACH (node IN connected_nodes | DETACH DELETE node)
+                MATCH (q:Quest)
+                WHERE q.id STARTS WITH 'quest_' AND q.id CONTAINS $campaign_id
                 DETACH DELETE q
-                RETURN count(DISTINCT q) as deleted_count
+                RETURN count(q) as deleted_count
             """, campaign_id=campaign_id)
             quest_count = result.single()['deleted_count']
-            logger.info(f"Deleted {quest_count} Quest nodes and their connections from Neo4j")
+            total_deleted += quest_count
+            logger.info(f"Deleted {quest_count} Quest nodes from Neo4j")
 
-            # 2. Delete all Places (Level 2 Locations) and their connected entities
+            # 2. Delete Place nodes
             result = session.run("""
-                MATCH (c:Campaign {id: $campaign_id})-[:HAS_QUEST]->(:Quest)-[:HAS_PLACE]->(p:Place)
-                OPTIONAL MATCH (p)-[r]->(connected)
-                WHERE NOT connected:Quest AND NOT connected:Campaign
-                WITH p, collect(DISTINCT connected) as connected_nodes
-                FOREACH (node IN connected_nodes | DETACH DELETE node)
+                MATCH (p:Place)
+                WHERE p.id STARTS WITH 'place_' AND p.id CONTAINS $campaign_id
                 DETACH DELETE p
-                RETURN count(DISTINCT p) as deleted_count
+                RETURN count(p) as deleted_count
             """, campaign_id=campaign_id)
             place_count = result.single()['deleted_count']
-            logger.info(f"Deleted {place_count} Place nodes and their connections from Neo4j")
+            total_deleted += place_count
+            logger.info(f"Deleted {place_count} Place nodes from Neo4j")
 
-            # 3. Delete all Scenes (Level 3 Locations) and their entities (NPCs, Challenges, etc.)
+            # 3. Delete Scene nodes
             result = session.run("""
-                MATCH (c:Campaign {id: $campaign_id})-[:HAS_QUEST]->(:Quest)-[:HAS_PLACE]->(:Place)-[:HAS_SCENE]->(s:Scene)
-                OPTIONAL MATCH (s)-[r]->(entity)
-                WHERE NOT entity:Place AND NOT entity:Quest AND NOT entity:Campaign
-                WITH s, collect(DISTINCT entity) as scene_entities
-                FOREACH (entity IN scene_entities | DETACH DELETE entity)
+                MATCH (s:Scene)
+                WHERE s.id STARTS WITH 'scene_' AND s.id CONTAINS $campaign_id
                 DETACH DELETE s
-                RETURN count(DISTINCT s) as deleted_count
+                RETURN count(s) as deleted_count
             """, campaign_id=campaign_id)
             scene_count = result.single()['deleted_count']
-            logger.info(f"Deleted {scene_count} Scene nodes and their entities from Neo4j")
+            total_deleted += scene_count
+            logger.info(f"Deleted {scene_count} Scene nodes from Neo4j")
 
-            # 4. Delete any remaining orphaned NPCs that belonged to this campaign
+            # 4. Delete NPC nodes
             result = session.run("""
                 MATCH (n:NPC)
                 WHERE n.id STARTS WITH 'npc_' AND n.id CONTAINS $campaign_id
                 DETACH DELETE n
                 RETURN count(n) as deleted_count
             """, campaign_id=campaign_id)
-            orphan_npc_count = result.single()['deleted_count']
-            if orphan_npc_count > 0:
-                logger.info(f"Deleted {orphan_npc_count} orphaned NPC nodes from Neo4j")
+            npc_count = result.single()['deleted_count']
+            total_deleted += npc_count
+            logger.info(f"Deleted {npc_count} NPC nodes from Neo4j")
 
-            # 5. Delete any remaining orphaned Knowledge nodes for this campaign
+            # 5. Delete Challenge nodes
+            result = session.run("""
+                MATCH (c:Challenge)
+                WHERE c.id STARTS WITH 'challenge_' AND c.id CONTAINS $campaign_id
+                DETACH DELETE c
+                RETURN count(c) as deleted_count
+            """, campaign_id=campaign_id)
+            challenge_count = result.single()['deleted_count']
+            total_deleted += challenge_count
+            logger.info(f"Deleted {challenge_count} Challenge nodes from Neo4j")
+
+            # 6. Delete Discovery nodes
+            result = session.run("""
+                MATCH (d:Discovery)
+                WHERE d.id STARTS WITH 'discovery_' AND d.id CONTAINS $campaign_id
+                DETACH DELETE d
+                RETURN count(d) as deleted_count
+            """, campaign_id=campaign_id)
+            discovery_count = result.single()['deleted_count']
+            total_deleted += discovery_count
+            logger.info(f"Deleted {discovery_count} Discovery nodes from Neo4j")
+
+            # 7. Delete Event nodes
+            result = session.run("""
+                MATCH (e:Event)
+                WHERE e.id STARTS WITH 'event_' AND e.id CONTAINS $campaign_id
+                DETACH DELETE e
+                RETURN count(e) as deleted_count
+            """, campaign_id=campaign_id)
+            event_count = result.single()['deleted_count']
+            total_deleted += event_count
+            logger.info(f"Deleted {event_count} Event nodes from Neo4j")
+
+            # 8. Delete Knowledge nodes
             result = session.run("""
                 MATCH (k:Knowledge)
                 WHERE k.id STARTS WITH 'knowledge_' AND k.id CONTAINS $campaign_id
                 DETACH DELETE k
                 RETURN count(k) as deleted_count
             """, campaign_id=campaign_id)
-            orphan_knowledge_count = result.single()['deleted_count']
-            if orphan_knowledge_count > 0:
-                logger.info(f"Deleted {orphan_knowledge_count} orphaned Knowledge nodes from Neo4j")
+            knowledge_count = result.single()['deleted_count']
+            total_deleted += knowledge_count
+            logger.info(f"Deleted {knowledge_count} Knowledge nodes from Neo4j")
 
-            # 6. Delete any remaining orphaned Items for this campaign
+            # 9. Delete Item nodes
             result = session.run("""
                 MATCH (i:Item)
                 WHERE i.id STARTS WITH 'item_' AND i.id CONTAINS $campaign_id
                 DETACH DELETE i
                 RETURN count(i) as deleted_count
             """, campaign_id=campaign_id)
-            orphan_item_count = result.single()['deleted_count']
-            if orphan_item_count > 0:
-                logger.info(f"Deleted {orphan_item_count} orphaned Item nodes from Neo4j")
+            item_count = result.single()['deleted_count']
+            total_deleted += item_count
+            logger.info(f"Deleted {item_count} Item nodes from Neo4j")
 
-            # 7. Delete Rubric nodes for this campaign (they're linked to various entities)
+            # 10. Delete Rubric nodes
             result = session.run("""
                 MATCH (r:Rubric)
                 WHERE r.id STARTS WITH 'rubric_' AND r.id CONTAINS $campaign_id
@@ -388,24 +418,40 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
                 RETURN count(r) as deleted_count
             """, campaign_id=campaign_id)
             rubric_count = result.single()['deleted_count']
-            if rubric_count > 0:
-                logger.info(f"Deleted {rubric_count} Rubric nodes from Neo4j")
+            total_deleted += rubric_count
+            logger.info(f"Deleted {rubric_count} Rubric nodes from Neo4j")
 
-            # 8. Finally, delete the Campaign node itself
+            # 11. Finally, delete the Campaign node itself
             result = session.run("""
                 MATCH (c:Campaign {id: $campaign_id})
                 DETACH DELETE c
                 RETURN count(c) as deleted_count
             """, campaign_id=campaign_id)
             campaign_count = result.single()['deleted_count']
+            total_deleted += campaign_count
             logger.info(f"Deleted {campaign_count} Campaign node from Neo4j")
+
+        logger.info(f"Neo4j deletion complete: {total_deleted} total nodes deleted")
 
         state['neo4j_deleted'] = True
         state['deletion_log'] = state.get('deletion_log', []) + [{
             'timestamp': datetime.utcnow().isoformat(),
             'action': 'neo4j_deletion',
             'status': 'success',
-            'details': 'All campaign entities and relationships deleted'
+            'details': {
+                'total_nodes_deleted': total_deleted,
+                'quests': quest_count,
+                'places': place_count,
+                'scenes': scene_count,
+                'npcs': npc_count,
+                'challenges': challenge_count,
+                'discoveries': discovery_count,
+                'events': event_count,
+                'knowledge': knowledge_count,
+                'items': item_count,
+                'rubrics': rubric_count,
+                'campaign': campaign_count
+            }
         }]
 
     except Exception as e:
@@ -818,9 +864,9 @@ def route_after_species_cleanup(state: CampaignDeletionState) -> str:
 def route_after_location_cleanup(state: CampaignDeletionState) -> str:
     """Route after location cleanup - finalize deletion"""
     # Update final progress
+    state['current_phase'] = 'finalize'
     state['progress_percentage'] = 100
     state['status_message'] = 'Campaign deletion completed'
-    state['current_phase'] = 'completed'
 
     # Check if critical deletions succeeded
     if state.get('mongodb_deleted', False):

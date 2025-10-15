@@ -591,7 +591,7 @@
             </div>
         </div>
         <p id="loading-status-message" style="color: var(--rpg-gold); font-size: 1.2rem; margin-top: 20px;">Initializing...</p>
-        <p id="loading-detail-message" style="color: #b8b8d1; font-size: 0.9rem;">This may take a few minutes.</p>
+        <p id="loading-detail-message" style="color: #b8b8d1; font-size: 0.9rem;">Campaign generation is in progress. You can safely navigate away and return later.</p>
     </div>
 </div>
 
@@ -961,10 +961,17 @@
 
     .phase-step.completed .phase-icon {
         color: var(--rpg-green);
+        visibility: hidden;
+        position: relative;
     }
 
     .phase-step.completed .phase-icon::before {
         content: 'check_circle';
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 2rem;
     }
 
     .phase-label {

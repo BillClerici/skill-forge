@@ -117,7 +117,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state = await initialize_campaign_state(request_data)
 
                 # Run workflow (will pause at first human-in-the-loop gate)
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Publish story ideas to user for selection
                 await publish_story_ideas_to_user(result_state)
@@ -128,7 +128,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state["selected_story_id"] = request_data["selected_story_id"]
 
                 # Continue workflow
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Publish campaign core to user for approval
                 await publish_campaign_core_to_user(result_state)
@@ -139,7 +139,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state["regenerate_stories"] = True
 
                 # Continue workflow
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Publish new story ideas
                 await publish_story_ideas_to_user(result_state)
@@ -154,7 +154,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state["generate_images"] = request_data.get("generate_images", True)
 
                 # Continue workflow (will run to completion)
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Publish final campaign result
                 await publish_campaign_completion(result_state)
@@ -165,7 +165,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state["user_approved_quests"] = request_data.get("user_approved_quests", True)
 
                 # Continue workflow
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Save updated state
                 await save_campaign_state(result_state)
@@ -176,7 +176,7 @@ async def process_campaign_request(message: aio_pika.IncomingMessage):
                 state["user_approved_places"] = request_data.get("user_approved_places", True)
 
                 # Continue workflow
-                result_state = await campaign_workflow.ainvoke(state)
+                result_state = await campaign_workflow.ainvoke(state, {"recursion_limit": 100})
 
                 # Save updated state
                 await save_campaign_state(result_state)

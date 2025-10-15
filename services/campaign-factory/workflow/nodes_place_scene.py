@@ -26,36 +26,50 @@ anthropic_client = ChatAnthropic(
 
 async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
-    Generate places (Level 2 locations) for each quest
+    Generate places (Level 2 locations) from narrative blueprint
 
     This node:
-    1. For each quest, fetches Level 2 locations under its Level 1 location
-    2. Generates 2-4 places where quest objectives occur
-    3. May create new Level 2 locations if needed (enriches world)
-    4. Stores places in state
+    1. Reads places planned in the narrative blueprint for each quest
+    2. Converts narrative place plans into full PlaceData objects
+    3. Fetches existing Level 2 locations and maps to them when appropriate
+    4. Creates new locations as needed
+    5. Stores places in state
+
+    The narrative blueprint ensures each quest has unique places planned upfront.
     """
     try:
         state["current_node"] = "generate_places"
         state["current_phase"] = "place_gen"
         state["progress_percentage"] = 55
-        state["status_message"] = "Generating places for quests..."
+        state["status_message"] = "Generating places from narrative blueprint..."
 
         await publish_progress(state)
 
         total_quests = len(state['quests'])
-        logger.info(f"Generating places for {total_quests} quests")
+        logger.info(f"Generating places for {total_quests} quests from narrative blueprint")
 
         all_places: List[PlaceData] = []
 
-        # Generate places for each quest
+        # Generate places for each quest from its narrative chapter
         for quest_idx, quest in enumerate(state["quests"]):
             # Update progress for each quest (55% to 70% range)
-            quest_progress = 55 + int((quest_idx / total_quests) * 15)  # 55% to 70%
+            quest_progress = 55 + int((quest_idx / total_quests) * 15)
             state["progress_percentage"] = quest_progress
             state["status_message"] = f"Generating places for quest {quest_idx + 1} of {total_quests}..."
             await publish_progress(state, f"Quest: {quest['name']}")
 
             logger.info(f"Generating places for quest {quest_idx + 1}/{total_quests}: {quest['name']}")
+
+            # Get narrative chapter with places planned
+            narrative_chapter = quest.get("narrative_chapter")
+            if not narrative_chapter:
+                logger.warning(f"Quest '{quest['name']}' has no narrative chapter - falling back to basic generation")
+                continue
+
+            planned_places = narrative_chapter.get("places", [])
+            if not planned_places:
+                logger.warning(f"No places planned for quest '{quest['name']}'")
+                continue
 
             # Fetch existing Level 2 locations under quest's Level 1 location via MCP
             from .mcp_client import fetch_level2_locations
@@ -65,122 +79,42 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
                 logger.info(f"No existing Level 2 locations found under {quest['level_1_location_name']}")
                 existing_level2_locations = []
 
-            # Create prompt for place generation
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", """You are a master quest and location designer for RPG games.
-
-Your task is to generate Places (Level 2 locations) where quest objectives occur.
-
-Places are specific buildings, outdoor areas, or sub-locations within a Level 1 location.
-Examples: Tavern, Shop, Temple, Park, Cave, Marketplace, Manor, Guard Post
-
-Each place should:
-- Be logically located within the quest's Level 1 location
-- Support specific quest objectives
-- Have narrative significance
-
-You can:
-- Use existing Level 2 locations
-- Suggest NEW Level 2 locations if needed for the narrative (these will be added to the world permanently)
-
-Return your response as a JSON array with this structure:
-[
-  {{
-    "place_name": "Place name",
-    "description": "Place description and atmosphere",
-    "level_2_location": {{
-      "use_existing": true,
-      "existing_location_id": "place1",
-      "existing_location_name": "The Silver Tavern",
-      "or_create_new": false,
-      "new_location_name": "",
-      "new_location_type": "",
-      "new_location_description": ""
-    }},
-    "objectives_supported": ["Objective 1", "Objective 2"]
-  }}
-]
-
-Generate 2-4 places for this quest.
-
-CRITICAL: Return ONLY the JSON array, no other text."""),
-                ("user", """Quest Context:
-Quest Name: {quest_name}
-Description: {quest_description}
-Objectives: {objectives}
-Level 1 Location: {level_1_location}
-
-Existing Level 2 Locations:
-{existing_locations}
-
-Generate 2-4 places where this quest's objectives occur.""")
-            ])
-
-            # Format objectives
-            objectives_str = "\n".join([
-                f"- {obj['description']}"
-                for obj in quest.get("objectives", [])
-            ])
-
-            # Format existing locations
-            locations_str = "\n".join([
-                f"- {loc['name']} ({loc['type']}) [ID: {loc['id']}]"
-                for loc in existing_level2_locations
-            ])
-
-            # Generate places
-            chain = prompt | anthropic_client
-            response = await chain.ainvoke({
-                "quest_name": quest["name"],
-                "quest_description": quest["description"],
-                "objectives": objectives_str,
-                "level_1_location": quest["level_1_location_name"],
-                "existing_locations": locations_str
-            })
-
-            # Parse response
-            places_raw = json.loads(response.content.strip())
-
-            # Process places
+            # Process each planned place from the narrative blueprint
             quest_places: List[PlaceData] = []
-            for place_data in places_raw:
-                location_info = place_data.get("level_2_location", {})
+            for place_plan in planned_places:
+                place_name = place_plan.get("place_name", f"Place {len(quest_places) + 1}")
+                place_description = place_plan.get("place_description", "")
 
-                # Determine location ID
-                if location_info.get("use_existing", True):
-                    location_id = location_info.get("existing_location_id", "")
-                    location_name = location_info.get("existing_location_name", "")
-                else:
-                    # Create new Level 2 location
-                    new_location_id = f"new_place_{uuid.uuid4().hex[:8]}"
-                    location_name = location_info.get("new_location_name", f"Place in {quest['level_1_location_name']}")
-                    location_type = location_info.get("new_location_type", "Place")
-                    location_desc = location_info.get("new_location_description", "")
+                # Create new Level 2 location for each planned place
+                # The narrative blueprint has already ensured uniqueness
+                new_location_id = f"new_place_{uuid.uuid4().hex[:8]}"
+                location_type = "Place"  # Generic type for narrative-planned locations
 
-                    # Store full location details
-                    state["new_location_ids"].append(new_location_id)  # DEPRECATED
-                    state["new_locations"].append({
-                        "id": new_location_id,
-                        "name": location_name,
-                        "type": location_type,
-                        "description": location_desc,
-                        "level": 2,
-                        "parent_location_id": quest["level_1_location_id"]
-                    })
+                # Store full location details
+                state["new_location_ids"].append(new_location_id)  # DEPRECATED
+                state["new_locations"].append({
+                    "id": new_location_id,
+                    "name": place_name,
+                    "type": location_type,
+                    "description": place_description,
+                    "level": 2,
+                    "parent_location_id": quest["level_1_location_id"]
+                })
 
-                    location_id = new_location_id
-
-                    logger.info(f"Place requires new location: {location_name} ({location_type})")
+                logger.info(f"Creating place from narrative: {place_name}")
 
                 place: PlaceData = {
                     "place_id": None,  # Will be set on persistence
-                    "name": place_data.get("place_name", f"{quest['level_1_location_name']} - Place {len(quest_places) + 1}"),
-                    "description": place_data.get("description", ""),
-                    "level_2_location_id": location_id,
-                    "level_2_location_name": location_name,
+                    "name": place_name,
+                    "description": place_description,
+                    "level_2_location_id": new_location_id,
+                    "level_2_location_name": place_name,
                     "parent_quest_id": quest.get("quest_id", ""),
                     "scenes": []  # Will be populated in scene generation
                 }
+
+                # Store narrative plan for later use by scene generation
+                place["narrative_place_plan"] = place_plan
 
                 quest_places.append(place)
                 all_places.append(place)
@@ -229,154 +163,83 @@ Generate 2-4 places where this quest's objectives occur.""")
 
 async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
-    Generate scenes (Level 3 locations) for each place
+    Generate scenes (Level 3 locations) from narrative blueprint
 
     This node:
-    1. For each place, fetches Level 3 locations under its Level 2 location
-    2. Generates 1-3 scenes where specific interactions occur
-    3. May create new Level 3 locations if needed (enriches world)
+    1. Reads scenes planned in the narrative blueprint for each place
+    2. Converts narrative scene plans into full SceneData objects
+    3. Creates new Level 3 locations for each planned scene
     4. Stores scenes in state (NPCs, discoveries, events, challenges added later)
+
+    The narrative blueprint ensures each place has unique scenes planned upfront.
     """
     try:
         state["current_node"] = "generate_scenes"
         state["current_phase"] = "scene_gen"
         state["progress_percentage"] = 75
-        state["status_message"] = "Generating scenes for places..."
+        state["status_message"] = "Generating scenes from narrative blueprint..."
 
         await publish_progress(state)
 
         total_places = len(state['places'])
-        logger.info(f"Generating scenes for {total_places} places")
+        logger.info(f"Generating scenes for {total_places} places from narrative blueprint")
 
         all_scenes: List[SceneData] = []
 
-        # Generate scenes for each place
+        # Generate scenes for each place from its narrative plan
         for place_idx, place in enumerate(state["places"]):
             # Update progress for each place (75% to 90% range)
-            place_progress = 75 + int((place_idx / total_places) * 15)  # 75% to 90%
+            place_progress = 75 + int((place_idx / total_places) * 15)
             state["progress_percentage"] = place_progress
             state["status_message"] = f"Generating scenes for place {place_idx + 1} of {total_places}..."
             await publish_progress(state, f"Place: {place['name']}")
 
             logger.info(f"Generating scenes for place {place_idx + 1}/{total_places}: {place['name']}")
 
-            # Fetch existing Level 3 locations under place's Level 2 location via MCP
-            from .mcp_client import fetch_level3_locations
-            existing_level3_locations = await fetch_level3_locations(place["level_2_location_id"])
+            # Get narrative place plan with scenes
+            narrative_place_plan = place.get("narrative_place_plan")
+            if not narrative_place_plan:
+                logger.warning(f"Place '{place['name']}' has no narrative plan - skipping scene generation")
+                continue
 
-            if not existing_level3_locations:
-                logger.info(f"No existing Level 3 locations found under {place['level_2_location_name']}")
-                existing_level3_locations = []
+            planned_scenes = narrative_place_plan.get("scenes", [])
+            if not planned_scenes:
+                logger.warning(f"No scenes planned for place '{place['name']}'")
+                continue
 
-            # Create prompt for scene generation
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", """You are a master scene designer for RPG games.
-
-Your task is to generate Scenes (Level 3 locations) where specific interactions occur.
-
-Scenes are specific rooms, areas, or spaces within a Level 2 location.
-Examples: The Bar, Kitchen, Bedroom, Chamber, Altar Room, Storage Area, Garden Corner
-
-Each scene should:
-- Be logically located within the place's Level 2 location
-- Support specific narrative moments or interactions
-- Have distinct atmosphere and purpose
-
-You can:
-- Use existing Level 3 locations
-- Suggest NEW Level 3 locations if needed for the narrative (these will be added to the world permanently)
-
-Return your response as a JSON array with this structure:
-[
-  {{
-    "scene_name": "Scene name",
-    "description": "Scene description, atmosphere, and narrative purpose",
-    "level_3_location": {{
-      "use_existing": true,
-      "existing_location_id": "scene1",
-      "existing_location_name": "The Bar",
-      "or_create_new": false,
-      "new_location_name": "",
-      "new_location_type": "",
-      "new_location_description": ""
-    }},
-    "narrative_purpose": "What happens in this scene",
-    "order_sequence": 1
-  }}
-]
-
-Generate 1-3 scenes for this place.
-
-CRITICAL: Return ONLY the JSON array, no other text."""),
-                ("user", """Place Context:
-Place Name: {place_name}
-Description: {place_description}
-Level 2 Location: {level_2_location}
-
-Existing Level 3 Locations:
-{existing_locations}
-
-Generate 1-3 scenes within this place.""")
-            ])
-
-            # Format existing locations
-            locations_str = "\n".join([
-                f"- {loc['name']} ({loc['type']}) [ID: {loc['id']}]"
-                for loc in existing_level3_locations
-            ])
-
-            # Generate scenes
-            chain = prompt | anthropic_client
-            response = await chain.ainvoke({
-                "place_name": place["name"],
-                "place_description": place["description"],
-                "level_2_location": place["level_2_location_name"],
-                "existing_locations": locations_str
-            })
-
-            # Parse response
-            scenes_raw = json.loads(response.content.strip())
-
-            # Process scenes
+            # Process each planned scene from the narrative blueprint
             place_scenes: List[SceneData] = []
-            for scene_data in scenes_raw:
-                location_info = scene_data.get("level_3_location", {})
+            for scene_plan in planned_scenes:
+                scene_name = scene_plan.get("scene_name", f"Scene {len(place_scenes) + 1}")
+                scene_description = scene_plan.get("scene_description", "")
 
-                # Determine location ID
-                if location_info.get("use_existing", True):
-                    location_id = location_info.get("existing_location_id", "")
-                    location_name = location_info.get("existing_location_name", "")
-                else:
-                    # Create new Level 3 location
-                    new_location_id = f"new_scene_{uuid.uuid4().hex[:8]}"
-                    location_name = location_info.get("new_location_name", f"Scene in {place['level_2_location_name']}")
-                    location_type = location_info.get("new_location_type", "Scene")
-                    location_desc = location_info.get("new_location_description", "")
+                # Create new Level 3 location for each planned scene
+                # The narrative blueprint has already ensured uniqueness
+                new_location_id = f"new_scene_{uuid.uuid4().hex[:8]}"
+                location_type = "Scene"  # Generic type for narrative-planned scenes
 
-                    # Store full location details
-                    state["new_location_ids"].append(new_location_id)  # DEPRECATED
-                    state["new_locations"].append({
-                        "id": new_location_id,
-                        "name": location_name,
-                        "type": location_type,
-                        "description": location_desc,
-                        "level": 3,
-                        "parent_location_id": place["level_2_location_id"]
-                    })
+                # Store full location details
+                state["new_location_ids"].append(new_location_id)  # DEPRECATED
+                state["new_locations"].append({
+                    "id": new_location_id,
+                    "name": scene_name,
+                    "type": location_type,
+                    "description": scene_description,
+                    "level": 3,
+                    "parent_location_id": place["level_2_location_id"]
+                })
 
-                    location_id = new_location_id
-
-                    logger.info(f"Scene requires new location: {location_name} ({location_type})")
+                logger.info(f"Creating scene from narrative: {scene_name}")
 
                 # Generate scene ID immediately (not during persistence)
                 scene_id = f"scene_{uuid.uuid4().hex[:16]}"
 
                 scene: SceneData = {
                     "scene_id": scene_id,  # Generated immediately for entity linking
-                    "name": scene_data.get("scene_name", f"{place['name']} - Scene {len(place_scenes) + 1}"),
-                    "description": scene_data.get("description", ""),
-                    "level_3_location_id": location_id,
-                    "level_3_location_name": location_name,
+                    "name": scene_name,
+                    "description": scene_description,
+                    "level_3_location_id": new_location_id,
+                    "level_3_location_name": scene_name,
                     "parent_place_id": place.get("place_id", ""),
                     "npc_ids": [],  # Will be populated in NPC generation
                     "discovery_ids": [],  # Will be populated in discovery generation
@@ -384,13 +247,13 @@ Generate 1-3 scenes within this place.""")
                     "challenge_ids": [],  # Will be populated in challenge generation
                     "required_knowledge": [],  # May be set based on narrative flow
                     "required_items": [],  # May be set based on narrative flow
-                    "order_sequence": scene_data.get("order_sequence", len(place_scenes) + 1)
+                    "order_sequence": len(place_scenes) + 1
                 }
 
                 place_scenes.append(scene)
                 all_scenes.append(scene)
 
-            # Update place with scene IDs (will be set after persistence)
+            # Update place with scene IDs
             place["scenes"] = [s.get("scene_id", "") for s in place_scenes]
 
             logger.info(f"Generated {len(place_scenes)} scenes for place '{place['name']}'")

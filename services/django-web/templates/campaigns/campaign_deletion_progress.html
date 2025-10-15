@@ -141,10 +141,17 @@
 
     .phase-step.completed .phase-icon {
         color: var(--rpg-green);
+        visibility: hidden;
+        position: relative;
     }
 
     .phase-step.completed .phase-icon::before {
         content: 'check_circle';
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 2rem;
     }
 
     .phase-step.completed .phase-label {
@@ -159,10 +166,17 @@
 
     .phase-step.error .phase-icon {
         color: #F44336;
+        visibility: hidden;
+        position: relative;
     }
 
     .phase-step.error .phase-icon::before {
         content: 'error';
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        top: 0;
+        font-size: 2rem;
     }
 
     .phase-step.error .phase-label {

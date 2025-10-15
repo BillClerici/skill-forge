@@ -32,25 +32,35 @@ anthropic_client = ChatAnthropic(
 
 async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
-    Generate quests for the campaign
+    Generate quests from narrative blueprint
 
     This node:
-    1. Takes user specifications (num_quests, difficulty, playtime)
+    1. Reads the narrative blueprint created in narrative planning phase
     2. Fetches available Level 1 locations from region
-    3. Generates quests with objectives
+    3. Converts narrative chapter plans into full quest objects with objectives
     4. Assigns each quest to a Level 1 location
-    5. May create new Level 1 locations if needed (enriches world)
-    6. Stores quests in state
+    5. Stores quests in state
+
+    The narrative blueprint ensures each quest has unique places/scenes planned upfront.
     """
     try:
         state["current_node"] = "generate_quests"
         state["current_phase"] = "quest_gen"
         state["progress_percentage"] = 35
-        state["status_message"] = f"Generating {state['num_quests']} quests..."
+        state["status_message"] = f"Generating {state['num_quests']} quests from narrative blueprint..."
 
         await publish_progress(state)
 
-        logger.info(f"Generating {state['num_quests']} quests for campaign")
+        logger.info(f"Generating {state['num_quests']} quests from narrative blueprint")
+
+        # Get narrative blueprint
+        narrative_blueprint = state.get("narrative_blueprint")
+        if not narrative_blueprint:
+            raise ValueError("No narrative blueprint found - plan_narrative must run first")
+
+        quest_chapters = narrative_blueprint.get("quests", [])
+        if not quest_chapters:
+            raise ValueError("Narrative blueprint has no quest chapters")
 
         # Fetch existing Level 1 locations for region via MCP
         from .mcp_client import fetch_level1_locations
@@ -60,22 +70,18 @@ async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflow
             logger.warning(f"No existing Level 1 locations found for region {state['region_id']}")
             existing_level1_locations = []
 
-        # Create prompt for quest generation
+        # Convert narrative chapters into full quest objects with objectives
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a master quest designer for RPG games with expertise in educational design and Bloom's Taxonomy.
+            ("system", """You are converting a narrative chapter plan into a detailed quest with objectives.
 
-Your task is to generate a series of quests that form a coherent campaign progression.
+Your task is to take the narrative chapter summary and create:
+1. A detailed quest description that captures the narrative beats
+2. 2-4 specific, actionable objectives that align with the story beats
+3. Select an appropriate Level 1 location from existing locations (or suggest a new one)
+4. Create backstory that connects to the campaign plot
 
-Each quest should:
-- Advance the overall campaign storyline
-- Have 2-4 specific objectives with Bloom's Taxonomy levels
-- Be assigned to an appropriate Level 1 location (settlement, dungeon, natural feature)
-- Build on previous quests in complexity
-- Match the specified difficulty and duration
-
-You can:
-- Use existing Level 1 locations from the region
-- Suggest NEW Level 1 locations if they would better serve the narrative (these will be added to the world permanently)
+The narrative plan already ensures unique places/scenes for each quest.
+Your job is to create the quest mechanics (objectives, blooms levels, etc.).
 
 Bloom's Taxonomy Levels:
 1. Remembering - Recall facts and basic concepts
@@ -85,50 +91,55 @@ Bloom's Taxonomy Levels:
 5. Evaluating - Justify a decision or course of action
 6. Creating - Produce new or original work
 
-Return your response as a JSON array with this structure:
-[
-  {{
-    "quest_name": "Quest title",
-    "description": "Quest description and narrative context",
-    "objectives": [
-      {{
-        "description": "Objective description",
-        "blooms_level": 3,
-        "required_for_completion": true
-      }}
-    ],
-    "level_1_location": {{
-      "use_existing": true,
-      "existing_location_id": "loc1",
-      "existing_location_name": "Crystal City",
-      "or_create_new": false,
-      "new_location_name": "",
-      "new_location_type": "",
-      "new_location_description": ""
-    }},
-    "backstory": "Quest backstory and context",
-    "estimated_duration_minutes": 90,
-    "difficulty_level": "Medium",
-    "order_sequence": 1
-  }}
-]
+Return your response as a JSON object with this EXACT structure:
+{{
+  "quest_name": "Chapter title from narrative plan",
+  "description": "Detailed quest description that captures narrative beats",
+  "objectives": [
+    {{
+      "description": "Specific, actionable objective",
+      "blooms_level": 3,
+      "required_for_completion": true
+    }}
+  ],
+  "level_1_location": {{
+    "use_existing": true,
+    "existing_location_id": "loc_id",
+    "existing_location_name": "Location name",
+    "or_create_new": false,
+    "new_location_name": "",
+    "new_location_type": "",
+    "new_location_description": ""
+  }},
+  "backstory": "Quest backstory",
+  "estimated_duration_minutes": 60,
+  "difficulty_level": "Medium",
+  "order_sequence": 1
+}}
 
-CRITICAL: Return ONLY the JSON array, no other text."""),
+CRITICAL: Return ONLY the JSON object, no other text."""),
             ("user", """Campaign Context:
 Name: {campaign_name}
 Plot: {plot}
 Primary Objectives: {primary_objectives}
 
+Narrative Chapter Plan:
+- Chapter Title: {chapter_title}
+- Chapter Summary: {chapter_summary}
+- Narrative Purpose: {narrative_purpose}
+- Story Beats:
+{story_beats}
+
 Quest Specifications:
-- Number of Quests: {num_quests}
+- Quest Number: {quest_number} of {total_quests}
 - Difficulty: {difficulty}
-- Duration per Quest: {duration} minutes
-- Target Bloom's Level: {blooms_level} ({blooms_desc})
+- Duration: {duration} minutes
+- Target Bloom's Level: {blooms_level}
 
 Existing Level 1 Locations in Region:
 {existing_locations}
 
-Generate {num_quests} quests that form a coherent campaign progression.""")
+Convert this narrative chapter into a detailed quest with objectives.""")
         ])
 
         # Format existing locations
@@ -143,54 +154,61 @@ Generate {num_quests} quests that form a coherent campaign progression.""")
             for obj in state["campaign_core"]["primary_objectives"]
         ])
 
-        # Generate quests
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
-            "campaign_name": state["campaign_core"]["name"],
-            "plot": state["campaign_core"]["plot"],
-            "primary_objectives": objectives_str,
-            "num_quests": state["num_quests"],
-            "difficulty": state["quest_difficulty"],
-            "duration": state["quest_playtime_minutes"],
-            "blooms_level": state["campaign_core"]["target_blooms_level"],
-            "blooms_desc": get_blooms_level_description(state["campaign_core"]["target_blooms_level"]),
-            "existing_locations": locations_str
-        })
-
-        # Parse response
-        quests_raw = json.loads(response.content.strip())
-
-        # Process quests and handle location assignment
+        # Generate quests from narrative blueprint
         quests: List[QuestData] = []
-        for quest_data in quests_raw:
+        chain = prompt | anthropic_client
+
+        for chapter in quest_chapters:
+            # Format story beats
+            story_beats_str = "\n".join([f"  {beat}" for beat in chapter.get("story_beats", [])])
+
+            response = await chain.ainvoke({
+                "campaign_name": state["campaign_core"]["name"],
+                "plot": state["campaign_core"]["plot"],
+                "primary_objectives": objectives_str,
+                "chapter_title": chapter.get("chapter_title", f"Quest {chapter.get('quest_number', len(quests) + 1)}"),
+                "chapter_summary": chapter.get("chapter_summary", ""),
+                "narrative_purpose": chapter.get("narrative_purpose", ""),
+                "story_beats": story_beats_str,
+                "quest_number": chapter.get("quest_number", len(quests) + 1),
+                "total_quests": state["num_quests"],
+                "difficulty": state["quest_difficulty"],
+                "duration": state["quest_playtime_minutes"],
+                "blooms_level": state["campaign_core"]["target_blooms_level"],
+                "existing_locations": locations_str
+            })
+
+            quest_data = json.loads(response.content.strip())
+
+            # Handle location assignment
             location_info = quest_data.get("level_1_location", {})
 
-            # Determine location ID (use existing or create new)
             if location_info.get("use_existing", True):
                 location_id = location_info.get("existing_location_id", "")
                 location_name = location_info.get("existing_location_name", "")
             else:
-                # TODO: Create new Level 1 location via orchestrator
-                # For now, generate placeholder ID
+                # Create new Level 1 location
                 new_location_id = f"new_loc_{uuid.uuid4().hex[:8]}"
                 state["new_location_ids"].append(new_location_id)
                 location_id = new_location_id
                 location_name = location_info.get("new_location_name", f"Location for {quest_data.get('quest_name', 'Quest')}")
-
                 logger.info(f"Quest requires new location: {location_name} ({location_info.get('new_location_type')})")
 
             quest: QuestData = {
-                "quest_id": None,  # Will be set on persistence
-                "name": quest_data.get("quest_name", f"{state['campaign_core']['name']} - Quest {len(quests) + 1}"),
-                "description": quest_data.get("description", ""),
+                "quest_id": None,
+                "name": quest_data.get("quest_name", chapter.get("chapter_title", f"Quest {len(quests) + 1}")),
+                "description": quest_data.get("description", chapter.get("chapter_summary", "")),
                 "objectives": quest_data.get("objectives", []),
                 "level_1_location_id": location_id,
                 "level_1_location_name": location_name,
                 "difficulty_level": quest_data.get("difficulty_level", state["quest_difficulty"]),
                 "estimated_duration_minutes": quest_data.get("estimated_duration_minutes", state["quest_playtime_minutes"]),
-                "order_sequence": quest_data.get("order_sequence", len(quests) + 1),
+                "order_sequence": chapter.get("quest_number", len(quests) + 1),
                 "backstory": quest_data.get("backstory", "")
             }
+
+            # Store narrative chapter info for later use by place/scene generation
+            quest["narrative_chapter"] = chapter
 
             quests.append(quest)
 

@@ -350,6 +350,9 @@ class CampaignWorkflowState(TypedDict):
     campaign_core: Optional[CampaignCore]
     user_approved_core: bool
 
+    # Narrative planning (Phase 3.5 - NEW)
+    narrative_blueprint: Optional[Dict[str, Any]]  # Complete story arc with quest chapters, places, and scenes
+
     # Quest specifications (Phase 4)
     num_quests: int  # User specified
     quest_difficulty: str  # User specified
