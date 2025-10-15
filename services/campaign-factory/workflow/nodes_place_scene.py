@@ -35,12 +35,13 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
     4. Creates new locations as needed
     5. Stores places in state
 
-    The narrative blueprint ensures each quest has unique places planned upfront.
+    The narrative blueprint allows places to be reused across quests with different scenes.
     """
     try:
         state["current_node"] = "generate_places"
         state["current_phase"] = "place_gen"
         state["progress_percentage"] = 55
+        state["step_progress"] = 0
         state["status_message"] = "Generating places from narrative blueprint..."
 
         await publish_progress(state)
@@ -55,6 +56,10 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
             # Update progress for each quest (55% to 70% range)
             quest_progress = 55 + int((quest_idx / total_quests) * 15)
             state["progress_percentage"] = quest_progress
+
+            # Update step progress (0% to 100% for this phase)
+            quest_step_progress = int((quest_idx / total_quests) * 100)
+            state["step_progress"] = quest_step_progress
             state["status_message"] = f"Generating places for quest {quest_idx + 1} of {total_quests}..."
             await publish_progress(state, f"Quest: {quest['name']}")
 
@@ -103,8 +108,11 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
                 logger.info(f"Creating place from narrative: {place_name}")
 
+                # Generate place ID immediately (needed for scene parent relationships)
+                place_id = f"place_{uuid.uuid4().hex[:16]}"
+
                 place: PlaceData = {
-                    "place_id": None,  # Will be set on persistence
+                    "place_id": place_id,
                     "name": place_name,
                     "description": place_description,
                     "level_2_location_id": new_location_id,
@@ -171,12 +179,13 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
     3. Creates new Level 3 locations for each planned scene
     4. Stores scenes in state (NPCs, discoveries, events, challenges added later)
 
-    The narrative blueprint ensures each place has unique scenes planned upfront.
+    The narrative blueprint ensures all scenes are globally unique across the campaign.
     """
     try:
         state["current_node"] = "generate_scenes"
         state["current_phase"] = "scene_gen"
         state["progress_percentage"] = 75
+        state["step_progress"] = 0
         state["status_message"] = "Generating scenes from narrative blueprint..."
 
         await publish_progress(state)
@@ -191,6 +200,10 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
             # Update progress for each place (75% to 90% range)
             place_progress = 75 + int((place_idx / total_places) * 15)
             state["progress_percentage"] = place_progress
+
+            # Update step progress (0% to 100% for this phase)
+            place_step_progress = int((place_idx / total_places) * 100)
+            state["step_progress"] = place_step_progress
             state["status_message"] = f"Generating scenes for place {place_idx + 1} of {total_places}..."
             await publish_progress(state, f"Place: {place['name']}")
 

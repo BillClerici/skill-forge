@@ -177,19 +177,29 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
 
         # Step 6: Generate Knowledge Entities from collected data
         logger.info(f"Generating knowledge entities from {len(knowledge_tracker)} unique knowledge items")
-        all_knowledge_entities = await generate_knowledge_entities(knowledge_tracker, state)
+        scene_knowledge_entities = await generate_knowledge_entities(knowledge_tracker, state)
 
         # Step 7: Generate Items from collected data
         logger.info(f"Generating items from {len(item_tracker)} unique items")
-        all_items = await generate_item_entities(item_tracker, state)
+        scene_items = await generate_item_entities(item_tracker, state)
 
         # Update state with all generated elements
         state["npcs"] = all_npcs
         state["discoveries"] = all_discoveries
         state["events"] = all_events
         state["challenges"] = all_challenges
-        state["knowledge_entities"] = all_knowledge_entities
-        state["item_entities"] = all_items
+
+        # CRITICAL FIX: EXTEND existing knowledge/items instead of overwriting
+        # Quest generation already created knowledge/items from objectives
+        # We need to ADD scene-based knowledge/items to those, not replace them
+        existing_knowledge = state.get("knowledge_entities", [])
+        existing_items = state.get("item_entities", [])
+
+        logger.info(f"Merging knowledge: {len(existing_knowledge)} from quests + {len(scene_knowledge_entities)} from scenes")
+        logger.info(f"Merging items: {len(existing_items)} from quests + {len(scene_items)} from scenes")
+
+        state["knowledge_entities"] = existing_knowledge + scene_knowledge_entities
+        state["item_entities"] = existing_items + scene_items
 
         # Create checkpoint after element generation
         create_checkpoint(state, "elements_generated")
@@ -203,8 +213,10 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 "num_discoveries": len(all_discoveries),
                 "num_events": len(all_events),
                 "num_challenges": len(all_challenges),
-                "num_knowledge_entities": len(all_knowledge_entities),
-                "num_items": len(all_items),
+                "num_knowledge_entities_from_scenes": len(scene_knowledge_entities),
+                "num_items_from_scenes": len(scene_items),
+                "total_knowledge_entities": len(state["knowledge_entities"]),
+                "total_items": len(state["item_entities"]),
                 "new_species_created": len(state["new_species_ids"])
             },
             "success"
@@ -212,7 +224,8 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
 
         logger.info(f"Generated {len(all_npcs)} NPCs, {len(all_discoveries)} discoveries, "
                    f"{len(all_events)} events, {len(all_challenges)} challenges, "
-                   f"{len(all_knowledge_entities)} knowledge entities, {len(all_items)} items")
+                   f"{len(scene_knowledge_entities)} scene knowledge, {len(scene_items)} scene items "
+                   f"(Total: {len(state['knowledge_entities'])} knowledge, {len(state['item_entities'])} items)")
 
         # Reset step progress for next phase
         state["step_progress"] = 0

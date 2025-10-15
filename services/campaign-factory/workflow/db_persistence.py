@@ -135,21 +135,24 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
     quest_ids = []
 
     for quest_idx, quest in enumerate(state["quests"]):
-        quest_id = f"quest_{state['request_id']}_{quest_idx}"
+        # Use the quest ID that was generated during workflow execution
+        quest_id = quest.get("quest_id", f"quest_{state['request_id']}_{quest_idx}")
 
         # Find places for this quest
         quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
 
         place_ids = []
         for place in quest_places:
-            place_id = f"place_{state['request_id']}_{len(place_ids)}"
+            # Use the place ID that was generated during workflow execution
+            place_id = place.get("place_id", f"place_{state['request_id']}_{len(place_ids)}")
 
             # Find scenes for this place
             place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
 
             scene_ids = []
             for scene in place_scenes:
-                scene_id = f"scene_{state['request_id']}_{len(scene_ids)}"
+                # Use the scene ID that was generated during workflow execution
+                scene_id = scene.get("scene_id", f"scene_{state['request_id']}_{len(scene_ids)}")
 
                 # Collect knowledge, item, and rubric IDs for this scene
                 knowledge_ids = []
@@ -394,6 +397,7 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "supports_objectives": knowledge.get("supports_objectives", []),
             "partial_levels": knowledge.get("partial_levels", []),
             "acquisition_methods": knowledge.get("acquisition_methods", []),
+            "campaign_id": campaign_id,  # Add campaign_id for filtering
             "scene_id": knowledge.get("scene_id"),
             "created_at": knowledge.get("created_at", datetime.utcnow().isoformat())
         }
@@ -420,6 +424,7 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "quantity": item.get("quantity", 1),
             "is_consumable": item.get("is_consumable", False),
             "is_quest_critical": item.get("is_quest_critical", False),
+            "campaign_id": campaign_id,  # Add campaign_id for filtering
             "scene_id": item.get("scene_id"),
             "created_at": item.get("created_at", datetime.utcnow().isoformat())
         }
@@ -523,13 +528,14 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
         global_scene_counter = 0
 
         for quest_idx, quest in enumerate(state["quests"]):
-            quest_id = f"quest_{state['request_id']}_{quest_idx}"
+            # Use the quest ID that was generated during workflow execution
+            quest_id = quest.get("quest_id", f"quest_{state['request_id']}_{quest_idx}")
 
             # Create Quest node and link to Campaign
             session.run(
                 """
                 MATCH (camp:Campaign {id: $campaign_id})
-                MATCH (w:World {id: $world_id})
+                MATCH (r:Region {id: $region_id})
                 MERGE (q:Quest {id: $quest_id})
                 SET q.name = $quest_name,
                     q.order_sequence = $order_sequence,
@@ -537,14 +543,16 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     q.estimated_duration_minutes = $duration
                 MERGE (camp)-[:CONTAINS]->(q)
 
-                // MERGE Location by name + world to avoid duplicates
+                // MERGE Level 1 Location by name + world to avoid duplicates
                 MERGE (loc:Location {name: $location_name, world_id: $world_id})
                 ON CREATE SET loc.id = $location_id
                 ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
-                MERGE (loc)-[:PART_OF]->(w)
+                // Level 1 locations are children of the Region, not directly connected to World
+                MERGE (loc)-[:CHILD_OF]->(r)
                 MERGE (q)-[:LOCATED_AT]->(loc)
                 """,
                 campaign_id=campaign_id,
+                region_id=state["region_id"],
                 world_id=state["world_id"],
                 quest_id=quest_id,
                 quest_name=quest["name"],
@@ -559,27 +567,25 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             # Find places for this quest and create Place nodes
             quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
             for place in quest_places:
-                # Use flat counter to match MongoDB ID generation
-                place_id = f"place_{state['request_id']}_{global_place_counter}"
+                # Use the place ID that was generated during workflow execution
+                place_id = place.get("place_id", f"place_{state['request_id']}_{global_place_counter}")
                 global_place_counter += 1
 
                 session.run(
                     """
                     MATCH (q:Quest {id: $quest_id})
-                    MATCH (w:World {id: $world_id})
                     MERGE (p:Place {id: $place_id})
                     SET p.name = $place_name
                     MERGE (q)-[:CONTAINS]->(p)
 
-                    // MERGE Location by name + world to avoid duplicates
+                    // MERGE Level 2 Location by name + world to avoid duplicates
                     MERGE (loc:Location {name: $location_name, world_id: $world_id})
                     ON CREATE SET loc.id = $location_id
                     ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
-                    MERGE (loc)-[:PART_OF]->(w)
                     MERGE (p)-[:LOCATED_AT]->(loc)
 
-                    // Link Level 2 Location to parent Level 1 Location (by name + world)
-                    WITH loc, w
+                    // Link Level 2 Location to parent Level 1 Location (NOT to World)
+                    WITH loc
                     MERGE (parent:Location {name: $parent_location_name, world_id: $world_id})
                     ON CREATE SET parent.id = $parent_location_id
                     MERGE (loc)-[:CHILD_OF]->(parent)
@@ -593,32 +599,30 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     parent_location_id=quest["level_1_location_id"],
                     parent_location_name=quest.get("level_1_location_name", "Unknown Location")
                 )
-                relationships_created += 5
+                relationships_created += 4
 
                 # Find scenes for this place and create Scene nodes
                 place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
                 for scene in place_scenes:
-                    # Use flat counter to match MongoDB ID generation
-                    scene_id = f"scene_{state['request_id']}_{global_scene_counter}"
+                    # Use the scene ID that was generated during workflow execution
+                    scene_id = scene.get("scene_id", f"scene_{state['request_id']}_{global_scene_counter}")
                     global_scene_counter += 1
 
                     session.run(
                         """
                         MATCH (p:Place {id: $place_id})
-                        MATCH (w:World {id: $world_id})
                         MERGE (sc:Scene {id: $scene_id})
                         SET sc.name = $scene_name
                         MERGE (p)-[:CONTAINS]->(sc)
 
-                        // MERGE Location by name + world to avoid duplicates
+                        // MERGE Level 3 Location by name + world to avoid duplicates
                         MERGE (loc:Location {name: $location_name, world_id: $world_id})
                         ON CREATE SET loc.id = $location_id
                         ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
-                        MERGE (loc)-[:PART_OF]->(w)
                         MERGE (sc)-[:LOCATED_AT]->(loc)
 
-                        // Link Level 3 Location to parent Level 2 Location (by name + world)
-                        WITH loc, w
+                        // Link Level 3 Location to parent Level 2 Location (NOT to World)
+                        WITH loc
                         MERGE (parent:Location {name: $parent_location_name, world_id: $world_id})
                         ON CREATE SET parent.id = $parent_location_id
                         MERGE (loc)-[:CHILD_OF]->(parent)
@@ -733,11 +737,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 ON MATCH SET s.id = COALESCE(s.id, $species_id)
                 MERGE (s)-[:IN_WORLD]->(w)
 
-                // MERGE Location by hierarchical path (world + name) to avoid duplicates
+                // NPC location is Level 3 (Scene location) - should already exist from scene creation
+                // Just link NPC to existing location, don't create PART_OF relationship to World
                 MERGE (loc:Location {name: $location_name, world_id: $world_id})
                 ON CREATE SET loc.id = $location_id
                 ON MATCH SET loc.id = COALESCE(loc.id, $location_id)
-                MERGE (loc)-[:PART_OF]->(w)
 
                 MERGE (npc)-[:IS_SPECIES]->(s)
                 MERGE (npc)-[:LOCATED_AT]->(loc)
@@ -755,6 +759,22 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             )
             relationships_created += 5
 
+        # FIX: Create scene_id mapping for efficient lookups (moved before Knowledge/Items)
+        # Map internal scene_id to the ID generated during workflow execution
+        scene_id_map = {}  # internal scene_id -> persisted scene_id
+        for quest in state["quests"]:
+            quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
+            for place in quest_places:
+                place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
+                for scene in place_scenes:
+                    scene_internal_id = scene.get("scene_id", "")
+                    if scene_internal_id:
+                        # Use the scene ID that was generated during workflow execution
+                        persisted_scene_id = scene.get("scene_id", f"scene_{state['request_id']}")
+                        scene_id_map[scene_internal_id] = persisted_scene_id
+
+        logger.info(f"Created scene_id_map with {len(scene_id_map)} mappings")
+
         # Knowledge Entities - create nodes and link to scenes
         for knowledge in state.get("knowledge_entities", []):
             knowledge_id = knowledge.get("knowledge_id")
@@ -769,9 +789,11 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     k.knowledge_type = $knowledge_type,
                     k.primary_dimension = $primary_dimension,
                     k.bloom_level_target = $bloom_level_target,
-                    k.description = $description
+                    k.description = $description,
+                    k.campaign_id = $campaign_id
                 """,
                 knowledge_id=knowledge_id,
+                campaign_id=campaign_id,
                 name=knowledge.get("name", "Unknown Knowledge"),
                 knowledge_type=knowledge.get("knowledge_type", "skill"),
                 primary_dimension=knowledge.get("primary_dimension", "intellectual"),
@@ -779,31 +801,23 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 description=knowledge.get("description", "")[:500]  # Truncate for Neo4j
             )
 
-            # Link Knowledge to Scene
-            scene_id = knowledge.get("scene_id")
-            if scene_id:
-                # Find MongoDB scene ID that matches this internal scene ID
-                for scene in state.get("scenes", []):
-                    if scene.get("scene_id") == scene_id:
-                        # Find the persisted scene ID
-                        scene_internal_id = scene.get("scene_id", "")
-                        for idx, s in enumerate(state["scenes"]):
-                            if s.get("scene_id") == scene_internal_id:
-                                persisted_scene_id = f"scene_{state['request_id']}_{idx}"
-                                session.run(
-                                    """
-                                    MATCH (sc:Scene {id: $scene_id})
-                                    MATCH (k:Knowledge {id: $knowledge_id})
-                                    MERGE (sc)-[:PROVIDES]->(k)
-                                    """,
-                                    scene_id=persisted_scene_id,
-                                    knowledge_id=knowledge_id
-                                )
-                                relationships_created += 1
-                                break
-                        break
+            # Link Knowledge to Scene using scene_id_map
+            knowledge_scene_id = knowledge.get("scene_id")
+            if knowledge_scene_id and knowledge_scene_id in scene_id_map:
+                persisted_scene_id = scene_id_map[knowledge_scene_id]
+                session.run(
+                    """
+                    MATCH (sc:Scene {id: $scene_id})
+                    MATCH (k:Knowledge {id: $knowledge_id})
+                    MERGE (sc)-[:PROVIDES]->(k)
+                    """,
+                    scene_id=persisted_scene_id,
+                    knowledge_id=knowledge_id
+                )
+                relationships_created += 1
+                logger.info(f"Linked Knowledge {knowledge_id} to Scene {persisted_scene_id}")
 
-            # Link Knowledge acquisition methods to entities (NPCs, Challenges, etc.)
+            # Link Knowledge acquisition methods to entities (NPCs, Challenges, Events)
             for acq_method in knowledge.get("acquisition_methods", []):
                 entity_id = acq_method.get("entity_id")
                 if entity_id:
@@ -812,11 +826,15 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         MATCH (k:Knowledge {id: $knowledge_id})
                         OPTIONAL MATCH (npc:NPC {id: $entity_id})
                         OPTIONAL MATCH (ch:Challenge {id: $entity_id})
+                        OPTIONAL MATCH (e:Event {id: $entity_id})
                         FOREACH (_ IN CASE WHEN npc IS NOT NULL THEN [1] ELSE [] END |
                             MERGE (npc)-[:TEACHES]->(k)
                         )
                         FOREACH (_ IN CASE WHEN ch IS NOT NULL THEN [1] ELSE [] END |
                             MERGE (ch)-[:GRANTS]->(k)
+                        )
+                        FOREACH (_ IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END |
+                            MERGE (e)-[:GRANTS]->(k)
                         )
                         """,
                         knowledge_id=knowledge_id,
@@ -844,46 +862,32 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 SET i.name = $name,
                     i.item_type = $item_type,
                     i.is_quest_critical = $is_quest_critical,
-                    i.description = $description
+                    i.description = $description,
+                    i.campaign_id = $campaign_id
                 """,
                 item_id=item_id,
+                campaign_id=campaign_id,
                 name=item.get("name", "Unknown Item"),
                 item_type=item.get("item_type", "tool"),
                 is_quest_critical=item.get("is_quest_critical", False),
                 description=item.get("description", "")[:500]  # Truncate for Neo4j
             )
 
-            # FIX: Improved Item-Scene linking logic
-            scene_id = item.get("scene_id")
-            item_linked_to_scene = False
-            if scene_id:
-                # Find MongoDB scene ID that matches this internal scene ID
-                scene_counter = 0
-                for quest_idx, quest in enumerate(state["quests"]):
-                    quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
-                    for place in quest_places:
-                        place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
-                        for scene in place_scenes:
-                            if scene.get("scene_id") == scene_id:
-                                persisted_scene_id = f"scene_{state['request_id']}_{scene_counter}"
-                                session.run(
-                                    """
-                                    MATCH (sc:Scene {id: $scene_id})
-                                    MATCH (i:Item {id: $item_id})
-                                    MERGE (sc)-[:CONTAINS_ITEM]->(i)
-                                    """,
-                                    scene_id=persisted_scene_id,
-                                    item_id=item_id
-                                )
-                                relationships_created += 1
-                                item_linked_to_scene = True
-                                logger.info(f"Linked Item {item_id} to Scene {persisted_scene_id}")
-                                break
-                            scene_counter += 1
-                        if item_linked_to_scene:
-                            break
-                    if item_linked_to_scene:
-                        break
+            # Link Item to Scene using scene_id_map
+            item_scene_id = item.get("scene_id")
+            if item_scene_id and item_scene_id in scene_id_map:
+                persisted_scene_id = scene_id_map[item_scene_id]
+                session.run(
+                    """
+                    MATCH (sc:Scene {id: $scene_id})
+                    MATCH (i:Item {id: $item_id})
+                    MERGE (sc)-[:CONTAINS_ITEM]->(i)
+                    """,
+                    scene_id=persisted_scene_id,
+                    item_id=item_id
+                )
+                relationships_created += 1
+                logger.info(f"Linked Item {item_id} to Scene {persisted_scene_id}")
 
             # Link Item acquisition methods to entities
             for acq_method in item.get("acquisition_methods", []):
@@ -905,22 +909,6 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         entity_id=entity_id
                     )
                     relationships_created += 1
-
-        # FIX 5: Create scene_id mapping for efficient lookups
-        scene_id_map = {}  # internal scene_id -> persisted scene_id
-        scene_counter = 0
-        for quest in state["quests"]:
-            quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
-            for place in quest_places:
-                place_scenes = [s for s in state["scenes"] if s.get("parent_place_id") == place.get("place_id", "")]
-                for scene in place_scenes:
-                    scene_internal_id = scene.get("scene_id", "")
-                    if scene_internal_id:
-                        persisted_scene_id = f"scene_{state['request_id']}_{scene_counter}"
-                        scene_id_map[scene_internal_id] = persisted_scene_id
-                    scene_counter += 1
-
-        logger.info(f"Created scene_id_map with {len(scene_id_map)} mappings")
 
         # Challenges - create nodes and link to scenes
         for idx, challenge in enumerate(state.get("challenges", [])):

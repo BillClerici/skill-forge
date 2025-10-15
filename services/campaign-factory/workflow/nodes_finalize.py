@@ -144,13 +144,26 @@ def validate_campaign(state: CampaignWorkflowState) -> list:
             if not quest.get("objectives"):
                 errors.append(f"Quest {idx + 1} has no objectives")
 
+        # Validate quest names are unique
+        quest_names = [q.get("name", "").strip().lower() for q in state["quests"]]
+        duplicate_quest_names = [name for name in quest_names if quest_names.count(name) > 1]
+        if duplicate_quest_names:
+            errors.append(f"Duplicate quest names found: {set(duplicate_quest_names)}")
+
     # Validate places
     if not state["places"]:
         errors.append("No places generated")
+    # NOTE: Duplicate place names are ALLOWED - places can appear in multiple quests with different scenes
 
     # Validate scenes
     if not state["scenes"]:
         errors.append("No scenes generated")
+    else:
+        # Validate scene names are unique
+        scene_names = [s.get("name", "").strip().lower() for s in state["scenes"]]
+        duplicate_scene_names = [name for name in scene_names if scene_names.count(name) > 1]
+        if duplicate_scene_names:
+            errors.append(f"Duplicate scene names found: {set(duplicate_scene_names)}")
 
     # Validate at least some scene elements
     if not state["npcs"] and not state["discoveries"] and not state["events"] and not state["challenges"]:

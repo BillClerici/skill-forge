@@ -404,6 +404,42 @@ async def store_generated_content(
         "content_id": str(result.inserted_id)
     }
 
+@app.get("/worlds/{world_id}/species")
+async def get_world_species(
+    world_id: UUID,
+    token: str = Depends(verify_mcp_token)
+):
+    """
+    Get all species for a world
+    Returns species information for campaign generation
+    """
+    # Query MongoDB for species in this world using the correct collection
+    cursor = mongo_db.species_definitions.find({"world_id": str(world_id)})
+
+    species_list = []
+    async for doc in cursor:
+        # Convert MongoDB document to dict matching Django structure
+        species_id_str = str(doc.get("_id", ""))
+        species_dict = {
+            "id": species_id_str,  # For backward compatibility with campaign factory
+            "species_id": species_id_str,
+            "name": doc.get("species_name", ""),
+            "species_name": doc.get("species_name", ""),
+            "species_type": doc.get("species_type", ""),
+            "category": doc.get("category", ""),
+            "description": doc.get("description", ""),
+            "backstory": doc.get("backstory", ""),
+            "character_traits": doc.get("character_traits", []),
+            "world_id": doc.get("world_id", str(world_id)),
+            "regions": doc.get("regions", []),
+            "relationships": doc.get("relationships", []),
+            "species_images": doc.get("species_images", []),
+            "primary_image_index": doc.get("primary_image_index")
+        }
+        species_list.append(species_dict)
+
+    return {"species": species_list}
+
 @app.get("/mcp/world-npcs/{world_id}")
 async def get_world_npcs(
     world_id: UUID,

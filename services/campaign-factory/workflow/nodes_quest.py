@@ -30,6 +30,58 @@ anthropic_client = ChatAnthropic(
 )
 
 
+def validate_quest_objective_uniqueness(quests: List[QuestData]) -> List[str]:
+    """
+    Validate that quest objectives are reasonably unique across quests.
+
+    Returns list of warning messages (not hard errors, since some overlap is OK).
+    """
+    warnings = []
+
+    # Track objective descriptions (normalized to lowercase for comparison)
+    objective_descriptions = {}
+
+    for quest in quests:
+        quest_name = quest.get("name", "Unknown Quest")
+        objectives = quest.get("objectives", [])
+
+        for obj in objectives:
+            obj_desc = obj.get("description", "").strip().lower()
+
+            if not obj_desc:
+                warnings.append(f"Quest '{quest_name}' has an objective with no description")
+                continue
+
+            # Check for exact duplicates
+            if obj_desc in objective_descriptions:
+                warnings.append(
+                    f"Duplicate objective '{obj.get('description')}' found in '{quest_name}' "
+                    f"(already used in '{objective_descriptions[obj_desc]}')"
+                )
+            else:
+                objective_descriptions[obj_desc] = quest_name
+
+    # Check for high similarity (simple word overlap check)
+    obj_list = list(objective_descriptions.keys())
+    for i, obj1 in enumerate(obj_list):
+        words1 = set(obj1.split())
+        for obj2 in obj_list[i+1:]:
+            words2 = set(obj2.split())
+            overlap = len(words1 & words2) / max(len(words1), len(words2))
+
+            # If 80%+ word overlap, flag as too similar
+            if overlap >= 0.8:
+                warnings.append(
+                    f"Objectives too similar: '{obj1}' in '{objective_descriptions[obj1]}' "
+                    f"and '{obj2}' in '{objective_descriptions[obj2]}' "
+                    f"({int(overlap*100)}% word overlap)"
+                )
+
+    logger.info(f"Objective validation: {len(objective_descriptions)} unique objectives across {len(quests)} quests")
+
+    return warnings
+
+
 async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
     Generate quests from narrative blueprint
@@ -41,12 +93,13 @@ async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflow
     4. Assigns each quest to a Level 1 location
     5. Stores quests in state
 
-    The narrative blueprint ensures each quest has unique places/scenes planned upfront.
+    The narrative blueprint allows places to be reused across quests but ensures unique scenes.
     """
     try:
         state["current_node"] = "generate_quests"
         state["current_phase"] = "quest_gen"
         state["progress_percentage"] = 35
+        state["step_progress"] = 0
         state["status_message"] = f"Generating {state['num_quests']} quests from narrative blueprint..."
 
         await publish_progress(state)
@@ -54,6 +107,10 @@ async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflow
         logger.info(f"Generating {state['num_quests']} quests from narrative blueprint")
 
         # Get narrative blueprint
+        state["step_progress"] = 5
+        state["status_message"] = "Loading narrative blueprint..."
+        await publish_progress(state)
+
         narrative_blueprint = state.get("narrative_blueprint")
         if not narrative_blueprint:
             raise ValueError("No narrative blueprint found - plan_narrative must run first")
@@ -62,7 +119,16 @@ async def generate_quests_node(state: CampaignWorkflowState) -> CampaignWorkflow
         if not quest_chapters:
             raise ValueError("Narrative blueprint has no quest chapters")
 
+        # Validate blueprint has correct number of quests
+        if len(quest_chapters) != state['num_quests']:
+            logger.warning(f"Blueprint has {len(quest_chapters)} quests but {state['num_quests']} were requested - using blueprint count")
+            state['num_quests'] = len(quest_chapters)
+
         # Fetch existing Level 1 locations for region via MCP
+        state["step_progress"] = 10
+        state["status_message"] = "Fetching available locations..."
+        await publish_progress(state)
+
         from .mcp_client import fetch_level1_locations
         existing_level1_locations = await fetch_level1_locations(state["region_id"])
 
@@ -80,7 +146,7 @@ Your task is to take the narrative chapter summary and create:
 3. Select an appropriate Level 1 location from existing locations (or suggest a new one)
 4. Create backstory that connects to the campaign plot
 
-The narrative plan already ensures unique places/scenes for each quest.
+The narrative plan allows places to be reused but ensures unique scenes.
 Your job is to create the quest mechanics (objectives, blooms levels, etc.).
 
 Bloom's Taxonomy Levels:
@@ -158,7 +224,13 @@ Convert this narrative chapter into a detailed quest with objectives.""")
         quests: List[QuestData] = []
         chain = prompt | anthropic_client
 
-        for chapter in quest_chapters:
+        total_quests = len(quest_chapters)
+        for quest_idx, chapter in enumerate(quest_chapters):
+            # Update step progress for each quest (15% to 50% range for quest generation)
+            quest_step_progress = 15 + int((quest_idx / total_quests) * 35)
+            state["step_progress"] = quest_step_progress
+            state["status_message"] = f"Generating quest {quest_idx + 1} of {total_quests}: {chapter.get('chapter_title', 'Quest')}..."
+            await publish_progress(state)
             # Format story beats
             story_beats_str = "\n".join([f"  {beat}" for beat in chapter.get("story_beats", [])])
 
@@ -194,8 +266,11 @@ Convert this narrative chapter into a detailed quest with objectives.""")
                 location_name = location_info.get("new_location_name", f"Location for {quest_data.get('quest_name', 'Quest')}")
                 logger.info(f"Quest requires new location: {location_name} ({location_info.get('new_location_type')})")
 
+            # Generate quest ID immediately (needed for place/scene parent relationships)
+            quest_id = f"quest_{uuid.uuid4().hex[:16]}"
+
             quest: QuestData = {
-                "quest_id": None,
+                "quest_id": quest_id,
                 "name": quest_data.get("quest_name", chapter.get("chapter_title", f"Quest {len(quests) + 1}")),
                 "description": quest_data.get("description", chapter.get("chapter_summary", "")),
                 "objectives": quest_data.get("objectives", []),
@@ -210,18 +285,37 @@ Convert this narrative chapter into a detailed quest with objectives.""")
             # Store narrative chapter info for later use by place/scene generation
             quest["narrative_chapter"] = chapter
 
+            # Log blueprint usage for traceability
+            logger.info(f"Quest '{quest['name']}' generated from blueprint chapter {chapter.get('quest_number')} with {len(chapter.get('places', []))} planned places")
+
             quests.append(quest)
 
         state["quests"] = quests
 
+        # VALIDATE: Check that quest objectives are diverse
+        objective_validation_errors = validate_quest_objective_uniqueness(quests)
+        if objective_validation_errors:
+            logger.warning(f"Quest objective validation warnings: {'; '.join(objective_validation_errors)}")
+            # NOTE: These are warnings, not hard errors, since some overlap is acceptable
+
         # NEW: Phase 2 - Objective Linking System
         # For each quest, generate structured objectives with knowledge/item requirements
+        state["step_progress"] = 55
+        state["status_message"] = "Generating knowledge and item requirements..."
+        await publish_progress(state)
+
         logger.info("Generating structured objectives with knowledge/item requirements...")
 
         all_knowledge_entities = []
         all_item_entities = []
 
-        for quest in quests:
+        total_quests_for_objectives = len(quests)
+        for obj_quest_idx, quest in enumerate(quests):
+            # Update step progress for objective generation (55% to 90% range)
+            obj_step_progress = 55 + int((obj_quest_idx / total_quests_for_objectives) * 35)
+            state["step_progress"] = obj_step_progress
+            state["status_message"] = f"Generating objectives for quest {obj_quest_idx + 1} of {total_quests_for_objectives}..."
+            await publish_progress(state)
             try:
                 # Generate structured objectives
                 structured_objectives = await generate_quest_objectives(
@@ -262,7 +356,15 @@ Convert this narrative chapter into a detailed quest with objectives.""")
         logger.info(f"Total campaign resources: {len(all_knowledge_entities)} knowledge, {len(all_item_entities)} items")
 
         # Create checkpoint after quest generation
+        state["step_progress"] = 95
+        state["status_message"] = "Finalizing quest generation..."
+        await publish_progress(state)
+
         create_checkpoint(state, "quests_generated")
+
+        state["step_progress"] = 100
+        state["status_message"] = f"Generated {len(quests)} quests with {len(all_knowledge_entities)} knowledge and {len(all_item_entities)} items"
+        await publish_progress(state)
 
         add_audit_entry(
             state,

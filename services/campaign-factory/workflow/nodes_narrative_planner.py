@@ -5,10 +5,13 @@ Phase 3.5: Plan the entire campaign narrative structure before generating conten
 This node creates a comprehensive story outline that maps:
 - Campaign story arc → Quest chapters
 - Quest chapters → Unique narrative beats
-- Narrative beats → Required locations (places)
-- Locations → Required scenes
+- Narrative beats → Locations (places - can be reused across quests)
+- Locations → Unique scenes (must be globally unique)
 
-This ensures each quest has unique places/scenes that tell a cohesive story.
+This ensures:
+- Places can appear in multiple quests for world coherence
+- Every scene is unique across the entire campaign
+- Narrative progression through familiar and new locations
 """
 import logging
 import json
@@ -29,6 +32,73 @@ anthropic_client = ChatAnthropic(
 )
 
 
+def validate_blueprint_uniqueness(blueprint: Dict[str, Any]) -> List[str]:
+    """
+    Validate that the narrative blueprint has appropriate uniqueness.
+
+    RULES:
+    - Places CAN appear in multiple quests (for world coherence)
+    - BUT scenes within a place MUST be unique across the entire campaign
+    - Each scene name must be globally unique
+
+    Returns list of validation error messages (empty if valid).
+    """
+    errors = []
+
+    quests = blueprint.get("quests", [])
+
+    # Track places and which quests use them
+    place_usage = {}  # place_name -> [quest_nums using it]
+
+    # Track all scene names globally to ensure uniqueness
+    scene_name_usage = {}  # scene_name -> "Quest X, Place Y"
+
+    for quest in quests:
+        quest_num = quest.get("quest_number", "?")
+        places = quest.get("places", [])
+
+        for place in places:
+            place_name = place.get("place_name", "").strip().lower()
+
+            if not place_name:
+                errors.append(f"Quest {quest_num} has a place with no name")
+                continue
+
+            # Track which quests use this place (ALLOWED to be in multiple quests)
+            if place_name not in place_usage:
+                place_usage[place_name] = []
+            place_usage[place_name].append(quest_num)
+
+            # Check scenes within this place
+            scenes = place.get("scenes", [])
+            for scene in scenes:
+                scene_name = scene.get("scene_name", "").strip().lower()
+
+                if not scene_name:
+                    errors.append(f"Quest {quest_num}, Place '{place.get('place_name')}' has a scene with no name")
+                    continue
+
+                # CRITICAL: Scene names must be GLOBALLY unique across entire campaign
+                if scene_name in scene_name_usage:
+                    errors.append(
+                        f"Duplicate scene '{scene.get('scene_name')}' found in Quest {quest_num}, Place '{place.get('place_name')}' "
+                        f"(already used in {scene_name_usage[scene_name]})"
+                    )
+                else:
+                    scene_name_usage[scene_name] = f"Quest {quest_num}, Place '{place.get('place_name')}'"
+
+    # Log statistics about place reuse
+    total_place_instances = sum(len(quests) for quests in place_usage.values())
+    reused_places = {name: quests for name, quests in place_usage.items() if len(quests) > 1}
+
+    logger.info(f"Blueprint validation: {len(place_usage)} unique places, {total_place_instances} total place instances, {len(scene_name_usage)} unique scenes")
+
+    if reused_places:
+        logger.info(f"Places reused across quests: {dict(list(reused_places.items())[:3])}...")  # Show first 3 examples
+
+    return errors
+
+
 async def plan_campaign_narrative(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
     Plan the entire campaign narrative structure upfront.
@@ -45,11 +115,16 @@ async def plan_campaign_narrative(state: CampaignWorkflowState) -> CampaignWorkf
         state["current_node"] = "plan_narrative"
         state["current_phase"] = "narrative_planning"
         state["progress_percentage"] = 30
+        state["step_progress"] = 0
         state["status_message"] = "Planning campaign narrative structure..."
 
         await publish_progress(state)
 
         logger.info(f"Planning narrative structure for {state['num_quests']} quest campaign")
+
+        state["step_progress"] = 15
+        state["status_message"] = "Analyzing campaign requirements..."
+        await publish_progress(state)
 
         # Create comprehensive narrative planning prompt
         prompt = ChatPromptTemplate.from_messages([
@@ -64,10 +139,10 @@ Think of this as writing a detailed story outline where:
 - Each SCENE is a specific MOMENT or INTERACTION within that location
 
 CRITICAL RULES:
-1. **NO DUPLICATE PLACES**: Each quest must have its OWN unique places
-2. **NO DUPLICATE SCENES**: Even if a place appears in multiple quests, the scenes must be different
-3. **NARRATIVE PROGRESSION**: Each quest should advance the story with new locations and events
-4. **STORY COHERENCE**: Quests should flow naturally, building on previous events
+1. **PLACES CAN BE REUSED**: Places MAY appear in multiple quests for narrative continuity (e.g., returning to a town)
+2. **SCENES MUST BE UNIQUE**: Every scene must be unique across the entire campaign - no duplicate scenes even in the same place
+3. **NARRATIVE PROGRESSION**: Each visit to a place should reveal something new or serve a different purpose
+4. **STORY COHERENCE**: Quests should flow naturally, with places acting as familiar anchors in an evolving story
 
 QUEST STRUCTURE (Think like a book):
 - Quest 1 = Chapter 1: Introduction, inciting incident, setup
@@ -76,10 +151,11 @@ QUEST STRUCTURE (Think like a book):
 - Final Quest = Conclusion: Resolution, consequences, epilogue
 
 PLACE GUIDELINES:
-- Each quest should introduce NEW places (2-4 per quest)
-- Places should be specific to that quest's narrative needs
-- A place from Quest 1 should NOT appear in Quest 2 unless there's a strong story reason
-- If a place MUST reappear, it should have COMPLETELY DIFFERENT scenes
+- Each quest should have 2-4 places where story events occur
+- Places CAN be reused across quests if it serves the narrative (e.g., "The Town Square", "The Royal Palace")
+- Reusing places creates world coherence - players return to familiar locations for new purposes
+- When a place appears in multiple quests, it MUST have COMPLETELY DIFFERENT scenes each time
+- Example: "The Ancient Library" could appear in Quest 1 (researching history) AND Quest 3 (confronting the villain)
 
 SCENE GUIDELINES:
 - Scenes are specific narrative moments (e.g., "The Ambush", "The Revelation", "The Negotiation")
@@ -127,9 +203,10 @@ Return a JSON structure with this EXACT format:
 
 IMPORTANT:
 - Be SPECIFIC, not generic
-- Each place name should be unique and memorable
+- Place names should be unique and memorable
+- Places CAN be reused across quests (e.g., "The Town Square" in Quest 1 and 3)
+- Each scene must have a GLOBALLY UNIQUE name across the entire campaign
 - Each scene should have a clear narrative purpose
-- NO repetition of places or scenes across quests
 - Think cinematically: each scene is a specific moment in the story
 
 Return ONLY the JSON, no other text."""),
@@ -144,7 +221,7 @@ Campaign Specifications:
 - Target Bloom's Level: {blooms_level}
 
 Create a comprehensive narrative blueprint for this {num_quests}-quest campaign.
-Make each quest a distinct chapter with unique places and scenes that tell a complete story.""")
+Make each quest a distinct chapter. Places can be reused across quests, but each scene must be unique.""")
         ])
 
         # Format primary objectives
@@ -154,6 +231,10 @@ Make each quest a distinct chapter with unique places and scenes that tell a com
         ])
 
         # Generate narrative blueprint
+        state["step_progress"] = 30
+        state["status_message"] = f"Generating {state['num_quests']}-quest story arc..."
+        await publish_progress(state)
+
         chain = prompt | anthropic_client
         response = await chain.ainvoke({
             "campaign_name": state["campaign_core"]["name"],
@@ -165,7 +246,21 @@ Make each quest a distinct chapter with unique places and scenes that tell a com
         })
 
         # Parse narrative blueprint
+        state["step_progress"] = 70
+        state["status_message"] = "Parsing narrative blueprint..."
+        await publish_progress(state)
+
         narrative_blueprint = json.loads(response.content.strip())
+
+        # VALIDATE UNIQUENESS before storing
+        state["step_progress"] = 85
+        state["status_message"] = "Validating narrative structure..."
+        await publish_progress(state)
+
+        validation_errors = validate_blueprint_uniqueness(narrative_blueprint)
+        if validation_errors:
+            logger.error(f"Blueprint validation failed: {validation_errors}")
+            raise ValueError(f"Blueprint has duplicate content: {'; '.join(validation_errors)}")
 
         # Store in state
         state["narrative_blueprint"] = narrative_blueprint
@@ -179,6 +274,10 @@ Make each quest a distinct chapter with unique places and scenes that tell a com
         )
 
         logger.info(f"Generated narrative blueprint: {state['num_quests']} quests, {total_places} unique places, {total_scenes} unique scenes")
+
+        state["step_progress"] = 100
+        state["status_message"] = f"Narrative blueprint complete: {total_places} places, {total_scenes} scenes"
+        await publish_progress(state)
 
         add_audit_entry(
             state,

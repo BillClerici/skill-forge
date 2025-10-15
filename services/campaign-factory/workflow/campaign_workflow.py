@@ -185,7 +185,7 @@ def create_campaign_workflow() -> StateGraph:
         {
             "regenerate": "handle_story_regeneration",
             "generate_core": "generate_campaign_core",
-            "wait_for_selection": "wait_for_story_selection"
+            "wait_for_selection": END  # FIX: End workflow instead of looping
         }
     )
 
@@ -211,7 +211,7 @@ def create_campaign_workflow() -> StateGraph:
             "generate_scenes": "generate_scenes",
             "generate_elements": "generate_elements",
             "finalize": "finalize",
-            "wait_for_approval": "wait_for_core_approval"
+            "wait_for_approval": END  # FIX: End workflow instead of looping
         }
     )
 

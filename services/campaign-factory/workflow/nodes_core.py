@@ -38,6 +38,7 @@ async def generate_campaign_core_node(state: CampaignWorkflowState) -> CampaignW
         state["current_node"] = "generate_campaign_core"
         state["current_phase"] = "core_gen"
         state["progress_percentage"] = 15
+        state["step_progress"] = 0
         state["status_message"] = "Generating campaign plot and objectives..."
 
         await publish_progress(state)
@@ -45,6 +46,10 @@ async def generate_campaign_core_node(state: CampaignWorkflowState) -> CampaignW
         logger.info(f"Generating campaign core from story idea: {state['selected_story_id']}")
 
         # Find selected story idea
+        state["step_progress"] = 10
+        state["status_message"] = "Loading selected story idea..."
+        await publish_progress(state)
+
         selected_story = None
         for story in state["story_ideas"]:
             if story["id"] == state["selected_story_id"]:
@@ -57,6 +62,10 @@ async def generate_campaign_core_node(state: CampaignWorkflowState) -> CampaignW
         # Get target Bloom's level from character (or default)
         # TODO: Fetch from character via MCP
         target_blooms_level = 3  # Default to "Applying"
+
+        state["step_progress"] = 25
+        state["status_message"] = "Generating campaign plot..."
+        await publish_progress(state)
 
         # Create prompt for campaign core generation
         prompt = ChatPromptTemplate.from_messages([
@@ -133,9 +142,17 @@ Generate a complete campaign based on this story idea.""")
         })
 
         # Parse response
+        state["step_progress"] = 70
+        state["status_message"] = "Parsing campaign details..."
+        await publish_progress(state)
+
         core_data = json.loads(response.content.strip())
 
         # Create CampaignCore
+        state["step_progress"] = 85
+        state["status_message"] = "Finalizing campaign core..."
+        await publish_progress(state)
+
         campaign_core: CampaignCore = {
             "campaign_id": None,  # Will be set on finalization
             "name": core_data.get("campaign_name", selected_story["title"]),
@@ -155,6 +172,10 @@ Generate a complete campaign based on this story idea.""")
 
         # Create checkpoint after core generation
         create_checkpoint(state, "campaign_core_generated")
+
+        state["step_progress"] = 100
+        state["status_message"] = f"Generated campaign: {campaign_core['name']}"
+        await publish_progress(state)
 
         add_audit_entry(
             state,

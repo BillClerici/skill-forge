@@ -45,6 +45,7 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
         state["current_node"] = "generate_story_ideas"
         state["current_phase"] = "story_gen"
         state["progress_percentage"] = 10
+        state["step_progress"] = 0
         state["status_message"] = "Generating campaign story ideas..."
 
         await publish_progress(state)
@@ -84,6 +85,11 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
 
         world_context = "\n".join(world_context_parts)
 
+        # Update step progress: Context prepared
+        state["step_progress"] = 20
+        state["status_message"] = "Preparing story generation context..."
+        await publish_progress(state)
+
         user_direction = ""
         if state.get("user_story_idea"):
             user_direction = f"\n\nUser's Story Direction: {state['user_story_idea']}"
@@ -94,6 +100,11 @@ async def generate_story_ideas_node(state: CampaignWorkflowState) -> CampaignWor
         generation_count = state.get("story_regeneration_count", 0)
 
         randomization_context = f"\n\nGeneration Context (for variety): Seed={random_seed}, Timestamp={timestamp}, Attempt={generation_count+1}"
+
+        # Update step progress: Sending to AI
+        state["step_progress"] = 40
+        state["status_message"] = "Generating 3 unique story ideas..."
+        await publish_progress(state)
 
         # Create prompt for story generation
         prompt = ChatPromptTemplate.from_messages([
@@ -185,6 +196,10 @@ CRITICAL: Return ONLY the JSON array, no other text. Use the Generation Context 
         })
 
         # Parse response
+        state["step_progress"] = 70
+        state["status_message"] = "Parsing story ideas..."
+        await publish_progress(state)
+
         story_ideas_raw = json.loads(response.content.strip())
 
         # Convert to StoryIdea format
@@ -201,6 +216,11 @@ CRITICAL: Return ONLY the JSON array, no other text. Use the Generation Context 
             story_ideas.append(story_idea)
 
         state["story_ideas"] = story_ideas
+
+        # Update step progress: Complete
+        state["step_progress"] = 100
+        state["status_message"] = f"Generated {len(story_ideas)} story ideas"
+        await publish_progress(state)
 
         add_audit_entry(
             state,
