@@ -3,10 +3,12 @@ FastAPI Routes for Game Engine
 Includes WebSocket endpoints and REST API
 """
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
+import io
 
 from ..models.state import (
     GameSessionState,
@@ -19,6 +21,8 @@ from ..models.api_models import (
 from ..services.redis_manager import redis_manager
 from ..services.rabbitmq_client import rabbitmq_client
 from ..services.mcp_client import mcp_client
+from ..services.tts_service import tts_service
+from ..services.stt_service import stt_service
 from ..workflows.game_loop import game_loop
 from ..core.logging import get_logger
 from .websocket_manager import connection_manager
@@ -696,3 +700,299 @@ async def _execute_workflow_initialization(
             session_id=session_id,
             error=str(e)
         )
+
+
+# ============================================
+# Text-to-Speech (TTS) Endpoints
+# ============================================
+
+@router.post("/tts/generate")
+async def generate_tts(
+    text: str = Query(..., description="Text to convert to speech"),
+    voice_type: str = Query("game_master", description="Voice type: game_master, dramatic, friendly, mysterious, heroic")
+) -> StreamingResponse:
+    """
+    Generate text-to-speech audio for narration
+
+    Args:
+        text: Text to convert to speech
+        voice_type: Type of voice to use
+
+    Returns:
+        Audio stream (MP3)
+    """
+    try:
+        if not tts_service.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="TTS service is not available. Check ElevenLabs API key configuration."
+            )
+
+        logger.info(
+            "tts_generation_requested",
+            text_length=len(text),
+            voice_type=voice_type
+        )
+
+        # Generate audio with caching for better performance
+        audio_bytes = tts_service.generate_speech_bytes(text, voice_type)
+
+        if not audio_bytes:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate audio"
+            )
+
+        # Return audio as streaming response from bytes
+        return StreamingResponse(
+            io.BytesIO(audio_bytes),
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f"inline; filename=narration.mp3",
+                "Cache-Control": "public, max-age=3600"  # Cache for 1 hour
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("tts_generation_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to generate TTS audio")
+
+
+@router.post("/tts/session/{session_id}/narration")
+async def generate_session_narration_tts(
+    session_id: str,
+    message_id: Optional[str] = Query(None, description="Specific message ID to convert"),
+    voice_type: str = Query("game_master", description="Voice type")
+) -> StreamingResponse:
+    """
+    Generate TTS for a specific narration message in a session
+
+    Args:
+        session_id: Session ID
+        message_id: Optional message ID (if not provided, use latest narration)
+        voice_type: Voice type to use
+
+    Returns:
+        Audio stream (MP3)
+    """
+    try:
+        if not tts_service.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="TTS service is not available"
+            )
+
+        # Load session state
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Find the narration text
+        narration_text = None
+
+        if message_id:
+            # Find specific message
+            chat_messages = state.get("chat_messages", [])
+            for msg in chat_messages:
+                if msg.get("message_id") == message_id:
+                    narration_text = msg.get("content")
+                    break
+        else:
+            # Use most recent DM narration
+            chat_messages = state.get("chat_messages", [])
+            for msg in reversed(chat_messages):
+                if msg.get("message_type") == "DM_NARRATIVE":
+                    narration_text = msg.get("content")
+                    break
+
+        if not narration_text:
+            raise HTTPException(status_code=404, detail="No narration found")
+
+        logger.info(
+            "generating_session_narration_tts",
+            session_id=session_id,
+            text_length=len(narration_text)
+        )
+
+        # Generate audio
+        audio_generator = tts_service.generate_speech(narration_text, voice_type)
+
+        if not audio_generator:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate audio"
+            )
+
+        return StreamingResponse(
+            audio_generator,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f"inline; filename=session_{session_id}_narration.mp3",
+                "Cache-Control": "no-cache"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "session_narration_tts_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to generate narration TTS")
+
+
+# ============================================
+# Speech-to-Text (STT) Endpoints
+# ============================================
+
+@router.post("/stt/transcribe")
+async def transcribe_audio(
+    audio: UploadFile = File(..., description="Audio file to transcribe"),
+    language: str = Query("en", description="Language code (e.g., 'en', 'es', 'fr')")
+) -> Dict[str, Any]:
+    """
+    Transcribe audio to text using Whisper
+
+    Args:
+        audio: Audio file (webm, mp3, wav, etc.)
+        language: Language code
+
+    Returns:
+        Transcription result
+    """
+    try:
+        if not stt_service.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="STT service is not available. Check OpenAI API key configuration."
+            )
+
+        logger.info(
+            "stt_transcription_requested",
+            filename=audio.filename,
+            content_type=audio.content_type,
+            language=language
+        )
+
+        # Read audio data
+        audio_data = await audio.read()
+
+        if not audio_data:
+            raise HTTPException(status_code=400, detail="Empty audio file")
+
+        # Transcribe
+        transcribed_text = await stt_service.transcribe_audio(
+            audio_data,
+            language=language,
+            filename=audio.filename or "audio.webm"
+        )
+
+        if not transcribed_text:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to transcribe audio"
+            )
+
+        logger.info(
+            "stt_transcription_success",
+            text_length=len(transcribed_text),
+            language=language
+        )
+
+        return {
+            "success": True,
+            "text": transcribed_text,
+            "language": language
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("stt_transcription_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to transcribe audio")
+
+
+@router.post("/stt/session/{session_id}/player-action")
+async def transcribe_player_action(
+    session_id: str,
+    player_id: str = Query(..., description="Player ID"),
+    audio: UploadFile = File(..., description="Audio file"),
+    language: str = Query("en", description="Language code")
+) -> Dict[str, Any]:
+    """
+    Transcribe player voice action and automatically process it
+
+    Args:
+        session_id: Session ID
+        player_id: Player ID
+        audio: Audio file
+        language: Language code
+
+    Returns:
+        Transcription and action processing result
+    """
+    try:
+        if not stt_service.is_available():
+            raise HTTPException(
+                status_code=503,
+                detail="STT service is not available"
+            )
+
+        # Verify session exists
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        logger.info(
+            "player_voice_action_received",
+            session_id=session_id,
+            player_id=player_id,
+            filename=audio.filename
+        )
+
+        # Read and transcribe audio
+        audio_data = await audio.read()
+
+        transcribed_text = await stt_service.transcribe_audio(
+            audio_data,
+            language=language,
+            filename=audio.filename or "audio.webm"
+        )
+
+        if not transcribed_text:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to transcribe audio"
+            )
+
+        logger.info(
+            "player_voice_transcribed",
+            session_id=session_id,
+            player_id=player_id,
+            text=transcribed_text[:100]
+        )
+
+        # Return transcription (frontend will send as regular player_action)
+        return {
+            "success": True,
+            "text": transcribed_text,
+            "session_id": session_id,
+            "player_id": player_id,
+            "language": language
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "player_voice_action_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to process voice action")

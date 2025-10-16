@@ -362,6 +362,183 @@
         color: #4a5568;
         margin: 1rem 0 0.5rem 0;
     }
+
+    /* TTS/STT Controls */
+    .tts-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+
+    .tts-button, .stt-button {
+        padding: 0.4rem 0.8rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .tts-button:hover, .stt-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .tts-button.playing {
+        background: #48bb78;
+        border-color: #48bb78;
+    }
+
+    .stt-button.recording {
+        background: #f56565;
+        border-color: #f56565;
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .message-tts-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: #e2e8f0;
+        color: #4a5568;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .message-tts-button:hover {
+        background: #cbd5e0;
+    }
+
+    .message-tts-button.playing {
+        background: #48bb78;
+        color: white;
+    }
+
+    .input-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .mic-button {
+        flex-shrink: 0;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 1rem;
+    }
+
+    .mic-button:hover {
+        background: #5a67d8;
+    }
+
+    .mic-button.recording {
+        background: #f56565;
+        animation: pulse 1.5s infinite;
+    }
+
+    .mic-button:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    /* Settings Modal */
+    .settings-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .settings-modal.show {
+        display: flex;
+    }
+
+    .settings-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .settings-option {
+        margin-bottom: 1.5rem;
+    }
+
+    .settings-option label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        color: #2d3748;
+    }
+
+    .settings-option select,
+    .settings-option input[type="range"] {
+        width: 100%;
+        padding: 0.5rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .settings-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .settings-buttons button {
+        flex: 1;
+        padding: 0.75rem;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .save-settings {
+        background: #667eea;
+        color: white;
+    }
+
+    .save-settings:hover {
+        background: #5a67d8;
+    }
+
+    .cancel-settings {
+        background: #e2e8f0;
+        color: #4a5568;
+    }
+
+    .cancel-settings:hover {
+        background: #cbd5e0;
+    }
 </style>
 {% endblock %}
 
@@ -429,8 +606,16 @@
     </div>
 
     <div class="chat-panel">
-        <div class="chat-header">
-            👤 Game Master's Narration
+        <div class="chat-header" style="display: flex; align-items: center;">
+            <span>👤 Game Master's Narration</span>
+            <div class="tts-controls">
+                <button class="tts-button" id="autoPlayToggle" onclick="toggleAutoPlay()" title="Auto-play narration">
+                    🔇 Auto-Play
+                </button>
+                <button class="tts-button" onclick="openSettingsModal()" title="TTS/STT Settings">
+                    ⚙️
+                </button>
+            </div>
         </div>
         <div class="chat-messages" id="chatMessages">
             <div class="chat-message message-dm">
@@ -445,7 +630,12 @@
         </div>
         <div class="chat-input-container">
             <textarea id="playerInput" class="chat-input" rows="3" placeholder="What do you do?" disabled></textarea>
-            <button id="sendButton" class="send-button" disabled>Send Action</button>
+            <div class="input-controls">
+                <button id="micButton" class="mic-button" onclick="toggleMicrophone()" disabled title="Voice input">
+                    🎤
+                </button>
+                <button id="sendButton" class="send-button" disabled style="flex: 1;">Send Action</button>
+            </div>
         </div>
     </div>
 
@@ -505,6 +695,41 @@
     </div>
 </div>
 
+<!-- TTS/STT Settings Modal -->
+<div id="settingsModal" class="settings-modal">
+    <div class="settings-content">
+        <h2 style="margin-top: 0;">Audio Settings</h2>
+
+        <div class="settings-option">
+            <label for="voiceTypeSelect">Game Master Voice:</label>
+            <select id="voiceTypeSelect">
+                <option value="game_master">Game Master (Old British Male)</option>
+                <option value="dramatic">Dramatic (Deep & Resonant)</option>
+                <option value="friendly">Friendly (Warm & Pleasant)</option>
+                <option value="mysterious">Mysterious (Calm & Enigmatic)</option>
+                <option value="heroic">Heroic (Strong & Commanding)</option>
+            </select>
+        </div>
+
+        <div class="settings-option">
+            <label for="playbackSpeedRange">Playback Speed: <span id="speedValue">1.0x</span></label>
+            <input type="range" id="playbackSpeedRange" min="0.5" max="2.0" step="0.1" value="1.0" oninput="document.getElementById('speedValue').textContent = this.value + 'x'">
+        </div>
+
+        <div class="settings-option">
+            <label>
+                <input type="checkbox" id="autoPlayCheckbox" onchange="updateAutoPlayFromCheckbox()">
+                Auto-play new Game Master narration
+            </label>
+        </div>
+
+        <div class="settings-buttons">
+            <button class="save-settings" onclick="saveSettings()">Save Settings</button>
+            <button class="cancel-settings" onclick="closeSettingsModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // Game Session Configuration
     const SESSION_ID = '{{ session_id }}';
@@ -523,6 +748,15 @@
     let isFirstSceneLoad = true; // Track if this is the first scene load
     let streamingMessageDiv = null; // Track currently streaming message
     let streamingContent = ""; // Accumulate streaming content
+
+    // TTS/STT Configuration
+    let autoPlayEnabled = false;
+    let currentAudio = null;
+    let voiceType = 'game_master';
+    let playbackSpeed = 1.0;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
 
     // Make ws global for team chat component
     window.ws = ws;
@@ -699,6 +933,20 @@
             if (streamingMessageDiv) {
                 const contentDiv = streamingMessageDiv.querySelector('.message-content');
                 contentDiv.innerHTML = formatMessageContent(streamingContent);
+
+                // Add TTS button to the completed streaming message
+                const plainText = contentDiv.innerText || contentDiv.textContent;
+                addTTSButtonToMessage(streamingMessageDiv, plainText);
+
+                // Auto-play if enabled (skip if text is too long to avoid timeouts)
+                // Limit to 3000 chars to avoid 60s timeout with chunked generation
+                if (autoPlayEnabled && !isFirstSceneLoad && plainText.length < 3000) {
+                    setTimeout(() => {
+                        playTextToSpeech(plainText, streamingMessageDiv);
+                    }, 500);
+                } else if (autoPlayEnabled && plainText.length >= 3000) {
+                    console.log('Skipping auto-play: text too long (' + plainText.length + ' chars). Use Listen button for long narrations.');
+                }
 
                 // After first scene is loaded, allow auto-scrolling for future messages
                 isFirstSceneLoad = false;
@@ -1149,5 +1397,369 @@
         const date = new Date(timestamp);
         return date.toLocaleTimeString();
     }
+
+    // ============================================
+    // TTS (Text-to-Speech) Functions
+    // ============================================
+
+    function toggleAutoPlay() {
+        autoPlayEnabled = !autoPlayEnabled;
+        const button = document.getElementById('autoPlayToggle');
+        if (autoPlayEnabled) {
+            button.textContent = '🔊 Auto-Play';
+            button.classList.add('playing');
+        } else {
+            button.textContent = '🔇 Auto-Play';
+            button.classList.remove('playing');
+        }
+        localStorage.setItem('tts_autoplay', autoPlayEnabled);
+    }
+
+    async function playTextToSpeech(text, messageElement) {
+        try {
+            // Stop any currently playing audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+
+            // Update button to show loading state
+            let button = null;
+            if (messageElement) {
+                button = messageElement.querySelector('.message-tts-button');
+                if (button) {
+                    button.disabled = true;
+                    button.classList.add('loading');
+                    button.textContent = '⏳ Loading...';
+                }
+            }
+
+            // Generate TTS audio using POST with URLSearchParams
+            const params = new URLSearchParams({
+                text: text,
+                voice_type: voiceType
+            });
+
+            // Add timeout to the fetch request (60 seconds for very long texts)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+            const response = await fetch(`http://localhost:9500/api/v1/tts/generate?${params.toString()}`, {
+                method: 'POST',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                console.error('TTS generation failed:', response.statusText);
+                if (button) {
+                    button.disabled = false;
+                    button.classList.remove('loading');
+                    button.textContent = '❌ Failed';
+                    setTimeout(() => {
+                        button.textContent = '🔊 Listen';
+                    }, 2000);
+                }
+                return;
+            }
+
+            // Create audio element
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            currentAudio = new Audio(audioUrl);
+            currentAudio.playbackRate = playbackSpeed;
+
+            // Update UI to playing state
+            if (button) {
+                button.disabled = false;
+                button.classList.remove('loading');
+                button.classList.add('playing');
+                button.textContent = '⏸️ Stop';
+            }
+
+            // Play audio
+            await currentAudio.play();
+
+            // Cleanup when done
+            currentAudio.onended = () => {
+                URL.revokeObjectURL(audioUrl);
+                currentAudio = null;
+                if (button) {
+                    button.classList.remove('playing');
+                    button.textContent = '🔊 Listen';
+                }
+            };
+
+            // Cleanup on error
+            currentAudio.onerror = () => {
+                URL.revokeObjectURL(audioUrl);
+                currentAudio = null;
+                if (button) {
+                    button.classList.remove('playing');
+                    button.textContent = '❌ Error';
+                    setTimeout(() => {
+                        button.textContent = '🔊 Listen';
+                    }, 2000);
+                }
+            };
+
+        } catch (error) {
+            console.error('Error playing TTS:', error);
+
+            // Handle timeout specifically
+            if (error.name === 'AbortError') {
+                console.error('TTS request timed out');
+                if (messageElement) {
+                    const button = messageElement.querySelector('.message-tts-button');
+                    if (button) {
+                        button.disabled = false;
+                        button.classList.remove('loading');
+                        button.textContent = '⏱️ Timeout';
+                        setTimeout(() => {
+                            button.textContent = '🔊 Listen';
+                        }, 3000);
+                    }
+                }
+            } else {
+                // Generic error handling
+                if (messageElement) {
+                    const button = messageElement.querySelector('.message-tts-button');
+                    if (button) {
+                        button.disabled = false;
+                        button.classList.remove('loading');
+                        button.textContent = '❌ Error';
+                        setTimeout(() => {
+                            button.textContent = '🔊 Listen';
+                        }, 2000);
+                    }
+                }
+            }
+        }
+    }
+
+    function addTTSButtonToMessage(messageDiv, text) {
+        const contentDiv = messageDiv.querySelector('.message-content');
+        if (!contentDiv) return;
+
+        const ttsButton = document.createElement('button');
+        ttsButton.className = 'message-tts-button';
+        ttsButton.textContent = '🔊 Listen';
+        ttsButton.onclick = function() {
+            if (currentAudio && !currentAudio.paused) {
+                currentAudio.pause();
+                currentAudio = null;
+                this.classList.remove('playing');
+                this.textContent = '🔊 Listen';
+            } else {
+                // Remove formatting tags for cleaner TTS
+                const plainText = contentDiv.innerText || contentDiv.textContent;
+                playTextToSpeech(plainText, messageDiv);
+            }
+        };
+
+        const timeDiv = messageDiv.querySelector('.message-time');
+        if (timeDiv) {
+            timeDiv.appendChild(ttsButton);
+        }
+    }
+
+    // ============================================
+    // STT (Speech-to-Text) Functions
+    // ============================================
+
+    async function toggleMicrophone() {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            await startRecording();
+        }
+    }
+
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                await transcribeAudio(audioBlob);
+
+                // Stop all tracks
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+
+            // Update UI
+            const micButton = document.getElementById('micButton');
+            micButton.classList.add('recording');
+            micButton.textContent = '⏹️';
+
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            alert('Could not access microphone. Please check your permissions.');
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            isRecording = false;
+
+            // Update UI
+            const micButton = document.getElementById('micButton');
+            micButton.classList.remove('recording');
+            micButton.textContent = '🎤';
+        }
+    }
+
+    async function transcribeAudio(audioBlob) {
+        try {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            formData.append('language', 'en');
+
+            const response = await fetch(`http://localhost:9500/api/v1/stt/session/${SESSION_ID}/player-action?player_id=${PLAYER_ID}`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                console.error('STT transcription failed:', response.statusText);
+                return;
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.text) {
+                // Fill the text area with transcribed text
+                document.getElementById('playerInput').value = result.text;
+                console.log('Transcribed:', result.text);
+            }
+
+        } catch (error) {
+            console.error('Error transcribing audio:', error);
+            alert('Failed to transcribe audio. Please try again.');
+        }
+    }
+
+    // ============================================
+    // Settings Modal Functions
+    // ============================================
+
+    function openSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+
+        // Load current settings
+        document.getElementById('voiceTypeSelect').value = voiceType;
+        document.getElementById('playbackSpeedRange').value = playbackSpeed;
+        document.getElementById('speedValue').textContent = playbackSpeed + 'x';
+        document.getElementById('autoPlayCheckbox').checked = autoPlayEnabled;
+
+        modal.classList.add('show');
+    }
+
+    function closeSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+        modal.classList.remove('show');
+    }
+
+    function saveSettings() {
+        // Save settings
+        voiceType = document.getElementById('voiceTypeSelect').value;
+        playbackSpeed = parseFloat(document.getElementById('playbackSpeedRange').value);
+        autoPlayEnabled = document.getElementById('autoPlayCheckbox').checked;
+
+        // Update auto-play button
+        const button = document.getElementById('autoPlayToggle');
+        if (autoPlayEnabled) {
+            button.textContent = '🔊 Auto-Play';
+            button.classList.add('playing');
+        } else {
+            button.textContent = '🔇 Auto-Play';
+            button.classList.remove('playing');
+        }
+
+        // Save to localStorage
+        localStorage.setItem('tts_voice_type', voiceType);
+        localStorage.setItem('tts_playback_speed', playbackSpeed);
+        localStorage.setItem('tts_autoplay', autoPlayEnabled);
+
+        closeSettingsModal();
+    }
+
+    function updateAutoPlayFromCheckbox() {
+        autoPlayEnabled = document.getElementById('autoPlayCheckbox').checked;
+    }
+
+    function loadSettings() {
+        // Load settings from localStorage
+        const savedVoiceType = localStorage.getItem('tts_voice_type');
+        const savedSpeed = localStorage.getItem('tts_playback_speed');
+        const savedAutoPlay = localStorage.getItem('tts_autoplay');
+
+        if (savedVoiceType) voiceType = savedVoiceType;
+        if (savedSpeed) playbackSpeed = parseFloat(savedSpeed);
+        if (savedAutoPlay) autoPlayEnabled = savedAutoPlay === 'true';
+
+        // Update auto-play button
+        const button = document.getElementById('autoPlayToggle');
+        if (autoPlayEnabled) {
+            button.textContent = '🔊 Auto-Play';
+            button.classList.add('playing');
+        }
+    }
+
+    // Initialize settings on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSettings();
+    });
+
+    // ============================================
+    // Enhanced addChatMessage to support TTS
+    // ============================================
+
+    const originalAddChatMessage = addChatMessage;
+    addChatMessage = function(message) {
+        originalAddChatMessage(message);
+
+        // Add TTS button to DM narration messages
+        if (message.message_type === 'DM_NARRATIVE') {
+            const chatMessages = document.getElementById('chatMessages');
+            const lastMessage = chatMessages.lastElementChild;
+
+            if (lastMessage) {
+                const contentDiv = lastMessage.querySelector('.message-content');
+                if (contentDiv) {
+                    const plainText = contentDiv.innerText || contentDiv.textContent;
+                    addTTSButtonToMessage(lastMessage, plainText);
+
+                    // Auto-play if enabled (skip if text is too long to avoid timeouts)
+                    if (autoPlayEnabled && !isFirstSceneLoad && plainText.length < 5000) {
+                        setTimeout(() => {
+                            playTextToSpeech(plainText, lastMessage);
+                        }, 500);
+                    } else if (autoPlayEnabled && plainText.length >= 5000) {
+                        console.log('Skipping auto-play: text too long (' + plainText.length + ' chars)');
+                    }
+                }
+            }
+        }
+    };
+
+    // Enable mic button when connected
+    const originalEnableInput = enableInput;
+    enableInput = function() {
+        originalEnableInput();
+        document.getElementById('micButton').disabled = false;
+    };
 </script>
 {% endblock %}
