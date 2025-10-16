@@ -673,7 +673,11 @@ async def _execute_workflow_initialization(
         )
 
         # Run workflow through initialization and scene generation
-        result = await game_loop.ainvoke(initial_state)
+        # Set recursion_limit to 50 to handle longer gameplay sequences
+        result = await game_loop.ainvoke(
+            initial_state,
+            {"recursion_limit": 50}
+        )
 
         # Broadcast initial scene to any connected players
         if result.get("scene_description"):

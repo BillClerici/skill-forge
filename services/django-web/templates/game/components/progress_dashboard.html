@@ -8,27 +8,32 @@
         text-align: center;
         margin-bottom: 2rem;
         padding-bottom: 1rem;
-        border-bottom: 2px solid #e2e8f0;
+        border-bottom: 2px solid rgba(212, 175, 55, 0.3); /* RPG gold border */
     }
 
     .dashboard-header h3 {
         margin: 0 0 0.5rem 0;
-        color: #2d3748;
+        color: #d4af37; /* RPG gold */
         font-size: 1.5rem;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        font-weight: 700;
+        letter-spacing: 1px;
     }
 
     .dashboard-header p {
         margin: 0;
-        color: #718096;
+        color: #b8b8d1;
         font-size: 0.875rem;
     }
 
     .blooms-pyramid {
         margin-bottom: 2rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #2d1b69 0%, #6a4c93 100%); /* RPG purple gradient */
         border-radius: 12px;
         padding: 1.5rem;
         color: white;
+        border: 2px solid #d4af37; /* RPG gold border */
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
     }
 
     .blooms-pyramid h4 {
@@ -119,16 +124,18 @@
     }
 
     .dimension-card {
-        background: white;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
+        background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); /* RPG dark gradient */
+        border: 2px solid rgba(212, 175, 55, 0.3); /* RPG gold border */
+        border-radius: 12px;
         padding: 1rem;
-        transition: all 0.2s;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
     .dimension-card:hover {
-        border-color: #667eea;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        border-color: #d4af37; /* RPG gold */
+        box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2), 0 0 30px rgba(212, 175, 55, 0.1);
+        transform: translateY(-2px);
     }
 
     .dimension-header {
@@ -149,35 +156,36 @@
         flex-shrink: 0;
     }
 
-    .dimension-icon.physical { background: #fef5e7; }
-    .dimension-icon.emotional { background: #fce4ec; }
-    .dimension-icon.intellectual { background: #e8eaf6; }
-    .dimension-icon.social { background: #e0f2f1; }
-    .dimension-icon.spiritual { background: #f3e5f5; }
-    .dimension-icon.vocational { background: #fff3e0; }
-    .dimension-icon.environmental { background: #e8f5e9; }
+    .dimension-icon.physical { background: rgba(243, 156, 18, 0.2); }
+    .dimension-icon.emotional { background: rgba(233, 30, 99, 0.2); }
+    .dimension-icon.intellectual { background: rgba(63, 81, 181, 0.2); }
+    .dimension-icon.social { background: rgba(0, 150, 136, 0.2); }
+    .dimension-icon.spiritual { background: rgba(156, 39, 176, 0.2); }
+    .dimension-icon.vocational { background: rgba(255, 152, 0, 0.2); }
+    .dimension-icon.environmental { background: rgba(76, 175, 80, 0.2); }
 
     .dimension-info {
         flex: 1;
     }
 
     .dimension-name {
-        font-weight: bold;
-        color: #2d3748;
+        font-weight: 600;
+        color: #d4af37; /* RPG gold */
         margin-bottom: 0.125rem;
     }
 
     .dimension-level {
         font-size: 0.75rem;
-        color: #718096;
+        color: #c0c0c0; /* RPG silver */
     }
 
     .dimension-progress-bar {
         height: 8px;
-        background: #e2e8f0;
+        background: #0f0f1e; /* RPG darker */
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 0.5rem;
+        border: 1px solid rgba(212, 175, 55, 0.2);
     }
 
     .dimension-progress-fill {
@@ -198,7 +206,7 @@
         display: flex;
         justify-content: space-between;
         font-size: 0.75rem;
-        color: #718096;
+        color: #b8b8d1;
     }
 
     .achievements-section {
@@ -207,8 +215,11 @@
 
     .achievements-section h4 {
         margin: 0 0 1rem 0;
-        color: #2d3748;
+        color: #d4af37; /* RPG gold */
         font-size: 1.1rem;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+        font-weight: 600;
+        letter-spacing: 0.5px;
     }
 
     .achievements-grid {
@@ -220,20 +231,23 @@
     .achievement {
         text-align: center;
         padding: 1rem;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        transition: all 0.2s;
+        border: 2px solid rgba(212, 175, 55, 0.3); /* RPG gold border */
+        border-radius: 12px;
+        transition: all 0.3s ease;
         cursor: pointer;
+        background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); /* RPG dark gradient */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
     .achievement:hover {
-        border-color: #667eea;
-        transform: translateY(-2px);
+        border-color: #d4af37; /* RPG gold */
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(212, 175, 55, 0.2), 0 0 30px rgba(212, 175, 55, 0.1);
     }
 
     .achievement.unlocked {
-        border-color: #48bb78;
-        background: #f0fff4;
+        border-color: #2f9e44; /* RPG green */
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); /* RPG purple gradient */
     }
 
     .achievement.locked {
@@ -249,16 +263,18 @@
     .achievement-name {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #2d3748;
+        color: #c0c0c0; /* RPG silver */
     }
 
     .stats-summary {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 1rem;
-        background: #f7fafc;
-        border-radius: 8px;
+        background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); /* RPG dark gradient */
+        border-radius: 12px;
         padding: 1.5rem;
+        border: 2px solid rgba(212, 175, 55, 0.3); /* RPG gold border */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     }
 
     .stat-card {
@@ -268,15 +284,17 @@
     .stat-value {
         font-size: 2rem;
         font-weight: bold;
-        color: #667eea;
+        color: #d4af37; /* RPG gold */
         margin-bottom: 0.25rem;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
     }
 
     .stat-label {
         font-size: 0.75rem;
-        color: #718096;
+        color: #c0c0c0; /* RPG silver */
         text-transform: uppercase;
         letter-spacing: 0.05em;
+        font-weight: 600;
     }
 
     .radar-chart-placeholder {
@@ -357,7 +375,7 @@
     </div>
 
     <!-- Seven Dimensions -->
-    <h4 style="margin: 0 0 1rem 0; color: #2d3748;">🌟 Seven Human Dimensions</h4>
+    <h4 style="margin: 0 0 1rem 0; color: #d4af37; text-shadow: 0 0 10px rgba(212, 175, 55, 0.3); font-weight: 600; letter-spacing: 0.5px;">🌟 Seven Human Dimensions</h4>
     <div class="dimensions-grid" id="dimensionsGrid">
         <!-- Dimensions will be populated via JavaScript -->
     </div>

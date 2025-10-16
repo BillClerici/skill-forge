@@ -345,7 +345,11 @@ class ConnectionManager:
             )
 
             # Execute workflow from current node
-            result = await game_loop.ainvoke(state)
+            # Set recursion_limit to 50 to handle longer gameplay sequences
+            result = await game_loop.ainvoke(
+                state,
+                {"recursion_limit": 50}
+            )
 
             # Broadcast state updates to all players
             await self._broadcast_state_updates(session_id, result)

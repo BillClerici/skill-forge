@@ -5,22 +5,68 @@
 
 {% block extra_css %}
 <style>
-    .game-container {
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        grid-template-rows: auto 1fr auto;
-        gap: 1rem;
-        height: calc(100vh - 120px);
-        padding: 1rem;
+    /* ===================================
+       Global Game Layout Styles
+       =================================== */
+    body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
     }
 
+    /* Override base.html container for full-screen game */
+    main {
+        padding: 0 !important;
+    }
+
+    main > .container {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .game-wrapper {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 64px); /* Subtract nav height */
+        width: 100vw;
+        overflow: hidden;
+        position: fixed;
+        top: 64px; /* Position below nav bar */
+        left: 0;
+        z-index: 1;
+    }
+
+    /* ===================================
+       Header - Rounded and spanning main content
+       =================================== */
     .game-header {
-        grid-column: 1 / -1;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        border-radius: 8px;
+        flex-shrink: 0;
+        z-index: 100;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        overflow: hidden;
+        transition: margin 0.3s ease-in-out, width 0.3s ease-in-out;
+        border-radius: 8px;
+        margin: 1rem;
+        width: calc(100% - 2rem);
+    }
+
+    .game-header.left-condensed {
+        margin-left: calc(320px + 1rem);
+        width: calc(100% - 320px - 2rem);
+    }
+
+    .game-header.right-condensed {
+        margin-right: calc(320px + 1rem);
+        width: calc(100% - 320px - 2rem);
+    }
+
+    .game-header.both-condensed {
+        margin-left: calc(320px + 1rem);
+        margin-right: calc(320px + 1rem);
+        width: calc(100% - 640px - 2rem);
     }
 
     .campaign-info-row {
@@ -82,14 +128,275 @@
         font-weight: bold;
     }
 
-    .chat-panel {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* ===================================
+       Main Game Container
+       =================================== */
+    .game-container {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* ===================================
+       Slide-out Drawers - RPG Fantasy Theme
+       =================================== */
+    .drawer {
+        background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%); /* RPG dark gradient */
+        color: #e0e0e0; /* Light text */
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+        transition: transform 0.3s ease-in-out;
+        z-index: 110; /* Above header */
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        min-height: 500px;
+    }
+
+    .drawer-left {
+        position: fixed;
+        left: 0;
+        top: 64px; /* Below main nav */
+        bottom: 0;
+        width: 320px;
+        transform: translateX(-100%);
+        border-right: 2px solid rgba(212, 175, 55, 0.2); /* RPG gold border */
+    }
+
+    .drawer-left.open {
+        transform: translateX(0);
+    }
+
+    .drawer-left.anchored {
+        position: fixed; /* Keep fixed, don't make it part of flex layout */
+        transform: translateX(0);
+        top: 64px; /* Below main nav */
+    }
+
+    .drawer-right {
+        position: fixed;
+        right: 0;
+        top: 64px; /* Below main nav */
+        bottom: 0;
+        width: 320px;
+        transform: translateX(100%);
+        border-left: 2px solid rgba(212, 175, 55, 0.2); /* RPG gold border */
+    }
+
+    .drawer-right.open {
+        transform: translateX(0);
+    }
+
+    .drawer-right.anchored {
+        position: fixed; /* Keep fixed, don't make it part of flex layout */
+        transform: translateX(0);
+        top: 64px; /* Below main nav */
+    }
+
+    .drawer-header {
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); /* RPG purple gradient */
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        border-bottom: 2px solid #d4af37; /* RPG gold border */
+        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+    }
+
+    .drawer-left .drawer-header {
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); /* RPG purple gradient */
+    }
+
+    .drawer-right .drawer-header {
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); /* RPG purple gradient */
+    }
+
+    .drawer-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #d4af37; /* RPG gold */
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .drawer-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .drawer-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .drawer-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .drawer-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%); /* RPG dark gradient */
+    }
+
+    .drawer-content h3 {
+        color: #d4af37; /* RPG gold */
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin: 0 0 1rem 0;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+    }
+
+    .drawer-content h4 {
+        color: #c0c0c0; /* RPG silver */
+        font-size: 1rem;
+        font-weight: bold;
+        margin: 1rem 0 0.5rem 0;
+        letter-spacing: 0.5px;
+    }
+
+    .drawer-content p {
+        color: #b8b8d1;
+    }
+
+    .drawer-content hr {
+        border-color: rgba(212, 175, 55, 0.2); /* RPG gold border */
+    }
+
+    /* Drawer content scrollbar - RPG themed */
+    .drawer-content::-webkit-scrollbar {
+        width: 12px;
+    }
+
+    .drawer-content::-webkit-scrollbar-track {
+        background: #0f0f1e; /* RPG darker */
+    }
+
+    .drawer-content::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #d4af37 0%, #cd7f32 100%); /* Gold to bronze */
+        border-radius: 6px;
+        border: 2px solid #0f0f1e;
+    }
+
+    .drawer-content::-webkit-scrollbar-thumb:hover {
+        background: #d4af37; /* Pure gold on hover */
+    }
+
+    /* ===================================
+       Drawer Toggle Buttons
+       =================================== */
+    .drawer-toggle {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 1rem 0.5rem;
+        cursor: pointer;
+        z-index: 85;
+        border-radius: 0 8px 8px 0;
+        font-size: 1rem;
+        transition: all 0.2s;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+    }
+
+    .drawer-toggle:hover {
+        background: #5a67d8;
+        transform: translateY(-50%) scale(1.05);
+    }
+
+    .drawer-toggle-left {
+        left: 0;
+    }
+
+    .drawer-toggle-left.hidden {
+        left: 320px;
+    }
+
+    .drawer-toggle-right {
+        right: 0;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+    }
+
+    .drawer-toggle-right.hidden {
+        right: 320px;
+    }
+
+    /* ===================================
+       Tile-Based Grid System
+       =================================== */
+    .game-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        grid-template-rows: repeat(6, 1fr);
+        gap: 1rem;
+        padding: 1rem;
+        overflow: hidden;
+        transition: margin 0.3s ease-in-out;
+    }
+
+    .game-grid.left-anchored {
+        margin-left: 320px;
+    }
+
+    .game-grid.right-anchored {
+        margin-right: 320px;
+    }
+
+    /* Grid Tiles */
+    .grid-tile {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-width: 0; /* Allow content to shrink */
+        min-height: 0; /* Allow content to shrink */
+    }
+
+    /* Main Chat - Takes up most space */
+    .tile-chat {
+        grid-column: 1 / 10;
+        grid-row: 1 / 7;
+        min-width: 0; /* Allow content to shrink */
+        overflow: hidden;
+    }
+
+    /* Side Info Panel */
+    .tile-info {
+        grid-column: 10 / 13;
+        grid-row: 1 / 7;
+        min-width: 0; /* Allow content to shrink */
+        overflow: hidden;
+    }
+
+    /* When both drawers anchored, adjust main content */
+    .game-grid.both-anchored {
+        margin-left: 320px;
+        margin-right: 320px;
+    }
+
+    /* ===================================
+       Chat Panel (Main Game Narrative)
+       =================================== */
+    .chat-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
     }
 
     .chat-header {
@@ -98,15 +405,16 @@
         padding: 1rem;
         font-weight: bold;
         flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
-    .chat-panel .chat-messages {
-        flex: 1 1 auto;
+    .chat-messages {
+        flex: 1;
         overflow-y: auto;
         padding: 1rem;
         background: #f7fafc;
-        min-height: 300px;
-        display: block !important;
     }
 
     .chat-message {
@@ -124,8 +432,6 @@
         border-left: 4px solid #667eea;
         padding: 0.75rem 1rem;
         border-radius: 4px;
-        display: flex;
-        flex-direction: column;
     }
 
     .message-player {
@@ -133,8 +439,6 @@
         border-left: 4px solid #38b2ac;
         padding: 0.75rem 1rem;
         border-radius: 4px;
-        display: flex;
-        flex-direction: column;
     }
 
     .message-npc {
@@ -142,8 +446,6 @@
         border-left: 4px solid #ed8936;
         padding: 0.75rem 1rem;
         border-radius: 4px;
-        display: flex;
-        flex-direction: column;
     }
 
     .message-assessment {
@@ -151,8 +453,6 @@
         border-left: 4px solid #f6ad55;
         padding: 0.75rem 1rem;
         border-radius: 4px;
-        display: flex;
-        flex-direction: column;
     }
 
     .message-sender {
@@ -160,13 +460,11 @@
         margin-bottom: 0.25rem;
         color: #2d3748;
         font-size: 0.875rem;
-        display: block;
     }
 
     .message-content {
         color: #4a5568;
         line-height: 1.6;
-        display: block;
         word-wrap: break-word;
         font-size: 0.9rem;
     }
@@ -181,6 +479,7 @@
         padding: 1rem;
         background: white;
         border-top: 1px solid #e2e8f0;
+        flex-shrink: 0;
     }
 
     .chat-input {
@@ -195,237 +494,6 @@
     .chat-input:focus {
         outline: none;
         border-color: #667eea;
-    }
-
-    .send-button {
-        margin-top: 0.5rem;
-        width: 100%;
-        padding: 0.75rem;
-        background: #667eea;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .send-button:hover {
-        background: #5a67d8;
-    }
-
-    .send-button:disabled {
-        background: #cbd5e0;
-        cursor: not-allowed;
-    }
-
-    .info-panel {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        overflow-y: auto;
-    }
-
-    .info-tabs {
-        display: flex;
-        background: #edf2f7;
-        border-bottom: 2px solid #e2e8f0;
-    }
-
-    .info-tab {
-        flex: 1;
-        padding: 1rem;
-        text-align: center;
-        cursor: pointer;
-        font-weight: bold;
-        color: #4a5568;
-        transition: all 0.2s;
-    }
-
-    .info-tab.active {
-        background: white;
-        color: #667eea;
-        border-bottom: 3px solid #667eea;
-    }
-
-    .info-tab:hover {
-        background: #f7fafc;
-    }
-
-    .info-content {
-        padding: 1rem;
-        display: none;
-    }
-
-    .info-content.active {
-        display: block;
-    }
-
-    .quest-tracker {
-        margin-bottom: 1rem;
-    }
-
-    .quest-objective {
-        padding: 0.75rem;
-        background: #f7fafc;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-        color: #2d3748;
-    }
-
-    .quest-objective.completed {
-        background: #c6f6d5;
-        text-decoration: line-through;
-        opacity: 0.7;
-    }
-
-    .objective-checkbox {
-        margin-right: 0.75rem;
-        font-size: 1.2rem;
-    }
-
-    .character-stat {
-        display: flex;
-        justify-content: space-between;
-        padding: 0.5rem;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .stat-label {
-        font-weight: bold;
-        color: #4a5568;
-        font-size: 1.05rem;
-    }
-
-    .stat-value {
-        color: #667eea !important;
-        font-size: 0.95rem !important;
-        font-weight: normal !important;
-    }
-
-    .available-actions {
-        margin-top: 1rem;
-    }
-
-    .action-button {
-        display: block;
-        width: 100%;
-        padding: 0.75rem;
-        margin-bottom: 0.5rem;
-        background: #f7fafc;
-        border: 2px solid #e2e8f0;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .action-button:hover {
-        background: #edf2f7;
-        border-color: #667eea;
-    }
-
-    .connection-status {
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        padding: 0.5rem 1rem;
-        background: #48bb78;
-        color: white;
-        border-radius: 4px;
-        font-size: 0.875rem;
-        z-index: 1000;
-    }
-
-    .connection-status.disconnected {
-        background: #f56565;
-    }
-
-    .typing-indicator {
-        padding: 1rem;
-        color: #a0aec0;
-        font-style: italic;
-        font-size: 0.875rem;
-    }
-
-    .info-content h3 {
-        font-size: 1.3rem;
-        font-weight: bold;
-        color: #2d3748;
-        margin: 0 0 1rem 0;
-    }
-
-    .info-content h4 {
-        font-size: 1rem;
-        font-weight: bold;
-        color: #4a5568;
-        margin: 1rem 0 0.5rem 0;
-    }
-
-    /* TTS/STT Controls */
-    .tts-controls {
-        display: flex;
-        gap: 0.5rem;
-        margin-left: auto;
-    }
-
-    .tts-button, .stt-button {
-        padding: 0.4rem 0.8rem;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .tts-button:hover, .stt-button:hover {
-        background: rgba(255, 255, 255, 0.3);
-    }
-
-    .tts-button.playing {
-        background: #48bb78;
-        border-color: #48bb78;
-    }
-
-    .stt-button.recording {
-        background: #f56565;
-        border-color: #f56565;
-        animation: pulse 1.5s infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-    .message-tts-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.5rem;
-        background: #e2e8f0;
-        color: #4a5568;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.75rem;
-        margin-left: 0.5rem;
-        transition: all 0.2s;
-    }
-
-    .message-tts-button:hover {
-        background: #cbd5e0;
-    }
-
-    .message-tts-button.playing {
-        background: #48bb78;
-        color: white;
     }
 
     .input-controls {
@@ -460,7 +528,238 @@
         cursor: not-allowed;
     }
 
-    /* Settings Modal */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .send-button {
+        flex: 1;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .send-button:hover {
+        background: #5a67d8;
+    }
+
+    .send-button:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    /* ===================================
+       Info Panel (Tabs)
+       =================================== */
+    .info-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .info-tabs {
+        display: flex;
+        background: #edf2f7;
+        border-bottom: 2px solid #e2e8f0;
+        flex-shrink: 0;
+    }
+
+    .info-tab {
+        flex: 1;
+        padding: 0.75rem 0.5rem;
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        color: #4a5568;
+        transition: all 0.2s;
+        font-size: 0.85rem;
+    }
+
+    .info-tab.active {
+        background: white;
+        color: #667eea;
+        border-bottom: 3px solid #667eea;
+    }
+
+    .info-tab:hover {
+        background: #f7fafc;
+    }
+
+    .info-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        display: none;
+    }
+
+    .info-content.active {
+        display: block;
+    }
+
+    .quest-objective {
+        padding: 0.75rem;
+        background: #f7fafc;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        color: #2d3748;
+    }
+
+    .quest-objective.completed {
+        background: #c6f6d5;
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+
+    .objective-checkbox {
+        margin-right: 0.75rem;
+        font-size: 1.2rem;
+    }
+
+    .character-stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2); /* RPG gold border */
+        transition: all 0.3s ease;
+    }
+
+    .character-stat:hover {
+        background: linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0%, transparent 100%);
+    }
+
+    .stat-label {
+        font-weight: 600;
+        color: #b8b8d1;
+        font-size: 1.05rem;
+    }
+
+    .stat-value {
+        color: #d4af37 !important; /* RPG gold */
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+    }
+
+    .available-actions {
+        margin-top: 1rem;
+    }
+
+    .action-button {
+        display: block;
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #f7fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .action-button:hover {
+        background: #edf2f7;
+        border-color: #667eea;
+    }
+
+    /* ===================================
+       Connection Status
+       =================================== */
+    .connection-status {
+        position: fixed;
+        top: 74px; /* Position below main nav (64px) + small gap */
+        right: 20px;
+        padding: 0.5rem 1rem;
+        background: #48bb78;
+        color: white;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        z-index: 150; /* Above game header */
+    }
+
+    .connection-status.disconnected {
+        background: #f56565;
+    }
+
+    .typing-indicator {
+        padding: 1rem;
+        color: #a0aec0;
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    /* ===================================
+       TTS/STT Controls
+       =================================== */
+    .tts-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .tts-button, .stt-button {
+        padding: 0.4rem 0.8rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .tts-button:hover, .stt-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .tts-button.playing {
+        background: #48bb78;
+        border-color: #48bb78;
+    }
+
+    .stt-button.recording {
+        background: #f56565;
+        border-color: #f56565;
+        animation: pulse 1.5s infinite;
+    }
+
+    .message-tts-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: #e2e8f0;
+        color: #4a5568;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .message-tts-button:hover {
+        background: #cbd5e0;
+    }
+
+    .message-tts-button.playing {
+        background: #48bb78;
+        color: white;
+    }
+
+    /* ===================================
+       Settings Modal
+       =================================== */
     .settings-modal {
         display: none;
         position: fixed;
@@ -539,6 +838,77 @@
     .cancel-settings:hover {
         background: #cbd5e0;
     }
+
+    /* ===================================
+       Responsive Design
+       =================================== */
+    @media (max-width: 1200px) {
+        .drawer-left, .drawer-right {
+            width: 280px;
+        }
+
+        .drawer-toggle-left.hidden {
+            left: 280px;
+        }
+
+        .drawer-toggle-right.hidden {
+            right: 280px;
+        }
+
+        .game-grid.left-anchored {
+            margin-left: 280px;
+        }
+
+        .game-grid.right-anchored {
+            margin-right: 280px;
+        }
+
+        .game-grid.both-anchored {
+            margin-left: 280px;
+            margin-right: 280px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .drawer-left, .drawer-right {
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .drawer-left.anchored,
+        .drawer-right.anchored {
+            position: fixed;
+        }
+
+        .game-grid.left-anchored,
+        .game-grid.right-anchored,
+        .game-grid.both-anchored {
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        .tile-chat {
+            grid-column: 1 / 13;
+        }
+
+        .tile-info {
+            display: none; /* Hide on mobile, use drawers instead */
+        }
+    }
+
+    .info-content h3 {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #2d3748;
+        margin: 0 0 1rem 0;
+    }
+
+    .info-content h4 {
+        font-size: 1rem;
+        font-weight: bold;
+        color: #4a5568;
+        margin: 1rem 0 0.5rem 0;
+    }
 </style>
 {% endblock %}
 
@@ -546,13 +916,9 @@
 <!-- Save/Load Component -->
 {% include 'game/components/save_load.html' %}
 
-<div id="connectionStatus" class="connection-status disconnected">
-    Connecting...
-</div>
-
-<div class="game-container">
+<div class="game-wrapper">
+    <!-- Header (unchanged) -->
     <div class="game-header">
-        <!-- Campaign Info Row -->
         <div class="campaign-info-row">
             {% if campaign.primary_image_url %}
             <img src="{{ campaign.primary_image_url }}" alt="{{ campaign.title }}" class="campaign-thumbnail">
@@ -567,24 +933,27 @@
                 <h1>{{ campaign.title }}</h1>
                 <p class="description">{{ campaign.description|truncatewords:20|default:"Embark on an epic adventure in this AI-powered campaign!" }}</p>
             </div>
-            <button onclick="openSaveLoadModal()" style="
-                padding: 0.6rem 1.2rem;
-                background: rgba(255, 255, 255, 0.2);
-                color: white;
-                border: 2px solid rgba(255, 255, 255, 0.3);
-                border-radius: 6px;
-                font-weight: 600;
-                cursor: pointer;
-                font-size: 0.9rem;
-                transition: all 0.2s;
-                white-space: nowrap;
-                height: fit-content;
-            " onmouseover="this.style.background='rgba(255, 255, 255, 0.3)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
-                💾 Save/Load
-            </button>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <button onclick="openSaveLoadModal()" style="
+                    padding: 0.6rem 1.2rem;
+                    background: rgba(255, 255, 255, 0.2);
+                    color: white;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 6px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                    transition: all 0.2s;
+                    white-space: nowrap;
+                " onmouseover="this.style.background='rgba(255, 255, 255, 0.3)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
+                    💾 Save/Load
+                </button>
+                <div id="connectionStatus" class="connection-status disconnected" style="position: static; margin: 0;">
+                    Connecting...
+                </div>
+            </div>
         </div>
 
-        <!-- Status Row -->
         <div class="game-status-row">
             <div class="status-item">
                 <div class="status-label">Current Quest</div>
@@ -605,92 +974,143 @@
         </div>
     </div>
 
-    <div class="chat-panel">
-        <div class="chat-header" style="display: flex; align-items: center;">
-            <span>👤 Game Master's Narration</span>
-            <div class="tts-controls">
-                <button class="tts-button" id="autoPlayToggle" onclick="toggleAutoPlay()" title="Auto-play narration">
-                    🔇 Auto-Play
-                </button>
-                <button class="tts-button" onclick="openSettingsModal()" title="TTS/STT Settings">
-                    ⚙️
-                </button>
+    <!-- Main Game Container -->
+    <div class="game-container">
+        <!-- Left Drawer Toggle -->
+        <button class="drawer-toggle drawer-toggle-left" id="leftDrawerToggle" onclick="toggleLeftDrawer()">
+            📋
+        </button>
+
+        <!-- Left Drawer (Character/Inventory) -->
+        <div class="drawer drawer-left" id="leftDrawer">
+            <div class="drawer-header">
+                <h3>Character</h3>
+                <div class="drawer-controls">
+                    <button class="drawer-btn" onclick="toggleLeftDrawerAnchor()" title="Anchor drawer">
+                        📌
+                    </button>
+                    <button class="drawer-btn" onclick="toggleLeftDrawer()">
+                        ✕
+                    </button>
+                </div>
             </div>
-        </div>
-        <div class="chat-messages" id="chatMessages">
-            <div class="chat-message message-dm">
-                <div class="message-sender">👤 Game Master</div>
-                <div class="message-content">
-                    Welcome, adventurer! Connecting to the game world...
+            <div class="drawer-content">
+                <h3>{{ character.name }}</h3>
+                <div id="characterStats">
+                    <div class="character-stat">
+                        <span class="stat-label">Species:</span>
+                        <span class="stat-value">{{ character.species.name }}</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Bloom's Level:</span>
+                        <span class="stat-value" id="bloomLevel">Understand</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Experience:</span>
+                        <span class="stat-value" id="experiencePoints">0 XP</span>
+                    </div>
+                </div>
+                <h4>Inventory</h4>
+                <div id="inventory">
+                    <p>Empty</p>
                 </div>
             </div>
         </div>
-        <div id="typingIndicator" class="typing-indicator" style="display: none;">
-            Someone is typing...
-        </div>
-        <div class="chat-input-container">
-            <textarea id="playerInput" class="chat-input" rows="3" placeholder="What do you do?" disabled></textarea>
-            <div class="input-controls">
-                <button id="micButton" class="mic-button" onclick="toggleMicrophone()" disabled title="Voice input">
-                    🎤
-                </button>
-                <button id="sendButton" class="send-button" disabled style="flex: 1;">Send Action</button>
-            </div>
-        </div>
-    </div>
 
-    <div class="info-panel">
-        <div class="info-tabs">
-            <div class="info-tab active" data-tab="quest">Quest</div>
-            <div class="info-tab" data-tab="character">Character</div>
-            <div class="info-tab" data-tab="party">Party</div>
-            <div class="info-tab" data-tab="progress">Progress</div>
-        </div>
+        <!-- Right Drawer Toggle -->
+        <button class="drawer-toggle drawer-toggle-right" id="rightDrawerToggle" onclick="toggleRightDrawer()">
+            👥
+        </button>
 
-        <div class="info-content active" data-content="quest">
-            <div id="questInfo">
-                <p>Loading quest information...</p>
-            </div>
-            <h4>Objectives</h4>
-            <div id="questObjectives" class="quest-tracker">
-                <!-- Objectives will be populated -->
-            </div>
-            <h4>Available Actions</h4>
-            <div id="availableActions" class="available-actions">
-                <!-- Actions will be populated -->
-            </div>
-        </div>
-
-        <div class="info-content" data-content="character">
-            <h3>{{ character.name }}</h3>
-            <div id="characterStats">
-                <div class="character-stat">
-                    <span class="stat-label">Species:</span>
-                    <span class="stat-value">{{ character.species.name }}</span>
-                </div>
-                <div class="character-stat">
-                    <span class="stat-label">Bloom's Level:</span>
-                    <span class="stat-value" id="bloomLevel">Understand</span>
-                </div>
-                <div class="character-stat">
-                    <span class="stat-label">Experience:</span>
-                    <span class="stat-value" id="experiencePoints">0 XP</span>
+        <!-- Right Drawer (Party/Progress) -->
+        <div class="drawer drawer-right" id="rightDrawer">
+            <div class="drawer-header">
+                <h3>Party & Progress</h3>
+                <div class="drawer-controls">
+                    <button class="drawer-btn" onclick="toggleRightDrawerAnchor()" title="Anchor drawer">
+                        📌
+                    </button>
+                    <button class="drawer-btn" onclick="toggleRightDrawer()">
+                        ✕
+                    </button>
                 </div>
             </div>
-            <h4>Inventory</h4>
-            <div id="inventory">
-                <p>Empty</p>
+            <div class="drawer-content">
+                <!-- Team Chat Component -->
+                {% include 'game/components/team_chat.html' %}
+
+                <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+                <!-- Progress Dashboard Component -->
+                {% include 'game/components/progress_dashboard.html' %}
             </div>
         </div>
 
-        <div class="info-content" data-content="party">
-            <!-- Team Chat Component -->
-            {% include 'game/components/team_chat.html' %}
-        </div>
+        <!-- Tile-Based Grid -->
+        <div class="game-grid" id="gameGrid">
+            <!-- Main Chat Tile -->
+            <div class="grid-tile tile-chat">
+                <div class="chat-panel">
+                    <div class="chat-header">
+                        <span>👤 Game Master's Narration</span>
+                        <div class="tts-controls">
+                            <button class="tts-button" id="autoPlayToggle" onclick="toggleAutoPlay()" title="Auto-play narration">
+                                🔇 Auto-Play
+                            </button>
+                            <button class="tts-button" onclick="openSettingsModal()" title="TTS/STT Settings">
+                                ⚙️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="chat-message message-dm">
+                            <div class="message-sender">👤 Game Master</div>
+                            <div class="message-content">
+                                Welcome, adventurer! Connecting to the game world...
+                            </div>
+                        </div>
+                    </div>
+                    <div id="typingIndicator" class="typing-indicator" style="display: none;">
+                        Someone is typing...
+                    </div>
+                    <div class="chat-input-container">
+                        <textarea id="playerInput" class="chat-input" rows="3" placeholder="What do you do?" disabled></textarea>
+                        <div class="input-controls">
+                            <button id="micButton" class="mic-button" onclick="toggleMicrophone()" disabled title="Voice input">
+                                🎤
+                            </button>
+                            <button id="sendButton" class="send-button" disabled>Send Action</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <div class="info-content" data-content="progress">
-            <!-- Progress Dashboard Component -->
-            {% include 'game/components/progress_dashboard.html' %}
+            <!-- Info Panel Tile -->
+            <div class="grid-tile tile-info">
+                <div class="info-panel">
+                    <div class="info-tabs">
+                        <div class="info-tab active" data-tab="quest">Quest</div>
+                        <div class="info-tab" data-tab="actions">Actions</div>
+                    </div>
+
+                    <div class="info-content active" data-content="quest">
+                        <div id="questInfo">
+                            <p>Loading quest information...</p>
+                        </div>
+                        <h4>Objectives</h4>
+                        <div id="questObjectives" class="quest-tracker">
+                            <!-- Objectives will be populated -->
+                        </div>
+                    </div>
+
+                    <div class="info-content" data-content="actions">
+                        <h4>Available Actions</h4>
+                        <div id="availableActions" class="available-actions">
+                            <!-- Actions will be populated -->
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -745,9 +1165,9 @@
 
     let ws = null;
     let isConnected = false;
-    let isFirstSceneLoad = true; // Track if this is the first scene load
-    let streamingMessageDiv = null; // Track currently streaming message
-    let streamingContent = ""; // Accumulate streaming content
+    let isFirstSceneLoad = true;
+    let streamingMessageDiv = null;
+    let streamingContent = "";
 
     // TTS/STT Configuration
     let autoPlayEnabled = false;
@@ -758,16 +1178,127 @@
     let audioChunks = [];
     let isRecording = false;
 
+    // Drawer state
+    let leftDrawerOpen = false;
+    let rightDrawerOpen = false;
+    let leftDrawerAnchored = false;
+    let rightDrawerAnchored = false;
+
     // Make ws global for team chat component
     window.ws = ws;
+
+    // ===================================
+    // Drawer Functions
+    // ===================================
+    function toggleLeftDrawer() {
+        leftDrawerOpen = !leftDrawerOpen;
+        const drawer = document.getElementById('leftDrawer');
+        const toggle = document.getElementById('leftDrawerToggle');
+
+        if (leftDrawerOpen) {
+            drawer.classList.add('open');
+            toggle.classList.add('hidden');
+        } else {
+            drawer.classList.remove('open');
+            toggle.classList.remove('hidden');
+        }
+    }
+
+    function toggleRightDrawer() {
+        rightDrawerOpen = !rightDrawerOpen;
+        const drawer = document.getElementById('rightDrawer');
+        const toggle = document.getElementById('rightDrawerToggle');
+
+        if (rightDrawerOpen) {
+            drawer.classList.add('open');
+            toggle.classList.add('hidden');
+        } else {
+            drawer.classList.remove('open');
+            toggle.classList.remove('hidden');
+        }
+    }
+
+    function toggleLeftDrawerAnchor() {
+        leftDrawerAnchored = !leftDrawerAnchored;
+        const drawer = document.getElementById('leftDrawer');
+        const grid = document.getElementById('gameGrid');
+        const header = document.querySelector('.game-header');
+        const toggle = document.getElementById('leftDrawerToggle');
+
+        if (leftDrawerAnchored) {
+            drawer.classList.add('anchored');
+            drawer.classList.remove('open');
+            grid.classList.add('left-anchored');
+            header.classList.add('left-condensed');
+            toggle.style.display = 'none';
+            leftDrawerOpen = false;
+
+            if (rightDrawerAnchored) {
+                grid.classList.add('both-anchored');
+                header.classList.add('both-condensed');
+                header.classList.remove('left-condensed');
+            }
+        } else {
+            drawer.classList.remove('anchored');
+            grid.classList.remove('left-anchored');
+            grid.classList.remove('both-anchored');
+            header.classList.remove('left-condensed');
+            header.classList.remove('both-condensed');
+            toggle.style.display = 'block';
+            toggle.classList.remove('hidden');
+
+            if (rightDrawerAnchored) {
+                header.classList.add('right-condensed');
+            }
+        }
+    }
+
+    function toggleRightDrawerAnchor() {
+        rightDrawerAnchored = !rightDrawerAnchored;
+        const drawer = document.getElementById('rightDrawer');
+        const grid = document.getElementById('gameGrid');
+        const header = document.querySelector('.game-header');
+        const toggle = document.getElementById('rightDrawerToggle');
+
+        if (rightDrawerAnchored) {
+            drawer.classList.add('anchored');
+            drawer.classList.remove('open');
+            grid.classList.add('right-anchored');
+            header.classList.add('right-condensed');
+            toggle.style.display = 'none';
+            rightDrawerOpen = false;
+
+            if (leftDrawerAnchored) {
+                grid.classList.add('both-anchored');
+                header.classList.add('both-condensed');
+                header.classList.remove('right-condensed');
+            }
+        } else {
+            drawer.classList.remove('anchored');
+            grid.classList.remove('right-anchored');
+            grid.classList.remove('both-anchored');
+            header.classList.remove('right-condensed');
+            header.classList.remove('both-condensed');
+            toggle.style.display = 'block';
+            toggle.classList.remove('hidden');
+
+            if (leftDrawerAnchored) {
+                header.classList.add('left-condensed');
+            }
+        }
+    }
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         initializeTabs();
-        // Don't display raw campaign intro - wait for LLM narration
         connectWebSocket();
         setupEventListeners();
-        fetchSessionState(); // Fetch initial state
+        fetchSessionState();
+        loadSettings();
+
+        // Open and pin both drawers by default
+        toggleLeftDrawerAnchor();
+        toggleRightDrawerAnchor();
     });
 
     function initializeTabs() {
@@ -786,13 +1317,11 @@
         });
     }
 
-    // Removed displayCampaignIntro() - now waiting for LLM-generated narration from Game Master
-
     function connectWebSocket() {
         updateConnectionStatus('connecting');
 
         ws = new WebSocket(GAME_ENGINE_WS_URL);
-        window.ws = ws; // Make accessible to team chat component
+        window.ws = ws;
 
         ws.onopen = function() {
             isConnected = true;
@@ -813,21 +1342,17 @@
             isConnected = false;
             updateConnectionStatus('disconnected');
             disableInput();
-
-            // Attempt reconnection after 3 seconds
             setTimeout(connectWebSocket, 3000);
         };
     }
 
     function handleGameEvent(data) {
-
         switch(data.event) {
             case 'connected':
                 addSystemMessage('Connected to game session');
                 break;
 
             case 'chat_message':
-                // Route to team chat if it's a team chat message
                 if (data.message && data.message.channel && typeof handleIncomingChat === 'function') {
                     handleIncomingChat(data.message);
                 } else {
@@ -858,7 +1383,6 @@
 
             case 'player_joined_session':
                 addSystemMessage(`${data.character_name} joined the party`);
-                // Route to team chat
                 if (typeof handleIncomingChat === 'function') {
                     handleIncomingChat({
                         event: 'player_joined',
@@ -869,7 +1393,6 @@
 
             case 'player_left':
                 addSystemMessage(`A player left the session`);
-                // Route to team chat
                 if (typeof handleIncomingChat === 'function') {
                     handleIncomingChat({
                         event: 'player_left',
@@ -898,23 +1421,18 @@
 
         if (!action || !isConnected) return;
 
-        // Send action to game engine
         ws.send(JSON.stringify({
             event: 'player_action',
             content: action
         }));
 
-        // Clear input
         input.value = '';
-
-        // Disable input while processing
         disableInput();
     }
 
     function handleSceneChunk(data) {
         const chatMessages = document.getElementById('chatMessages');
 
-        // If this is the first chunk, create the message container
         if (!streamingMessageDiv) {
             streamingContent = "";
             streamingMessageDiv = document.createElement('div');
@@ -927,45 +1445,34 @@
             chatMessages.appendChild(streamingMessageDiv);
         }
 
-        // If this is the completion marker
         if (data.is_complete) {
-            // Finalize the streaming message
             if (streamingMessageDiv) {
                 const contentDiv = streamingMessageDiv.querySelector('.message-content');
                 contentDiv.innerHTML = formatMessageContent(streamingContent);
 
-                // Add TTS button to the completed streaming message
                 const plainText = contentDiv.innerText || contentDiv.textContent;
                 addTTSButtonToMessage(streamingMessageDiv, plainText);
 
-                // Auto-play if enabled (skip if text is too long to avoid timeouts)
-                // Limit to 3000 chars to avoid 60s timeout with chunked generation
                 if (autoPlayEnabled && !isFirstSceneLoad && plainText.length < 3000) {
                     setTimeout(() => {
                         playTextToSpeech(plainText, streamingMessageDiv);
                     }, 500);
                 } else if (autoPlayEnabled && plainText.length >= 3000) {
-                    console.log('Skipping auto-play: text too long (' + plainText.length + ' chars). Use Listen button for long narrations.');
+                    console.log('Skipping auto-play: text too long (' + plainText.length + ' chars)');
                 }
 
-                // After first scene is loaded, allow auto-scrolling for future messages
                 isFirstSceneLoad = false;
             }
 
-            // Reset streaming state
             streamingMessageDiv = null;
             streamingContent = "";
             return;
         }
 
-        // Accumulate the chunk
         streamingContent += data.chunk;
-
-        // Update the streaming content display with formatted markdown
         const contentDiv = streamingMessageDiv.querySelector('.message-content');
         contentDiv.innerHTML = formatMessageContent(streamingContent);
 
-        // Auto-scroll during streaming (but not on first scene load)
         if (!isFirstSceneLoad) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -976,7 +1483,6 @@
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
 
-        // Determine message type styling
         let messageClass = 'message-dm';
         let senderIcon = '👤';
 
@@ -997,7 +1503,6 @@
 
         messageDiv.classList.add(messageClass);
 
-        // Format content with markdown support
         const formattedContent = formatMessageContent(message.content);
 
         messageDiv.innerHTML = `
@@ -1008,7 +1513,6 @@
 
         chatMessages.appendChild(messageDiv);
 
-        // Only auto-scroll if this is not the first scene load
         if (!isFirstSceneLoad) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
@@ -1025,14 +1529,12 @@
         `;
         chatMessages.appendChild(messageDiv);
 
-        // Only auto-scroll if this is not the first scene load
         if (!isFirstSceneLoad) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
     }
 
     function updateScene(data) {
-        // Update scene description
         if (data.scene_description) {
             addChatMessage({
                 message_type: 'DM_NARRATIVE',
@@ -1041,23 +1543,19 @@
                 timestamp: data.timestamp
             });
 
-            // After first scene is loaded, allow auto-scrolling for future messages
             isFirstSceneLoad = false;
         }
 
-        // Update available actions
         if (data.available_actions) {
             updateAvailableActions(data.available_actions);
         }
 
-        // Update available NPCs
         if (data.available_npcs) {
             updateNPCList(data.available_npcs);
         }
     }
 
     function updateQuestInfo(questId, questTitle, questDescription, questObjectives) {
-        // ONLY use real campaign quest data - no defaults, no generation
         if ((!questTitle || questTitle === '' || questTitle === null || questTitle === undefined)) {
             if (CAMPAIGN_FIRST_QUEST) {
                 questTitle = CAMPAIGN_FIRST_QUEST.title;
@@ -1070,7 +1568,6 @@
             }
         }
 
-        // Update header quest display
         const questElement = document.getElementById('currentQuest');
         if (questTitle) {
             questElement.textContent = questTitle;
@@ -1080,7 +1577,6 @@
             questElement.textContent = 'Free Exploration';
         }
 
-        // Update sidebar quest info section
         const questInfoDiv = document.getElementById('questInfo');
         if (questTitle || questDescription) {
             let questInfoHTML = '<div style="padding: 1rem; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">';
@@ -1096,11 +1592,9 @@
             questInfoHTML += '</div>';
             questInfoDiv.innerHTML = questInfoHTML;
 
-            // Update objectives if provided
             if (questObjectives && questObjectives.length > 0) {
                 updateQuestObjectives(questObjectives);
             } else {
-                // Show default message if no objectives
                 document.getElementById('questObjectives').innerHTML = '<p style="color: #a0aec0; font-size: 0.9rem;">No specific objectives yet. Explore freely!</p>';
             }
         } else {
@@ -1155,7 +1649,6 @@
             enableInput();
         }
 
-        // Update quest info if available
         if (data.current_quest_id || data.quest_id) {
             updateQuestInfo(
                 data.current_quest_id || data.quest_id,
@@ -1165,11 +1658,9 @@
             );
         }
 
-        // Update location if available
         if (data.current_scene_id || data.current_location || data.location_name) {
             let locationName = data.location_name || data.current_location;
 
-            // Format scene_id to be more user-friendly
             if (!locationName && data.current_scene_id) {
                 if (data.current_scene_id === 'starting_location') {
                     locationName = 'Starting Area';
@@ -1183,12 +1674,10 @@
             document.getElementById('currentLocation').textContent = locationName || 'Exploring';
         }
 
-        // Update bloom level if available
         if (data.blooms_level) {
             document.getElementById('headerBloomLevel').textContent = data.blooms_level.charAt(0).toUpperCase() + data.blooms_level.slice(1);
         }
 
-        // Update party size if available
         if (data.party_members) {
             const partySize = Array.isArray(data.party_members) ? data.party_members.length : 1;
             document.getElementById('partySize').textContent = partySize === 1 ? '1 Hero' : `${partySize} Heroes`;
@@ -1201,7 +1690,6 @@
             if (response.ok) {
                 const state = await response.json();
 
-                // Update quest info
                 if (state.current_quest_id) {
                     updateQuestInfo(
                         state.current_quest_id,
@@ -1211,16 +1699,13 @@
                     );
                 }
 
-                // Update location
                 if (state.current_scene_id || state.current_location || state.location_name) {
                     let locationName = state.location_name || state.current_location;
 
-                    // Format scene_id to be more user-friendly
                     if (!locationName && state.current_scene_id) {
                         if (state.current_scene_id === 'starting_location') {
                             locationName = 'Starting Area';
                         } else {
-                            // Convert snake_case or other formats to Title Case
                             locationName = state.current_scene_id
                                 .replace(/_/g, ' ')
                                 .replace(/\b\w/g, c => c.toUpperCase());
@@ -1230,33 +1715,40 @@
                     document.getElementById('currentLocation').textContent = locationName || 'Exploring';
                 }
 
-                // Update bloom level
                 if (state.blooms_level) {
                     document.getElementById('headerBloomLevel').textContent = state.blooms_level.charAt(0).toUpperCase() + state.blooms_level.slice(1);
                 }
 
-                // Update party size
                 if (state.party_members) {
                     const partySize = Array.isArray(state.party_members) ? state.party_members.length : 1;
                     document.getElementById('partySize').textContent = partySize === 1 ? '1 Hero' : `${partySize} Heroes`;
                 }
 
-                // Update scene if available
+                // Only add scene description if we have one
+                // Don't clear initial welcome message
                 if (state.scene_description) {
+                    // Clear the welcome message first
+                    const chatMessages = document.getElementById('chatMessages');
+                    const welcomeMsg = chatMessages.querySelector('.chat-message');
+                    if (welcomeMsg && welcomeMsg.textContent.includes('Welcome, adventurer')) {
+                        chatMessages.innerHTML = '';
+                    }
+
                     addChatMessage({
                         message_type: 'DM_NARRATIVE',
                         sender_name: 'Game Master',
                         content: state.scene_description,
                         timestamp: new Date().toISOString()
                     });
+
+                    // Mark that we've loaded the first scene
+                    isFirstSceneLoad = false;
                 }
 
-                // Update available actions
                 if (state.available_actions && state.available_actions.length > 0) {
                     updateAvailableActions(state.available_actions);
                 }
 
-                // Enable input if awaiting
                 if (state.awaiting_player_input) {
                     enableInput();
                 }
@@ -1281,7 +1773,6 @@
             timestamp: event.triggered_at
         });
 
-        // Show choices if available
         if (event.choices && event.choices.length > 0) {
             const actionsDiv = document.getElementById('availableActions');
             event.choices.forEach(choice => {
@@ -1323,6 +1814,7 @@
     function enableInput() {
         document.getElementById('playerInput').disabled = false;
         document.getElementById('sendButton').disabled = false;
+        document.getElementById('micButton').disabled = false;
     }
 
     function disableInput() {
@@ -1361,33 +1853,17 @@
     }
 
     function formatMessageContent(text) {
-        // Simple markdown parser for Game Master narration
         let html = text;
 
-        // Convert headers (# Header) to bold headers with spacing
         html = html.replace(/^# (.+)$/gm, '<h2 style="font-size: 1.4rem; font-weight: bold; margin: 1.5rem 0 1rem 0; color: #2d3748;">$1</h2>');
         html = html.replace(/^## (.+)$/gm, '<h3 style="font-size: 1.2rem; font-weight: bold; margin: 1.25rem 0 0.75rem 0; color: #4a5568;">$1</h3>');
         html = html.replace(/^### (.+)$/gm, '<h4 style="font-size: 1.1rem; font-weight: bold; margin: 1rem 0 0.5rem 0; color: #4a5568;">$1</h4>');
-
-        // Convert bold text (**text**)
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-        // Convert bullet points (• or - at start of line)
         html = html.replace(/^[•\-] (.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 0.25rem;">$1</li>');
-
-        // Wrap consecutive <li> in <ul>
         html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul style="margin: 0.5rem 0; padding-left: 0; list-style-position: inside;">$&</ul>');
-
-        // Convert double line breaks to paragraph breaks
         html = html.replace(/\n\n/g, '</p><p style="margin-bottom: 1rem; line-height: 1.6;">');
-
-        // Convert single line breaks to <br> within paragraphs
         html = html.replace(/\n/g, '<br>');
-
-        // Wrap in paragraph tags
         html = '<p style="margin-bottom: 1rem; line-height: 1.6;">' + html + '</p>';
-
-        // Clean up empty paragraphs
         html = html.replace(/<p[^>]*><\/p>/g, '');
 
         return html;
@@ -1417,13 +1893,11 @@
 
     async function playTextToSpeech(text, messageElement) {
         try {
-            // Stop any currently playing audio
             if (currentAudio) {
                 currentAudio.pause();
                 currentAudio = null;
             }
 
-            // Update button to show loading state
             let button = null;
             if (messageElement) {
                 button = messageElement.querySelector('.message-tts-button');
@@ -1434,13 +1908,11 @@
                 }
             }
 
-            // Generate TTS audio using POST with URLSearchParams
             const params = new URLSearchParams({
                 text: text,
                 voice_type: voiceType
             });
 
-            // Add timeout to the fetch request (60 seconds for very long texts)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000);
 
@@ -1464,13 +1936,11 @@
                 return;
             }
 
-            // Create audio element
             const audioBlob = await response.blob();
             const audioUrl = URL.createObjectURL(audioBlob);
             currentAudio = new Audio(audioUrl);
             currentAudio.playbackRate = playbackSpeed;
 
-            // Update UI to playing state
             if (button) {
                 button.disabled = false;
                 button.classList.remove('loading');
@@ -1478,10 +1948,8 @@
                 button.textContent = '⏸️ Stop';
             }
 
-            // Play audio
             await currentAudio.play();
 
-            // Cleanup when done
             currentAudio.onended = () => {
                 URL.revokeObjectURL(audioUrl);
                 currentAudio = null;
@@ -1491,7 +1959,6 @@
                 }
             };
 
-            // Cleanup on error
             currentAudio.onerror = () => {
                 URL.revokeObjectURL(audioUrl);
                 currentAudio = null;
@@ -1507,7 +1974,6 @@
         } catch (error) {
             console.error('Error playing TTS:', error);
 
-            // Handle timeout specifically
             if (error.name === 'AbortError') {
                 console.error('TTS request timed out');
                 if (messageElement) {
@@ -1522,7 +1988,6 @@
                     }
                 }
             } else {
-                // Generic error handling
                 if (messageElement) {
                     const button = messageElement.querySelector('.message-tts-button');
                     if (button) {
@@ -1552,7 +2017,6 @@
                 this.classList.remove('playing');
                 this.textContent = '🔊 Listen';
             } else {
-                // Remove formatting tags for cleaner TTS
                 const plainText = contentDiv.innerText || contentDiv.textContent;
                 playTextToSpeech(plainText, messageDiv);
             }
@@ -1591,14 +2055,12 @@
                 const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
                 await transcribeAudio(audioBlob);
 
-                // Stop all tracks
                 stream.getTracks().forEach(track => track.stop());
             };
 
             mediaRecorder.start();
             isRecording = true;
 
-            // Update UI
             const micButton = document.getElementById('micButton');
             micButton.classList.add('recording');
             micButton.textContent = '⏹️';
@@ -1614,7 +2076,6 @@
             mediaRecorder.stop();
             isRecording = false;
 
-            // Update UI
             const micButton = document.getElementById('micButton');
             micButton.classList.remove('recording');
             micButton.textContent = '🎤';
@@ -1640,7 +2101,6 @@
             const result = await response.json();
 
             if (result.success && result.text) {
-                // Fill the text area with transcribed text
                 document.getElementById('playerInput').value = result.text;
                 console.log('Transcribed:', result.text);
             }
@@ -1658,7 +2118,6 @@
     function openSettingsModal() {
         const modal = document.getElementById('settingsModal');
 
-        // Load current settings
         document.getElementById('voiceTypeSelect').value = voiceType;
         document.getElementById('playbackSpeedRange').value = playbackSpeed;
         document.getElementById('speedValue').textContent = playbackSpeed + 'x';
@@ -1673,12 +2132,10 @@
     }
 
     function saveSettings() {
-        // Save settings
         voiceType = document.getElementById('voiceTypeSelect').value;
         playbackSpeed = parseFloat(document.getElementById('playbackSpeedRange').value);
         autoPlayEnabled = document.getElementById('autoPlayCheckbox').checked;
 
-        // Update auto-play button
         const button = document.getElementById('autoPlayToggle');
         if (autoPlayEnabled) {
             button.textContent = '🔊 Auto-Play';
@@ -1688,7 +2145,6 @@
             button.classList.remove('playing');
         }
 
-        // Save to localStorage
         localStorage.setItem('tts_voice_type', voiceType);
         localStorage.setItem('tts_playback_speed', playbackSpeed);
         localStorage.setItem('tts_autoplay', autoPlayEnabled);
@@ -1701,7 +2157,6 @@
     }
 
     function loadSettings() {
-        // Load settings from localStorage
         const savedVoiceType = localStorage.getItem('tts_voice_type');
         const savedSpeed = localStorage.getItem('tts_playback_speed');
         const savedAutoPlay = localStorage.getItem('tts_autoplay');
@@ -1710,18 +2165,12 @@
         if (savedSpeed) playbackSpeed = parseFloat(savedSpeed);
         if (savedAutoPlay) autoPlayEnabled = savedAutoPlay === 'true';
 
-        // Update auto-play button
         const button = document.getElementById('autoPlayToggle');
         if (autoPlayEnabled) {
             button.textContent = '🔊 Auto-Play';
             button.classList.add('playing');
         }
     }
-
-    // Initialize settings on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        loadSettings();
-    });
 
     // ============================================
     // Enhanced addChatMessage to support TTS
@@ -1731,7 +2180,6 @@
     addChatMessage = function(message) {
         originalAddChatMessage(message);
 
-        // Add TTS button to DM narration messages
         if (message.message_type === 'DM_NARRATIVE') {
             const chatMessages = document.getElementById('chatMessages');
             const lastMessage = chatMessages.lastElementChild;
@@ -1742,7 +2190,6 @@
                     const plainText = contentDiv.innerText || contentDiv.textContent;
                     addTTSButtonToMessage(lastMessage, plainText);
 
-                    // Auto-play if enabled (skip if text is too long to avoid timeouts)
                     if (autoPlayEnabled && !isFirstSceneLoad && plainText.length < 5000) {
                         setTimeout(() => {
                             playTextToSpeech(plainText, lastMessage);
@@ -1753,13 +2200,6 @@
                 }
             }
         }
-    };
-
-    // Enable mic button when connected
-    const originalEnableInput = enableInput;
-    enableInput = function() {
-        originalEnableInput();
-        document.getElementById('micButton').disabled = false;
     };
 </script>
 {% endblock %}
