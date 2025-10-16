@@ -1714,6 +1714,13 @@
     let currentImageCategory = 'world';
     let currentImageIndex = 0;
 
+    // Helper function to clean image titles
+    function cleanImageTitle(title) {
+        if (!title) return title;
+        // Remove "- Image 1" from the title
+        return title.replace(/\s*-\s*Image\s+1\s*$/i, '');
+    }
+
     // SVG Placeholder Generator
     function generatePlaceholderImage(category) {
         const icons = {
@@ -1836,11 +1843,12 @@
         console.log('Current image:', currentImage);
 
         // Update main image
+        const cleanTitle = cleanImageTitle(currentImage.title);
         document.getElementById('carouselImage').src = currentImage.url;
-        document.getElementById('carouselImage').alt = currentImage.title;
+        document.getElementById('carouselImage').alt = cleanTitle;
 
         // Update title and counter
-        document.getElementById('carouselTitle').textContent = currentImage.title;
+        document.getElementById('carouselTitle').textContent = cleanTitle;
         document.getElementById('carouselCounter').textContent = `${currentImageIndex + 1} / ${images.length}`;
 
         // Update navigation buttons
@@ -1861,7 +1869,7 @@
         images.forEach((image, index) => {
             const thumb = document.createElement('img');
             thumb.src = image.url;
-            thumb.alt = image.title;
+            thumb.alt = cleanImageTitle(image.title);
             thumb.className = 'carousel-thumbnail';
             if (index === currentImageIndex) {
                 thumb.classList.add('active');
@@ -1903,9 +1911,10 @@
         const lightboxImage = document.getElementById('lightboxImage');
         const lightboxTitle = document.getElementById('lightboxTitle');
 
+        const cleanTitle = cleanImageTitle(currentImage.title);
         lightboxImage.src = currentImage.url;
-        lightboxImage.alt = currentImage.title;
-        lightboxTitle.textContent = currentImage.title;
+        lightboxImage.alt = cleanTitle;
+        lightboxTitle.textContent = cleanTitle;
 
         lightbox.classList.add('active');
 
