@@ -520,6 +520,9 @@
 
     let ws = null;
     let isConnected = false;
+    let isFirstSceneLoad = true; // Track if this is the first scene load
+    let streamingMessageDiv = null; // Track currently streaming message
+    let streamingContent = ""; // Accumulate streaming content
 
     // Make ws global for team chat component
     window.ws = ws;
@@ -527,7 +530,7 @@
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
         initializeTabs();
-        displayCampaignIntro(); // Display backstory/storyline first
+        // Don't display raw campaign intro - wait for LLM narration
         connectWebSocket();
         setupEventListeners();
         fetchSessionState(); // Fetch initial state
@@ -549,59 +552,7 @@
         });
     }
 
-    function displayCampaignIntro() {
-        if (!CAMPAIGN_INTRO) {
-            return;
-        }
-
-        const chatMessages = document.getElementById('chatMessages');
-        if (!chatMessages) {
-            return;
-        }
-
-        // Build intro message content
-        let introContent = '';
-
-        if (CAMPAIGN_INTRO.backstory && CAMPAIGN_INTRO.backstory.trim()) {
-            introContent += `<strong>📖 Campaign Backstory</strong><br><br>${escapeHtml(CAMPAIGN_INTRO.backstory)}<br><br>`;
-        }
-
-        if (CAMPAIGN_INTRO.storyline && CAMPAIGN_INTRO.storyline.trim()) {
-            introContent += `<strong>📜 Storyline</strong><br><br>${escapeHtml(CAMPAIGN_INTRO.storyline)}`;
-        }
-
-        // If no backstory or storyline, fall back to description
-        if (!introContent && CAMPAIGN_INTRO.description && CAMPAIGN_INTRO.description.trim()) {
-            introContent = escapeHtml(CAMPAIGN_INTRO.description);
-        }
-
-        // Add campaign objectives if available
-        if (CAMPAIGN_FIRST_QUEST && CAMPAIGN_FIRST_QUEST.objectives && CAMPAIGN_FIRST_QUEST.objectives.length > 0) {
-            introContent += `<br><br><strong>🎯 Campaign Objectives</strong><br><br>`;
-            introContent += '<ol style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">';
-            CAMPAIGN_FIRST_QUEST.objectives.forEach(objective => {
-                const objText = typeof objective === 'string' ? objective : objective.description;
-                introContent += `<li style="margin-bottom: 0.5rem;">${escapeHtml(objText)}</li>`;
-            });
-            introContent += '</ol>';
-        }
-
-        // Only display if we have content
-        if (introContent) {
-            // Clear the initial welcome message
-            chatMessages.innerHTML = '';
-
-            // Add campaign intro message
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'chat-message message-dm';
-            messageDiv.innerHTML = `
-                <div class="message-sender">👤 Game Master</div>
-                <div class="message-content" style="white-space: pre-wrap;">${introContent}</div>
-            `;
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    }
+    // Removed displayCampaignIntro() - now waiting for LLM-generated narration from Game Master
 
     function connectWebSocket() {
         updateConnectionStatus('connecting');
@@ -648,6 +599,10 @@
                 } else {
                     addChatMessage(data.message);
                 }
+                break;
+
+            case 'scene_chunk':
+                handleSceneChunk(data);
                 break;
 
             case 'scene_update':
@@ -722,6 +677,52 @@
         disableInput();
     }
 
+    function handleSceneChunk(data) {
+        const chatMessages = document.getElementById('chatMessages');
+
+        // If this is the first chunk, create the message container
+        if (!streamingMessageDiv) {
+            streamingContent = "";
+            streamingMessageDiv = document.createElement('div');
+            streamingMessageDiv.className = 'chat-message message-dm';
+            streamingMessageDiv.innerHTML = `
+                <div class="message-sender">👤 Game Master</div>
+                <div class="message-content" id="streamingContent"></div>
+                <div class="message-time">${formatTime(new Date().toISOString())}</div>
+            `;
+            chatMessages.appendChild(streamingMessageDiv);
+        }
+
+        // If this is the completion marker
+        if (data.is_complete) {
+            // Finalize the streaming message
+            if (streamingMessageDiv) {
+                const contentDiv = streamingMessageDiv.querySelector('.message-content');
+                contentDiv.innerHTML = formatMessageContent(streamingContent);
+
+                // After first scene is loaded, allow auto-scrolling for future messages
+                isFirstSceneLoad = false;
+            }
+
+            // Reset streaming state
+            streamingMessageDiv = null;
+            streamingContent = "";
+            return;
+        }
+
+        // Accumulate the chunk
+        streamingContent += data.chunk;
+
+        // Update the streaming content display with formatted markdown
+        const contentDiv = streamingMessageDiv.querySelector('.message-content');
+        contentDiv.innerHTML = formatMessageContent(streamingContent);
+
+        // Auto-scroll during streaming (but not on first scene load)
+        if (!isFirstSceneLoad) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
     function addChatMessage(message) {
         const chatMessages = document.getElementById('chatMessages');
         const messageDiv = document.createElement('div');
@@ -747,14 +748,22 @@
         }
 
         messageDiv.classList.add(messageClass);
+
+        // Format content with markdown support
+        const formattedContent = formatMessageContent(message.content);
+
         messageDiv.innerHTML = `
             <div class="message-sender">${senderIcon} ${message.sender_name}</div>
-            <div class="message-content">${escapeHtml(message.content)}</div>
+            <div class="message-content">${formattedContent}</div>
             <div class="message-time">${formatTime(message.timestamp)}</div>
         `;
 
         chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Only auto-scroll if this is not the first scene load
+        if (!isFirstSceneLoad) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     function addSystemMessage(text) {
@@ -767,7 +776,11 @@
             </div>
         `;
         chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Only auto-scroll if this is not the first scene load
+        if (!isFirstSceneLoad) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
 
     function updateScene(data) {
@@ -779,6 +792,9 @@
                 content: data.scene_description,
                 timestamp: data.timestamp
             });
+
+            // After first scene is loaded, allow auto-scrolling for future messages
+            isFirstSceneLoad = false;
         }
 
         // Update available actions
@@ -1094,6 +1110,39 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function formatMessageContent(text) {
+        // Simple markdown parser for Game Master narration
+        let html = text;
+
+        // Convert headers (# Header) to bold headers with spacing
+        html = html.replace(/^# (.+)$/gm, '<h2 style="font-size: 1.4rem; font-weight: bold; margin: 1.5rem 0 1rem 0; color: #2d3748;">$1</h2>');
+        html = html.replace(/^## (.+)$/gm, '<h3 style="font-size: 1.2rem; font-weight: bold; margin: 1.25rem 0 0.75rem 0; color: #4a5568;">$1</h3>');
+        html = html.replace(/^### (.+)$/gm, '<h4 style="font-size: 1.1rem; font-weight: bold; margin: 1rem 0 0.5rem 0; color: #4a5568;">$1</h4>');
+
+        // Convert bold text (**text**)
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // Convert bullet points (• or - at start of line)
+        html = html.replace(/^[•\-] (.+)$/gm, '<li style="margin-left: 1.5rem; margin-bottom: 0.25rem;">$1</li>');
+
+        // Wrap consecutive <li> in <ul>
+        html = html.replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul style="margin: 0.5rem 0; padding-left: 0; list-style-position: inside;">$&</ul>');
+
+        // Convert double line breaks to paragraph breaks
+        html = html.replace(/\n\n/g, '</p><p style="margin-bottom: 1rem; line-height: 1.6;">');
+
+        // Convert single line breaks to <br> within paragraphs
+        html = html.replace(/\n/g, '<br>');
+
+        // Wrap in paragraph tags
+        html = '<p style="margin-bottom: 1rem; line-height: 1.6;">' + html + '</p>';
+
+        // Clean up empty paragraphs
+        html = html.replace(/<p[^>]*><\/p>/g, '');
+
+        return html;
     }
 
     function formatTime(timestamp) {

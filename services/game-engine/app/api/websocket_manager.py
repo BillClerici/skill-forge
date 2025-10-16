@@ -276,6 +276,11 @@ class ConnectionManager:
                 state["awaiting_player_input"] = False
                 state["current_node"] = "interpret_action"
 
+                # Clear scene_just_generated flag if it's set
+                # This prevents the scene from being rebroadcast after actions like questions
+                if state.get("scene_just_generated"):
+                    state["scene_just_generated"] = False
+
                 # Save updated state
                 await redis_manager.save_state(session_id, state)
 
@@ -381,8 +386,11 @@ class ConnectionManager:
                         }
                     )
 
-            # Send scene update if available
-            if state.get("scene_description"):
+            # Send scene update only if scene was just generated
+            # Check if the last action was a scene generation by looking at current_node
+            # Scene updates should only be sent after generate_scene node
+            # DON'T send scene_update for questions, acknowledgments, or other non-scene-changing actions
+            if state.get("scene_description") and state.get("scene_just_generated", False):
                 await self.broadcast_to_session(
                     session_id,
                     {

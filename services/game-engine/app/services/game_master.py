@@ -42,16 +42,18 @@ class GameMasterAgent:
 
     async def generate_scene_description(
         self,
-        state: GameSessionState
+        state: GameSessionState,
+        stream_callback=None
     ) -> str:
         """
         Generate immersive scene description for current location
 
         Args:
             state: Current game session state
+            stream_callback: Optional async callback to receive text chunks as they're generated
 
         Returns:
-            Scene description text
+            Complete scene description text
         """
         try:
             logger.info(
@@ -63,11 +65,10 @@ class GameMasterAgent:
             # Check if this is the first scene (beginning of the adventure)
             is_first_scene = len(state.get("action_history", [])) == 0
 
-            # Get scene data from MCP
-            scene_data = await mcp_client.get_location(
-                state.get("current_place_id", ""),
-                state["current_scene_id"]
-            )
+            # Get scene data from MongoDB (not MCP)
+            from .mongo_persistence import mongo_persistence
+
+            scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
 
             if not scene_data:
                 logger.error("scene_data_not_found", scene_id=state["current_scene_id"])
@@ -94,7 +95,17 @@ class GameMasterAgent:
                 # Build introduction prompt with campaign and quest context
                 prompt = ChatPromptTemplate.from_messages([
                     ("system", self._get_gm_system_prompt(state)),
-                    ("user", """This is the beginning of a new adventure! Generate a comprehensive introduction that:
+                    ("user", """This is the beginning of a new adventure! Generate a comprehensive introduction with the following structure:
+
+FIRST - GAME MASTER INTRODUCTION:
+Greet the player warmly and introduce yourself as the Game Master. Explain:
+- Your role as their guide and storyteller throughout this adventure
+- That you will narrate the world, control NPCs, and adjudicate their actions
+- How they should interact: describe what they want to do in natural language, ask questions, talk to NPCs
+- That this is an educational RPG designed to help them grow and learn through gameplay
+- Encourage them to be creative and immersive in their roleplay
+
+THEN - CAMPAIGN AND QUEST:
 
 CAMPAIGN BACKGROUND:
 Name: {campaign_name}
@@ -115,7 +126,7 @@ Description: {scene_description}
 NPCs Present: {npcs_present}
 Time of Day: {time_of_day}
 
-Generate a rich, engaging introduction that:
+After your introduction, generate a rich, engaging campaign/quest introduction that:
 1. Provides the campaign background story and sets the overall narrative context
 2. Explains the current quest and its backstory/importance
 3. Lists the quest objectives clearly
@@ -124,7 +135,14 @@ Generate a rich, engaging introduction that:
 6. Ends by asking if the player has any questions or is ready to begin
 7. Adapts language complexity to player's Bloom's level: {blooms_level}
 
-Use second person ("You find yourself..."). Be immersive and engaging, making the player excited to start their adventure.
+FORMATTING REQUIREMENTS:
+- Use markdown headers (##) for major section titles like "Welcome to Your Adventure", campaign name, and quest name
+- Use paragraph breaks for readability
+- Use bold (**text**) for emphasis on important terms
+- Use bullet points (-) for quest objectives
+- Write campaign/quest content in second person ("You find yourself...")
+- Be warm, welcoming, and engaging in the GM introduction (first person: "I am...")
+- Be immersive and exciting in the campaign narration
 
 Return ONLY the introduction text (no JSON, no additional commentary).""")
                 ])
@@ -141,22 +159,33 @@ Return ONLY the introduction text (no JSON, no additional commentary).""")
                             quest_objectives_list.append(f"- {obj}")
                 quest_objectives_str = "\n".join(quest_objectives_list) if quest_objectives_list else "- Begin your adventure"
 
-                response = await chain.ainvoke({
+                prompt_params = {
                     "campaign_name": campaign.get("name", "Unknown Campaign") if campaign else "Unknown Campaign",
                     "campaign_description": campaign.get("description", "") if campaign else "",
-                    "campaign_setting": campaign.get("setting", {}).get("description", "") if campaign else "",
+                    "campaign_setting": campaign.get("storyline", "") if campaign else "",
                     "quest_title": quest.get("name") or quest.get("title", "Quest") if quest else "Quest",
                     "quest_description": quest.get("description", "") if quest else "",
                     "quest_objectives": quest_objectives_str,
                     "scene_name": scene_data.get("name", "Unknown"),
-                    "scene_type": scene_data.get("location_type", "room"),
+                    "scene_type": scene_data.get("scene_type", "location"),
                     "scene_description": scene_data.get("description", ""),
                     "npcs_present": self._format_npc_list(state.get("available_npcs", [])),
                     "time_of_day": state.get("time_of_day", "morning"),
                     "blooms_level": cognitive_profile.get("current_bloom_tier", "Understand")
-                })
+                }
 
-                scene_description = response.content.strip()
+                # Use streaming if callback provided
+                if stream_callback:
+                    scene_description = ""
+                    async for chunk in chain.astream(prompt_params):
+                        if hasattr(chunk, 'content'):
+                            chunk_text = chunk.content
+                            scene_description += chunk_text
+                            await stream_callback(chunk_text)
+                    scene_description = scene_description.strip()
+                else:
+                    response = await chain.ainvoke(prompt_params)
+                    scene_description = response.content.strip()
 
                 logger.info(
                     "campaign_introduction_generated",
@@ -191,7 +220,7 @@ Return ONLY the scene description text (no JSON, no additional commentary).""")
 
                 # Invoke LLM
                 chain = prompt | self.llm
-                response = await chain.ainvoke({
+                prompt_params = {
                     "scene_name": scene_data.get("name", "Unknown"),
                     "scene_type": scene_data.get("location_type", "room"),
                     "scene_description": scene_data.get("description", ""),
@@ -199,9 +228,20 @@ Return ONLY the scene description text (no JSON, no additional commentary).""")
                     "time_of_day": state.get("time_of_day", "midday"),
                     "recent_actions": self._format_recent_actions(state.get("action_history", [])[-3:]),
                     "blooms_level": cognitive_profile.get("current_bloom_tier", "Understand")
-                })
+                }
 
-                scene_description = response.content.strip()
+                # Use streaming if callback provided
+                if stream_callback:
+                    scene_description = ""
+                    async for chunk in chain.astream(prompt_params):
+                        if hasattr(chunk, 'content'):
+                            chunk_text = chunk.content
+                            scene_description += chunk_text
+                            await stream_callback(chunk_text)
+                    scene_description = scene_description.strip()
+                else:
+                    response = await chain.ainvoke(prompt_params)
+                    scene_description = response.content.strip()
 
                 logger.info(
                     "scene_description_generated",
@@ -253,20 +293,52 @@ Return ONLY the scene description text (no JSON, no additional commentary).""")
 Convert player's natural language input into a structured game action.
 
 Available action types:
-- move_to_location: Player wants to go somewhere
-- talk_to_npc: Player wants to talk to an NPC
-- examine_object: Player wants to look at something closely
-- use_item: Player wants to use an item
-- attempt_challenge: Player wants to attempt a challenge/puzzle
+- player_ready: Player acknowledges they're ready to begin, understands, or is responding affirmatively to the GM (keywords: "ready", "yes", "ok", "I understand", "let's go", "I'm prepared", "understood", "no questions")
+- ask_gm_question: Player is asking the Game Master a question about the world, rules, quest, or story (keywords: "what", "how", "why", "who", "where", "when", "?")
+- move_to_location: Player wants to go somewhere (keywords: "go to", "move to", "walk to", "head to", "enter")
+- talk_to_npc: Player wants to talk to an NPC (keywords: "talk to", "speak with", "ask", "tell", "say to")
+- examine_object: Player wants to look at something closely or investigate the scene (keywords: "examine", "look at", "inspect", "search", "investigate")
+- use_item: Player wants to use an item from inventory (keywords: "use", "drink", "eat", "equip", "activate")
+- attempt_challenge: Player wants to attempt a challenge/puzzle (keywords: "attempt", "try", "solve")
+- perform_action: Player wants to perform a creative/freeform action that doesn't fit other categories (e.g., "climb the wall", "push the statue", "light the torch", "break down the door")
 
-Return JSON with this structure:
+IMPORTANT PRIORITY ORDER:
+1. If the player is indicating readiness or acknowledgment (ready, yes, ok, understood, let's begin, no questions), use "player_ready"
+2. If the player input is a question (contains ?, or starts with who/what/where/when/why/how), use "ask_gm_question"
+3. If the player wants to move to a location, use "move_to_location"
+4. If the player wants to talk to an NPC, use "talk_to_npc"
+5. If the player wants to examine something, use "examine_object"
+6. If the player wants to use an item, use "use_item"
+7. If the player wants to attempt a challenge, use "attempt_challenge"
+8. Otherwise, use "perform_action" for creative/freeform actions
+
+Return ONLY valid JSON with NO markdown formatting, NO code blocks, NO additional text.
+
+For player_ready:
 {{
-    "action_type": "talk_to_npc",
-    "target_id": "npc_dr_voss",
-    "parameters": {{"topic": "dampeners"}},
-    "success_probability": 0.85,
-    "player_input": "original input"
-}}"""),
+    "action_type": "player_ready",
+    "target_id": null,
+    "parameters": {{}},
+    "success_probability": 1.0
+}}
+
+For ask_gm_question:
+{{
+    "action_type": "ask_gm_question",
+    "target_id": null,
+    "parameters": {{"question": "the actual question text"}},
+    "success_probability": 1.0
+}}
+
+For perform_action:
+{{
+    "action_type": "perform_action",
+    "target_id": null,
+    "parameters": {{"action_description": "what the player is trying to do"}},
+    "success_probability": 0.5 to 1.0 (estimate based on difficulty)
+}}
+
+For other actions, follow similar structure with appropriate action_type and parameters."""),
                 ("user", """Player Input: "{player_input}"
 
 Current Scene: {scene_name}
@@ -288,8 +360,31 @@ What action is the player attempting?""")
                 "active_challenges": json.dumps([c.get("name") for c in state.get("active_challenges", [])])
             })
 
-            # Parse JSON response
-            action_data = json.loads(response.content.strip())
+            # Parse JSON response - handle markdown code blocks
+            response_text = response.content.strip()
+
+            # Log raw response for debugging
+            logger.debug(
+                "raw_action_interpreter_response",
+                session_id=state.get("session_id"),
+                response_preview=response_text[:200]
+            )
+
+            # Remove markdown code blocks if present
+            if response_text.startswith("```"):
+                # Extract JSON from code block
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1]) if len(lines) > 2 else response_text
+                response_text = response_text.replace("```json", "").replace("```", "").strip()
+
+            # Log cleaned response
+            logger.debug(
+                "cleaned_action_interpreter_response",
+                session_id=state.get("session_id"),
+                response_preview=response_text[:200]
+            )
+
+            action_data = json.loads(response_text)
 
             action: ActionInterpretation = {
                 "action_type": action_data.get("action_type", "examine_object"),
@@ -450,6 +545,223 @@ Respond as {npc_name}.""")
                 "rubric_id": "",
                 "performance_indicators": {}
             }
+
+    # ============================================
+    # Game Master Q&A
+    # ============================================
+
+    async def answer_player_question(
+        self,
+        question: str,
+        state: GameSessionState
+    ) -> str:
+        """
+        Answer player's question about the game world, quest, or story
+
+        Args:
+            question: Player's question
+            state: Current game session state
+
+        Returns:
+            Game Master's response
+        """
+        try:
+            logger.info(
+                "answering_player_question",
+                session_id=state["session_id"],
+                question_length=len(question)
+            )
+
+            # Get current context
+            from .mongo_persistence import mongo_persistence
+            campaign = await mongo_persistence.get_campaign(state.get("campaign_id", ""))
+            quest = await mongo_persistence.get_quest(state.get("current_quest_id", ""))
+            scene = await mongo_persistence.get_scene(state.get("current_scene_id", ""))
+
+            # Load World data
+            world = None
+            if campaign and campaign.get("world_id"):
+                world = await mongo_persistence.get_world(campaign["world_id"])
+
+            # Load sample regions from world (first 3)
+            regions_info = []
+            if world and world.get("regions"):
+                region_ids = world["regions"][:3]  # Load first 3 regions
+                for region_id in region_ids:
+                    region = await mongo_persistence.get_region(region_id)
+                    if region:
+                        regions_info.append(f"{region.get('region_name', 'Unknown')}: {region.get('description', 'No description')[:100]}")
+
+            # Load sample species from world (first 5)
+            species_info = []
+            if world and world.get("species"):
+                species_ids = world["species"][:5]  # Load first 5 species
+                for species_id in species_ids:
+                    species = await mongo_persistence.get_species(species_id)
+                    if species:
+                        species_info.append(f"{species.get('species_name', 'Unknown')}: {species.get('description', 'No description')[:100]}")
+
+            # Format world context
+            world_description = world.get("description", "") if world else ""
+            world_backstory = world.get("backstory", "")[:200] if world else ""
+
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", self._get_gm_system_prompt(state)),
+                ("user", """The player has asked you a question about the game. Answer it helpfully and in character as the Game Master.
+
+Player's Question: {question}
+
+Current Context:
+- World: {world_name}
+- World Description: {world_description}
+- World Backstory: {world_backstory}
+- Regions: {regions_info}
+- Species: {species_info}
+- Campaign: {campaign_name}
+- Quest: {quest_title}
+- Location: {scene_name}
+- Recent Actions: {recent_actions}
+
+IMPORTANT: Use ONLY the EXACT information provided above. Do NOT make up or hallucinate names, places, or details.
+
+Provide a clear, helpful answer that:
+1. Directly addresses their question
+2. Stays in character as the Game Master
+3. References the current world/campaign/quest context when relevant
+4. Uses ONLY the factual information provided above
+5. Encourages them to continue their adventure
+6. Is brief and to the point (2-3 sentences maximum unless more detail is needed)
+
+Return ONLY your answer (no JSON, no additional commentary).""")
+            ])
+
+            chain = prompt | self.llm
+            response = await chain.ainvoke({
+                "question": question,
+                "world_name": world.get("world_name", "Unknown World") if world else "Unknown World",
+                "world_description": world_description[:200] if world_description else "Unknown",
+                "world_backstory": world_backstory,
+                "regions_info": "\n- ".join(regions_info) if regions_info else "Information not available",
+                "species_info": "\n- ".join(species_info) if species_info else "Information not available",
+                "campaign_name": campaign.get("name", "Unknown Campaign") if campaign else "Unknown Campaign",
+                "quest_title": quest.get("name", "Current Quest") if quest else "Current Quest",
+                "scene_name": scene.get("name", "Current Location") if scene else "Current Location",
+                "recent_actions": self._format_recent_actions(state.get("action_history", [])[-3:])
+            })
+
+            answer = response.content.strip()
+
+            logger.info(
+                "player_question_answered",
+                session_id=state["session_id"],
+                answer_length=len(answer)
+            )
+
+            return answer
+
+        except Exception as e:
+            logger.error(
+                "question_answering_failed",
+                session_id=state.get("session_id"),
+                error=str(e)
+            )
+            return "I'm not sure how to answer that right now. Could you try rephrasing your question?"
+
+    # ============================================
+    # Generic Action Handling
+    # ============================================
+
+    async def generate_generic_action_outcome(
+        self,
+        action_description: str,
+        state: GameSessionState
+    ) -> str:
+        """
+        Generate narrative outcome for a freeform/creative player action
+
+        Args:
+            action_description: What the player is attempting to do
+            state: Current game session state
+
+        Returns:
+            Narrative description of the action's outcome
+        """
+        try:
+            logger.info(
+                "generating_generic_action_outcome",
+                session_id=state["session_id"],
+                action_length=len(action_description)
+            )
+
+            # Get current context
+            from .mongo_persistence import mongo_persistence
+            scene = await mongo_persistence.get_scene(state.get("current_scene_id", ""))
+
+            # Get player context
+            player = state["players"][0] if state["players"] else None
+            cognitive_profile = player["cognitive_profile"] if player else {}
+
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", self._get_gm_system_prompt(state)),
+                ("user", """The player is attempting a creative action. As the Game Master, narrate the outcome.
+
+Player's Action: {action_description}
+
+Current Scene Context:
+- Location: {scene_name}
+- Description: {scene_description}
+- NPCs Present: {npcs_present}
+- Available Items: {visible_items}
+- Active Events: {active_events}
+- Recent Actions: {recent_actions}
+
+Your task:
+1. Determine if the action is possible in this context
+2. If possible, determine the outcome (success, partial success, or interesting failure)
+3. Narrate the result vividly in second person
+4. Include sensory details and consequences
+5. Adapt language complexity to player's Bloom's level: {blooms_level}
+6. If the action reveals something new, describe it
+7. If the action changes the scene state, describe that change
+
+IMPORTANT:
+- Be creative and say "yes, and..." when possible
+- Even failures should be interesting and move the story forward
+- Consider physics, logic, and story consistency
+- Keep the narrative engaging and educational
+
+Return ONLY the narrative outcome (no JSON, no additional commentary).""")
+            ])
+
+            chain = prompt | self.llm
+            response = await chain.ainvoke({
+                "action_description": action_description,
+                "scene_name": scene.get("name", "Current Location") if scene else "Current Location",
+                "scene_description": scene.get("description", "")[:300] if scene else "",
+                "npcs_present": self._format_npc_list(state.get("available_npcs", [])),
+                "visible_items": ", ".join(state.get("visible_items", [])) or "None visible",
+                "active_events": ", ".join([e.get("name", "") for e in state.get("active_events", [])]) or "None",
+                "recent_actions": self._format_recent_actions(state.get("action_history", [])[-3:]),
+                "blooms_level": cognitive_profile.get("current_bloom_tier", "Understand")
+            })
+
+            outcome = response.content.strip()
+
+            logger.info(
+                "generic_action_outcome_generated",
+                session_id=state["session_id"],
+                outcome_length=len(outcome)
+            )
+
+            return outcome
+
+        except Exception as e:
+            logger.error(
+                "generic_action_outcome_failed",
+                session_id=state.get("session_id"),
+                error=str(e)
+            )
+            return f"You attempt to {action_description}, but the outcome is unclear. The Game Master will need to consider this further."
 
     # ============================================
     # Helper Methods

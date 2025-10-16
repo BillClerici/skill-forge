@@ -49,7 +49,8 @@ from campaigns.views import (
     CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView,
     CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
     CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
-    CampaignDeletionProgressView, CampaignDeletionStatusAPI
+    CampaignDeletionProgressView, CampaignDeletionStatusAPI,
+    QuestReorderPlacesView, PlaceReorderScenesView
 )
 from campaigns.views_gameplay import (
     GameLobbyView, StartGameSessionView, GameSessionView,
@@ -194,6 +195,10 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/set-primary-image/', QuestSetPrimaryImageView.as_view(), name='quest_set_primary_image'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/set-primary-image/', PlaceSetPrimaryImageView.as_view(), name='place_set_primary_image'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/scenes/<str:scene_id>/set-primary-image/', SceneSetPrimaryImageView.as_view(), name='scene_set_primary_image'),
+
+    # Campaign Reordering
+    path('campaigns/<str:campaign_id>/quests/<str:quest_id>/reorder-places/', QuestReorderPlacesView.as_view(), name='quest_reorder_places'),
+    path('campaigns/<str:campaign_id>/places/<str:place_id>/reorder-scenes/', PlaceReorderScenesView.as_view(), name='place_reorder_scenes'),
 
     # Campaign Wizard
     path('campaigns/wizard/', campaign_wizard_start, name='campaign_wizard_start'),

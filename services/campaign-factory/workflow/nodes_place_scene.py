@@ -86,7 +86,7 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
             # Process each planned place from the narrative blueprint
             quest_places: List[PlaceData] = []
-            for place_plan in planned_places:
+            for place_idx, place_plan in enumerate(planned_places):
                 place_name = place_plan.get("place_name", f"Place {len(quest_places) + 1}")
                 place_description = place_plan.get("place_description", "")
 
@@ -118,6 +118,7 @@ async def generate_places_node(state: CampaignWorkflowState) -> CampaignWorkflow
                     "level_2_location_id": new_location_id,
                     "level_2_location_name": place_name,
                     "parent_quest_id": quest.get("quest_id", ""),
+                    "order_sequence": place_idx + 1,  # Sequence from narrative blueprint order
                     "scenes": []  # Will be populated in scene generation
                 }
 
@@ -222,7 +223,7 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
 
             # Process each planned scene from the narrative blueprint
             place_scenes: List[SceneData] = []
-            for scene_plan in planned_scenes:
+            for scene_idx, scene_plan in enumerate(planned_scenes):
                 scene_name = scene_plan.get("scene_name", f"Scene {len(place_scenes) + 1}")
                 scene_description = scene_plan.get("scene_description", "")
 
@@ -260,7 +261,7 @@ async def generate_scenes_node(state: CampaignWorkflowState) -> CampaignWorkflow
                     "challenge_ids": [],  # Will be populated in challenge generation
                     "required_knowledge": [],  # May be set based on narrative flow
                     "required_items": [],  # May be set based on narrative flow
-                    "order_sequence": len(place_scenes) + 1
+                    "order_sequence": scene_idx + 1  # Sequence from narrative blueprint order
                 }
 
                 place_scenes.append(scene)

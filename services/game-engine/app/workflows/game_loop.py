@@ -36,6 +36,18 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
     Load campaign, set starting location, initialize player states
     """
     try:
+        # Check if session is already initialized (has scene_description)
+        # If so, skip initialization and go directly to the current node
+        if state.get("scene_description") and state.get("current_node") and state.get("current_node") != "generate_scene":
+            logger.info(
+                "session_already_initialized_skipping",
+                session_id=state["session_id"],
+                current_node=state.get("current_node")
+            )
+            # Session already initialized, return state as-is
+            # The workflow will route based on current_node
+            return state
+
         logger.info(
             "initializing_session",
             session_id=state["session_id"],
@@ -48,25 +60,83 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
         campaign = await mongo_persistence.get_campaign(state["campaign_id"])
 
         if campaign and campaign.get("quest_ids") and len(campaign["quest_ids"]) > 0:
-            # Get the first quest ID from the campaign
-            first_quest_id = campaign["quest_ids"][0]
-            state["current_quest_id"] = first_quest_id
+            # Get ALL quests to sort by order_sequence
+            quest_ids = campaign["quest_ids"]
+            all_quests = []
+            for qid in quest_ids:
+                quest = await mongo_persistence.get_quest(qid)
+                if quest:
+                    all_quests.append(quest)
 
-            # Try to load quest details from MongoDB
-            quest_data = await mongo_persistence.get_quest(first_quest_id)
-            if quest_data:
-                state["current_scene_id"] = quest_data.get("starting_location_id", "starting_location")
-                state["current_place_id"] = quest_data.get("world_id", campaign.get("world_id", ""))
-                logger.info(
-                    "loaded_campaign_quest",
-                    quest_id=first_quest_id,
-                    quest_title=quest_data.get("title", "Unknown")
-                )
+            # Sort quests by order_sequence
+            all_quests.sort(key=lambda q: q.get("order_sequence", 0))
+
+            if all_quests:
+                first_quest = all_quests[0]
+                first_quest_id = first_quest.get("_id") or first_quest.get("quest_id")
+                state["current_quest_id"] = first_quest_id
+
+                # Use Place/Scene structure: Get first place (by order_sequence), then first scene
+                place_ids = first_quest.get("place_ids", [])
+                if place_ids and len(place_ids) > 0:
+                    # Load all places to sort by order_sequence
+                    all_places = []
+                    for pid in place_ids:
+                        place = await mongo_persistence.get_place(pid)
+                        if place:
+                            all_places.append(place)
+
+                    # Sort places by order_sequence
+                    all_places.sort(key=lambda p: p.get("order_sequence", 0))
+
+                    if all_places:
+                        first_place = all_places[0]
+                        first_place_id = first_place.get("_id") or first_place.get("place_id")
+
+                        # Load all scenes to sort by order_sequence
+                        scene_ids = first_place.get("scene_ids", [])
+                        if scene_ids:
+                            all_scenes = []
+                            for sid in scene_ids:
+                                scene = await mongo_persistence.get_scene(sid)
+                                if scene:
+                                    all_scenes.append(scene)
+
+                            # Sort scenes by order_sequence
+                            all_scenes.sort(key=lambda s: s.get("order_sequence", 0))
+
+                            if all_scenes:
+                                first_scene_id = all_scenes[0].get("_id") or all_scenes[0].get("scene_id")
+                                state["current_scene_id"] = first_scene_id
+                                state["current_place_id"] = first_place_id
+                                logger.info(
+                                    "loaded_campaign_quest",
+                                    quest_id=first_quest_id,
+                                    quest_title=first_quest.get("name", "Unknown"),
+                                    place_id=first_place_id,
+                                    scene_id=first_scene_id
+                                )
+                            else:
+                                logger.warning("place_has_no_scenes", place_id=first_place_id)
+                                state["current_scene_id"] = "starting_location"
+                                state["current_place_id"] = campaign.get("world_id", "")
+                        else:
+                            logger.warning("place_has_no_scene_ids", place_id=first_place_id)
+                            state["current_scene_id"] = "starting_location"
+                            state["current_place_id"] = campaign.get("world_id", "")
+                    else:
+                        logger.warning("quest_has_no_places", quest_id=first_quest_id)
+                        state["current_scene_id"] = "starting_location"
+                        state["current_place_id"] = campaign.get("world_id", "")
+                else:
+                    logger.warning("quest_has_no_place_ids", quest_id=first_quest_id)
+                    state["current_scene_id"] = "starting_location"
+                    state["current_place_id"] = campaign.get("world_id", "")
             else:
-                # Quest ID exists but quest details not found
+                # Quests not found
+                logger.warning("quests_not_found_in_mongodb", quest_ids=quest_ids)
                 state["current_scene_id"] = "starting_location"
                 state["current_place_id"] = campaign.get("world_id", "")
-                logger.warning("quest_details_not_found", quest_id=first_quest_id)
         else:
             # No quests in campaign - ERROR condition
             logger.error(
@@ -167,20 +237,151 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             scene_id=state["current_scene_id"]
         )
 
-        # Generate scene description via Game Master
-        scene_description = await gm_agent.generate_scene_description(state)
+        # Import connection manager for broadcasting chunks
+        from ..api.websocket_manager import connection_manager
+
+        # Define streaming callback to broadcast chunks via WebSocket
+        async def stream_chunk(chunk: str):
+            """Callback to broadcast streaming chunks"""
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "event": "scene_chunk",
+                    "chunk": chunk,
+                    "is_complete": False
+                }
+            )
+
+        # Generate scene description via Game Master with streaming
+        scene_description = await gm_agent.generate_scene_description(
+            state,
+            stream_callback=stream_chunk
+        )
         state["scene_description"] = scene_description
 
-        # Get NPCs at current location
-        location_npcs = await mcp_client.get_location_npcs(
-            world_id=state.get("current_place_id"),
-            location_id=state["current_scene_id"]
+        # Broadcast final completion chunk
+        await connection_manager.broadcast_to_session(
+            state["session_id"],
+            {
+                "event": "scene_chunk",
+                "chunk": "",
+                "is_complete": True
+            }
         )
 
-        if location_npcs and location_npcs.get("npcs"):
-            state["available_npcs"] = location_npcs["npcs"]
+        # Load scene data from MongoDB
+        from ..services.mongo_persistence import mongo_persistence
+
+        scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
+
+        # Get NPCs at current location
+        npcs_at_location = await mongo_persistence.get_npcs_at_location(state["current_scene_id"])
+
+        if npcs_at_location:
+            state["available_npcs"] = npcs_at_location
+            logger.info(
+                "npcs_loaded_from_mongodb",
+                session_id=state["session_id"],
+                scene_id=state["current_scene_id"],
+                npc_count=len(npcs_at_location)
+            )
         else:
             state["available_npcs"] = []
+            logger.warning(
+                "no_npcs_found_at_location",
+                session_id=state["session_id"],
+                scene_id=state["current_scene_id"]
+            )
+
+        # Load all scene-related content if scene data exists
+        if scene_data:
+            # Load discoveries
+            discovery_ids = scene_data.get("discovery_ids", [])
+            if discovery_ids:
+                discoveries = await mongo_persistence.get_discoveries_by_ids(discovery_ids)
+                state["available_discoveries"] = discoveries
+                logger.info(
+                    "discoveries_loaded",
+                    session_id=state["session_id"],
+                    count=len(discoveries)
+                )
+            else:
+                state["available_discoveries"] = []
+
+            # Load events
+            event_ids = scene_data.get("event_ids", [])
+            if event_ids:
+                events = await mongo_persistence.get_events_by_ids(event_ids)
+                state["active_events"] = events
+                logger.info(
+                    "events_loaded",
+                    session_id=state["session_id"],
+                    count=len(events)
+                )
+            else:
+                state["active_events"] = []
+
+            # Load challenges
+            challenge_ids = scene_data.get("challenge_ids", [])
+            if challenge_ids:
+                challenges = await mongo_persistence.get_challenges_by_ids(challenge_ids)
+                state["active_challenges"] = challenges
+                logger.info(
+                    "challenges_loaded",
+                    session_id=state["session_id"],
+                    count=len(challenges)
+                )
+            else:
+                state["active_challenges"] = []
+
+            # Load visible items (items present in the scene)
+            # Note: This is different from player inventory
+            # Items in the scene can be picked up or interacted with
+            visible_item_ids = scene_data.get("visible_item_ids", [])
+            if visible_item_ids:
+                visible_items = await mongo_persistence.get_items_by_ids(visible_item_ids)
+                state["visible_items"] = [item.get("name") for item in visible_items]
+                logger.info(
+                    "visible_items_loaded",
+                    session_id=state["session_id"],
+                    count=len(visible_items)
+                )
+            else:
+                state["visible_items"] = []
+
+            # Load required knowledge (knowledge needed to access this scene)
+            required_knowledge_ids = scene_data.get("required_knowledge", [])
+            if required_knowledge_ids:
+                required_knowledge = await mongo_persistence.get_knowledge_by_ids(required_knowledge_ids)
+                state["scene_required_knowledge"] = required_knowledge
+                logger.info(
+                    "scene_required_knowledge_loaded",
+                    session_id=state["session_id"],
+                    count=len(required_knowledge)
+                )
+            else:
+                state["scene_required_knowledge"] = []
+
+            # Load required items (items needed to access this scene)
+            required_item_ids = scene_data.get("required_items", [])
+            if required_item_ids:
+                required_items = await mongo_persistence.get_items_by_ids(required_item_ids)
+                state["scene_required_items"] = required_items
+                logger.info(
+                    "scene_required_items_loaded",
+                    session_id=state["session_id"],
+                    count=len(required_items)
+                )
+            else:
+                state["scene_required_items"] = []
+        else:
+            # No scene data found, initialize empty lists
+            state["available_discoveries"] = []
+            state["active_events"] = []
+            state["active_challenges"] = []
+            state["visible_items"] = []
+            state["scene_required_knowledge"] = []
+            state["scene_required_items"] = []
 
         # Determine available actions based on scene context
         available_actions = ["look around", "examine surroundings"]
@@ -188,11 +389,14 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
         if state["available_npcs"]:
             available_actions.append("talk to NPC")
 
-        # Check for active challenges
-        # TODO: Fetch from quest/mission MCP
-        state["active_challenges"] = state.get("active_challenges", [])
-        if state["active_challenges"]:
+        if state.get("active_challenges"):
             available_actions.append("attempt challenge")
+
+        if state.get("visible_items"):
+            available_actions.append("take item")
+
+        if state.get("available_discoveries"):
+            available_actions.append("investigate discovery")
 
         available_actions.extend(["check inventory", "view quest log"])
         state["available_actions"] = available_actions
@@ -226,6 +430,7 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
         # Update workflow state
         state["current_node"] = "await_player_input"
         state["awaiting_player_input"] = True
+        state["scene_just_generated"] = True  # Flag to indicate scene was just generated
         state["last_updated"] = datetime.utcnow().isoformat()
 
         # Save state
@@ -423,57 +628,126 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
         outcome = None
         requires_assessment = False
 
-        if action_type == "talk_to_npc":
-            # Generate NPC dialogue
-            player_statement = parameters.get("statement", pending_action.get("player_input", ""))
-
-            npc_response = await gm_agent.generate_npc_dialogue(
-                target_id,
-                {"quest": state.get("current_quest_id")},
-                player_statement,
-                state
-            )
-
-            # Add NPC response to chat
-            npc_name = "Unknown NPC"
-            for npc in state.get("available_npcs", []):
-                if npc.get("npc_id") == target_id:
-                    npc_name = npc.get("name", "Unknown NPC")
-                    break
+        if action_type == "player_ready":
+            # Player is acknowledging readiness or understanding
+            # Provide encouraging response and prompt them to take action
+            encouragement = "Excellent! Your adventure awaits. Take a moment to look around, speak with anyone present, or take your first action."
 
             chat_message = {
                 "message_id": f"msg_{datetime.utcnow().timestamp()}",
                 "session_id": state["session_id"],
                 "timestamp": datetime.utcnow().isoformat(),
-                "message_type": "DM_NPC_DIALOGUE",
-                "sender_id": target_id,
-                "sender_name": npc_name,
-                "content": npc_response["dialogue"],
-                "metadata": {
-                    "affinity_change": npc_response["affinity_change"],
-                    "knowledge_revealed": npc_response["knowledge_revealed"]
-                }
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": encouragement,
+                "metadata": {"action_type": "acknowledgment"}
             }
             state["chat_messages"].append(chat_message)
 
-            # Record interaction
-            await mcp_client.record_npc_interaction({
-                "npc_id": target_id,
-                "player_id": player_id,
+            outcome = {"player_acknowledged": True}
+
+        elif action_type == "ask_gm_question":
+            # Player is asking the Game Master a question
+            question = parameters.get("question", pending_action.get("player_input", ""))
+
+            answer = await gm_agent.answer_player_question(question, state)
+
+            # Add GM answer to chat
+            chat_message = {
+                "message_id": f"msg_{datetime.utcnow().timestamp()}",
                 "session_id": state["session_id"],
-                "interaction_type": "dialogue",
-                "affinity_change": npc_response["affinity_change"],
-                "timestamp": datetime.utcnow().isoformat()
-            })
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": answer,
+                "metadata": {"action_type": "question_answer"}
+            }
+            state["chat_messages"].append(chat_message)
 
-            # Publish NPC response event
-            await rabbitmq_client.publish_npc_response(
-                state["session_id"],
-                npc_response
-            )
+            outcome = {"question_answered": True}
 
-            outcome = npc_response
-            requires_assessment = bool(npc_response.get("rubric_id"))
+        elif action_type == "talk_to_npc":
+            # Check if there are available NPCs
+            if not state.get("available_npcs"):
+                # No NPCs available - GM should narrate that player needs to progress
+                gm_response = f"""Looking around the chaotic marketplace, you're surrounded by hundreds of frightened, confused people from all three societies. However, in this moment of panic and darkness, identifying and approaching someone who can actually help with the investigation will be crucial.
+
+Let me help guide you: The scene description mentions several key elements - marketplace buildings where groups are sheltering, the reservoir control room showing signs of sabotage, and emerging conflicts between groups.
+
+Consider these actionable next steps:
+• Examine the scene more carefully to identify specific NPCs or locations
+• Look for the reservoir control room to investigate the sabotage
+• Check on one of the marketplace buildings where groups are trapped
+• Search for guards, merchants, or officials who might have information
+
+What would you like to do?"""
+
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NARRATIVE",
+                    "sender_id": "game_master",
+                    "sender_name": "Game Master",
+                    "content": gm_response,
+                    "metadata": {"action_type": "gm_guidance"}
+                }
+                state["chat_messages"].append(chat_message)
+
+                outcome = {"gm_guidance_provided": True}
+            else:
+                # NPCs available - proceed with normal dialogue
+                player_statement = parameters.get("statement", pending_action.get("player_input", ""))
+
+                npc_response = await gm_agent.generate_npc_dialogue(
+                    target_id,
+                    {"quest": state.get("current_quest_id")},
+                    player_statement,
+                    state
+                )
+
+                # Add NPC response to chat
+                npc_name = "Unknown NPC"
+                for npc in state.get("available_npcs", []):
+                    if npc.get("npc_id") == target_id:
+                        npc_name = npc.get("name", "Unknown NPC")
+                        break
+
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NPC_DIALOGUE",
+                    "sender_id": target_id,
+                    "sender_name": npc_name,
+                    "content": npc_response["dialogue"],
+                    "metadata": {
+                        "affinity_change": npc_response["affinity_change"],
+                        "knowledge_revealed": npc_response["knowledge_revealed"]
+                    }
+                }
+                state["chat_messages"].append(chat_message)
+
+                # Record interaction
+                await mcp_client.record_npc_interaction({
+                    "npc_id": target_id,
+                    "player_id": player_id,
+                    "session_id": state["session_id"],
+                    "interaction_type": "dialogue",
+                    "affinity_change": npc_response["affinity_change"],
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+
+                # Publish NPC response event
+                await rabbitmq_client.publish_npc_response(
+                    state["session_id"],
+                    npc_response
+                )
+
+                outcome = npc_response
+                requires_assessment = bool(npc_response.get("rubric_id"))
 
         elif action_type == "move_to_location":
             # Move player to new location
@@ -491,10 +765,14 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
             state["current_node"] = "generate_scene"
 
         elif action_type == "examine_object":
-            # Generate examination description
-            query = parameters.get("query", "")
-            # Simple examination - could be enhanced with MCP item lookup
-            examination_text = f"You examine {query}. The Game Master will provide details..."
+            # Generate examination description using Game Master
+            query = parameters.get("query", pending_action.get("player_input", ""))
+
+            # Use Game Master to generate detailed examination outcome
+            examination_text = await gm_agent.generate_generic_action_outcome(
+                f"look around and examine {query}" if query else "look around and observe the surroundings",
+                state
+            )
 
             chat_message = {
                 "message_id": f"msg_{datetime.utcnow().timestamp()}",
@@ -509,6 +787,27 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
             state["chat_messages"].append(chat_message)
 
             outcome = {"examined": query}
+
+        elif action_type == "perform_action":
+            # Handle generic/creative freeform action
+            action_description = parameters.get("action_description", pending_action.get("player_input", ""))
+
+            # Use Game Master to generate narrative outcome for this creative action
+            outcome_text = await gm_agent.generate_generic_action_outcome(action_description, state)
+
+            chat_message = {
+                "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                "session_id": state["session_id"],
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": outcome_text,
+                "metadata": {"action_type": "generic_action"}
+            }
+            state["chat_messages"].append(chat_message)
+
+            outcome = {"action_performed": action_description}
 
         elif action_type == "use_item":
             # Use item from inventory
@@ -926,6 +1225,26 @@ def route_from_await_input(state: GameSessionState) -> str:
         return "end"
 
 
+def route_from_initialize(state: GameSessionState) -> str:
+    """Route from initialize_session based on whether session was already initialized"""
+    # If session already has a scene_description or current_node set to something other than
+    # generate_scene, it was already initialized
+    # Route to the current node instead of generate_scene
+    current_node = state.get("current_node")
+    has_scene = bool(state.get("scene_description"))
+
+    if has_scene and current_node and current_node != "generate_scene":
+        logger.info(
+            "routing_to_current_node",
+            session_id=state.get("session_id"),
+            current_node=current_node
+        )
+        return current_node
+    else:
+        # New session, proceed to generate_scene
+        return "generate_scene"
+
+
 # ============================================
 # Build Workflow Graph
 # ============================================
@@ -956,8 +1275,25 @@ def build_game_loop_workflow() -> StateGraph:
     # Set entry point
     workflow.set_entry_point("initialize_session")
 
+    # Conditional routing from initialize_session
+    # If already initialized, route to current_node; otherwise, route to generate_scene
+    workflow.add_conditional_edges(
+        "initialize_session",
+        route_from_initialize,
+        {
+            "generate_scene": "generate_scene",
+            "interpret_action": "interpret_action",
+            "execute_action": "execute_action",
+            "assess_performance": "assess_performance",
+            "update_world_state": "update_world_state",
+            "check_quest_objectives": "check_quest_objectives",
+            "provide_bloom_feedback": "provide_bloom_feedback",
+            "check_session_end": "check_session_end",
+            "await_player_input": "await_player_input"
+        }
+    )
+
     # Add edges
-    workflow.add_edge("initialize_session", "generate_scene")
     workflow.add_edge("generate_scene", "await_player_input")
 
     # Conditional routing from await_player_input

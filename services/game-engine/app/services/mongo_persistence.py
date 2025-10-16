@@ -510,6 +510,390 @@ class MongoPersistence:
             logger.error("quest_load_failed", quest_id=quest_id, error=str(e))
             return None
 
+    async def get_place(self, place_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get place data from MongoDB
+
+        Args:
+            place_id: Place ID
+
+        Returns:
+            Place data or None
+        """
+        try:
+            place = await self.db.places.find_one({"_id": place_id})
+
+            if place:
+                # Convert MongoDB _id to place_id for consistency
+                place.pop("_id", None)
+                place["place_id"] = place_id
+
+                logger.info("place_loaded", place_id=place_id, name=place.get("name", "Unknown"))
+                return place
+            else:
+                logger.warning("place_not_found", place_id=place_id)
+                return None
+
+        except Exception as e:
+            logger.error("place_load_failed", place_id=place_id, error=str(e))
+            return None
+
+    async def get_scene(self, scene_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get scene data from MongoDB
+
+        Args:
+            scene_id: Scene ID
+
+        Returns:
+            Scene data or None
+        """
+        try:
+            scene = await self.db.scenes.find_one({"_id": scene_id})
+
+            if scene:
+                # Convert MongoDB _id to scene_id for consistency
+                scene.pop("_id", None)
+                scene["scene_id"] = scene_id
+
+                logger.info("scene_loaded", scene_id=scene_id, name=scene.get("name", "Unknown"))
+                return scene
+            else:
+                logger.warning("scene_not_found", scene_id=scene_id)
+                return None
+
+        except Exception as e:
+            logger.error("scene_load_failed", scene_id=scene_id, error=str(e))
+            return None
+
+    async def get_world(self, world_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get world data from MongoDB
+
+        Args:
+            world_id: World ID
+
+        Returns:
+            World data or None
+        """
+        try:
+            # Try to find the world in world_definitions collection
+            world = await self.db.world_definitions.find_one({"_id": world_id})
+
+            if world:
+                # Convert MongoDB _id to world_id for consistency
+                world.pop("_id", None)
+                world["world_id"] = world_id
+
+                logger.info("world_loaded", world_id=world_id, world_name=world.get("world_name", "Unknown"))
+                return world
+            else:
+                logger.warning("world_not_found", world_id=world_id)
+                return None
+
+        except Exception as e:
+            logger.error("world_load_failed", world_id=world_id, error=str(e))
+            return None
+
+    async def get_region(self, region_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get region data from MongoDB
+
+        Args:
+            region_id: Region ID
+
+        Returns:
+            Region data or None
+        """
+        try:
+            region = await self.db.region_definitions.find_one({"_id": region_id})
+
+            if region:
+                # Convert MongoDB _id to region_id for consistency
+                region.pop("_id", None)
+                region["region_id"] = region_id
+
+                logger.info("region_loaded", region_id=region_id, region_name=region.get("region_name", "Unknown"))
+                return region
+            else:
+                logger.warning("region_not_found", region_id=region_id)
+                return None
+
+        except Exception as e:
+            logger.error("region_load_failed", region_id=region_id, error=str(e))
+            return None
+
+    async def get_location(self, location_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get location data from MongoDB
+
+        Args:
+            location_id: Location ID
+
+        Returns:
+            Location data or None
+        """
+        try:
+            location = await self.db.location_definitions.find_one({"_id": location_id})
+
+            if location:
+                # Convert MongoDB _id to location_id for consistency
+                location.pop("_id", None)
+                location["location_id"] = location_id
+
+                logger.info("location_loaded", location_id=location_id, location_name=location.get("location_name", "Unknown"))
+                return location
+            else:
+                logger.warning("location_not_found", location_id=location_id)
+                return None
+
+        except Exception as e:
+            logger.error("location_load_failed", location_id=location_id, error=str(e))
+            return None
+
+    async def get_species(self, species_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get species data from MongoDB
+
+        Args:
+            species_id: Species ID
+
+        Returns:
+            Species data or None
+        """
+        try:
+            species = await self.db.species_definitions.find_one({"_id": species_id})
+
+            if species:
+                # Convert MongoDB _id to species_id for consistency
+                species.pop("_id", None)
+                species["species_id"] = species_id
+
+                logger.info("species_loaded", species_id=species_id, species_name=species.get("species_name", "Unknown"))
+                return species
+            else:
+                logger.warning("species_not_found", species_id=species_id)
+                return None
+
+        except Exception as e:
+            logger.error("species_load_failed", species_id=species_id, error=str(e))
+            return None
+
+    async def get_npcs_at_location(self, scene_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all NPCs at a specific scene/location
+
+        Args:
+            scene_id: Scene ID (level_3_location_id)
+
+        Returns:
+            List of NPC data
+        """
+        try:
+            # Query NPCs collection for NPCs at this location
+            cursor = self.db.npcs.find({"level_3_location_id": scene_id})
+
+            npcs = []
+            async for npc in cursor:
+                # Convert MongoDB _id to npc_id for consistency
+                npc_id = npc.pop("_id", None)
+                npc["npc_id"] = npc_id
+
+                # Extract key fields for game loop
+                npc_data = {
+                    "npc_id": npc_id,
+                    "name": npc.get("name", "Unknown"),
+                    "species_name": npc.get("species_name"),
+                    "role": npc.get("role", {}),
+                    "personality_traits": npc.get("personality_traits", {}),
+                    "dialogue_style": npc.get("dialogue_style", ""),
+                    "backstory": npc.get("backstory", "")
+                }
+                npcs.append(npc_data)
+
+            logger.info(
+                "npcs_loaded_at_location",
+                scene_id=scene_id,
+                npc_count=len(npcs),
+                npc_names=[n["name"] for n in npcs]
+            )
+
+            return npcs
+
+        except Exception as e:
+            logger.error("npcs_load_failed", scene_id=scene_id, error=str(e))
+            return []
+
+    async def get_discoveries_by_ids(self, discovery_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get discoveries by their IDs
+
+        Args:
+            discovery_ids: List of discovery IDs
+
+        Returns:
+            List of discovery data
+        """
+        try:
+            if not discovery_ids:
+                return []
+
+            # Query discoveries collection
+            cursor = self.db.discoveries.find({"_id": {"$in": discovery_ids}})
+
+            discoveries = []
+            async for discovery in cursor:
+                discovery_id = discovery.pop("_id", None)
+                discovery["discovery_id"] = discovery_id
+                discoveries.append(discovery)
+
+            logger.info(
+                "discoveries_loaded",
+                count=len(discoveries)
+            )
+
+            return discoveries
+
+        except Exception as e:
+            logger.error("discoveries_load_failed", error=str(e))
+            return []
+
+    async def get_events_by_ids(self, event_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get events by their IDs
+
+        Args:
+            event_ids: List of event IDs
+
+        Returns:
+            List of event data
+        """
+        try:
+            if not event_ids:
+                return []
+
+            # Query events collection
+            cursor = self.db.events.find({"_id": {"$in": event_ids}})
+
+            events = []
+            async for event in cursor:
+                event_id = event.pop("_id", None)
+                event["event_id"] = event_id
+                events.append(event)
+
+            logger.info(
+                "events_loaded",
+                count=len(events)
+            )
+
+            return events
+
+        except Exception as e:
+            logger.error("events_load_failed", error=str(e))
+            return []
+
+    async def get_challenges_by_ids(self, challenge_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get challenges by their IDs
+
+        Args:
+            challenge_ids: List of challenge IDs
+
+        Returns:
+            List of challenge data
+        """
+        try:
+            if not challenge_ids:
+                return []
+
+            # Query challenges collection
+            cursor = self.db.challenges.find({"_id": {"$in": challenge_ids}})
+
+            challenges = []
+            async for challenge in cursor:
+                challenge_id = challenge.pop("_id", None)
+                challenge["challenge_id"] = challenge_id
+                challenges.append(challenge)
+
+            logger.info(
+                "challenges_loaded",
+                count=len(challenges)
+            )
+
+            return challenges
+
+        except Exception as e:
+            logger.error("challenges_load_failed", error=str(e))
+            return []
+
+    async def get_items_by_ids(self, item_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get items by their IDs
+
+        Args:
+            item_ids: List of item IDs
+
+        Returns:
+            List of item data
+        """
+        try:
+            if not item_ids:
+                return []
+
+            # Query items collection
+            cursor = self.db.items.find({"_id": {"$in": item_ids}})
+
+            items = []
+            async for item in cursor:
+                item_id = item.pop("_id", None)
+                item["item_id"] = item_id
+                items.append(item)
+
+            logger.info(
+                "items_loaded",
+                count=len(items)
+            )
+
+            return items
+
+        except Exception as e:
+            logger.error("items_load_failed", error=str(e))
+            return []
+
+    async def get_knowledge_by_ids(self, knowledge_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get knowledge by their IDs
+
+        Args:
+            knowledge_ids: List of knowledge IDs
+
+        Returns:
+            List of knowledge data
+        """
+        try:
+            if not knowledge_ids:
+                return []
+
+            # Query knowledge collection
+            cursor = self.db.knowledge.find({"_id": {"$in": knowledge_ids}})
+
+            knowledge_list = []
+            async for knowledge in cursor:
+                knowledge_id = knowledge.pop("_id", None)
+                knowledge["knowledge_id"] = knowledge_id
+                knowledge_list.append(knowledge)
+
+            logger.info(
+                "knowledge_loaded",
+                count=len(knowledge_list)
+            )
+
+            return knowledge_list
+
+        except Exception as e:
+            logger.error("knowledge_load_failed", error=str(e))
+            return []
+
     # ============================================
     # Session Analytics
     # ============================================

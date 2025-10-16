@@ -2,6 +2,40 @@
 
 {% block title %}{{ campaign.campaign_name }} - SkillForge RPG{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Drag and Drop Styles */
+    .drag-handle {
+        opacity: 0.4;
+        transition: opacity 0.2s;
+    }
+
+    .place-item:hover .drag-handle,
+    .scene-item:hover .drag-handle {
+        opacity: 1;
+    }
+
+    .sortable-ghost {
+        opacity: 0.4;
+        background: rgba(212, 175, 55, 0.2);
+    }
+
+    .sortable-chosen {
+        background: rgba(212, 175, 55, 0.3);
+    }
+
+    .sortable-drag {
+        opacity: 0.8;
+        background: rgba(212, 175, 55, 0.4);
+        cursor: grabbing !important;
+    }
+
+    .drag-handle:active {
+        cursor: grabbing !important;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col s12">
@@ -62,22 +96,24 @@
                                 </div>
 
                                 <!-- Places -->
-                                <ul class="collapsible-content" style="list-style: none; padding-left: 20px; margin-top: 4px; display: block;">
+                                <ul class="collapsible-content places-list" data-quest-id="{{ quest.quest_id }}" style="list-style: none; padding-left: 20px; margin-top: 4px; display: block;">
                                     {% for place in quest.places %}
-                                    <li style="margin-bottom: 4px;">
+                                    <li class="place-item" data-place-id="{{ place.place_id }}" style="margin-bottom: 4px;">
                                         <div class="tree-item collapsible-trigger" data-type="place" data-id="{{ place.place_id }}"
                                              style="padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                            <i class="material-icons drag-handle" style="font-size: 0.9rem; color: var(--rpg-silver); cursor: grab;">drag_indicator</i>
                                             <i class="material-icons expand-icon" style="font-size: 0.8rem; color: var(--rpg-silver); transition: transform 0.2s;">chevron_right</i>
                                             <i class="material-icons" style="font-size: 0.9rem; color: var(--rpg-blue);">place</i>
                                             <span style="color: #b8b8d1; font-size: 0.9rem;">{{ place.name }}</span>
                                         </div>
 
                                         <!-- Scenes -->
-                                        <ul class="collapsible-content" style="list-style: none; padding-left: 18px; margin-top: 4px; display: none;">
+                                        <ul class="collapsible-content scenes-list" data-place-id="{{ place.place_id }}" style="list-style: none; padding-left: 18px; margin-top: 4px; display: none;">
                                             {% for scene in place.scenes %}
-                                            <li style="margin-bottom: 3px;">
+                                            <li class="scene-item" data-scene-id="{{ scene.scene_id }}" style="margin-bottom: 3px;">
                                                 <div class="tree-item" data-type="scene" data-id="{{ scene.scene_id }}"
                                                      style="padding: 5px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                                    <i class="material-icons drag-handle" style="font-size: 0.85rem; color: var(--rpg-silver); cursor: grab;">drag_indicator</i>
                                                     <i class="material-icons" style="font-size: 0.85rem; color: var(--rpg-green);">movie</i>
                                                     <span style="color: #b8b8d1; font-size: 0.85rem;">{{ scene.name }}</span>
                                                 </div>
@@ -368,6 +404,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Include SortableJS for drag-and-drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize modals
@@ -385,6 +424,101 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!campaignDataEl) return;
 
     const data = JSON.parse(campaignDataEl.textContent);
+
+    // Initialize Sortable for Places and Scenes
+    initializeSortables();
+
+    function initializeSortables() {
+        // Initialize sortable for each Quest's Places list
+        document.querySelectorAll('.places-list').forEach(placesList => {
+            new Sortable(placesList, {
+                group: 'places',
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const questId = evt.to.dataset.questId;
+                    const newOrder = Array.from(evt.to.children).map(li => li.dataset.placeId);
+
+                    console.log('Places reordered for quest:', questId, newOrder);
+
+                    // Save new order to backend
+                    savePlaceOrder(questId, newOrder);
+                }
+            });
+        });
+
+        // Initialize sortable for each Place's Scenes list
+        document.querySelectorAll('.scenes-list').forEach(scenesList => {
+            new Sortable(scenesList, {
+                group: 'scenes',
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const placeId = evt.to.dataset.placeId;
+                    const newOrder = Array.from(evt.to.children).map(li => li.dataset.sceneId);
+
+                    console.log('Scenes reordered for place:', placeId, newOrder);
+
+                    // Save new order to backend
+                    saveSceneOrder(placeId, newOrder);
+                }
+            });
+        });
+    }
+
+    async function savePlaceOrder(questId, placeIds) {
+        try {
+            const response = await fetch(`/campaigns/${data.campaign.id}/quests/${questId}/reorder-places/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ place_ids: placeIds })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                M.toast({html: 'Places reordered successfully', classes: 'green', displayLength: 2000});
+            } else {
+                throw new Error(result.error || 'Failed to reorder places');
+            }
+        } catch (error) {
+            console.error('Error saving place order:', error);
+            M.toast({html: 'Failed to save place order: ' + error.message, classes: 'red'});
+        }
+    }
+
+    async function saveSceneOrder(placeId, sceneIds) {
+        try {
+            const response = await fetch(`/campaigns/${data.campaign.id}/places/${placeId}/reorder-scenes/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ scene_ids: sceneIds })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                M.toast({html: 'Scenes reordered successfully', classes: 'green', displayLength: 2000});
+            } else {
+                throw new Error(result.error || 'Failed to reorder scenes');
+            }
+        } catch (error) {
+            console.error('Error saving scene order:', error);
+            M.toast({html: 'Failed to save scene order: ' + error.message, classes: 'red'});
+        }
+    }
 
     // Handle tree item clicks
     document.querySelectorAll('.tree-item').forEach(item => {

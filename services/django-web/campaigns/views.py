@@ -267,6 +267,10 @@ class CampaignDetailView(View):
                     place_ids = quest.get('place_ids', [])
                     places_raw = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
 
+                    # Sort places to match the order in place_ids array
+                    places_dict = {place['_id']: place for place in places_raw}
+                    places_raw = [places_dict[pid] for pid in place_ids if pid in places_dict]
+
                     places = []
                     for place in places_raw:
                         place['place_id'] = place['_id']
@@ -274,6 +278,10 @@ class CampaignDetailView(View):
                         # Get scenes for this place
                         scene_ids = place.get('scene_ids', [])
                         scenes_raw = list(db.scenes.find({'_id': {'$in': scene_ids}})) if scene_ids else []
+
+                        # Sort scenes to match the order in scene_ids array
+                        scenes_dict = {scene['_id']: scene for scene in scenes_raw}
+                        scenes_raw = [scenes_dict[sid] for sid in scene_ids if sid in scenes_dict]
 
                         for scene in scenes_raw:
                             scene['scene_id'] = scene['_id']
@@ -1796,4 +1804,66 @@ class SceneSetPrimaryImageView(View):
 
         except Exception as e:
             logger.error(f"Error setting scene primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class QuestReorderPlacesView(View):
+    """Reorder places within a quest"""
+
+    def post(self, request, campaign_id, quest_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            place_ids = data.get('place_ids', [])
+
+            if not place_ids:
+                return JsonResponse({'error': 'place_ids required'}, status=400)
+
+            quest = db.quests.find_one({'_id': quest_id})
+            if not quest:
+                return JsonResponse({'error': 'Quest not found'}, status=404)
+
+            # Update quest with new place order
+            db.quests.update_one(
+                {'_id': quest_id},
+                {'$set': {'place_ids': place_ids}}
+            )
+
+            logger.info(f"Reordered places for quest {quest_id}: {place_ids}")
+
+            return JsonResponse({'success': True, 'place_ids': place_ids})
+
+        except Exception as e:
+            logger.error(f"Error reordering places: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class PlaceReorderScenesView(View):
+    """Reorder scenes within a place"""
+
+    def post(self, request, campaign_id, place_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            scene_ids = data.get('scene_ids', [])
+
+            if not scene_ids:
+                return JsonResponse({'error': 'scene_ids required'}, status=400)
+
+            place = db.places.find_one({'_id': place_id})
+            if not place:
+                return JsonResponse({'error': 'Place not found'}, status=404)
+
+            # Update place with new scene order
+            db.places.update_one(
+                {'_id': place_id},
+                {'$set': {'scene_ids': scene_ids}}
+            )
+
+            logger.info(f"Reordered scenes for place {place_id}: {scene_ids}")
+
+            return JsonResponse({'success': True, 'scene_ids': scene_ids})
+
+        except Exception as e:
+            logger.error(f"Error reordering scenes: {e}", exc_info=True)
             return JsonResponse({'error': str(e)}, status=500)

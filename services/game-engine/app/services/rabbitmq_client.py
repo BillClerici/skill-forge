@@ -136,6 +136,31 @@ class RabbitMQClient:
             }
         )
 
+    async def publish_scene_chunk(
+        self,
+        session_id: str,
+        chunk: str,
+        is_complete: bool = False
+    ):
+        """
+        Publish streaming chunk for scene description
+
+        Args:
+            session_id: Session ID
+            chunk: Text chunk to stream
+            is_complete: Whether this is the final chunk
+        """
+        await self.publish_event(
+            exchange="game.events",
+            routing_key=f"session.{session_id}.scene_chunk",
+            message={
+                "event": "scene_chunk",
+                "session_id": session_id,
+                "chunk": chunk,
+                "is_complete": is_complete
+            }
+        )
+
     async def publish_npc_response(
         self,
         session_id: str,

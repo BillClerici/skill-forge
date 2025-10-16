@@ -222,6 +222,7 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
                 "parent_quest_id": quest_id,
                 "campaign_id": campaign_id,
                 "scene_ids": scene_ids,
+                "order_sequence": place.get("order_sequence", 0),
                 "created_at": datetime.utcnow().isoformat()
             }
 
@@ -575,7 +576,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     """
                     MATCH (q:Quest {id: $quest_id})
                     MERGE (p:Place {id: $place_id})
-                    SET p.name = $place_name
+                    SET p.name = $place_name,
+                        p.order_sequence = $order_sequence
                     MERGE (q)-[:CONTAINS]->(p)
 
                     // MERGE Level 2 Location by name + world to avoid duplicates
@@ -594,6 +596,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     world_id=state["world_id"],
                     place_id=place_id,
                     place_name=place["name"],
+                    order_sequence=place.get("order_sequence", 0),
                     location_id=place["level_2_location_id"],
                     location_name=place.get("level_2_location_name", "Unknown Location"),
                     parent_location_id=quest["level_1_location_id"],
@@ -612,7 +615,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         """
                         MATCH (p:Place {id: $place_id})
                         MERGE (sc:Scene {id: $scene_id})
-                        SET sc.name = $scene_name
+                        SET sc.name = $scene_name,
+                            sc.order_sequence = $order_sequence
                         MERGE (p)-[:CONTAINS]->(sc)
 
                         // MERGE Level 3 Location by name + world to avoid duplicates
@@ -631,6 +635,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         world_id=state["world_id"],
                         scene_id=scene_id,
                         scene_name=scene["name"],
+                        order_sequence=scene.get("order_sequence", 0),
                         location_id=scene["level_3_location_id"],
                         location_name=scene.get("level_3_location_name", "Unknown Location"),
                         parent_location_id=place["level_2_location_id"],

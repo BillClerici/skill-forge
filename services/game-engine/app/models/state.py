@@ -254,6 +254,9 @@ class GameSessionState(TypedDict, total=False):
     visible_items: List[str]
     active_events: List[EventData]
     active_challenges: List[ChallengeData]
+    available_discoveries: List[Dict[str, Any]]  # Discoveries in the current scene
+    scene_required_knowledge: List[Dict[str, Any]]  # Knowledge required to access this scene
+    scene_required_items: List[Dict[str, Any]]  # Items required to access this scene
 
     # Interaction history (living world memory)
     conversation_history: List[ConversationTurn]
@@ -288,6 +291,7 @@ class GameSessionState(TypedDict, total=False):
     requires_assessment: bool
     assessment_context: Optional[Dict[str, Any]]
     last_updated: str
+    scene_just_generated: bool  # Flag to track if scene was just generated for broadcasting
 
     # Assessment
     last_assessment: Optional[Dict[str, Any]]
