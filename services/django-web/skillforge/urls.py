@@ -50,11 +50,11 @@ from campaigns.views import (
     CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
     CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
     CampaignDeletionProgressView, CampaignDeletionStatusAPI,
-    QuestReorderPlacesView, PlaceReorderScenesView
+    CampaignReorderQuestsView, QuestReorderPlacesView, PlaceReorderScenesView
 )
 from campaigns.views_gameplay import (
     GameLobbyView, StartGameSessionView, GameSessionView,
-    PartyLobbyView, JoinSessionView, SessionControlView
+    PartyLobbyView, JoinSessionView, SessionControlView, CampaignImagesAPIView
 )
 from campaigns.wizard_views import (
     campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
@@ -183,6 +183,7 @@ urlpatterns = [
     path('game/party/<str:session_id>/', PartyLobbyView.as_view(), name='party_lobby'),
     path('game/join/', JoinSessionView.as_view(), name='join_session'),
     path('game/session/<str:session_id>/control/', SessionControlView.as_view(), name='session_control'),
+    path('api/campaigns/<str:campaign_id>/images/', CampaignImagesAPIView.as_view(), name='campaign_images_api'),
 
     # Campaign Deletion
     path('campaigns/deletion/progress/<str:request_id>/', CampaignDeletionProgressView.as_view(), name='campaign_deletion_progress'),
@@ -197,6 +198,7 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/places/<str:place_id>/scenes/<str:scene_id>/set-primary-image/', SceneSetPrimaryImageView.as_view(), name='scene_set_primary_image'),
 
     # Campaign Reordering
+    path('campaigns/<str:campaign_id>/reorder-quests/', CampaignReorderQuestsView.as_view(), name='campaign_reorder_quests'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/reorder-places/', QuestReorderPlacesView.as_view(), name='quest_reorder_places'),
     path('campaigns/<str:campaign_id>/places/<str:place_id>/reorder-scenes/', PlaceReorderScenesView.as_view(), name='place_reorder_scenes'),
 

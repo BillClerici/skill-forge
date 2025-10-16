@@ -179,7 +179,8 @@ class GameSessionView(View):
                 messages.error(request, 'Campaign not found')
                 return redirect('game_lobby')
 
-            # Template compatibility - ensure title field exists
+            # Template compatibility - add campaign_id field and title
+            campaign['campaign_id'] = campaign['_id']
             if 'title' not in campaign and 'name' in campaign:
                 campaign['title'] = campaign['name']
 
@@ -377,3 +378,204 @@ class SessionControlView(View):
         except requests.RequestException as e:
             messages.error(request, f'Failed to {action} session: {str(e)}')
             return redirect('game_session', session_id=session_id)
+
+
+class CampaignImagesAPIView(View):
+    """API endpoint to fetch all campaign-related images"""
+
+    def get(self, request, campaign_id):
+        try:
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+            images = {
+                'world': [],
+                'campaign': [],
+                'region': [],
+                'place': [],
+                'scene': [],
+                'species': []
+            }
+
+            # 1. World images (from world definition)
+            world_id = campaign.get('world_id')
+            if world_id:
+                world = db.world_definitions.find_one({'_id': world_id})
+                if world:
+                    primary_world_url = world.get('primary_image_url')
+                    # Add primary world image
+                    if primary_world_url:
+                        images['world'].append({
+                            'url': primary_world_url,
+                            'title': world.get('name', 'World'),
+                            'is_primary': True
+                        })
+                    # Add additional world images (skip if same as primary or has "Image 1")
+                    for idx, img in enumerate(world.get('world_images', [])):
+                        if isinstance(img, dict) and img.get('url'):
+                            img_title = img.get('title', '')
+                            # Skip if this URL is the same as the primary image or title contains "Image 1"
+                            if img.get('url') == primary_world_url or 'Image 1' in img_title:
+                                continue
+                            images['world'].append({
+                                'url': img['url'],
+                                'title': img_title or f"World Image {idx + 1}",
+                                'is_primary': False
+                            })
+
+            # 2. Campaign images
+            primary_campaign_url = campaign.get('primary_image_url')
+            if primary_campaign_url:
+                images['campaign'].append({
+                    'url': primary_campaign_url,
+                    'title': campaign.get('title') or campaign.get('name', 'Campaign'),
+                    'is_primary': True
+                })
+            # Add additional campaign images (skip if same as primary or has "Image 1")
+            for idx, img in enumerate(campaign.get('campaign_images', [])):
+                if isinstance(img, dict) and img.get('url'):
+                    img_title = img.get('title', '')
+                    # Skip if this URL is the same as the primary image or title contains "Image 1"
+                    if img.get('url') == primary_campaign_url or 'Image 1' in img_title:
+                        continue
+                    images['campaign'].append({
+                        'url': img['url'],
+                        'title': img_title or f"Campaign Image {idx + 1}",
+                        'is_primary': False
+                    })
+
+            # 3. Region images (from world's regions)
+            if world_id:
+                world = db.world_definitions.find_one({'_id': world_id})
+                if world:
+                    region_ids = world.get('regions', [])
+                    for region_id in region_ids:
+                        region = db.region_definitions.find_one({'_id': region_id})
+                        if region:
+                            primary_region_url = region.get('primary_image_url')
+                            if primary_region_url:
+                                images['region'].append({
+                                    'url': primary_region_url,
+                                    'title': region.get('region_name', 'Region'),
+                                    'is_primary': True
+                                })
+                            # Check for region_images array (skip if same as primary or has "Image 1")
+                            region_images = region.get('region_images', [])
+                            if region_images:
+                                for idx, img in enumerate(region_images):
+                                    if isinstance(img, dict) and img.get('url'):
+                                        img_title = img.get('title', '')
+                                        # Skip if this URL is the same as the primary image or title contains "Image 1"
+                                        if img.get('url') == primary_region_url or 'Image 1' in img_title:
+                                            continue
+                                        images['region'].append({
+                                            'url': img['url'],
+                                            'title': img_title or f"{region.get('region_name', 'Region')} - Image {idx + 1}",
+                                            'is_primary': False
+                                        })
+
+            # 4. Place images (from quest places)
+            quest_ids = campaign.get('quest_ids', [])
+            for quest_id in quest_ids:
+                quest = db.quests.find_one({'_id': quest_id})
+                if quest:
+                    place_ids = quest.get('place_ids', [])
+                    for place_id in place_ids:
+                        place = db.places.find_one({'_id': place_id})
+                        if place:
+                            primary_place_url = place.get('primary_image_url')
+                            if primary_place_url:
+                                images['place'].append({
+                                    'url': primary_place_url,
+                                    'title': place.get('name', 'Place'),
+                                    'is_primary': True
+                                })
+                            # Check for place_images array (skip if same as primary or has "Image 1")
+                            place_images = place.get('place_images', [])
+                            if place_images:
+                                for idx, img in enumerate(place_images):
+                                    if isinstance(img, dict) and img.get('url'):
+                                        img_title = img.get('title', '')
+                                        # Skip if this URL is the same as the primary image or title contains "Image 1"
+                                        if img.get('url') == primary_place_url or 'Image 1' in img_title:
+                                            continue
+                                        images['place'].append({
+                                            'url': img['url'],
+                                            'title': img_title or f"{place.get('name', 'Place')} - Image {idx + 1}",
+                                            'is_primary': False
+                                        })
+
+            # 5. Scene images (from place scenes)
+            for quest_id in quest_ids:
+                quest = db.quests.find_one({'_id': quest_id})
+                if quest:
+                    place_ids = quest.get('place_ids', [])
+                    for place_id in place_ids:
+                        place = db.places.find_one({'_id': place_id})
+                        if place:
+                            scene_ids = place.get('scene_ids', [])
+                            for scene_id in scene_ids:
+                                scene = db.scenes.find_one({'_id': scene_id})
+                                if scene:
+                                    primary_scene_url = scene.get('primary_image_url')
+                                    if primary_scene_url:
+                                        images['scene'].append({
+                                            'url': primary_scene_url,
+                                            'title': scene.get('name', 'Scene'),
+                                            'is_primary': True
+                                        })
+                                    # Check for scene_images array (skip if same as primary or has "Image 1")
+                                    scene_images = scene.get('scene_images', [])
+                                    if scene_images:
+                                        for idx, img in enumerate(scene_images):
+                                            if isinstance(img, dict) and img.get('url'):
+                                                img_title = img.get('title', '')
+                                                # Skip if this URL is the same as the primary image or title contains "Image 1"
+                                                if img.get('url') == primary_scene_url or 'Image 1' in img_title:
+                                                    continue
+                                                images['scene'].append({
+                                                    'url': img['url'],
+                                                    'title': img_title or f"{scene.get('name', 'Scene')} - Image {idx + 1}",
+                                                    'is_primary': False
+                                                })
+
+            # 6. Species images (from NPCs)
+            npc_ids = campaign.get('npc_ids', [])
+            species_seen = set()
+            for npc_id in npc_ids:
+                npc = db.npcs.find_one({'_id': npc_id})
+                if npc:
+                    species_id = npc.get('species_id')
+                    if species_id and species_id not in species_seen:
+                        species_seen.add(species_id)
+                        species = db.species.find_one({'_id': species_id})
+                        if species:
+                            primary_species_url = species.get('primary_image_url')
+                            if primary_species_url:
+                                images['species'].append({
+                                    'url': primary_species_url,
+                                    'title': species.get('name', 'Species'),
+                                    'is_primary': True
+                                })
+                            # Add additional species images (skip if same as primary or has "Image 1")
+                            for idx, img in enumerate(species.get('species_images', [])):
+                                if isinstance(img, dict) and img.get('url'):
+                                    img_title = img.get('title', '')
+                                    # Skip if this URL is the same as the primary image or title contains "Image 1"
+                                    if img.get('url') == primary_species_url or 'Image 1' in img_title:
+                                        continue
+                                    images['species'].append({
+                                        'url': img['url'],
+                                        'title': img_title or f"{species.get('name', 'Species')} - Image {idx + 1}",
+                                        'is_primary': False
+                                    })
+
+            # Sort each category to put primary images first
+            for category in images:
+                images[category].sort(key=lambda x: (not x['is_primary'], x['title']))
+
+            return JsonResponse({'images': images})
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)

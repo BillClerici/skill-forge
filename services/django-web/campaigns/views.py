@@ -260,6 +260,10 @@ class CampaignDetailView(View):
             if quest_ids:
                 quests_raw = list(db.quests.find({'_id': {'$in': quest_ids}}))
 
+                # Sort quests to match the order in quest_ids array
+                quests_dict = {quest['_id']: quest for quest in quests_raw}
+                quests_raw = [quests_dict[qid] for qid in quest_ids if qid in quests_dict]
+
                 for quest in quests_raw:
                     quest['quest_id'] = quest['_id']
 
@@ -1804,6 +1808,37 @@ class SceneSetPrimaryImageView(View):
 
         except Exception as e:
             logger.error(f"Error setting scene primary image: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class CampaignReorderQuestsView(View):
+    """Reorder quests within a campaign"""
+
+    def post(self, request, campaign_id):
+        try:
+            import json
+            data = json.loads(request.body)
+            quest_ids = data.get('quest_ids', [])
+
+            if not quest_ids:
+                return JsonResponse({'error': 'quest_ids required'}, status=400)
+
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+            # Update campaign with new quest order
+            db.campaigns.update_one(
+                {'_id': campaign_id},
+                {'$set': {'quest_ids': quest_ids}}
+            )
+
+            logger.info(f"Reordered quests for campaign {campaign_id}: {quest_ids}")
+
+            return JsonResponse({'success': True, 'quest_ids': quest_ids})
+
+        except Exception as e:
+            logger.error(f"Error reordering quests: {e}", exc_info=True)
             return JsonResponse({'error': str(e)}, status=500)
 
 

@@ -10,6 +10,7 @@
         transition: opacity 0.2s;
     }
 
+    .quest-item:hover .drag-handle,
     .place-item:hover .drag-handle,
     .scene-item:hover .drag-handle {
         opacity: 1;
@@ -85,11 +86,12 @@
                         </div>
 
                         <!-- Quests -->
-                        <ul class="collapsible-content" style="list-style: none; padding-left: 20px; margin-top: 8px; display: block;">
+                        <ul class="collapsible-content quests-list" data-campaign-id="{{ campaign.campaign_id }}" style="list-style: none; padding-left: 20px; margin-top: 8px; display: block;">
                             {% for quest in quests %}
-                            <li style="margin-bottom: 6px;">
+                            <li class="quest-item" data-quest-id="{{ quest.quest_id }}" style="margin-bottom: 6px;">
                                 <div class="tree-item collapsible-trigger" data-type="quest" data-id="{{ quest.quest_id }}"
                                      style="padding: 6px 10px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                                    <i class="material-icons drag-handle" style="font-size: 0.9rem; color: var(--rpg-silver); cursor: grab;">drag_indicator</i>
                                     <i class="material-icons expand-icon" style="font-size: 0.9rem; color: var(--rpg-silver); transition: transform 0.2s; transform: rotate(90deg);">chevron_right</i>
                                     <i class="material-icons" style="font-size: 1rem; color: var(--rpg-purple);">explore</i>
                                     <span style="color: #b8b8d1; font-size: 0.95rem;">{{ quest.name }}</span>
@@ -429,6 +431,28 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSortables();
 
     function initializeSortables() {
+        // Initialize sortable for Quests list
+        const questsList = document.querySelector('.quests-list');
+        if (questsList) {
+            new Sortable(questsList, {
+                group: 'quests',
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                chosenClass: 'sortable-chosen',
+                dragClass: 'sortable-drag',
+                onEnd: function(evt) {
+                    const campaignId = evt.to.dataset.campaignId;
+                    const newOrder = Array.from(evt.to.children).map(li => li.dataset.questId);
+
+                    console.log('Quests reordered for campaign:', campaignId, newOrder);
+
+                    // Save new order to backend
+                    saveQuestOrder(campaignId, newOrder);
+                }
+            });
+        }
+
         // Initialize sortable for each Quest's Places list
         document.querySelectorAll('.places-list').forEach(placesList => {
             new Sortable(placesList, {
@@ -470,6 +494,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+    }
+
+    async function saveQuestOrder(campaignId, questIds) {
+        try {
+            const response = await fetch(`/campaigns/${campaignId}/reorder-quests/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ quest_ids: questIds })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                M.toast({html: 'Quests reordered successfully', classes: 'green', displayLength: 2000});
+            } else {
+                throw new Error(result.error || 'Failed to reorder quests');
+            }
+        } catch (error) {
+            console.error('Error saving quest order:', error);
+            M.toast({html: 'Failed to save quest order: ' + error.message, classes: 'red'});
+        }
     }
 
     async function savePlaceOrder(questId, placeIds) {
