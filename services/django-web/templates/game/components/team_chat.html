@@ -1,0 +1,579 @@
+<!-- Team Chat Component -->
+<style>
+    .team-chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .chat-tabs {
+        display: flex;
+        background: #f7fafc;
+        border-bottom: 2px solid #e2e8f0;
+        padding: 0;
+    }
+
+    .chat-tab {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        font-weight: 500;
+        color: #718096;
+        transition: all 0.2s;
+        position: relative;
+    }
+
+    .chat-tab:hover {
+        background: #edf2f7;
+        color: #4a5568;
+    }
+
+    .chat-tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+        background: white;
+    }
+
+    .chat-tab .notification-badge {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: #f56565;
+        color: white;
+        border-radius: 10px;
+        padding: 0.125rem 0.375rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        min-width: 18px;
+        text-align: center;
+    }
+
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        background: #ffffff;
+        display: none;
+    }
+
+    .chat-messages.active {
+        display: block;
+    }
+
+    .chat-message {
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 0.75rem;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+    }
+
+    .message-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .message-header {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .message-author {
+        font-weight: bold;
+        color: #2d3748;
+    }
+
+    .message-timestamp {
+        font-size: 0.75rem;
+        color: #a0aec0;
+    }
+
+    .message-text {
+        color: #4a5568;
+        line-height: 1.5;
+        word-wrap: break-word;
+    }
+
+    .message-dm {
+        background: #fef5e7;
+        border-left: 3px solid #f39c12;
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .message-dm .message-text {
+        color: #6b5b3a;
+    }
+
+    .message-whisper {
+        background: #f3e5f5;
+        border-left: 3px solid #9c27b0;
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-style: italic;
+    }
+
+    .message-ooc {
+        opacity: 0.8;
+        background: #f0f0f0;
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .message-strategy {
+        background: #e3f2fd;
+        border-left: 3px solid #2196f3;
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .message-system {
+        text-align: center;
+        color: #718096;
+        font-style: italic;
+        font-size: 0.875rem;
+        margin: 0.5rem 0;
+    }
+
+    .chat-input-area {
+        border-top: 1px solid #e2e8f0;
+        padding: 1rem;
+        background: #f7fafc;
+    }
+
+    .whisper-target-selector {
+        display: none;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+        background: #f3e5f5;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    .whisper-target-selector.active {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .whisper-target-selector select {
+        flex: 1;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+    }
+
+    .whisper-target-selector button {
+        padding: 0.25rem 0.5rem;
+        background: #9c27b0;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+    }
+
+    .chat-input-wrapper {
+        display: flex;
+        gap: 0.5rem;
+        align-items: stretch;
+    }
+
+    .chat-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        resize: none;
+        min-height: 42px;
+        max-height: 120px;
+        font-family: inherit;
+    }
+
+    .chat-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .chat-send-btn {
+        padding: 0.75rem 1.5rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        white-space: nowrap;
+    }
+
+    .chat-send-btn:hover {
+        background: #5a67d8;
+    }
+
+    .chat-send-btn:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    .typing-indicator {
+        padding: 0.5rem 1rem;
+        color: #718096;
+        font-size: 0.875rem;
+        font-style: italic;
+        min-height: 30px;
+    }
+
+    .empty-chat {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #a0aec0;
+        font-style: italic;
+    }
+
+    /* Party members list */
+    .party-members {
+        padding: 0.5rem 1rem;
+        background: #f7fafc;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.875rem;
+    }
+
+    .party-member {
+        display: inline-block;
+        margin-right: 1rem;
+        color: #4a5568;
+    }
+
+    .party-member.online {
+        color: #48bb78;
+    }
+
+    .party-member.online::before {
+        content: '●';
+        margin-right: 0.25rem;
+    }
+</style>
+
+<div class="team-chat-container">
+    <!-- Chat Tabs -->
+    <div class="chat-tabs">
+        <button class="chat-tab active" data-channel="party" onclick="switchChatChannel('party')">
+            🎭 Party
+            <span class="notification-badge" id="party-badge" style="display: none;">0</span>
+        </button>
+        <button class="chat-tab" data-channel="whisper" onclick="switchChatChannel('whisper')">
+            💬 Whisper
+            <span class="notification-badge" id="whisper-badge" style="display: none;">0</span>
+        </button>
+        <button class="chat-tab" data-channel="ooc" onclick="switchChatChannel('ooc')">
+            🎬 OOC
+            <span class="notification-badge" id="ooc-badge" style="display: none;">0</span>
+        </button>
+        <button class="chat-tab" data-channel="strategy" onclick="switchChatChannel('strategy')">
+            🗺️ Strategy
+            <span class="notification-badge" id="strategy-badge" style="display: none;">0</span>
+        </button>
+    </div>
+
+    <!-- Party Members (shown in party channel) -->
+    <div class="party-members" id="partyMembers">
+        <span class="party-member online">{{ character.name }}</span>
+        <!-- More members added via JavaScript -->
+    </div>
+
+    <!-- Chat Messages (one for each channel) -->
+    <div class="chat-messages active" id="chat-party">
+        <div class="empty-chat">Start chatting with your party!</div>
+    </div>
+
+    <div class="chat-messages" id="chat-whisper">
+        <div class="empty-chat">Whisper privately to party members</div>
+    </div>
+
+    <div class="chat-messages" id="chat-ooc">
+        <div class="empty-chat">Out-of-character discussion</div>
+    </div>
+
+    <div class="chat-messages" id="chat-strategy">
+        <div class="empty-chat">Plan your next move</div>
+    </div>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator" id="typingIndicator"></div>
+
+    <!-- Input Area -->
+    <div class="chat-input-area">
+        <!-- Whisper Target Selector -->
+        <div class="whisper-target-selector" id="whisperTargetSelector">
+            <label>Whisper to:</label>
+            <select id="whisperTarget">
+                <option value="">Select player...</option>
+            </select>
+            <button onclick="cancelWhisper()">Cancel</button>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-wrapper">
+            <textarea
+                class="chat-input"
+                id="chatInput"
+                placeholder="Type your message..."
+                rows="1"
+                onkeydown="handleChatKeyDown(event)"
+            ></textarea>
+            <button class="chat-send-btn" onclick="sendChatMessage()">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentChannel = 'party';
+    let whisperTargetId = null;
+    let typingTimeout = null;
+    let unreadCounts = {
+        party: 0,
+        whisper: 0,
+        ooc: 0,
+        strategy: 0
+    };
+
+    function switchChatChannel(channel) {
+        // Update tabs
+        document.querySelectorAll('.chat-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-channel="${channel}"]`).classList.add('active');
+
+        // Update messages
+        document.querySelectorAll('.chat-messages').forEach(messages => {
+            messages.classList.remove('active');
+        });
+        document.getElementById(`chat-${channel}`).classList.add('active');
+
+        // Update current channel
+        currentChannel = channel;
+
+        // Clear unread badge
+        unreadCounts[channel] = 0;
+        updateUnreadBadge(channel);
+
+        // Show/hide party members
+        const partyMembers = document.getElementById('partyMembers');
+        partyMembers.style.display = channel === 'party' ? 'block' : 'none';
+
+        // Show/hide whisper target selector
+        const whisperSelector = document.getElementById('whisperTargetSelector');
+        whisperSelector.classList.toggle('active', channel === 'whisper');
+
+        // Update placeholder
+        const input = document.getElementById('chatInput');
+        const placeholders = {
+            party: 'Type your message...',
+            whisper: 'Type your whisper...',
+            ooc: 'Out-of-character message...',
+            strategy: 'Discuss strategy...'
+        };
+        input.placeholder = placeholders[channel];
+    }
+
+    function addChatMessage(author, text, channel = 'party', type = 'player', timestamp = null) {
+        const chatContainer = document.getElementById(`chat-${channel}`);
+
+        // Remove empty message if present
+        const emptyMsg = chatContainer.querySelector('.empty-chat');
+        if (emptyMsg) {
+            emptyMsg.remove();
+        }
+
+        // Create message element
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message message-${type}`;
+
+        const initials = author.split(' ').map(n => n[0]).join('').toUpperCase();
+        const time = timestamp || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        messageDiv.innerHTML = `
+            <div class="message-avatar">${initials}</div>
+            <div class="message-content">
+                <div class="message-header">
+                    <span class="message-author">${author}</span>
+                    <span class="message-timestamp">${time}</span>
+                </div>
+                <div class="message-text">${escapeHtml(text)}</div>
+            </div>
+        `;
+
+        chatContainer.appendChild(messageDiv);
+
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Update unread if not viewing this channel
+        if (channel !== currentChannel) {
+            unreadCounts[channel]++;
+            updateUnreadBadge(channel);
+        }
+    }
+
+    function updateUnreadBadge(channel) {
+        const badge = document.getElementById(`${channel}-badge`);
+        const count = unreadCounts[channel];
+
+        if (count > 0) {
+            badge.textContent = count > 9 ? '9+' : count;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+
+    function sendChatMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+
+        if (!text) return;
+
+        // Construct message
+        const message = {
+            event: 'chat_message',
+            channel: currentChannel,
+            text: text
+        };
+
+        // Add whisper target if applicable
+        if (currentChannel === 'whisper' && whisperTargetId) {
+            message.target_player_id = whisperTargetId;
+        }
+
+        // Send via WebSocket (assumes ws is global from session.html)
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            window.ws.send(JSON.stringify(message));
+
+            // Add message to local chat immediately
+            addChatMessage('{{ character.name }}', text, currentChannel, 'player');
+
+            // Clear input
+            input.value = '';
+            input.style.height = 'auto';
+        } else {
+            alert('Not connected to game server');
+        }
+    }
+
+    function handleChatKeyDown(event) {
+        // Send on Enter (but Shift+Enter for newline)
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendChatMessage();
+        }
+
+        // Auto-resize textarea
+        const input = event.target;
+        input.style.height = 'auto';
+        input.style.height = (input.scrollHeight) + 'px';
+
+        // Show typing indicator (throttled)
+        if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+            clearTimeout(typingTimeout);
+            window.ws.send(JSON.stringify({
+                event: 'typing',
+                channel: currentChannel
+            }));
+
+            typingTimeout = setTimeout(() => {
+                window.ws.send(JSON.stringify({
+                    event: 'stop_typing',
+                    channel: currentChannel
+                }));
+            }, 1000);
+        }
+    }
+
+    function showTypingIndicator(playerName) {
+        const indicator = document.getElementById('typingIndicator');
+        indicator.textContent = `${playerName} is typing...`;
+
+        setTimeout(() => {
+            if (indicator.textContent.includes(playerName)) {
+                indicator.textContent = '';
+            }
+        }, 3000);
+    }
+
+    function cancelWhisper() {
+        whisperTargetId = null;
+        switchChatChannel('party');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Handle incoming chat messages from WebSocket
+    function handleIncomingChat(data) {
+        if (data.event === 'chat_message') {
+            addChatMessage(
+                data.author || 'Unknown',
+                data.text,
+                data.channel || 'party',
+                data.type || 'player',
+                data.timestamp
+            );
+        } else if (data.event === 'typing') {
+            showTypingIndicator(data.player_name);
+        } else if (data.event === 'player_joined') {
+            addSystemMessage(`${data.player_name} joined the party`, 'party');
+        } else if (data.event === 'player_left') {
+            addSystemMessage(`${data.player_name} left the party`, 'party');
+        }
+    }
+
+    function addSystemMessage(text, channel = 'party') {
+        const chatContainer = document.getElementById(`chat-${channel}`);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message-system';
+        messageDiv.textContent = text;
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+</script>

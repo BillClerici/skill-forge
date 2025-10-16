@@ -1,0 +1,631 @@
+<!-- Save/Load Game Modal -->
+<style>
+    .save-load-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .save-load-overlay.active {
+        display: flex;
+    }
+
+    .save-load-modal {
+        background: white;
+        border-radius: 12px;
+        max-width: 800px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+    }
+
+    .modal-close {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: background 0.2s;
+    }
+
+    .modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .modal-tabs {
+        display: flex;
+        background: #f7fafc;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .modal-tab {
+        flex: 1;
+        padding: 1rem;
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-weight: 600;
+        color: #718096;
+        transition: all 0.2s;
+    }
+
+    .modal-tab:hover {
+        background: #edf2f7;
+        color: #4a5568;
+    }
+
+    .modal-tab.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+        background: white;
+    }
+
+    .modal-content {
+        padding: 2rem;
+        display: none;
+    }
+
+    .modal-content.active {
+        display: block;
+    }
+
+    .save-slots {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .save-slot {
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .save-slot:hover {
+        border-color: #667eea;
+        background: #f7fafc;
+    }
+
+    .save-slot.empty {
+        opacity: 0.6;
+        border-style: dashed;
+    }
+
+    .save-slot-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .save-slot-icon.empty {
+        background: #cbd5e0;
+    }
+
+    .save-slot-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .save-slot-title {
+        font-weight: bold;
+        color: #2d3748;
+        margin-bottom: 0.25rem;
+    }
+
+    .save-slot-meta {
+        font-size: 0.875rem;
+        color: #718096;
+    }
+
+    .save-slot-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-save, .btn-load, .btn-delete {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 0.875rem;
+    }
+
+    .btn-save {
+        background: #48bb78;
+        color: white;
+    }
+
+    .btn-save:hover {
+        background: #38a169;
+    }
+
+    .btn-load {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-load:hover {
+        background: #5a67d8;
+    }
+
+    .btn-delete {
+        background: #f56565;
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background: #e53e3e;
+    }
+
+    .btn-save:disabled, .btn-load:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    .quick-save-section {
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .quick-save-section h3 {
+        margin: 0 0 1rem 0;
+        color: #2d3748;
+        font-size: 1.1rem;
+    }
+
+    .quick-save-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .auto-save-status {
+        font-size: 0.875rem;
+        color: #718096;
+    }
+
+    .auto-save-status.active {
+        color: #48bb78;
+    }
+
+    .auto-save-status.active::before {
+        content: '●';
+        margin-right: 0.25rem;
+    }
+
+    .save-options {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .save-option {
+        flex: 1;
+        padding: 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .save-option:hover {
+        border-color: #667eea;
+        background: #f7fafc;
+    }
+
+    .save-option-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .save-option-label {
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.25rem;
+    }
+
+    .save-option-desc {
+        font-size: 0.75rem;
+        color: #718096;
+    }
+
+    .warning-message {
+        background: #fef5e7;
+        border-left: 4px solid #f6ad55;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        color: #744210;
+    }
+
+    .success-message {
+        background: #c6f6d5;
+        border-left: 4px solid #48bb78;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+        color: #22543d;
+    }
+</style>
+
+<!-- Save/Load Modal -->
+<div id="saveLoadOverlay" class="save-load-overlay" onclick="closeSaveLoadModal(event)">
+    <div class="save-load-modal" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="modal-header">
+            <h2>💾 Save & Load Game</h2>
+            <button class="modal-close" onclick="closeSaveLoadModal()">×</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="modal-tabs">
+            <button class="modal-tab active" data-tab="save" onclick="switchSaveLoadTab('save')">
+                Save Game
+            </button>
+            <button class="modal-tab" data-tab="load" onclick="switchSaveLoadTab('load')">
+                Load Game
+            </button>
+        </div>
+
+        <!-- Save Tab Content -->
+        <div class="modal-content active" id="save-content">
+            <!-- Quick Save Section -->
+            <div class="quick-save-section">
+                <h3>Quick Actions</h3>
+                <div class="quick-save-info">
+                    <div>
+                        <div class="auto-save-status active">Auto-save enabled (every 15 minutes)</div>
+                        <div style="font-size: 0.75rem; color: #a0aec0; margin-top: 0.25rem;">
+                            Last auto-save: <span id="lastAutoSave">Never</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="save-options">
+                    <div class="save-option" onclick="quickSave()">
+                        <div class="save-option-icon">⚡</div>
+                        <div class="save-option-label">Quick Save</div>
+                        <div class="save-option-desc">Save to quick slot</div>
+                    </div>
+
+                    <div class="save-option" onclick="manualSave()">
+                        <div class="save-option-icon">📝</div>
+                        <div class="save-option-label">New Save</div>
+                        <div class="save-option-desc">Create new save slot</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Slots -->
+            <h3>Save Slots</h3>
+            <div class="save-slots" id="saveSlots">
+                <!-- Slots will be populated dynamically -->
+            </div>
+        </div>
+
+        <!-- Load Tab Content -->
+        <div class="modal-content" id="load-content">
+            <div class="warning-message">
+                ⚠️ Loading a save will replace your current session progress. Make sure to save first!
+            </div>
+
+            <h3>Available Saves</h3>
+            <div class="save-slots" id="loadSlots">
+                <!-- Slots will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let saveSlots = [];
+
+    function openSaveLoadModal() {
+        document.getElementById('saveLoadOverlay').classList.add('active');
+        loadSaveSlots();
+    }
+
+    function closeSaveLoadModal(event) {
+        if (!event || event.target === document.getElementById('saveLoadOverlay')) {
+            document.getElementById('saveLoadOverlay').classList.remove('active');
+        }
+    }
+
+    function switchSaveLoadTab(tab) {
+        // Update tabs
+        document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+
+        // Update content
+        document.querySelectorAll('.modal-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(`${tab}-content`).classList.add('active');
+
+        if (tab === 'load') {
+            loadSaveSlots();
+        }
+    }
+
+    async function loadSaveSlots() {
+        try {
+            // TODO: Replace with actual API call
+            // const response = await fetch(`/api/v1/session/${SESSION_ID}/saves`);
+            // const data = await response.json();
+            // saveSlots = data.saves;
+
+            // Mock data for now
+            saveSlots = [
+                {
+                    slot_id: 'quick_save',
+                    name: 'Quick Save',
+                    timestamp: new Date(Date.now() - 600000).toISOString(),
+                    campaign: '{{ campaign.title }}',
+                    character: '{{ character.name }}',
+                    quest: 'Entering the Dark Forest',
+                    bloom_level: 'Understand',
+                    is_quick_save: true
+                },
+                {
+                    slot_id: '1',
+                    name: 'Chapter 1 Complete',
+                    timestamp: new Date(Date.now() - 3600000).toISOString(),
+                    campaign: '{{ campaign.title }}',
+                    character: '{{ character.name }}',
+                    quest: 'The Ancient Temple',
+                    bloom_level: 'Apply',
+                    is_quick_save: false
+                }
+            ];
+
+            renderSaveSlots();
+        } catch (error) {
+            console.error('Failed to load save slots:', error);
+        }
+    }
+
+    function renderSaveSlots() {
+        const saveSlotsContainer = document.getElementById('saveSlots');
+        const loadSlotsContainer = document.getElementById('loadSlots');
+
+        // Generate save slot HTML
+        let slotsHTML = '';
+
+        // Render existing saves
+        saveSlots.forEach(save => {
+            const timestamp = new Date(save.timestamp);
+            const timeAgo = getTimeAgo(timestamp);
+
+            slotsHTML += `
+                <div class="save-slot">
+                    <div class="save-slot-icon">
+                        ${save.is_quick_save ? '⚡' : '💾'}
+                    </div>
+                    <div class="save-slot-info">
+                        <div class="save-slot-title">${save.name}</div>
+                        <div class="save-slot-meta">
+                            ${save.quest} • ${save.bloom_level} • ${timeAgo}
+                        </div>
+                    </div>
+                    <div class="save-slot-actions">
+                        <button class="btn-save" onclick="overwriteSave('${save.slot_id}')">
+                            💾 Overwrite
+                        </button>
+                        <button class="btn-delete" onclick="deleteSave('${save.slot_id}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        // Add empty slots
+        for (let i = saveSlots.length; i < 5; i++) {
+            slotsHTML += `
+                <div class="save-slot empty">
+                    <div class="save-slot-icon empty">📁</div>
+                    <div class="save-slot-info">
+                        <div class="save-slot-title">Empty Slot ${i + 1}</div>
+                        <div class="save-slot-meta">Click to create new save</div>
+                    </div>
+                    <div class="save-slot-actions">
+                        <button class="btn-save" onclick="createNewSave(${i + 1})">
+                            💾 Save Here
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        saveSlotsContainer.innerHTML = slotsHTML;
+
+        // Generate load slots HTML
+        let loadHTML = '';
+
+        saveSlots.forEach(save => {
+            const timestamp = new Date(save.timestamp);
+            const timeAgo = getTimeAgo(timestamp);
+
+            loadHTML += `
+                <div class="save-slot">
+                    <div class="save-slot-icon">
+                        ${save.is_quick_save ? '⚡' : '💾'}
+                    </div>
+                    <div class="save-slot-info">
+                        <div class="save-slot-title">${save.name}</div>
+                        <div class="save-slot-meta">
+                            ${save.quest} • ${save.bloom_level} • ${timeAgo}
+                        </div>
+                    </div>
+                    <div class="save-slot-actions">
+                        <button class="btn-load" onclick="loadSave('${save.slot_id}')">
+                            📂 Load
+                        </button>
+                        <button class="btn-delete" onclick="deleteSave('${save.slot_id}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        if (saveSlots.length === 0) {
+            loadHTML = '<p style="text-align: center; color: #a0aec0; padding: 2rem;">No saved games found</p>';
+        }
+
+        loadSlotsContainer.innerHTML = loadHTML;
+    }
+
+    async function quickSave() {
+        await performSave('quick_save', 'Quick Save', true);
+    }
+
+    async function manualSave() {
+        const name = prompt('Enter a name for this save:');
+        if (!name) return;
+
+        const slotId = 'save_' + Date.now();
+        await performSave(slotId, name, false);
+    }
+
+    async function createNewSave(slotNumber) {
+        const name = prompt('Enter a name for this save:', `Save ${slotNumber}`);
+        if (!name) return;
+
+        const slotId = `slot_${slotNumber}`;
+        await performSave(slotId, name, false);
+    }
+
+    async function overwriteSave(slotId) {
+        if (!confirm('Overwrite this save slot?')) return;
+
+        const save = saveSlots.find(s => s.slot_id === slotId);
+        await performSave(slotId, save.name, save.is_quick_save);
+    }
+
+    async function performSave(slotId, name, isQuickSave) {
+        try {
+            // Send save request to game engine
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({
+                    event: 'manual_save',
+                    slot_id: slotId,
+                    slot_name: name,
+                    is_quick_save: isQuickSave
+                }));
+
+                // Show success message
+                showSaveMessage('Game saved successfully!', 'success');
+
+                // Reload slots after short delay
+                setTimeout(loadSaveSlots, 500);
+            } else {
+                throw new Error('Not connected to game server');
+            }
+        } catch (error) {
+            console.error('Save failed:', error);
+            showSaveMessage('Failed to save game: ' + error.message, 'error');
+        }
+    }
+
+    async function loadSave(slotId) {
+        if (!confirm('Load this save? Current progress will be lost if not saved.')) return;
+
+        try {
+            if (window.ws && window.ws.readyState === WebSocket.OPEN) {
+                window.ws.send(JSON.stringify({
+                    event: 'load_save',
+                    slot_id: slotId
+                }));
+
+                closeSaveLoadModal();
+                showSaveMessage('Loading save...', 'success');
+            } else {
+                throw new Error('Not connected to game server');
+            }
+        } catch (error) {
+            console.error('Load failed:', error);
+            showSaveMessage('Failed to load save: ' + error.message, 'error');
+        }
+    }
+
+    async function deleteSave(slotId) {
+        if (!confirm('Delete this save? This cannot be undone.')) return;
+
+        try {
+            // TODO: Implement delete API
+            saveSlots = saveSlots.filter(s => s.slot_id !== slotId);
+            renderSaveSlots();
+            showSaveMessage('Save deleted', 'success');
+        } catch (error) {
+            console.error('Delete failed:', error);
+            showSaveMessage('Failed to delete save: ' + error.message, 'error');
+        }
+    }
+
+    function showSaveMessage(message, type) {
+        // You can implement a toast notification here
+        console.log(`[${type}] ${message}`);
+        alert(message); // Simple fallback
+    }
+
+    function getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+
+        if (seconds < 60) return 'Just now';
+        if (seconds < 3600) return Math.floor(seconds / 60) + ' minutes ago';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+        return Math.floor(seconds / 86400) + ' days ago';
+    }
+
+    // Update last auto-save timestamp
+    setInterval(() => {
+        document.getElementById('lastAutoSave').textContent = '10 minutes ago'; // Mock
+    }, 60000);
+</script>

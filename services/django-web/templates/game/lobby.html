@@ -1,0 +1,415 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Game Lobby - Choose Your Adventure{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lobby-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .lobby-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .lobby-header h1 {
+        font-size: 3rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+
+    .lobby-header p {
+        font-size: 1.2rem;
+        color: #718096;
+    }
+
+    .campaigns-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .campaign-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+
+    .campaign-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+    }
+
+    .campaign-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .campaign-content {
+        padding: 1.5rem;
+    }
+
+    .campaign-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .campaign-description {
+        color: #718096;
+        margin-bottom: 1rem;
+        line-height: 1.6;
+    }
+
+    .campaign-meta {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.875rem;
+        color: #a0aec0;
+    }
+
+    .campaign-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .campaign-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-play {
+        flex: 1;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-play:hover {
+        background: #5a67d8;
+    }
+
+    .btn-party {
+        flex: 1;
+        padding: 0.75rem;
+        background: #48bb78;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-party:hover {
+        background: #38a169;
+    }
+
+    .character-selector {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .character-selector.active {
+        display: flex;
+    }
+
+    .selector-modal {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .selector-header {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 1.5rem;
+        color: #2d3748;
+    }
+
+    .character-list {
+        display: grid;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .character-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .character-item:hover {
+        border-color: #667eea;
+        background: #f7fafc;
+    }
+
+    .character-item.selected {
+        border-color: #667eea;
+        background: #edf2f7;
+    }
+
+    .character-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        margin-right: 1rem;
+    }
+
+    .character-info h4 {
+        margin: 0 0 0.25rem 0;
+        color: #2d3748;
+    }
+
+    .character-info p {
+        margin: 0;
+        color: #718096;
+        font-size: 0.875rem;
+    }
+
+    .selector-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-cancel {
+        flex: 1;
+        padding: 0.75rem;
+        background: #e2e8f0;
+        color: #4a5568;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .btn-confirm {
+        flex: 1;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .btn-confirm:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    .no-characters {
+        text-align: center;
+        padding: 2rem;
+        color: #a0aec0;
+    }
+
+    .no-characters a {
+        color: #667eea;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lobby-container">
+    <div class="lobby-header">
+        <h1>🎮 Choose Your Adventure</h1>
+        <p>Select a campaign and character to begin your journey</p>
+    </div>
+
+    {% if not characters %}
+    <div class="no-characters">
+        <p>You don't have any characters yet!</p>
+        <a href="{% url 'player_list' %}">Create a character</a> to start playing.
+    </div>
+    {% endif %}
+
+    <div class="campaigns-grid">
+        {% for campaign in campaigns %}
+        <div class="campaign-card" onclick="showCampaignDetails('{{ campaign.campaign_id }}')">
+            {% if campaign.primary_image_url %}
+            <img src="{{ campaign.primary_image_url }}" alt="{{ campaign.title }}" class="campaign-image">
+            {% elif campaign.campaign_images %}
+            <img src="{{ campaign.campaign_images.0.url }}" alt="{{ campaign.title }}" class="campaign-image">
+            {% else %}
+            <div class="campaign-image"></div>
+            {% endif %}
+
+            <div class="campaign-content">
+                <h3 class="campaign-title">{{ campaign.title }}</h3>
+
+                <p class="campaign-description">
+                    {{ campaign.description|truncatewords:20 }}
+                </p>
+
+                <div class="campaign-meta">
+                    <div class="campaign-meta-item">
+                        <span>🌍</span>
+                        <span>{{ campaign.world.name }}</span>
+                    </div>
+                    <div class="campaign-meta-item">
+                        <span>📜</span>
+                        <span>{{ campaign.quests.count }} Quests</span>
+                    </div>
+                </div>
+
+                <div class="campaign-actions">
+                    <button class="btn-play" onclick="event.stopPropagation(); startSoloGame('{{ campaign.campaign_id }}')">
+                        ⚔️ Play Solo
+                    </button>
+                    <button class="btn-party" onclick="event.stopPropagation(); startPartyGame('{{ campaign.campaign_id }}')">
+                        👥 Create Party
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: #a0aec0;">
+            <p>No campaigns available yet.</p>
+            <a href="{% url 'campaign_wizard_start' %}" style="color: #667eea; font-weight: bold;">Create a campaign</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Character Selector Modal -->
+<div id="characterSelector" class="character-selector">
+    <div class="selector-modal">
+        <div class="selector-header">Select Your Character</div>
+
+        <div class="character-list" id="characterList">
+            {% for character in characters %}
+            <div class="character-item" data-character-id="{{ character.character_id }}" onclick="selectCharacter('{{ character.character_id }}')">
+                {% if character.primary_image %}
+                <img src="{{ character.primary_image.url }}" alt="{{ character.name }}" class="character-avatar">
+                {% else %}
+                <div class="character-avatar"></div>
+                {% endif %}
+
+                <div class="character-info">
+                    <h4>{{ character.name }}</h4>
+                    <p>Level {{ character.level }} - {{ character.blooms_level|title }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="selector-actions">
+            <button class="btn-cancel" onclick="hideCharacterSelector()">Cancel</button>
+            <button id="confirmButton" class="btn-confirm" disabled onclick="confirmCharacterSelection()">Start Game</button>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Form -->
+<form id="startGameForm" method="POST" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" name="character_id" id="selectedCharacterId">
+    <input type="hidden" name="session_type" id="sessionType">
+    <input type="hidden" name="max_players" id="maxPlayers" value="4">
+    <input type="hidden" name="auto_start" id="autoStart" value="false">
+</form>
+
+<script>
+    let selectedCampaignId = null;
+    let selectedCharacterId = null;
+    let sessionType = 'solo';
+
+    function startSoloGame(campaignId) {
+        selectedCampaignId = campaignId;
+        sessionType = 'solo';
+        document.getElementById('sessionType').value = 'solo';
+        showCharacterSelector();
+    }
+
+    function startPartyGame(campaignId) {
+        selectedCampaignId = campaignId;
+        sessionType = 'party';
+        document.getElementById('sessionType').value = 'party';
+        showCharacterSelector();
+    }
+
+    function showCharacterSelector() {
+        document.getElementById('characterSelector').classList.add('active');
+    }
+
+    function hideCharacterSelector() {
+        document.getElementById('characterSelector').classList.remove('active');
+        selectedCharacterId = null;
+        document.getElementById('confirmButton').disabled = true;
+
+        // Deselect all characters
+        document.querySelectorAll('.character-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+    }
+
+    function selectCharacter(characterId) {
+        selectedCharacterId = characterId;
+        document.getElementById('selectedCharacterId').value = characterId;
+        document.getElementById('confirmButton').disabled = false;
+
+        // Update UI
+        document.querySelectorAll('.character-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+
+        document.querySelector(`[data-character-id="${characterId}"]`).classList.add('selected');
+    }
+
+    function confirmCharacterSelection() {
+        if (!selectedCharacterId || !selectedCampaignId) {
+            alert('Please select a character');
+            return;
+        }
+
+        const form = document.getElementById('startGameForm');
+        form.action = `/campaigns/${selectedCampaignId}/start/`;
+        form.submit();
+    }
+
+    function showCampaignDetails(campaignId) {
+        window.location.href = `/campaigns/${campaignId}/`;
+    }
+</script>
+{% endblock %}

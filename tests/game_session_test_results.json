@@ -1,0 +1,272 @@
+{
+  "timestamp": "2025-10-15T21:19:10.540345",
+  "url": "http://localhost:8000/game/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/",
+  "test_results": [
+    {
+      "test": "Page Load Test",
+      "success": true,
+      "status_code": 200,
+      "url": "http://localhost:8000/game/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/",
+      "title": "Game Session -"
+    },
+    {
+      "test": "UI Elements Discovery",
+      "success": false,
+      "error": "'charmap' codec can't encode character '\\U0001f4be' in position 16: character maps to <undefined>"
+    },
+    {
+      "test": "Interactive Elements Test",
+      "success": true,
+      "interactions": [
+        {
+          "action": "found_button",
+          "selector": "button:has-text('Send')",
+          "text": "Send Action",
+          "disabled": true
+        },
+        {
+          "action": "found_links",
+          "count": 19,
+          "samples": [
+            {
+              "text": "menu",
+              "href": "#"
+            },
+            {
+              "text": "casinoSkillForge RPG",
+              "href": "/"
+            },
+            {
+              "text": "settingsAdmin",
+              "href": "/admin/"
+            },
+            {
+              "text": "codeGraphQL",
+              "href": "/graphql/"
+            },
+            {
+              "text": "close",
+              "href": "#"
+            },
+            {
+              "text": "account_circle",
+              "href": "#user"
+            },
+            {
+              "text": "SkillForge Admin",
+              "href": "#name"
+            },
+            {
+              "text": "admin@skillforge.com",
+              "href": "#email"
+            },
+            {
+              "text": "dashboardDashboard",
+              "href": "/"
+            },
+            {
+              "text": "groupAccounts",
+              "href": "/accounts/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "test": "Responsiveness Test",
+      "success": true,
+      "viewports_tested": 3
+    }
+  ],
+  "ui_elements": {},
+  "errors": [],
+  "console_logs": [
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket connection to 'ws://localhost:9500/ws/session/session_1760577331.303933_875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f/player/875f7b7e-2d6d-44e3-bfe7-b824cb1ad35f' failed: Error during WebSocket handshake: Unexpected response code: 403"
+    },
+    {
+      "type": "error",
+      "text": "WebSocket error: Event"
+    },
+    {
+      "type": "log",
+      "text": "WebSocket disconnected"
+    }
+  ],
+  "screenshots": [
+    {
+      "name": "page_load",
+      "path": "D:\\Dev\\skill-forge\\tests\\screenshots\\page_load_20251015_211913.png",
+      "timestamp": "20251015_211913"
+    },
+    {
+      "name": "viewport_mobile",
+      "path": "D:\\Dev\\skill-forge\\tests\\screenshots\\viewport_mobile_20251015_211946.png",
+      "timestamp": "20251015_211946"
+    },
+    {
+      "name": "viewport_tablet",
+      "path": "D:\\Dev\\skill-forge\\tests\\screenshots\\viewport_tablet_20251015_211947.png",
+      "timestamp": "20251015_211947"
+    },
+    {
+      "name": "viewport_desktop",
+      "path": "D:\\Dev\\skill-forge\\tests\\screenshots\\viewport_desktop_20251015_211949.png",
+      "timestamp": "20251015_211949"
+    },
+    {
+      "name": "final_state",
+      "path": "D:\\Dev\\skill-forge\\tests\\screenshots\\final_state_20251015_211949.png",
+      "timestamp": "20251015_211949"
+    }
+  ]
+}

@@ -330,6 +330,51 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # Game Engine
+  # ============================================
+
+  game-engine:
+    build: ./services/game-engine
+    container_name: skillforge-game-engine
+    ports:
+      - "9500:9500"   # REST API
+      - "9501:9501"   # WebSocket (if separate port needed)
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MONGODB_URL=mongodb://admin:${MONGO_PASSWORD}@mongodb:27017
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - POSTGRES_URL=postgresql://skillforge_user:${POSTGRES_PASSWORD}@postgres:5432/skillforge
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://skillforge:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      - MCP_PLAYER_DATA_URL=http://mcp-player-data:8001
+      - MCP_NPC_PERSONALITY_URL=http://mcp-npc-personality:8004
+      - MCP_WORLD_UNIVERSE_URL=http://mcp-world-universe:8002
+      - MCP_QUEST_MISSION_URL=http://mcp-quest-mission:8003
+      - MCP_ITEM_EQUIPMENT_URL=http://mcp-item-equipment:8005
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
+      - DEBUG=True
+      - ENVIRONMENT=development
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+      - rabbitmq
+      - mongodb
+      - neo4j
+      - postgres
+      - mcp-player-data
+      - mcp-npc-personality
+      - mcp-world-universe
+      - mcp-quest-mission
+      - mcp-item-equipment
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/game-engine:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 9500 --reload
+
+  # ============================================
   # API Gateway
   # ============================================
 
@@ -439,6 +484,26 @@ services:
     volumes:
       - ./services/django-web:/app
     command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+
+  # ============================================
+  # Nginx Reverse Proxy
+  # ============================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: skillforge-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./services/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./services/django-web/static:/app/static:ro
+      - ./services/django-web/media:/app/media:ro
+    depends_on:
+      - django-web
+      - game-engine
+    networks:
+      - skillforge-network
+    restart: unless-stopped
 
   # ============================================
   # Background Worker

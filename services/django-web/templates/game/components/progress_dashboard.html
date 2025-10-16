@@ -1,0 +1,587 @@
+<!-- Progress Dashboard Component -->
+<style>
+    .progress-dashboard {
+        padding: 1.5rem;
+    }
+
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .dashboard-header h3 {
+        margin: 0 0 0.5rem 0;
+        color: #2d3748;
+        font-size: 1.5rem;
+    }
+
+    .dashboard-header p {
+        margin: 0;
+        color: #718096;
+        font-size: 0.875rem;
+    }
+
+    .blooms-pyramid {
+        margin-bottom: 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+    }
+
+    .blooms-pyramid h4 {
+        margin: 0 0 1rem 0;
+        text-align: center;
+        font-size: 1.2rem;
+    }
+
+    .blooms-levels {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 0.5rem;
+    }
+
+    .bloom-level {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+
+    .bloom-level:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateX(4px);
+    }
+
+    .bloom-level.current {
+        background: rgba(255, 255, 255, 0.25);
+        border: 2px solid white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .bloom-level.completed {
+        background: rgba(72, 187, 120, 0.3);
+    }
+
+    .bloom-level-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+
+    .bloom-level.completed .bloom-level-icon {
+        background: #48bb78;
+    }
+
+    .bloom-level.current .bloom-level-icon {
+        background: white;
+        color: #667eea;
+    }
+
+    .bloom-level-info {
+        flex: 1;
+    }
+
+    .bloom-level-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .bloom-level-desc {
+        font-size: 0.75rem;
+        opacity: 0.9;
+    }
+
+    .bloom-level-progress {
+        text-align: right;
+        font-size: 0.875rem;
+        font-weight: bold;
+    }
+
+    .dimensions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .dimension-card {
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        transition: all 0.2s;
+    }
+
+    .dimension-card:hover {
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+
+    .dimension-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .dimension-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+
+    .dimension-icon.physical { background: #fef5e7; }
+    .dimension-icon.emotional { background: #fce4ec; }
+    .dimension-icon.intellectual { background: #e8eaf6; }
+    .dimension-icon.social { background: #e0f2f1; }
+    .dimension-icon.spiritual { background: #f3e5f5; }
+    .dimension-icon.vocational { background: #fff3e0; }
+    .dimension-icon.environmental { background: #e8f5e9; }
+
+    .dimension-info {
+        flex: 1;
+    }
+
+    .dimension-name {
+        font-weight: bold;
+        color: #2d3748;
+        margin-bottom: 0.125rem;
+    }
+
+    .dimension-level {
+        font-size: 0.75rem;
+        color: #718096;
+    }
+
+    .dimension-progress-bar {
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .dimension-progress-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+
+    .dimension-progress-fill.physical { background: #f39c12; }
+    .dimension-progress-fill.emotional { background: #e91e63; }
+    .dimension-progress-fill.intellectual { background: #3f51b5; }
+    .dimension-progress-fill.social { background: #009688; }
+    .dimension-progress-fill.spiritual { background: #9c27b0; }
+    .dimension-progress-fill.vocational { background: #ff9800; }
+    .dimension-progress-fill.environmental { background: #4caf50; }
+
+    .dimension-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: #718096;
+    }
+
+    .achievements-section {
+        margin-bottom: 2rem;
+    }
+
+    .achievements-section h4 {
+        margin: 0 0 1rem 0;
+        color: #2d3748;
+        font-size: 1.1rem;
+    }
+
+    .achievements-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 1rem;
+    }
+
+    .achievement {
+        text-align: center;
+        padding: 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .achievement:hover {
+        border-color: #667eea;
+        transform: translateY(-2px);
+    }
+
+    .achievement.unlocked {
+        border-color: #48bb78;
+        background: #f0fff4;
+    }
+
+    .achievement.locked {
+        opacity: 0.5;
+        filter: grayscale(100%);
+    }
+
+    .achievement-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .achievement-name {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        background: #f7fafc;
+        border-radius: 8px;
+        padding: 1.5rem;
+    }
+
+    .stat-card {
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: #718096;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .radar-chart-placeholder {
+        text-align: center;
+        padding: 2rem;
+        background: #f7fafc;
+        border-radius: 8px;
+        color: #a0aec0;
+        font-style: italic;
+    }
+</style>
+
+<div class="progress-dashboard">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <h3>📊 Progress Dashboard</h3>
+        <p>Track your learning journey and dimensional growth</p>
+    </div>
+
+    <!-- Bloom's Taxonomy Pyramid -->
+    <div class="blooms-pyramid">
+        <h4>🎯 Bloom's Taxonomy Progress</h4>
+        <div class="blooms-levels">
+            <div class="bloom-level completed" data-level="remember">
+                <div class="bloom-level-icon">✓</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Remember</div>
+                    <div class="bloom-level-desc">Recall facts and basic concepts</div>
+                </div>
+                <div class="bloom-level-progress">100%</div>
+            </div>
+
+            <div class="bloom-level current" data-level="understand">
+                <div class="bloom-level-icon">👁️</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Understand</div>
+                    <div class="bloom-level-desc">Explain ideas or concepts</div>
+                </div>
+                <div class="bloom-level-progress" id="understandProgress">65%</div>
+            </div>
+
+            <div class="bloom-level" data-level="apply">
+                <div class="bloom-level-icon">🔧</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Apply</div>
+                    <div class="bloom-level-desc">Use information in new situations</div>
+                </div>
+                <div class="bloom-level-progress">0%</div>
+            </div>
+
+            <div class="bloom-level" data-level="analyze">
+                <div class="bloom-level-icon">🔍</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Analyze</div>
+                    <div class="bloom-level-desc">Draw connections among ideas</div>
+                </div>
+                <div class="bloom-level-progress">0%</div>
+            </div>
+
+            <div class="bloom-level" data-level="evaluate">
+                <div class="bloom-level-icon">⚖️</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Evaluate</div>
+                    <div class="bloom-level-desc">Justify a decision or course of action</div>
+                </div>
+                <div class="bloom-level-progress">0%</div>
+            </div>
+
+            <div class="bloom-level" data-level="create">
+                <div class="bloom-level-icon">🎨</div>
+                <div class="bloom-level-info">
+                    <div class="bloom-level-name">Create</div>
+                    <div class="bloom-level-desc">Produce new or original work</div>
+                </div>
+                <div class="bloom-level-progress">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seven Dimensions -->
+    <h4 style="margin: 0 0 1rem 0; color: #2d3748;">🌟 Seven Human Dimensions</h4>
+    <div class="dimensions-grid" id="dimensionsGrid">
+        <!-- Dimensions will be populated via JavaScript -->
+    </div>
+
+    <!-- Achievements -->
+    <div class="achievements-section">
+        <h4>🏆 Recent Achievements</h4>
+        <div class="achievements-grid">
+            <div class="achievement unlocked" title="First Steps: Complete your first quest">
+                <div class="achievement-icon">🎯</div>
+                <div class="achievement-name">First Steps</div>
+            </div>
+
+            <div class="achievement unlocked" title="Scholar: Reach Understand level">
+                <div class="achievement-icon">📚</div>
+                <div class="achievement-name">Scholar</div>
+            </div>
+
+            <div class="achievement locked" title="Master: Reach Apply level">
+                <div class="achievement-icon">🎓</div>
+                <div class="achievement-name">Master</div>
+            </div>
+
+            <div class="achievement locked" title="Team Player: Complete a party quest">
+                <div class="achievement-icon">👥</div>
+                <div class="achievement-name">Team Player</div>
+            </div>
+
+            <div class="achievement locked" title="Challenger: Complete 10 challenges">
+                <div class="achievement-icon">⚔️</div>
+                <div class="achievement-name">Challenger</div>
+            </div>
+
+            <div class="achievement locked" title="Explorer: Visit 5 unique locations">
+                <div class="achievement-icon">🗺️</div>
+                <div class="achievement-name">Explorer</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Summary -->
+    <div class="stats-summary">
+        <div class="stat-card">
+            <div class="stat-value" id="totalXP">1,250</div>
+            <div class="stat-label">Total XP</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" id="questsCompleted">3</div>
+            <div class="stat-label">Quests Completed</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" id="challengesPassed">7</div>
+            <div class="stat-label">Challenges Passed</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-value" id="playTime">5h 32m</div>
+            <div class="stat-label">Play Time</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialize dimensional data
+    const dimensionalData = [
+        {
+            name: 'Physical',
+            icon: '💪',
+            className: 'physical',
+            level: 2,
+            xp: 450,
+            nextLevel: 1000,
+            bloomLevel: 'Understand',
+            description: 'Physical wellness and motor skills'
+        },
+        {
+            name: 'Emotional',
+            icon: '❤️',
+            className: 'emotional',
+            level: 1,
+            xp: 320,
+            nextLevel: 1000,
+            bloomLevel: 'Remember',
+            description: 'Emotional intelligence and regulation'
+        },
+        {
+            name: 'Intellectual',
+            icon: '🧠',
+            className: 'intellectual',
+            level: 3,
+            xp: 720,
+            nextLevel: 1000,
+            bloomLevel: 'Apply',
+            description: 'Critical thinking and learning'
+        },
+        {
+            name: 'Social',
+            icon: '👥',
+            className: 'social',
+            level: 2,
+            xp: 580,
+            nextLevel: 1000,
+            bloomLevel: 'Understand',
+            description: 'Interpersonal skills and relationships'
+        },
+        {
+            name: 'Spiritual',
+            icon: '✨',
+            className: 'spiritual',
+            level: 1,
+            xp: 210,
+            nextLevel: 1000,
+            bloomLevel: 'Remember',
+            description: 'Purpose and values'
+        },
+        {
+            name: 'Vocational',
+            icon: '🛠️',
+            className: 'vocational',
+            level: 2,
+            xp: 490,
+            nextLevel: 1000,
+            bloomLevel: 'Understand',
+            description: 'Skills and career readiness'
+        },
+        {
+            name: 'Environmental',
+            icon: '🌍',
+            className: 'environmental',
+            level: 1,
+            xp: 380,
+            nextLevel: 1000,
+            bloomLevel: 'Remember',
+            description: 'Environmental awareness'
+        }
+    ];
+
+    function renderDimensions() {
+        const container = document.getElementById('dimensionsGrid');
+
+        dimensionalData.forEach(dimension => {
+            const progress = (dimension.xp / dimension.nextLevel) * 100;
+
+            const card = document.createElement('div');
+            card.className = 'dimension-card';
+            card.innerHTML = `
+                <div class="dimension-header">
+                    <div class="dimension-icon ${dimension.className}">
+                        ${dimension.icon}
+                    </div>
+                    <div class="dimension-info">
+                        <div class="dimension-name">${dimension.name}</div>
+                        <div class="dimension-level">Level ${dimension.level} • ${dimension.bloomLevel}</div>
+                    </div>
+                </div>
+                <div class="dimension-progress-bar">
+                    <div class="dimension-progress-fill ${dimension.className}"
+                         style="width: ${progress}%"></div>
+                </div>
+                <div class="dimension-stats">
+                    <span>${dimension.xp} XP</span>
+                    <span>${dimension.nextLevel - dimension.xp} to next level</span>
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+    }
+
+    // Update progress based on game state
+    function updateProgress(bloomLevel, dimensions, stats) {
+        // Update Bloom's level highlighting
+        document.querySelectorAll('.bloom-level').forEach(level => {
+            level.classList.remove('current');
+        });
+
+        const currentLevel = document.querySelector(`[data-level="${bloomLevel.toLowerCase()}"]`);
+        if (currentLevel) {
+            currentLevel.classList.add('current');
+        }
+
+        // Update dimensions if provided
+        if (dimensions) {
+            dimensions.forEach((dim, index) => {
+                if (dimensionalData[index]) {
+                    dimensionalData[index].xp = dim.xp || dimensionalData[index].xp;
+                    dimensionalData[index].level = dim.level || dimensionalData[index].level;
+                }
+            });
+
+            // Re-render dimensions
+            document.getElementById('dimensionsGrid').innerHTML = '';
+            renderDimensions();
+        }
+
+        // Update stats if provided
+        if (stats) {
+            if (stats.totalXP !== undefined) {
+                document.getElementById('totalXP').textContent = stats.totalXP.toLocaleString();
+            }
+            if (stats.questsCompleted !== undefined) {
+                document.getElementById('questsCompleted').textContent = stats.questsCompleted;
+            }
+            if (stats.challengesPassed !== undefined) {
+                document.getElementById('challengesPassed').textContent = stats.challengesPassed;
+            }
+            if (stats.playTime !== undefined) {
+                document.getElementById('playTime').textContent = stats.playTime;
+            }
+        }
+    }
+
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+        renderDimensions();
+    });
+
+    // Listen for progress updates from WebSocket
+    if (typeof window !== 'undefined') {
+        window.addEventListener('gameProgressUpdate', (event) => {
+            const { bloomLevel, dimensions, stats } = event.detail;
+            updateProgress(bloomLevel, dimensions, stats);
+        });
+    }
+</script>

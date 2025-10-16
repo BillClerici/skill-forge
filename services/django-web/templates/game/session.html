@@ -1,0 +1,1104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Game Session - {{ campaign.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .game-container {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        grid-template-rows: auto 1fr auto;
+        gap: 1rem;
+        height: calc(100vh - 120px);
+        padding: 1rem;
+    }
+
+    .game-header {
+        grid-column: 1 / -1;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .campaign-info-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .campaign-thumbnail {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 2px solid rgba(255,255,255,0.3);
+        flex-shrink: 0;
+    }
+
+    .campaign-details {
+        flex: 1;
+    }
+
+    .campaign-details h1 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.3rem;
+    }
+
+    .campaign-details .description {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .game-status-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(0,0,0,0.1);
+    }
+
+    .status-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .status-label {
+        font-size: 0.7rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .status-value {
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+
+    .chat-panel {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 500px;
+    }
+
+    .chat-header {
+        background: #667eea;
+        color: white;
+        padding: 1rem;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    .chat-panel .chat-messages {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 1rem;
+        background: #f7fafc;
+        min-height: 300px;
+        display: block !important;
+    }
+
+    .chat-message {
+        margin-bottom: 1rem;
+        animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .message-dm {
+        background: #edf2f7;
+        border-left: 4px solid #667eea;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message-player {
+        background: #e6fffa;
+        border-left: 4px solid #38b2ac;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message-npc {
+        background: #fffaf0;
+        border-left: 4px solid #ed8936;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message-assessment {
+        background: #fef5e7;
+        border-left: 4px solid #f6ad55;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .message-sender {
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+        color: #2d3748;
+        font-size: 0.875rem;
+        display: block;
+    }
+
+    .message-content {
+        color: #4a5568;
+        line-height: 1.6;
+        display: block;
+        word-wrap: break-word;
+        font-size: 0.9rem;
+    }
+
+    .message-time {
+        font-size: 0.75rem;
+        color: #a0aec0;
+        margin-top: 0.5rem;
+    }
+
+    .chat-input-container {
+        padding: 1rem;
+        background: white;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .chat-input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 4px;
+        font-size: 1rem;
+        resize: none;
+    }
+
+    .chat-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .send-button {
+        margin-top: 0.5rem;
+        width: 100%;
+        padding: 0.75rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .send-button:hover {
+        background: #5a67d8;
+    }
+
+    .send-button:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    .info-panel {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow-y: auto;
+    }
+
+    .info-tabs {
+        display: flex;
+        background: #edf2f7;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .info-tab {
+        flex: 1;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        font-weight: bold;
+        color: #4a5568;
+        transition: all 0.2s;
+    }
+
+    .info-tab.active {
+        background: white;
+        color: #667eea;
+        border-bottom: 3px solid #667eea;
+    }
+
+    .info-tab:hover {
+        background: #f7fafc;
+    }
+
+    .info-content {
+        padding: 1rem;
+        display: none;
+    }
+
+    .info-content.active {
+        display: block;
+    }
+
+    .quest-tracker {
+        margin-bottom: 1rem;
+    }
+
+    .quest-objective {
+        padding: 0.75rem;
+        background: #f7fafc;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        color: #2d3748;
+    }
+
+    .quest-objective.completed {
+        background: #c6f6d5;
+        text-decoration: line-through;
+        opacity: 0.7;
+    }
+
+    .objective-checkbox {
+        margin-right: 0.75rem;
+        font-size: 1.2rem;
+    }
+
+    .character-stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .stat-label {
+        font-weight: bold;
+        color: #4a5568;
+        font-size: 1.05rem;
+    }
+
+    .stat-value {
+        color: #667eea !important;
+        font-size: 0.95rem !important;
+        font-weight: normal !important;
+    }
+
+    .available-actions {
+        margin-top: 1rem;
+    }
+
+    .action-button {
+        display: block;
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: #f7fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .action-button:hover {
+        background: #edf2f7;
+        border-color: #667eea;
+    }
+
+    .connection-status {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 0.5rem 1rem;
+        background: #48bb78;
+        color: white;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        z-index: 1000;
+    }
+
+    .connection-status.disconnected {
+        background: #f56565;
+    }
+
+    .typing-indicator {
+        padding: 1rem;
+        color: #a0aec0;
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    .info-content h3 {
+        font-size: 1.3rem;
+        font-weight: bold;
+        color: #2d3748;
+        margin: 0 0 1rem 0;
+    }
+
+    .info-content h4 {
+        font-size: 1rem;
+        font-weight: bold;
+        color: #4a5568;
+        margin: 1rem 0 0.5rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Save/Load Component -->
+{% include 'game/components/save_load.html' %}
+
+<div id="connectionStatus" class="connection-status disconnected">
+    Connecting...
+</div>
+
+<div class="game-container">
+    <div class="game-header">
+        <!-- Campaign Info Row -->
+        <div class="campaign-info-row">
+            {% if campaign.primary_image_url %}
+            <img src="{{ campaign.primary_image_url }}" alt="{{ campaign.title }}" class="campaign-thumbnail">
+            {% elif campaign.campaign_images %}
+            <img src="{{ campaign.campaign_images.0.url }}" alt="{{ campaign.title }}" class="campaign-thumbnail">
+            {% else %}
+            <div class="campaign-thumbnail" style="background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                🎲
+            </div>
+            {% endif %}
+            <div class="campaign-details">
+                <h1>{{ campaign.title }}</h1>
+                <p class="description">{{ campaign.description|truncatewords:20|default:"Embark on an epic adventure in this AI-powered campaign!" }}</p>
+            </div>
+            <button onclick="openSaveLoadModal()" style="
+                padding: 0.6rem 1.2rem;
+                background: rgba(255, 255, 255, 0.2);
+                color: white;
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                border-radius: 6px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 0.9rem;
+                transition: all 0.2s;
+                white-space: nowrap;
+                height: fit-content;
+            " onmouseover="this.style.background='rgba(255, 255, 255, 0.3)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
+                💾 Save/Load
+            </button>
+        </div>
+
+        <!-- Status Row -->
+        <div class="game-status-row">
+            <div class="status-item">
+                <div class="status-label">Current Quest</div>
+                <div class="status-value" id="currentQuest">Loading...</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Location</div>
+                <div class="status-value" id="currentLocation">Unknown</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Party Size</div>
+                <div class="status-value" id="partySize">1 Hero</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">Bloom Level</div>
+                <div class="status-value" id="headerBloomLevel">{{ character.blooms_level|title }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-panel">
+        <div class="chat-header">
+            👤 Game Master's Narration
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-message message-dm">
+                <div class="message-sender">👤 Game Master</div>
+                <div class="message-content">
+                    Welcome, adventurer! Connecting to the game world...
+                </div>
+            </div>
+        </div>
+        <div id="typingIndicator" class="typing-indicator" style="display: none;">
+            Someone is typing...
+        </div>
+        <div class="chat-input-container">
+            <textarea id="playerInput" class="chat-input" rows="3" placeholder="What do you do?" disabled></textarea>
+            <button id="sendButton" class="send-button" disabled>Send Action</button>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <div class="info-tabs">
+            <div class="info-tab active" data-tab="quest">Quest</div>
+            <div class="info-tab" data-tab="character">Character</div>
+            <div class="info-tab" data-tab="party">Party</div>
+            <div class="info-tab" data-tab="progress">Progress</div>
+        </div>
+
+        <div class="info-content active" data-content="quest">
+            <div id="questInfo">
+                <p>Loading quest information...</p>
+            </div>
+            <h4>Objectives</h4>
+            <div id="questObjectives" class="quest-tracker">
+                <!-- Objectives will be populated -->
+            </div>
+            <h4>Available Actions</h4>
+            <div id="availableActions" class="available-actions">
+                <!-- Actions will be populated -->
+            </div>
+        </div>
+
+        <div class="info-content" data-content="character">
+            <h3>{{ character.name }}</h3>
+            <div id="characterStats">
+                <div class="character-stat">
+                    <span class="stat-label">Species:</span>
+                    <span class="stat-value">{{ character.species.name }}</span>
+                </div>
+                <div class="character-stat">
+                    <span class="stat-label">Bloom's Level:</span>
+                    <span class="stat-value" id="bloomLevel">Understand</span>
+                </div>
+                <div class="character-stat">
+                    <span class="stat-label">Experience:</span>
+                    <span class="stat-value" id="experiencePoints">0 XP</span>
+                </div>
+            </div>
+            <h4>Inventory</h4>
+            <div id="inventory">
+                <p>Empty</p>
+            </div>
+        </div>
+
+        <div class="info-content" data-content="party">
+            <!-- Team Chat Component -->
+            {% include 'game/components/team_chat.html' %}
+        </div>
+
+        <div class="info-content" data-content="progress">
+            <!-- Progress Dashboard Component -->
+            {% include 'game/components/progress_dashboard.html' %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Game Session Configuration
+    const SESSION_ID = '{{ session_id }}';
+    const PLAYER_ID = '{{ player.player_id }}';
+    const CHARACTER_ID = '{{ character.character_id }}';
+    const GAME_ENGINE_WS_URL = 'ws://localhost:9500/api/v1/ws/session/' + SESSION_ID + '/player/' + PLAYER_ID;
+
+    // Campaign Quest Data (from server)
+    const CAMPAIGN_FIRST_QUEST = {% if first_quest_json %}{{ first_quest_json|safe }}{% else %}null{% endif %};
+
+    // Campaign Introduction Data
+    const CAMPAIGN_INTRO = {% if campaign_intro_json %}{{ campaign_intro_json|safe }}{% else %}null{% endif %};
+
+    let ws = null;
+    let isConnected = false;
+
+    // Make ws global for team chat component
+    window.ws = ws;
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeTabs();
+        displayCampaignIntro(); // Display backstory/storyline first
+        connectWebSocket();
+        setupEventListeners();
+        fetchSessionState(); // Fetch initial state
+    });
+
+    function initializeTabs() {
+        document.querySelectorAll('.info-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.dataset.tab;
+
+                // Update active tab
+                document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // Show corresponding content
+                document.querySelectorAll('.info-content').forEach(c => c.classList.remove('active'));
+                document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
+            });
+        });
+    }
+
+    function displayCampaignIntro() {
+        if (!CAMPAIGN_INTRO) {
+            return;
+        }
+
+        const chatMessages = document.getElementById('chatMessages');
+        if (!chatMessages) {
+            return;
+        }
+
+        // Build intro message content
+        let introContent = '';
+
+        if (CAMPAIGN_INTRO.backstory && CAMPAIGN_INTRO.backstory.trim()) {
+            introContent += `<strong>📖 Campaign Backstory</strong><br><br>${escapeHtml(CAMPAIGN_INTRO.backstory)}<br><br>`;
+        }
+
+        if (CAMPAIGN_INTRO.storyline && CAMPAIGN_INTRO.storyline.trim()) {
+            introContent += `<strong>📜 Storyline</strong><br><br>${escapeHtml(CAMPAIGN_INTRO.storyline)}`;
+        }
+
+        // If no backstory or storyline, fall back to description
+        if (!introContent && CAMPAIGN_INTRO.description && CAMPAIGN_INTRO.description.trim()) {
+            introContent = escapeHtml(CAMPAIGN_INTRO.description);
+        }
+
+        // Add campaign objectives if available
+        if (CAMPAIGN_FIRST_QUEST && CAMPAIGN_FIRST_QUEST.objectives && CAMPAIGN_FIRST_QUEST.objectives.length > 0) {
+            introContent += `<br><br><strong>🎯 Campaign Objectives</strong><br><br>`;
+            introContent += '<ol style="margin: 0; padding-left: 1.5rem; font-size: 0.9rem;">';
+            CAMPAIGN_FIRST_QUEST.objectives.forEach(objective => {
+                const objText = typeof objective === 'string' ? objective : objective.description;
+                introContent += `<li style="margin-bottom: 0.5rem;">${escapeHtml(objText)}</li>`;
+            });
+            introContent += '</ol>';
+        }
+
+        // Only display if we have content
+        if (introContent) {
+            // Clear the initial welcome message
+            chatMessages.innerHTML = '';
+
+            // Add campaign intro message
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message message-dm';
+            messageDiv.innerHTML = `
+                <div class="message-sender">👤 Game Master</div>
+                <div class="message-content" style="white-space: pre-wrap;">${introContent}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    function connectWebSocket() {
+        updateConnectionStatus('connecting');
+
+        ws = new WebSocket(GAME_ENGINE_WS_URL);
+        window.ws = ws; // Make accessible to team chat component
+
+        ws.onopen = function() {
+            isConnected = true;
+            updateConnectionStatus('connected');
+            enableInput();
+        };
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            handleGameEvent(data);
+        };
+
+        ws.onerror = function(error) {
+            updateConnectionStatus('error');
+        };
+
+        ws.onclose = function() {
+            isConnected = false;
+            updateConnectionStatus('disconnected');
+            disableInput();
+
+            // Attempt reconnection after 3 seconds
+            setTimeout(connectWebSocket, 3000);
+        };
+    }
+
+    function handleGameEvent(data) {
+
+        switch(data.event) {
+            case 'connected':
+                addSystemMessage('Connected to game session');
+                break;
+
+            case 'chat_message':
+                // Route to team chat if it's a team chat message
+                if (data.message && data.message.channel && typeof handleIncomingChat === 'function') {
+                    handleIncomingChat(data.message);
+                } else {
+                    addChatMessage(data.message);
+                }
+                break;
+
+            case 'scene_update':
+            case 'initial_scene':
+                updateScene(data);
+                break;
+
+            case 'state_update':
+                updateGameState(data);
+                break;
+
+            case 'action_received':
+                addSystemMessage('Processing your action...');
+                break;
+
+            case 'typing_indicator':
+                showTypingIndicator(data.is_typing);
+                break;
+
+            case 'player_joined_session':
+                addSystemMessage(`${data.character_name} joined the party`);
+                // Route to team chat
+                if (typeof handleIncomingChat === 'function') {
+                    handleIncomingChat({
+                        event: 'player_joined',
+                        player_name: data.character_name
+                    });
+                }
+                break;
+
+            case 'player_left':
+                addSystemMessage(`A player left the session`);
+                // Route to team chat
+                if (typeof handleIncomingChat === 'function') {
+                    handleIncomingChat({
+                        event: 'player_left',
+                        player_name: data.character_name || 'Unknown'
+                    });
+                }
+                break;
+
+            case 'quest_completed':
+                handleQuestComplete(data);
+                break;
+
+            case 'dynamic_event_triggered':
+                handleDynamicEvent(data.event_data);
+                break;
+
+            case 'challenge_created':
+                handleChallenge(data.challenge);
+                break;
+        }
+    }
+
+    function sendPlayerAction() {
+        const input = document.getElementById('playerInput');
+        const action = input.value.trim();
+
+        if (!action || !isConnected) return;
+
+        // Send action to game engine
+        ws.send(JSON.stringify({
+            event: 'player_action',
+            content: action
+        }));
+
+        // Clear input
+        input.value = '';
+
+        // Disable input while processing
+        disableInput();
+    }
+
+    function addChatMessage(message) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message';
+
+        // Determine message type styling
+        let messageClass = 'message-dm';
+        let senderIcon = '👤';
+
+        switch(message.message_type) {
+            case 'PLAYER_ACTION':
+                messageClass = 'message-player';
+                senderIcon = '⚔️';
+                break;
+            case 'DM_NPC_DIALOGUE':
+                messageClass = 'message-npc';
+                senderIcon = '💬';
+                break;
+            case 'DM_ASSESSMENT':
+                messageClass = 'message-assessment';
+                senderIcon = '📊';
+                break;
+        }
+
+        messageDiv.classList.add(messageClass);
+        messageDiv.innerHTML = `
+            <div class="message-sender">${senderIcon} ${message.sender_name}</div>
+            <div class="message-content">${escapeHtml(message.content)}</div>
+            <div class="message-time">${formatTime(message.timestamp)}</div>
+        `;
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function addSystemMessage(text) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message message-dm';
+        messageDiv.innerHTML = `
+            <div class="message-content" style="font-style: italic; color: #718096;">
+                ${escapeHtml(text)}
+            </div>
+        `;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function updateScene(data) {
+        // Update scene description
+        if (data.scene_description) {
+            addChatMessage({
+                message_type: 'DM_NARRATIVE',
+                sender_name: 'Game Master',
+                content: data.scene_description,
+                timestamp: data.timestamp
+            });
+        }
+
+        // Update available actions
+        if (data.available_actions) {
+            updateAvailableActions(data.available_actions);
+        }
+
+        // Update available NPCs
+        if (data.available_npcs) {
+            updateNPCList(data.available_npcs);
+        }
+    }
+
+    function updateQuestInfo(questId, questTitle, questDescription, questObjectives) {
+        // ONLY use real campaign quest data - no defaults, no generation
+        if ((!questTitle || questTitle === '' || questTitle === null || questTitle === undefined)) {
+            if (CAMPAIGN_FIRST_QUEST) {
+                questTitle = CAMPAIGN_FIRST_QUEST.title;
+                questDescription = CAMPAIGN_FIRST_QUEST.description;
+                questObjectives = CAMPAIGN_FIRST_QUEST.objectives;
+            } else {
+                questTitle = "ERROR: Quest Not Found";
+                questDescription = "The campaign quest could not be loaded. Please contact support.";
+                questObjectives = [];
+            }
+        }
+
+        // Update header quest display
+        const questElement = document.getElementById('currentQuest');
+        if (questTitle) {
+            questElement.textContent = questTitle;
+        } else if (questId) {
+            questElement.textContent = "Active Quest";
+        } else {
+            questElement.textContent = 'Free Exploration';
+        }
+
+        // Update sidebar quest info section
+        const questInfoDiv = document.getElementById('questInfo');
+        if (questTitle || questDescription) {
+            let questInfoHTML = '<div style="padding: 1rem; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">';
+
+            if (questTitle) {
+                questInfoHTML += `<h4 style="margin: 0 0 0.75rem 0; color: #2d3748; font-size: 1.2rem;">Quest: ${questTitle}</h4>`;
+            }
+
+            if (questDescription) {
+                questInfoHTML += `<p style="margin: 0; color: #4a5568; line-height: 1.6; font-size: 0.9rem;">${questDescription}</p>`;
+            }
+
+            questInfoHTML += '</div>';
+            questInfoDiv.innerHTML = questInfoHTML;
+
+            // Update objectives if provided
+            if (questObjectives && questObjectives.length > 0) {
+                updateQuestObjectives(questObjectives);
+            } else {
+                // Show default message if no objectives
+                document.getElementById('questObjectives').innerHTML = '<p style="color: #a0aec0; font-size: 0.9rem;">No specific objectives yet. Explore freely!</p>';
+            }
+        } else {
+            questInfoDiv.innerHTML = '<p style="color: #a0aec0; font-style: italic;">No active quest. Explore the world!</p>';
+        }
+    }
+
+    function updateQuestObjectives(objectives) {
+        const objectivesDiv = document.getElementById('questObjectives');
+        if (!objectives || objectives.length === 0) {
+            objectivesDiv.innerHTML = '<p style="color: #a0aec0; font-size: 0.9rem;">No specific objectives yet.</p>';
+            return;
+        }
+
+        let objectivesHTML = '';
+        objectives.forEach(objective => {
+            const isCompleted = objective.completed || false;
+            const checkIcon = isCompleted ? '✅' : '⬜';
+            const completedClass = isCompleted ? ' completed' : '';
+
+            objectivesHTML += `
+                <div class="quest-objective${completedClass}">
+                    <span class="objective-checkbox">${checkIcon}</span>
+                    <span style="font-size: 0.9rem;">${typeof objective === 'string' ? objective : objective.description}</span>
+                </div>
+            `;
+        });
+        objectivesDiv.innerHTML = objectivesHTML;
+    }
+
+    function updateAvailableActions(actions) {
+        const actionsDiv = document.getElementById('availableActions');
+        actionsDiv.innerHTML = '';
+
+        actions.forEach(action => {
+            const button = document.createElement('button');
+            button.className = 'action-button';
+            button.textContent = action;
+            button.onclick = () => {
+                document.getElementById('playerInput').value = action;
+            };
+            actionsDiv.appendChild(button);
+        });
+    }
+
+    function updateNPCList(npcs) {
+        // Could add NPC list to UI
+    }
+
+    function updateGameState(data) {
+        if (data.awaiting_player_input) {
+            enableInput();
+        }
+
+        // Update quest info if available
+        if (data.current_quest_id || data.quest_id) {
+            updateQuestInfo(
+                data.current_quest_id || data.quest_id,
+                data.quest_title,
+                data.quest_description,
+                data.quest_objectives
+            );
+        }
+
+        // Update location if available
+        if (data.current_scene_id || data.current_location || data.location_name) {
+            let locationName = data.location_name || data.current_location;
+
+            // Format scene_id to be more user-friendly
+            if (!locationName && data.current_scene_id) {
+                if (data.current_scene_id === 'starting_location') {
+                    locationName = 'Starting Area';
+                } else {
+                    locationName = data.current_scene_id
+                        .replace(/_/g, ' ')
+                        .replace(/\b\w/g, c => c.toUpperCase());
+                }
+            }
+
+            document.getElementById('currentLocation').textContent = locationName || 'Exploring';
+        }
+
+        // Update bloom level if available
+        if (data.blooms_level) {
+            document.getElementById('headerBloomLevel').textContent = data.blooms_level.charAt(0).toUpperCase() + data.blooms_level.slice(1);
+        }
+
+        // Update party size if available
+        if (data.party_members) {
+            const partySize = Array.isArray(data.party_members) ? data.party_members.length : 1;
+            document.getElementById('partySize').textContent = partySize === 1 ? '1 Hero' : `${partySize} Heroes`;
+        }
+    }
+
+    async function fetchSessionState() {
+        try {
+            const response = await fetch(`http://localhost:9500/api/v1/session/${SESSION_ID}/state`);
+            if (response.ok) {
+                const state = await response.json();
+
+                // Update quest info
+                if (state.current_quest_id) {
+                    updateQuestInfo(
+                        state.current_quest_id,
+                        state.quest_title,
+                        state.quest_description,
+                        state.quest_objectives
+                    );
+                }
+
+                // Update location
+                if (state.current_scene_id || state.current_location || state.location_name) {
+                    let locationName = state.location_name || state.current_location;
+
+                    // Format scene_id to be more user-friendly
+                    if (!locationName && state.current_scene_id) {
+                        if (state.current_scene_id === 'starting_location') {
+                            locationName = 'Starting Area';
+                        } else {
+                            // Convert snake_case or other formats to Title Case
+                            locationName = state.current_scene_id
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, c => c.toUpperCase());
+                        }
+                    }
+
+                    document.getElementById('currentLocation').textContent = locationName || 'Exploring';
+                }
+
+                // Update bloom level
+                if (state.blooms_level) {
+                    document.getElementById('headerBloomLevel').textContent = state.blooms_level.charAt(0).toUpperCase() + state.blooms_level.slice(1);
+                }
+
+                // Update party size
+                if (state.party_members) {
+                    const partySize = Array.isArray(state.party_members) ? state.party_members.length : 1;
+                    document.getElementById('partySize').textContent = partySize === 1 ? '1 Hero' : `${partySize} Heroes`;
+                }
+
+                // Update scene if available
+                if (state.scene_description) {
+                    addChatMessage({
+                        message_type: 'DM_NARRATIVE',
+                        sender_name: 'Game Master',
+                        content: state.scene_description,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
+                // Update available actions
+                if (state.available_actions && state.available_actions.length > 0) {
+                    updateAvailableActions(state.available_actions);
+                }
+
+                // Enable input if awaiting
+                if (state.awaiting_player_input) {
+                    enableInput();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch session state:', error);
+        }
+    }
+
+    function handleQuestComplete(data) {
+        addSystemMessage(`🎉 Quest Complete: ${data.quest_title}!`);
+        if (data.rewards) {
+            addSystemMessage(`Rewards: ${JSON.stringify(data.rewards)}`);
+        }
+    }
+
+    function handleDynamicEvent(event) {
+        addChatMessage({
+            message_type: 'DM_NARRATIVE',
+            sender_name: 'Game Master',
+            content: `⚡ ${event.title}\n\n${event.description}`,
+            timestamp: event.triggered_at
+        });
+
+        // Show choices if available
+        if (event.choices && event.choices.length > 0) {
+            const actionsDiv = document.getElementById('availableActions');
+            event.choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.className = 'action-button';
+                button.textContent = choice.text;
+                button.onclick = () => {
+                    ws.send(JSON.stringify({
+                        event: 'resolve_event',
+                        event_id: event.event_id,
+                        choice_id: choice.choice_id
+                    }));
+                };
+                actionsDiv.appendChild(button);
+            });
+        }
+    }
+
+    function handleChallenge(challenge) {
+        addChatMessage({
+            message_type: 'DM_NARRATIVE',
+            sender_name: 'Game Master',
+            content: `⚔️ Challenge: ${challenge.title}\n\n${challenge.description}\n\nSuccess Criteria: ${challenge.success_criteria}`,
+            timestamp: challenge.created_at
+        });
+    }
+
+    function setupEventListeners() {
+        document.getElementById('sendButton').addEventListener('click', sendPlayerAction);
+
+        document.getElementById('playerInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPlayerAction();
+            }
+        });
+    }
+
+    function enableInput() {
+        document.getElementById('playerInput').disabled = false;
+        document.getElementById('sendButton').disabled = false;
+    }
+
+    function disableInput() {
+        document.getElementById('sendButton').disabled = true;
+    }
+
+    function updateConnectionStatus(status) {
+        const statusDiv = document.getElementById('connectionStatus');
+
+        switch(status) {
+            case 'connected':
+                statusDiv.textContent = '🟢 Connected';
+                statusDiv.className = 'connection-status';
+                break;
+            case 'connecting':
+                statusDiv.textContent = '🟡 Connecting...';
+                statusDiv.className = 'connection-status';
+                break;
+            case 'disconnected':
+            case 'error':
+                statusDiv.textContent = '🔴 Disconnected';
+                statusDiv.className = 'connection-status disconnected';
+                break;
+        }
+    }
+
+    function showTypingIndicator(isTyping) {
+        const indicator = document.getElementById('typingIndicator');
+        indicator.style.display = isTyping ? 'block' : 'none';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString();
+    }
+</script>
+{% endblock %}

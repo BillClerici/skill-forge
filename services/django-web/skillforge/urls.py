@@ -51,6 +51,10 @@ from campaigns.views import (
     CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
     CampaignDeletionProgressView, CampaignDeletionStatusAPI
 )
+from campaigns.views_gameplay import (
+    GameLobbyView, StartGameSessionView, GameSessionView,
+    PartyLobbyView, JoinSessionView, SessionControlView
+)
 from campaigns.wizard_views import (
     campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
     campaign_wizard_select_story, campaign_wizard_regenerate_stories,
@@ -170,7 +174,14 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/', CampaignDetailView.as_view(), name='campaign_detail'),
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
-    path('campaigns/<str:campaign_id>/start/', CampaignStartView.as_view(), name='campaign_start'),
+    path('campaigns/<str:campaign_id>/start/', StartGameSessionView.as_view(), name='campaign_start'),
+
+    # Game Lobby & Sessions
+    path('game/lobby/', GameLobbyView.as_view(), name='game_lobby'),
+    path('game/session/<str:session_id>/', GameSessionView.as_view(), name='game_session'),
+    path('game/party/<str:session_id>/', PartyLobbyView.as_view(), name='party_lobby'),
+    path('game/join/', JoinSessionView.as_view(), name='join_session'),
+    path('game/session/<str:session_id>/control/', SessionControlView.as_view(), name='session_control'),
 
     # Campaign Deletion
     path('campaigns/deletion/progress/<str:request_id>/', CampaignDeletionProgressView.as_view(), name='campaign_deletion_progress'),
