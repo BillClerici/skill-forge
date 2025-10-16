@@ -670,24 +670,29 @@
     }
 
     .quest-objective {
-        padding: 0.75rem;
-        background: #f7fafc;
+        padding: 0.75rem 0.35rem;
+        background: rgba(212, 175, 55, 0.15);
         border-radius: 4px;
         margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
-        color: #2d3748;
+        color: #b8b8d1;
+        border: 1px solid rgba(212, 175, 55, 0.3);
     }
 
     .quest-objective.completed {
-        background: #c6f6d5;
+        background: rgba(72, 187, 120, 0.2);
+        border: 1px solid rgba(72, 187, 120, 0.4);
         text-decoration: line-through;
         opacity: 0.7;
     }
 
     .objective-checkbox {
-        margin-right: 0.75rem;
+        margin-right: 0.25rem;
         font-size: 1.2rem;
+        align-self: flex-start;
+        line-height: 1;
+        margin-top: 0.1rem;
     }
 
     .character-stat {
@@ -1703,7 +1708,7 @@
         let objectivesHTML = '';
         objectives.forEach(objective => {
             const isCompleted = objective.completed || false;
-            const checkIcon = isCompleted ? '✅' : '⬜';
+            const checkIcon = isCompleted ? '⚔️' : '🔸';
             const completedClass = isCompleted ? ' completed' : '';
 
             objectivesHTML += `
