@@ -8,6 +8,10 @@
     /* ===================================
        Global Game Layout Styles
        =================================== */
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
     body {
         margin: 0;
         padding: 0;
@@ -339,20 +343,24 @@
     .game-grid {
         flex: 1;
         display: grid;
-        grid-template-columns: repeat(12, 1fr);
-        grid-template-rows: repeat(6, 1fr);
+        grid-template-columns: 2fr 3fr;
+        grid-template-rows: 1fr;
         gap: 1rem;
         padding: 1rem;
         overflow: hidden;
-        transition: margin 0.3s ease-in-out;
+        transition: margin 0.3s ease-in-out, width 0.3s ease-in-out;
+        box-sizing: border-box;
+        max-width: 100%;
     }
 
     .game-grid.left-anchored {
         margin-left: 320px;
+        width: calc(100% - 320px);
     }
 
     .game-grid.right-anchored {
         margin-right: 320px;
+        width: calc(100% - 320px);
     }
 
     /* Grid Tiles */
@@ -365,28 +373,86 @@
         flex-direction: column;
         min-width: 0; /* Allow content to shrink */
         min-height: 0; /* Allow content to shrink */
+        box-sizing: border-box;
     }
 
-    /* Main Chat - Takes up most space */
+    /* Chat Section - Left Side (40% width, 100% height) */
     .tile-chat {
-        grid-column: 1 / 10;
-        grid-row: 1 / 7;
-        min-width: 0; /* Allow content to shrink */
+        grid-column: 1;
+        grid-row: 1;
+        min-width: 0;
         overflow: hidden;
     }
 
-    /* Side Info Panel */
-    .tile-info {
-        grid-column: 10 / 13;
-        grid-row: 1 / 7;
-        min-width: 0; /* Allow content to shrink */
+    /* Map/Images Section - Right Side (60% width, 100% height) */
+    .tile-map {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
         overflow: hidden;
+        background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
     }
 
     /* When both drawers anchored, adjust main content */
     .game-grid.both-anchored {
         margin-left: 320px;
         margin-right: 320px;
+        width: calc(100% - 640px);
+    }
+
+    /* ===================================
+       Map/Images Panel
+       =================================== */
+    .map-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        color: white;
+        box-sizing: border-box;
+    }
+
+    .map-header {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        color: white;
+        padding: 1rem;
+        font-weight: bold;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+        box-sizing: border-box;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .map-content {
+        flex: 1;
+        overflow: auto;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .map-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 1.2rem;
+    }
+
+    .map-placeholder-icon {
+        font-size: 4rem;
     }
 
     /* ===================================
@@ -857,15 +923,34 @@
 
         .game-grid.left-anchored {
             margin-left: 280px;
+            width: calc(100% - 280px);
         }
 
         .game-grid.right-anchored {
             margin-right: 280px;
+            width: calc(100% - 280px);
         }
 
         .game-grid.both-anchored {
             margin-left: 280px;
             margin-right: 280px;
+            width: calc(100% - 560px);
+        }
+
+        .game-header.left-condensed {
+            margin-left: calc(280px + 1rem);
+            width: calc(100% - 280px - 2rem);
+        }
+
+        .game-header.right-condensed {
+            margin-right: calc(280px + 1rem);
+            width: calc(100% - 280px - 2rem);
+        }
+
+        .game-header.both-condensed {
+            margin-left: calc(280px + 1rem);
+            margin-right: calc(280px + 1rem);
+            width: calc(100% - 560px - 2rem);
         }
     }
 
@@ -887,12 +972,19 @@
             margin-right: 0;
         }
 
-        .tile-chat {
-            grid-column: 1 / 13;
+        .game-grid {
+            grid-template-columns: 1fr;
+            grid-template-rows: 60% 40%;
         }
 
-        .tile-info {
-            display: none; /* Hide on mobile, use drawers instead */
+        .tile-chat {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        .tile-map {
+            grid-column: 1;
+            grid-row: 1;
         }
     }
 
@@ -981,10 +1073,10 @@
             📋
         </button>
 
-        <!-- Left Drawer (Character/Inventory) -->
+        <!-- Left Drawer (Campaign/Quest/Actions) -->
         <div class="drawer drawer-left" id="leftDrawer">
             <div class="drawer-header">
-                <h3>Character</h3>
+                <h3>Game Info</h3>
                 <div class="drawer-controls">
                     <button class="drawer-btn" onclick="toggleLeftDrawerAnchor()" title="Anchor drawer">
                         📌
@@ -995,24 +1087,50 @@
                 </div>
             </div>
             <div class="drawer-content">
-                <h3>{{ character.name }}</h3>
-                <div id="characterStats">
+                <!-- Campaign Status Section -->
+                <h3>📜 Campaign</h3>
+                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0; color: #d4af37; font-size: 1.1rem;">{{ campaign.title }}</h4>
+                </div>
+
+                <!-- Quest Status Section -->
+                <h3>⚔️ Quest Status</h3>
+                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
+                    <div id="drawerQuestInfo">
+                        <p style="color: #b8b8d1;">Loading quest information...</p>
+                    </div>
+                    <h4 style="margin-top: 1rem;">Objectives</h4>
+                    <div id="drawerQuestObjectives" class="quest-tracker">
+                        <!-- Objectives will be populated -->
+                    </div>
+                </div>
+
+                <!-- Actions Section -->
+                <h3>🎯 Available Actions</h3>
+                <div id="drawerAvailableActions" class="available-actions" style="margin-bottom: 1.5rem;">
+                    <p style="color: #b8b8d1; font-size: 0.9rem;">No actions available yet.</p>
+                </div>
+
+                <!-- Character Section -->
+                <h3>🧙 Character</h3>
+                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
+                    <h4 style="margin-top: 0; color: #d4af37;">{{ character.name }}</h4>
                     <div class="character-stat">
                         <span class="stat-label">Species:</span>
                         <span class="stat-value">{{ character.species.name }}</span>
                     </div>
                     <div class="character-stat">
                         <span class="stat-label">Bloom's Level:</span>
-                        <span class="stat-value" id="bloomLevel">Understand</span>
+                        <span class="stat-value" id="drawerBloomLevel">{{ character.blooms_level|title }}</span>
                     </div>
                     <div class="character-stat">
-                        <span class="stat-label">Experience:</span>
-                        <span class="stat-value" id="experiencePoints">0 XP</span>
+                        <span class="stat-label">Location:</span>
+                        <span class="stat-value" id="drawerLocation">Unknown</span>
                     </div>
-                </div>
-                <h4>Inventory</h4>
-                <div id="inventory">
-                    <p>Empty</p>
+                    <h4 style="margin-top: 1rem; color: #c0c0c0;">Inventory</h4>
+                    <div id="drawerInventory">
+                        <p style="color: #b8b8d1; font-size: 0.9rem;">Empty</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1048,7 +1166,7 @@
 
         <!-- Tile-Based Grid -->
         <div class="game-grid" id="gameGrid">
-            <!-- Main Chat Tile -->
+            <!-- Chat Section - Left Side (40% width, 100% height) -->
             <div class="grid-tile tile-chat">
                 <div class="chat-panel">
                     <div class="chat-header">
@@ -1085,28 +1203,17 @@
                 </div>
             </div>
 
-            <!-- Info Panel Tile -->
-            <div class="grid-tile tile-info">
-                <div class="info-panel">
-                    <div class="info-tabs">
-                        <div class="info-tab active" data-tab="quest">Quest</div>
-                        <div class="info-tab" data-tab="actions">Actions</div>
+            <!-- Map/Images Section - Right Side (60% width, 100% height) -->
+            <div class="grid-tile tile-map">
+                <div class="map-panel">
+                    <div class="map-header">
+                        <span>🗺️ World Map & Visuals</span>
                     </div>
-
-                    <div class="info-content active" data-content="quest">
-                        <div id="questInfo">
-                            <p>Loading quest information...</p>
-                        </div>
-                        <h4>Objectives</h4>
-                        <div id="questObjectives" class="quest-tracker">
-                            <!-- Objectives will be populated -->
-                        </div>
-                    </div>
-
-                    <div class="info-content" data-content="actions">
-                        <h4>Available Actions</h4>
-                        <div id="availableActions" class="available-actions">
-                            <!-- Actions will be populated -->
+                    <div class="map-content">
+                        <div class="map-placeholder">
+                            <div class="map-placeholder-icon">🗺️</div>
+                            <div>Map and Scene Images</div>
+                            <div style="font-size: 0.9rem; opacity: 0.5;">Coming Soon</div>
                         </div>
                     </div>
                 </div>
@@ -1290,7 +1397,6 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', function() {
-        initializeTabs();
         connectWebSocket();
         setupEventListeners();
         fetchSessionState();
@@ -1300,22 +1406,6 @@
         toggleLeftDrawerAnchor();
         toggleRightDrawerAnchor();
     });
-
-    function initializeTabs() {
-        document.querySelectorAll('.info-tab').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const tabName = this.dataset.tab;
-
-                // Update active tab
-                document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-
-                // Show corresponding content
-                document.querySelectorAll('.info-content').forEach(c => c.classList.remove('active'));
-                document.querySelector(`[data-content="${tabName}"]`).classList.add('active');
-            });
-        });
-    }
 
     function connectWebSocket() {
         updateConnectionStatus('connecting');
@@ -1568,6 +1658,7 @@
             }
         }
 
+        // Update header quest status
         const questElement = document.getElementById('currentQuest');
         if (questTitle) {
             questElement.textContent = questTitle;
@@ -1577,35 +1668,35 @@
             questElement.textContent = 'Free Exploration';
         }
 
-        const questInfoDiv = document.getElementById('questInfo');
+        // Update drawer quest info
+        const drawerQuestInfoDiv = document.getElementById('drawerQuestInfo');
         if (questTitle || questDescription) {
-            let questInfoHTML = '<div style="padding: 1rem; background: #f7fafc; border-radius: 8px; border-left: 4px solid #667eea;">';
+            let questInfoHTML = '';
 
             if (questTitle) {
-                questInfoHTML += `<h4 style="margin: 0 0 0.75rem 0; color: #2d3748; font-size: 1.2rem;">Quest: ${questTitle}</h4>`;
+                questInfoHTML += `<h4 style="margin: 0 0 0.75rem 0; color: #d4af37; font-size: 1.1rem;">${questTitle}</h4>`;
             }
 
             if (questDescription) {
-                questInfoHTML += `<p style="margin: 0; color: #4a5568; line-height: 1.6; font-size: 0.9rem;">${questDescription}</p>`;
+                questInfoHTML += `<p style="margin: 0; color: #b8b8d1; line-height: 1.6; font-size: 0.9rem;">${questDescription}</p>`;
             }
 
-            questInfoHTML += '</div>';
-            questInfoDiv.innerHTML = questInfoHTML;
+            drawerQuestInfoDiv.innerHTML = questInfoHTML;
 
             if (questObjectives && questObjectives.length > 0) {
                 updateQuestObjectives(questObjectives);
             } else {
-                document.getElementById('questObjectives').innerHTML = '<p style="color: #a0aec0; font-size: 0.9rem;">No specific objectives yet. Explore freely!</p>';
+                document.getElementById('drawerQuestObjectives').innerHTML = '<p style="color: #b8b8d1; font-size: 0.9rem;">No specific objectives yet. Explore freely!</p>';
             }
         } else {
-            questInfoDiv.innerHTML = '<p style="color: #a0aec0; font-style: italic;">No active quest. Explore the world!</p>';
+            drawerQuestInfoDiv.innerHTML = '<p style="color: #b8b8d1; font-style: italic;">No active quest. Explore the world!</p>';
         }
     }
 
     function updateQuestObjectives(objectives) {
-        const objectivesDiv = document.getElementById('questObjectives');
+        const drawerObjectivesDiv = document.getElementById('drawerQuestObjectives');
         if (!objectives || objectives.length === 0) {
-            objectivesDiv.innerHTML = '<p style="color: #a0aec0; font-size: 0.9rem;">No specific objectives yet.</p>';
+            drawerObjectivesDiv.innerHTML = '<p style="color: #b8b8d1; font-size: 0.9rem;">No specific objectives yet.</p>';
             return;
         }
 
@@ -1618,25 +1709,34 @@
             objectivesHTML += `
                 <div class="quest-objective${completedClass}">
                     <span class="objective-checkbox">${checkIcon}</span>
-                    <span style="font-size: 0.9rem;">${typeof objective === 'string' ? objective : objective.description}</span>
+                    <span style="font-size: 0.9rem; color: #b8b8d1;">${typeof objective === 'string' ? objective : objective.description}</span>
                 </div>
             `;
         });
-        objectivesDiv.innerHTML = objectivesHTML;
+        drawerObjectivesDiv.innerHTML = objectivesHTML;
     }
 
     function updateAvailableActions(actions) {
-        const actionsDiv = document.getElementById('availableActions');
-        actionsDiv.innerHTML = '';
+        const drawerActionsDiv = document.getElementById('drawerAvailableActions');
+
+        if (!actions || actions.length === 0) {
+            drawerActionsDiv.innerHTML = '<p style="color: #b8b8d1; font-size: 0.9rem;">No actions available yet.</p>';
+            return;
+        }
+
+        drawerActionsDiv.innerHTML = '';
 
         actions.forEach(action => {
             const button = document.createElement('button');
             button.className = 'action-button';
             button.textContent = action;
+            button.style.background = 'rgba(212, 175, 55, 0.2)';
+            button.style.border = '2px solid rgba(212, 175, 55, 0.4)';
+            button.style.color = '#d4af37';
             button.onclick = () => {
                 document.getElementById('playerInput').value = action;
             };
-            actionsDiv.appendChild(button);
+            drawerActionsDiv.appendChild(button);
         });
     }
 
@@ -1671,11 +1771,21 @@
                 }
             }
 
+            // Update both header and drawer locations
             document.getElementById('currentLocation').textContent = locationName || 'Exploring';
+            const drawerLocation = document.getElementById('drawerLocation');
+            if (drawerLocation) {
+                drawerLocation.textContent = locationName || 'Exploring';
+            }
         }
 
         if (data.blooms_level) {
-            document.getElementById('headerBloomLevel').textContent = data.blooms_level.charAt(0).toUpperCase() + data.blooms_level.slice(1);
+            const bloomsLevel = data.blooms_level.charAt(0).toUpperCase() + data.blooms_level.slice(1);
+            document.getElementById('headerBloomLevel').textContent = bloomsLevel;
+            const drawerBloomLevel = document.getElementById('drawerBloomLevel');
+            if (drawerBloomLevel) {
+                drawerBloomLevel.textContent = bloomsLevel;
+            }
         }
 
         if (data.party_members) {
@@ -1712,11 +1822,21 @@
                         }
                     }
 
+                    // Update both header and drawer locations
                     document.getElementById('currentLocation').textContent = locationName || 'Exploring';
+                    const drawerLocation = document.getElementById('drawerLocation');
+                    if (drawerLocation) {
+                        drawerLocation.textContent = locationName || 'Exploring';
+                    }
                 }
 
                 if (state.blooms_level) {
-                    document.getElementById('headerBloomLevel').textContent = state.blooms_level.charAt(0).toUpperCase() + state.blooms_level.slice(1);
+                    const bloomsLevel = state.blooms_level.charAt(0).toUpperCase() + state.blooms_level.slice(1);
+                    document.getElementById('headerBloomLevel').textContent = bloomsLevel;
+                    const drawerBloomLevel = document.getElementById('drawerBloomLevel');
+                    if (drawerBloomLevel) {
+                        drawerBloomLevel.textContent = bloomsLevel;
+                    }
                 }
 
                 if (state.party_members) {
