@@ -414,6 +414,10 @@ class ConnectionManager:
                     "status": state.get("status"),
                     "current_node": state.get("current_node"),
                     "awaiting_player_input": state.get("awaiting_player_input", False),
+                    "current_scene_id": state.get("current_scene_id"),
+                    "scene_name": state.get("scene_name"),
+                    "place_name": state.get("place_name"),
+                    "location_name": state.get("location_name"),
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )

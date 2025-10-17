@@ -1200,6 +1200,30 @@
         transform: translateX(4px);
     }
 
+    .entity-item.completed {
+        background: #f0fdf4;
+        border-color: #86efac;
+        opacity: 0.85;
+    }
+
+    .entity-item.completed:hover {
+        background: #dcfce7;
+        border-color: #4ade80;
+        opacity: 1;
+    }
+
+    .entity-item.completed .entity-name::after {
+        content: ' ✓';
+        color: #22c55e;
+        font-weight: bold;
+        margin-left: 0.5rem;
+    }
+
+    .entity-item.completed .entity-action-btn {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+
     .entity-header {
         display: flex;
         align-items: start;
@@ -1592,6 +1616,102 @@
         line-height: 1;
         margin-top: 0.1rem;
     }
+
+    /* Quest Progress Bars */
+    .quest-overall-progress {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: rgba(45, 55, 72, 0.5);
+        border-radius: 6px;
+        border: 1px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .quest-overall-progress-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        color: #d4af37;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .quest-overall-progress-percent {
+        font-size: 1.1rem;
+        color: #d4af37;
+    }
+
+    .objective-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+
+    .objective-description {
+        font-size: 0.9rem;
+        color: #b8b8d1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .objective-progress-percent {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+    }
+
+    .progress-bar-container {
+        width: 100%;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        transition: width 0.5s ease, background-color 0.3s ease;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-bar-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.2),
+            transparent
+        );
+        animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    /* Progress color states */
+    .progress-low { background: linear-gradient(90deg, #e53e3e 0%, #fc8181 100%); }
+    .progress-medium { background: linear-gradient(90deg, #d69e2e 0%, #ecc94b 100%); }
+    .progress-high { background: linear-gradient(90deg, #38a169 0%, #68d391 100%); }
+    .progress-complete { background: linear-gradient(90deg, #d4af37 0%, #f6e05e 100%); }
+
+    /* Progress text colors */
+    .text-low { color: #fc8181; }
+    .text-medium { color: #ecc94b; }
+    .text-high { color: #68d391; }
+    .text-complete { color: #d4af37; }
 
     .character-stat {
         display: flex;
@@ -2309,7 +2429,7 @@
         </div>
         <div class="investigate-panel-content">
             <!-- NPCs Section -->
-            <div class="investigate-section" id="npcsSection">
+            <div class="investigate-section collapsed" id="npcsSection">
                 <div class="investigate-section-header" onclick="toggleSection('npcs')">
                     <span class="section-icon">👥</span>
                     <span class="section-title">NPCs Present</span>
@@ -2322,7 +2442,7 @@
             </div>
 
             <!-- Items Section -->
-            <div class="investigate-section" id="itemsSection">
+            <div class="investigate-section collapsed" id="itemsSection">
                 <div class="investigate-section-header" onclick="toggleSection('items')">
                     <span class="section-icon">🎒</span>
                     <span class="section-title">Visible Items</span>
@@ -2335,7 +2455,7 @@
             </div>
 
             <!-- Discoveries Section -->
-            <div class="investigate-section" id="discoveriesSection">
+            <div class="investigate-section collapsed" id="discoveriesSection">
                 <div class="investigate-section-header" onclick="toggleSection('discoveries')">
                     <span class="section-icon">🔍</span>
                     <span class="section-title">Discoveries</span>
@@ -2348,7 +2468,7 @@
             </div>
 
             <!-- Challenges Section -->
-            <div class="investigate-section" id="challengesSection">
+            <div class="investigate-section collapsed" id="challengesSection">
                 <div class="investigate-section-header" onclick="toggleSection('challenges')">
                     <span class="section-icon">⚔️</span>
                     <span class="section-title">Active Challenges</span>
@@ -2361,7 +2481,7 @@
             </div>
 
             <!-- Events Section -->
-            <div class="investigate-section" id="eventsSection">
+            <div class="investigate-section collapsed" id="eventsSection">
                 <div class="investigate-section-header" onclick="toggleSection('events')">
                     <span class="section-icon">📍</span>
                     <span class="section-title">Active Events</span>
@@ -3068,6 +3188,15 @@
         const section = document.getElementById(sectionName + 'Section');
         if (!section) return;
 
+        const isCurrentlyCollapsed = section.classList.contains('collapsed');
+
+        // If clicking on a collapsed section, first collapse all sections
+        if (isCurrentlyCollapsed) {
+            const allSections = document.querySelectorAll('.investigate-section');
+            allSections.forEach(s => s.classList.add('collapsed'));
+        }
+
+        // Then toggle the clicked section
         section.classList.toggle('collapsed');
     }
 
@@ -3184,8 +3313,12 @@
             const discoveryName = discovery.name || 'Unknown Discovery';
             const discoveryDescription = discovery.description || '';
 
+            // Check if this discovery has been completed
+            const isCompleted = completedDiscoveries.has(discoveryName);
+            const completedClass = isCompleted ? ' completed' : '';
+
             html += `
-                <div class="entity-item">
+                <div class="entity-item${completedClass}">
                     <div class="entity-header">
                         <div class="entity-icon">🔎</div>
                         <div class="entity-info">
@@ -3414,6 +3547,16 @@
     let knowledgeAcquired = [];
     let itemsAcquired = [];
     let encountersRecord = [];
+    let completedDiscoveries = new Set(); // Track completed discovery names
+    let completedChallenges = new Set(); // Track completed challenge names
+
+    function refreshQuestProgress() {
+        // Refresh quest objectives to update progress bars
+        const questObjectivesDiv = document.getElementById('drawerQuestObjectives');
+        if (questObjectivesDiv && CAMPAIGN_FIRST_QUEST && CAMPAIGN_FIRST_QUEST.objectives) {
+            updateQuestObjectives(CAMPAIGN_FIRST_QUEST.objectives);
+        }
+    }
 
     function addKnowledge(knowledge) {
         // Check if already acquired
@@ -3423,6 +3566,20 @@
 
         knowledgeAcquired.push(knowledge);
         updateKnowledgeList();
+
+        // Track the source discovery as completed if provided
+        if (knowledge.source_discovery || knowledge.discovery_name) {
+            const discoveryName = knowledge.source_discovery || knowledge.discovery_name;
+            completedDiscoveries.add(discoveryName);
+            console.log('Discovery completed:', discoveryName);
+            // Refresh the Investigate Scene dialog if it's open
+            if (currentSceneData && currentSceneData.discoveries) {
+                populateDiscoveries(currentSceneData.discoveries);
+            }
+        }
+
+        // Refresh quest progress bars
+        refreshQuestProgress();
 
         // Show enhanced notification
         showAcquisitionNotification('knowledge', {
@@ -3446,6 +3603,9 @@
         itemsAcquired.push(item);
         updateItemsList();
 
+        // Refresh quest progress bars
+        refreshQuestProgress();
+
         // Show enhanced notification
         showAcquisitionNotification('item', {
             name: item.name,
@@ -3467,6 +3627,9 @@
 
         encountersRecord.push(encounter);
         updateEncountersList();
+
+        // Refresh quest progress bars
+        refreshQuestProgress();
 
         // Show enhanced notification based on type
         const type = encounter.type || 'encounter';
@@ -3790,6 +3953,145 @@
         }
     }
 
+    function calculateObjectiveProgress(objectiveText) {
+        // Smart detection of objective progress based on text patterns
+        const text = objectiveText.toLowerCase();
+        let current = 0;
+        let target = 1;
+        let progress = 0;
+        let detected = false;
+
+        // Pattern 1: "Acquire/Find/Collect/Gather X knowledge/items/discoveries"
+        const acquireMatch = text.match(/(?:acquire|find|collect|gather|obtain)\s+(\d+)\s+(knowledge|item|discovery|discoverie)/i);
+        if (acquireMatch) {
+            target = parseInt(acquireMatch[1]);
+            const type = acquireMatch[2];
+            if (type.includes('knowledge')) {
+                current = knowledgeAcquired.length;
+            } else if (type.includes('item')) {
+                current = itemsAcquired.length;
+            } else if (type.includes('discover')) {
+                current = completedDiscoveries.size;
+            }
+            detected = true;
+        }
+
+        // Pattern 2: "Secure/Protect/Defend X buildings/locations/areas"
+        const secureMatch = text.match(/(?:secure|protect|defend|fortify|establish|safeguard)\s+(?:.*?\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten|initial|first|second|third|a|an)\s+(?:\w+\s+)?(?:building|location|area|zone|position)/i);
+        if (secureMatch && !detected) {
+            const numText = secureMatch[1].toLowerCase();
+            const numMap = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10, 'initial': 1, 'first': 1, 'second': 2, 'third': 3, 'a': 1, 'an': 1 };
+            target = numMap[numText] || (isNaN(parseInt(numText)) ? 1 : parseInt(numText));
+
+            // Count encounters related to securing/protecting (NOT discoveries)
+            current = encountersRecord.filter(e =>
+                e.type === 'event' || e.type === 'challenge'
+            ).length;
+            detected = true;
+        }
+
+        // Pattern 3: "Mediate/Resolve/Handle X conflicts/disputes"
+        const mediateMatch = text.match(/(?:mediate|resolve|handle|settle|address)\s+(?:.*?\s+)?(\d+|one|two|three|four|five|first|second|a|an)\s+(?:\w+\s+)?(?:conflict|dispute|disagreement|argument|issue)/i);
+        if (mediateMatch && !detected) {
+            const numText = mediateMatch[1].toLowerCase();
+            const numMap = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'first': 1, 'second': 2, 'a': 1, 'an': 1 };
+            target = numMap[numText] || (isNaN(parseInt(numText)) ? 1 : parseInt(numText));
+
+            // Count NPC encounters that could be mediations
+            current = encountersRecord.filter(e => e.type === 'npc').length;
+            detected = true;
+        }
+
+        // Pattern 4: "Collect/Document/Gather evidence/information/data"
+        const collectEvidenceMatch = text.match(/(?:collect|document|gather|obtain|acquire)\s+(?:and\s+\w+\s+)?(?:initial|first|some|any|the)?\s*(?:evidence|information|data|proof|clues?)/i);
+        if (collectEvidenceMatch && !detected) {
+            target = 1; // Evidence collection is usually binary (collected or not)
+            current = knowledgeAcquired.length > 0 ? 1 : 0;
+            detected = true;
+        }
+
+        // Pattern 5: "Talk to/Meet/Find [NPC Name]"
+        const npcMatch = text.match(/(?:talk to|meet|find|speak with)\s+(?:the\s+)?([a-z\s]+)/i);
+        if (npcMatch && !detected) {
+            const npcName = npcMatch[1].trim();
+            current = encountersRecord.some(e =>
+                e.type === 'npc' && e.name && e.name.toLowerCase().includes(npcName)
+            ) ? 1 : 0;
+            target = 1;
+            detected = true;
+        }
+
+        // Pattern 6: "Investigate/Explore X discoveries/locations"
+        const investigateMatch = text.match(/(?:investigate|explore|examine)\s+(\d+)\s+(discover|location|place)/i);
+        if (investigateMatch && !detected) {
+            target = parseInt(investigateMatch[1]);
+            current = completedDiscoveries.size;
+            detected = true;
+        }
+
+        // Pattern 7: "Complete/Solve X challenges/puzzles"
+        const challengeMatch = text.match(/(?:complete|solve|finish)\s+(\d+)\s+(challenge|puzzle|task)/i);
+        if (challengeMatch && !detected) {
+            target = parseInt(challengeMatch[1]);
+            current = completedChallenges.size;
+            detected = true;
+        }
+
+        // Pattern 8: Generic numbered objective - "X anything"
+        // This catches patterns like "three marketplace buildings", "two emerging conflicts", etc.
+        const genericNumberMatch = text.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:\w+\s+)?(?:building|location|conflict|area|npc|character|person|group)/i);
+        if (genericNumberMatch && !detected) {
+            const numText = genericNumberMatch[1].toLowerCase();
+            const numMap = { 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10 };
+            target = numMap[numText] || parseInt(numText);
+
+            // Use a combination of encounters and discoveries as progress
+            current = encountersRecord.length + completedDiscoveries.size;
+            detected = true;
+        }
+
+        // Pattern 9: Check for any specific item/knowledge name mentions
+        if (!detected) {
+            // Check if any acquired knowledge/item names are mentioned in objective
+            for (const knowledge of knowledgeAcquired) {
+                if (text.includes(knowledge.name.toLowerCase())) {
+                    current = 1;
+                    target = 1;
+                    detected = true;
+                    break;
+                }
+            }
+        }
+
+        if (!detected) {
+            for (const item of itemsAcquired) {
+                if (text.includes(item.name.toLowerCase())) {
+                    current = 1;
+                    target = 1;
+                    detected = true;
+                    break;
+                }
+            }
+        }
+
+        // Calculate progress percentage
+        progress = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+
+        return {
+            current,
+            target,
+            progress: Math.round(progress),
+            detected
+        };
+    }
+
+    function getProgressColorClass(progress) {
+        if (progress >= 100) return 'progress-complete';
+        if (progress >= 67) return 'progress-high';
+        if (progress >= 34) return 'progress-medium';
+        return 'progress-low';
+    }
+
     function updateQuestObjectives(objectives) {
         const drawerObjectivesDiv = document.getElementById('drawerQuestObjectives');
         if (!objectives || objectives.length === 0) {
@@ -3797,20 +4099,72 @@
             return;
         }
 
+        let totalProgress = 0;
         let objectivesHTML = '';
+
         objectives.forEach(objective => {
+            const objectiveText = typeof objective === 'string' ? objective : objective.description;
             const isCompleted = objective.completed || false;
             const checkIcon = isCompleted ? '⚔️' : '🔸';
             const completedClass = isCompleted ? ' completed' : '';
 
-            objectivesHTML += `
-                <div class="quest-objective${completedClass}">
-                    <span class="objective-checkbox">${checkIcon}</span>
-                    <span style="font-size: 0.9rem; color: #b8b8d1;">${typeof objective === 'string' ? objective : objective.description}</span>
-                </div>
-            `;
+            // Calculate progress for this objective
+            const progressData = calculateObjectiveProgress(objectiveText);
+            totalProgress += progressData.progress;
+
+            // Build progress bar HTML
+            let progressHTML = '';
+            if (progressData.detected || progressData.progress > 0) {
+                const colorClass = getProgressColorClass(progressData.progress);
+                const percentText = `${progressData.current}/${progressData.target} - ${progressData.progress}%`;
+
+                progressHTML = `
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill ${colorClass}" style="width: ${progressData.progress}%"></div>
+                    </div>
+                `;
+
+                objectivesHTML += `
+                    <div class="quest-objective${completedClass}">
+                        <span class="objective-checkbox">${checkIcon}</span>
+                        <div class="objective-content">
+                            <div class="objective-description">
+                                <span>${objectiveText}</span>
+                                <span class="objective-progress-percent ${colorClass.replace('progress-', 'text-')}">${percentText}</span>
+                            </div>
+                            ${progressHTML}
+                        </div>
+                    </div>
+                `;
+            } else {
+                // No progress tracking detected, show simple objective
+                objectivesHTML += `
+                    <div class="quest-objective${completedClass}">
+                        <span class="objective-checkbox">${checkIcon}</span>
+                        <span class="objective-description">${objectiveText}</span>
+                    </div>
+                `;
+            }
         });
-        drawerObjectivesDiv.innerHTML = objectivesHTML;
+
+        // Calculate overall quest progress
+        const overallProgress = objectives.length > 0 ? Math.round(totalProgress / objectives.length) : 0;
+        const overallColorClass = getProgressColorClass(overallProgress);
+
+        // Add overall progress bar at the top
+        const overallProgressHTML = `
+            <div class="quest-overall-progress">
+                <div class="quest-overall-progress-label">
+                    <span>Quest Progress</span>
+                    <span class="quest-overall-progress-percent">${overallProgress}%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill ${overallColorClass}" style="width: ${overallProgress}%"></div>
+                </div>
+            </div>
+        `;
+
+        drawerObjectivesDiv.innerHTML = overallProgressHTML + objectivesHTML;
     }
 
     function updateAvailableActions(actions) {
@@ -3855,16 +4209,25 @@
             );
         }
 
-        if (data.current_scene_id || data.current_location || data.location_name) {
-            let locationName = data.location_name || data.current_location;
+        if (data.current_scene_id || data.current_location || data.location_name || data.scene_name || data.place_name) {
+            let locationName = data.location_name || data.scene_name || data.place_name || data.current_location;
 
             if (!locationName && data.current_scene_id) {
                 if (data.current_scene_id === 'starting_location') {
                     locationName = 'Starting Area';
                 } else {
+                    // Remove UUID-like strings and "Scene" prefix for cleaner display
                     locationName = data.current_scene_id
+                        .replace(/[0-9a-f]{8,}/gi, '') // Remove UUID-like strings first
+                        .replace(/^Scene\s*/i, '')  // Remove "Scene" prefix
                         .replace(/_/g, ' ')
+                        .trim()
                         .replace(/\b\w/g, c => c.toUpperCase());
+
+                    // If we end up with an empty string or just whitespace after cleanup, use a default
+                    if (!locationName || locationName.length === 0 || locationName.trim() === '') {
+                        locationName = 'Current Location';
+                    }
                 }
             }
 
@@ -3906,16 +4269,25 @@
                     );
                 }
 
-                if (state.current_scene_id || state.current_location || state.location_name) {
-                    let locationName = state.location_name || state.current_location;
+                if (state.current_scene_id || state.current_location || state.location_name || state.scene_name || state.place_name) {
+                    let locationName = state.location_name || state.scene_name || state.place_name || state.current_location;
 
                     if (!locationName && state.current_scene_id) {
                         if (state.current_scene_id === 'starting_location') {
                             locationName = 'Starting Area';
                         } else {
+                            // Remove UUID-like strings and "Scene" prefix for cleaner display
                             locationName = state.current_scene_id
+                                .replace(/[0-9a-f]{8,}/gi, '') // Remove UUID-like strings first
+                                .replace(/^Scene\s*/i, '')  // Remove "Scene" prefix
                                 .replace(/_/g, ' ')
+                                .trim()
                                 .replace(/\b\w/g, c => c.toUpperCase());
+
+                            // If we end up with an empty string or just whitespace after cleanup, use a default
+                            if (!locationName || locationName.length === 0 || locationName.trim() === '') {
+                                locationName = 'Current Location';
+                            }
                         }
                     }
 
@@ -3969,6 +4341,150 @@
                 if (state.awaiting_player_input) {
                     enableInput();
                 }
+
+                // Load persisted knowledge and items
+                if (state.player_knowledge && state.players && state.players.length > 0) {
+                    const playerId = state.players[0].player_id;
+                    const playerKnowledge = state.player_knowledge[playerId] || [];
+
+                    // Populate knowledgeAcquired array with full objects
+                    playerKnowledge.forEach(knowledge => {
+                        // Format knowledge object for frontend
+                        const knowledgeObj = {
+                            id: knowledge.knowledge_id,
+                            name: knowledge.name || knowledge.title,
+                            description: knowledge.description || '',
+                            source: knowledge.source || 'Learned during your journey',
+                            source_discovery: knowledge.source_discovery || null
+                        };
+
+                        // Add to knowledgeAcquired if not already present
+                        if (!knowledgeAcquired.some(k => k.id === knowledgeObj.id)) {
+                            knowledgeAcquired.push(knowledgeObj);
+
+                            // Track completed discovery
+                            if (knowledgeObj.source_discovery) {
+                                completedDiscoveries.add(knowledgeObj.source_discovery);
+                            }
+                        }
+                    });
+
+                    // Update knowledge list UI
+                    if (knowledgeAcquired.length > 0) {
+                        updateKnowledgeList();
+                    }
+                }
+
+                if (state.player_inventories && state.players && state.players.length > 0) {
+                    const playerId = state.players[0].player_id;
+                    const playerInventory = state.player_inventories[playerId] || [];
+
+                    // Populate itemsAcquired array with full objects
+                    playerInventory.forEach(item => {
+                        // Format item object for frontend
+                        const itemObj = {
+                            id: item.item_id,
+                            name: item.name,
+                            description: item.description || '',
+                            source: item.source || 'Found during your adventure'
+                        };
+
+                        // Add to itemsAcquired if not already present
+                        if (!itemsAcquired.some(i => i.id === itemObj.id)) {
+                            itemsAcquired.push(itemObj);
+                        }
+                    });
+
+                    // Update items list UI
+                    if (itemsAcquired.length > 0) {
+                        updateItemsList();
+                    }
+                }
+
+                // Load encounters from action history
+                if (state.action_history && Array.isArray(state.action_history)) {
+                    state.action_history.forEach(action => {
+                        let encounterObj = null;
+
+                        // Reconstruct encounters based on action type
+                        if (action.action_type === 'investigate_discovery' && action.target_id) {
+                            encounterObj = {
+                                id: action.target_id,
+                                type: 'discovery',
+                                name: action.parameters?.discovery_name || action.target_id,
+                                description: 'Discovery encountered during your journey',
+                                timestamp: action.timestamp
+                            };
+                        } else if (action.action_type === 'talk' && action.target_id) {
+                            encounterObj = {
+                                id: action.target_id,
+                                type: 'npc',
+                                name: action.target_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                                description: 'NPC encountered during your journey',
+                                timestamp: action.timestamp
+                            };
+                        } else if (action.action_type === 'attempt_challenge' && action.target_id) {
+                            encounterObj = {
+                                id: action.target_id,
+                                type: 'challenge',
+                                name: action.target_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                                description: 'Challenge encountered during your journey',
+                                timestamp: action.timestamp
+                            };
+                        }
+
+                        // Add to encountersRecord if not already present
+                        if (encounterObj && !encountersRecord.some(e => e.id === encounterObj.id && e.type === encounterObj.type)) {
+                            encountersRecord.push(encounterObj);
+                        }
+                    });
+                }
+
+                // Also load from conversation history (for NPC dialogues)
+                if (state.conversation_history && Array.isArray(state.conversation_history)) {
+                    state.conversation_history.forEach(turn => {
+                        if (turn.npc_id) {
+                            const encounterObj = {
+                                id: turn.npc_id,
+                                type: 'npc',
+                                name: turn.npc_id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                                description: 'NPC encountered during your journey',
+                                timestamp: turn.timestamp
+                            };
+
+                            // Add to encountersRecord if not already present
+                            if (!encountersRecord.some(e => e.id === encounterObj.id && e.type === 'npc')) {
+                                encountersRecord.push(encounterObj);
+                            }
+                        }
+                    });
+                }
+
+                // Load from event log
+                if (state.event_log && Array.isArray(state.event_log)) {
+                    state.event_log.forEach(event => {
+                        const encounterObj = {
+                            id: event.event_id,
+                            type: event.event_type || 'event',
+                            name: event.description || 'Event',
+                            description: event.description || '',
+                            timestamp: event.timestamp
+                        };
+
+                        // Add to encountersRecord if not already present
+                        if (!encountersRecord.some(e => e.id === encounterObj.id)) {
+                            encountersRecord.push(encounterObj);
+                        }
+                    });
+                }
+
+                // Update encounters list UI
+                if (encountersRecord.length > 0) {
+                    updateEncountersList();
+                }
+
+                // Refresh quest progress after loading all data
+                refreshQuestProgress();
             }
         } catch (error) {
             console.error('Failed to fetch session state:', error);

@@ -23,6 +23,7 @@ from ..services.rabbitmq_client import rabbitmq_client
 from ..services.mcp_client import mcp_client
 from ..services.tts_service import tts_service
 from ..services.stt_service import stt_service
+from ..services.mongo_persistence import mongo_persistence
 from ..workflows.game_loop import game_loop
 from ..core.logging import get_logger
 from .websocket_manager import connection_manager
@@ -595,6 +596,51 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
         if not state:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        # Fetch full knowledge and item objects from MongoDB
+        player_knowledge_map = state.get("player_knowledge", {})
+        player_inventories_map = state.get("player_inventories", {})
+
+        # Collect all unique knowledge IDs and item IDs
+        all_knowledge_ids = []
+        for player_knowledge in player_knowledge_map.values():
+            if isinstance(player_knowledge, dict):
+                all_knowledge_ids.extend(player_knowledge.keys())
+
+        all_item_ids = []
+        for player_inventory in player_inventories_map.values():
+            if isinstance(player_inventory, list):
+                all_item_ids.extend(player_inventory)
+
+        # Fetch full objects from MongoDB
+        knowledge_objects = []
+        if all_knowledge_ids:
+            knowledge_objects = await mongo_persistence.get_knowledge_by_ids(all_knowledge_ids)
+
+        item_objects = []
+        if all_item_ids:
+            item_objects = await mongo_persistence.get_items_by_ids(all_item_ids)
+
+        # Create maps for easy lookup
+        knowledge_map = {k.get("knowledge_id"): k for k in knowledge_objects}
+        item_map = {i.get("item_id"): i for i in item_objects}
+
+        # Build player-specific knowledge and inventory with full objects
+        player_knowledge_full = {}
+        for player_id, knowledge_dict in player_knowledge_map.items():
+            player_knowledge_full[player_id] = []
+            if isinstance(knowledge_dict, dict):
+                for knowledge_id in knowledge_dict.keys():
+                    if knowledge_id in knowledge_map:
+                        player_knowledge_full[player_id].append(knowledge_map[knowledge_id])
+
+        player_inventories_full = {}
+        for player_id, item_ids in player_inventories_map.items():
+            player_inventories_full[player_id] = []
+            if isinstance(item_ids, list):
+                for item_id in item_ids:
+                    if item_id in item_map:
+                        player_inventories_full[player_id].append(item_map[item_id])
+
         # Return safe subset of state (not full internal state)
         return {
             "session_id": state.get("session_id"),
@@ -602,12 +648,20 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
             "campaign_id": state.get("campaign_id"),
             "current_quest_id": state.get("current_quest_id"),
             "current_scene_id": state.get("current_scene_id"),
+            "scene_name": state.get("scene_name"),
+            "place_name": state.get("place_name"),
+            "location_name": state.get("location_name"),
             "players": state.get("players", []),
             "scene_description": state.get("scene_description", ""),
             "available_actions": state.get("available_actions", []),
             "available_npcs": state.get("available_npcs", []),
             "time_of_day": state.get("time_of_day"),
-            "awaiting_player_input": state.get("awaiting_player_input", False)
+            "awaiting_player_input": state.get("awaiting_player_input", False),
+            "player_knowledge": player_knowledge_full,
+            "player_inventories": player_inventories_full,
+            "conversation_history": state.get("conversation_history", []),
+            "event_log": state.get("event_log", []),
+            "action_history": state.get("action_history", [])
         }
 
     except HTTPException:

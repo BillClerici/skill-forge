@@ -198,8 +198,8 @@ async def get_quest_progress_for_acquisition(
                     player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
 
                     if acquisition_type == "knowledge":
-                        player_knowledge = state.get("player_knowledge", {}).get(player_id, [])
-                        acquired_count = sum(1 for rid in required_ids if rid in player_knowledge)
+                        player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+                        acquired_count = sum(1 for rid in required_ids if rid in player_knowledge.keys())
                     elif acquisition_type == "item":
                         player_inventory = state.get("player_inventories", {}).get(player_id, [])
                         acquired_count = sum(1 for rid in required_ids if any(item.get("item_id") == rid for item in player_inventory))
@@ -551,6 +551,16 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
         from ..services.mongo_persistence import mongo_persistence
 
         scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
+
+        # Store scene name and place name in state for display
+        if scene_data:
+            state["scene_name"] = scene_data.get("name", "Current Location")
+            state["location_name"] = scene_data.get("name", "Current Location")  # Primary location field
+            # Try to load place name if we have a place_id
+            if state.get("current_place_id"):
+                place_data = await mongo_persistence.get_place(state["current_place_id"])
+                if place_data:
+                    state["place_name"] = place_data.get("name", "")
 
         # Get NPCs at current location
         npcs_at_location = await mongo_persistence.get_npcs_at_location(state["current_scene_id"])
@@ -1092,10 +1102,10 @@ What would you like to do?"""
                             if "player_knowledge" not in state:
                                 state["player_knowledge"] = {}
                             if player_id not in state["player_knowledge"]:
-                                state["player_knowledge"][player_id] = []
+                                state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id].append(knowledge_id)
+                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
@@ -1559,10 +1569,10 @@ What would you like to do?"""
                             if "player_knowledge" not in state:
                                 state["player_knowledge"] = {}
                             if player_id not in state["player_knowledge"]:
-                                state["player_knowledge"][player_id] = []
+                                state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id].append(knowledge_id)
+                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
@@ -1580,6 +1590,7 @@ What would you like to do?"""
                                             "name": knowledge_data.get("name") or knowledge_data.get("title", "Unknown Knowledge"),
                                             "description": knowledge_data.get("description", "Knowledge from discovery"),
                                             "source": f"From investigating {discovery_name}",
+                                            "source_discovery": discovery_name,  # Add discovery name for tracking completion
                                             **quest_info
                                         }
                                     }
@@ -1710,10 +1721,10 @@ Try examining your surroundings or asking what you can investigate."""
                             if "player_knowledge" not in state:
                                 state["player_knowledge"] = {}
                             if player_id not in state["player_knowledge"]:
-                                state["player_knowledge"][player_id] = []
+                                state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id].append(knowledge_id)
+                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)

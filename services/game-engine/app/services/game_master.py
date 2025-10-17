@@ -297,7 +297,8 @@ Available action types:
 - ask_gm_question: Player is asking the Game Master a question about the world, rules, quest, or story (keywords: "what", "how", "why", "who", "where", "when", "?")
 - move_to_location: Player wants to go somewhere (keywords: "go to", "move to", "walk to", "head to", "enter")
 - talk_to_npc: Player wants to talk to an NPC (keywords: "talk to", "speak with", "ask", "tell", "say to")
-- examine_object: Player wants to look at something closely or investigate the scene (keywords: "examine", "look at", "inspect", "search", "investigate")
+- investigate_discovery: Player wants to investigate a specific discovery in the scene (keywords: "investigate", "examine", "inspect" + discovery name from available discoveries)
+- examine_object: Player wants to look at something closely or investigate the scene generally (keywords: "examine", "look at", "inspect", "search")
 - use_item: Player wants to use an item from inventory (keywords: "use", "drink", "eat", "equip", "activate")
 - attempt_challenge: Player wants to attempt a challenge/puzzle (keywords: "attempt", "try", "solve")
 - perform_action: Player wants to perform a creative/freeform action that doesn't fit other categories (e.g., "climb the wall", "push the statue", "light the torch", "break down the door")
@@ -307,10 +308,11 @@ IMPORTANT PRIORITY ORDER:
 2. If the player input is a question (contains ?, or starts with who/what/where/when/why/how), use "ask_gm_question"
 3. If the player wants to move to a location, use "move_to_location"
 4. If the player wants to talk to an NPC, use "talk_to_npc"
-5. If the player wants to examine something, use "examine_object"
-6. If the player wants to use an item, use "use_item"
-7. If the player wants to attempt a challenge, use "attempt_challenge"
-8. Otherwise, use "perform_action" for creative/freeform actions
+5. If the player wants to investigate a specific discovery that matches one in the available discoveries list, use "investigate_discovery"
+6. If the player wants to examine something generally, use "examine_object"
+7. If the player wants to use an item, use "use_item"
+8. If the player wants to attempt a challenge, use "attempt_challenge"
+9. Otherwise, use "perform_action" for creative/freeform actions
 
 Return ONLY valid JSON with NO markdown formatting, NO code blocks, NO additional text.
 
@@ -343,6 +345,7 @@ For other actions, follow similar structure with appropriate action_type and par
 
 Current Scene: {scene_name}
 Available NPCs: {available_npcs}
+Available Discoveries: {available_discoveries}
 Available Actions: {available_actions}
 Visible Items: {visible_items}
 Active Challenges: {active_challenges}
@@ -355,6 +358,7 @@ What action is the player attempting?""")
                 "player_input": player_input,
                 "scene_name": state.get("scene_description", "")[:100],
                 "available_npcs": json.dumps([npc.get("name") for npc in state.get("available_npcs", [])]),
+                "available_discoveries": json.dumps([d.get("name") for d in state.get("available_discoveries", [])]),
                 "available_actions": json.dumps(state.get("available_actions", [])),
                 "visible_items": json.dumps(state.get("visible_items", [])),
                 "active_challenges": json.dumps([c.get("name") for c in state.get("active_challenges", [])])
@@ -611,6 +615,9 @@ Respond as {npc_name}.""")
 
 Player's Question: {question}
 
+Recent Conversation History:
+{conversation_history}
+
 Current Context:
 - World: {world_name}
 - World Description: {world_description}
@@ -622,15 +629,20 @@ Current Context:
 - Location: {scene_name}
 - Recent Actions: {recent_actions}
 
-IMPORTANT: Use ONLY the EXACT information provided above. Do NOT make up or hallucinate names, places, or details.
+IMPORTANT:
+- Use the conversation history to provide contextual answers
+- Remember what has been discussed and build on it
+- Use ONLY the EXACT information provided above
+- Do NOT make up or hallucinate names, places, or details
 
 Provide a clear, helpful answer that:
-1. Directly addresses their question
+1. Directly addresses their question based on the conversation context
 2. Stays in character as the Game Master
-3. References the current world/campaign/quest context when relevant
-4. Uses ONLY the factual information provided above
-5. Encourages them to continue their adventure
-6. Is brief and to the point (2-3 sentences maximum unless more detail is needed)
+3. References previous discussion when relevant
+4. Uses the current world/campaign/quest context
+5. Uses ONLY the factual information provided above
+6. Encourages them to continue their adventure
+7. Is brief and to the point (2-3 sentences maximum unless more detail is needed)
 
 Return ONLY your answer (no JSON, no additional commentary).""")
             ])
@@ -638,6 +650,7 @@ Return ONLY your answer (no JSON, no additional commentary).""")
             chain = prompt | self.llm
             response = await chain.ainvoke({
                 "question": question,
+                "conversation_history": self._format_chat_history(state.get("chat_messages", []), last_n=10),
                 "world_name": world.get("world_name", "Unknown World") if world else "Unknown World",
                 "world_description": world_description[:200] if world_description else "Unknown",
                 "world_backstory": world_backstory,
@@ -707,6 +720,9 @@ Return ONLY your answer (no JSON, no additional commentary).""")
 
 Player's Action: {action_description}
 
+Recent Conversation History:
+{conversation_history}
+
 Current Scene Context:
 - Location: {scene_name}
 - Description: {scene_description}
@@ -723,12 +739,14 @@ Your task:
 5. Adapt language complexity to player's Bloom's level: {blooms_level}
 6. If the action reveals something new, describe it
 7. If the action changes the scene state, describe that change
+8. Reference the conversation history if relevant to maintain continuity
 
 IMPORTANT:
 - Be creative and say "yes, and..." when possible
 - Even failures should be interesting and move the story forward
 - Consider physics, logic, and story consistency
 - Keep the narrative engaging and educational
+- Maintain awareness of what has been discussed and revealed
 
 Return ONLY the narrative outcome (no JSON, no additional commentary).""")
             ])
@@ -736,6 +754,7 @@ Return ONLY the narrative outcome (no JSON, no additional commentary).""")
             chain = prompt | self.llm
             response = await chain.ainvoke({
                 "action_description": action_description,
+                "conversation_history": self._format_chat_history(state.get("chat_messages", []), last_n=10),
                 "scene_name": scene.get("name", "Current Location") if scene else "Current Location",
                 "scene_description": scene.get("description", "")[:300] if scene else "",
                 "npcs_present": self._format_npc_list(state.get("available_npcs", [])),
@@ -801,6 +820,32 @@ Remember:
             f"- {action.get('action_type')}: {action.get('parameters', {})}"
             for action in actions
         ])
+
+    def _format_chat_history(self, chat_messages: List[Dict[str, Any]], last_n: int = 10) -> str:
+        """Format recent chat messages for conversation context"""
+        if not chat_messages:
+            return "No previous conversation."
+
+        # Get last N messages
+        recent_messages = chat_messages[-last_n:]
+
+        formatted = []
+        for msg in recent_messages:
+            sender = msg.get("sender_name", "Unknown")
+            content = msg.get("content", "")
+            msg_type = msg.get("message_type", "")
+
+            # Format based on message type
+            if msg_type == "PLAYER_ACTION":
+                formatted.append(f"PLAYER: {content}")
+            elif msg_type in ["DM_NARRATIVE", "DM_SYSTEM"]:
+                formatted.append(f"GM: {content}")
+            elif msg_type == "DM_NPC_DIALOGUE":
+                formatted.append(f"{sender}: {content}")
+            else:
+                formatted.append(f"{sender}: {content}")
+
+        return "\n".join(formatted)
 
 
 # Global instance
