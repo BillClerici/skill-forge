@@ -408,6 +408,284 @@ class Neo4jGraphService:
             return False
 
     # ============================================
+    # Encounter Tracking
+    # ============================================
+
+    async def record_encounter(
+        self,
+        player_id: str,
+        encounter_type: str,
+        encounter_id: str,
+        encounter_name: str,
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Record player encounter with NPC, Event, Discovery, or Challenge
+
+        Args:
+            player_id: Player ID
+            encounter_type: Type (npc, event, discovery, challenge)
+            encounter_id: Encounter ID
+            encounter_name: Encounter name
+            metadata: Metadata (quest, place, scene, timestamp)
+
+        Returns:
+            Success status
+        """
+        try:
+            async with self.driver.session() as session:
+                # Map encounter type to node label
+                node_label = {
+                    "npc": "NPC",
+                    "event": "Event",
+                    "discovery": "Discovery",
+                    "challenge": "Challenge"
+                }.get(encounter_type, "Encounter")
+
+                query = f"""
+                MATCH (p:Player {{player_id: $player_id}})
+                MERGE (e:{node_label} {{encounter_id: $encounter_id}})
+                ON CREATE SET e.name = $encounter_name
+                MERGE (p)-[r:ENCOUNTERED]->(e)
+                ON CREATE SET r.first_encounter = $timestamp,
+                              r.encounter_count = 1,
+                              r.session_id = $session_id,
+                              r.quest_id = $quest_id,
+                              r.scene_id = $scene_id
+                ON MATCH SET r.last_encounter = $timestamp,
+                             r.encounter_count = r.encounter_count + 1
+                RETURN r
+                """
+
+                await session.run(
+                    query,
+                    player_id=player_id,
+                    encounter_id=encounter_id,
+                    encounter_name=encounter_name,
+                    timestamp=metadata.get("timestamp", datetime.utcnow().isoformat()),
+                    session_id=metadata.get("session_id"),
+                    quest_id=metadata.get("quest_id"),
+                    scene_id=metadata.get("scene_id")
+                )
+
+                logger.info(
+                    "encounter_recorded_neo4j",
+                    player_id=player_id,
+                    encounter_type=encounter_type,
+                    encounter_name=encounter_name
+                )
+                return True
+
+        except Exception as e:
+            logger.error("encounter_recording_failed", error=str(e))
+            return False
+
+    async def record_knowledge_acquisition_with_source(
+        self,
+        player_id: str,
+        knowledge_id: str,
+        knowledge_name: str,
+        source_type: str,
+        source_id: str,
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Record knowledge acquisition with source tracking
+
+        Args:
+            player_id: Player ID
+            knowledge_id: Knowledge ID
+            knowledge_name: Knowledge name
+            source_type: Source type (npc, discovery, challenge, event)
+            source_id: Source entity ID
+            metadata: Context metadata
+
+        Returns:
+            Success status
+        """
+        try:
+            async with self.driver.session() as session:
+                # Map source type to node label
+                source_label = {
+                    "npc": "NPC",
+                    "discovery": "Discovery",
+                    "challenge": "Challenge",
+                    "event": "Event"
+                }.get(source_type, "Source")
+
+                query = f"""
+                MATCH (p:Player {{player_id: $player_id}})
+                MERGE (k:Knowledge {{knowledge_id: $knowledge_id}})
+                ON CREATE SET k.name = $knowledge_name
+                MERGE (s:{source_label} {{encounter_id: $source_id}})
+                MERGE (p)-[r:ACQUIRED_KNOWLEDGE]->(k)
+                ON CREATE SET r.acquired_at = $timestamp,
+                              r.session_id = $session_id,
+                              r.quest_id = $quest_id,
+                              r.scene_id = $scene_id
+                MERGE (k)-[:REVEALED_BY]->(s)
+                RETURN r
+                """
+
+                await session.run(
+                    query,
+                    player_id=player_id,
+                    knowledge_id=knowledge_id,
+                    knowledge_name=knowledge_name,
+                    source_id=source_id,
+                    timestamp=metadata.get("timestamp", datetime.utcnow().isoformat()),
+                    session_id=metadata.get("session_id"),
+                    quest_id=metadata.get("quest_id"),
+                    scene_id=metadata.get("scene_id")
+                )
+
+                logger.info(
+                    "knowledge_acquisition_recorded_neo4j",
+                    player_id=player_id,
+                    knowledge_id=knowledge_id,
+                    source_type=source_type
+                )
+                return True
+
+        except Exception as e:
+            logger.error("knowledge_acquisition_recording_failed", error=str(e))
+            return False
+
+    async def record_item_acquisition_with_source(
+        self,
+        player_id: str,
+        item_id: str,
+        item_name: str,
+        source_type: str,
+        source_id: Optional[str],
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Record item acquisition with source tracking
+
+        Args:
+            player_id: Player ID
+            item_id: Item ID
+            item_name: Item name
+            source_type: Source type (npc, discovery, challenge, scene)
+            source_id: Source entity ID (optional for scene)
+            metadata: Context metadata
+
+        Returns:
+            Success status
+        """
+        try:
+            async with self.driver.session() as session:
+                if source_id:
+                    # Map source type to node label
+                    source_label = {
+                        "npc": "NPC",
+                        "discovery": "Discovery",
+                        "challenge": "Challenge",
+                        "scene": "Location"
+                    }.get(source_type, "Source")
+
+                    query = f"""
+                    MATCH (p:Player {{player_id: $player_id}})
+                    MERGE (i:Item {{item_id: $item_id}})
+                    ON CREATE SET i.name = $item_name
+                    MERGE (s:{source_label} {{encounter_id: $source_id}})
+                    MERGE (p)-[r:ACQUIRED_ITEM]->(i)
+                    ON CREATE SET r.acquired_at = $timestamp,
+                                  r.session_id = $session_id,
+                                  r.quest_id = $quest_id,
+                                  r.scene_id = $scene_id
+                    MERGE (i)-[:FOUND_AT]->(s)
+                    RETURN r
+                    """
+                else:
+                    # No specific source (picked up from scene)
+                    query = """
+                    MATCH (p:Player {player_id: $player_id})
+                    MERGE (i:Item {item_id: $item_id})
+                    ON CREATE SET i.name = $item_name
+                    MERGE (p)-[r:ACQUIRED_ITEM]->(i)
+                    ON CREATE SET r.acquired_at = $timestamp,
+                                  r.session_id = $session_id,
+                                  r.quest_id = $quest_id,
+                                  r.scene_id = $scene_id
+                    RETURN r
+                    """
+
+                await session.run(
+                    query,
+                    player_id=player_id,
+                    item_id=item_id,
+                    item_name=item_name,
+                    source_id=source_id,
+                    timestamp=metadata.get("timestamp", datetime.utcnow().isoformat()),
+                    session_id=metadata.get("session_id"),
+                    quest_id=metadata.get("quest_id"),
+                    scene_id=metadata.get("scene_id")
+                )
+
+                logger.info(
+                    "item_acquisition_recorded_neo4j",
+                    player_id=player_id,
+                    item_id=item_id,
+                    source_type=source_type
+                )
+                return True
+
+        except Exception as e:
+            logger.error("item_acquisition_recording_failed", error=str(e))
+            return False
+
+    async def get_player_encounter_history(
+        self,
+        player_id: str,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get player's encounter history from graph"""
+        try:
+            async with self.driver.session() as session:
+                query = """
+                MATCH (p:Player {player_id: $player_id})-[r:ENCOUNTERED]->(e)
+                RETURN labels(e)[0] as encounter_type,
+                       e.encounter_id as encounter_id,
+                       e.name as encounter_name,
+                       r.encounter_count as count,
+                       r.first_encounter as first_encounter,
+                       r.last_encounter as last_encounter,
+                       r.quest_id as quest_id,
+                       r.scene_id as scene_id
+                ORDER BY r.last_encounter DESC
+                LIMIT $limit
+                """
+
+                result = await session.run(query, player_id=player_id, limit=limit)
+
+                encounters = []
+                async for record in result:
+                    encounters.append({
+                        "encounter_type": record["encounter_type"],
+                        "encounter_id": record["encounter_id"],
+                        "encounter_name": record["encounter_name"],
+                        "encounter_count": record["count"],
+                        "first_encounter": record["first_encounter"],
+                        "last_encounter": record["last_encounter"],
+                        "quest_id": record["quest_id"],
+                        "scene_id": record["scene_id"]
+                    })
+
+                logger.info(
+                    "encounter_history_retrieved",
+                    player_id=player_id,
+                    count=len(encounters)
+                )
+
+                return encounters
+
+        except Exception as e:
+            logger.error("encounter_history_retrieval_failed", error=str(e))
+            return []
+
+    # ============================================
     # Analytics & Insights
     # ============================================
 

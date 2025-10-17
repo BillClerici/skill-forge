@@ -72,6 +72,29 @@ class MongoPersistence:
             await self.db.player_progression.create_index("player_id", unique=True)
             await self.db.player_progression.create_index([("last_updated", -1)])
 
+            # Encounters indexes
+            await self.db.encounters.create_index("session_id")
+            await self.db.encounters.create_index("player_id")
+            await self.db.encounters.create_index("encounter_type")
+            await self.db.encounters.create_index([("timestamp", -1)])
+            await self.db.encounters.create_index([("player_id", 1), ("encounter_type", 1)])
+
+            # Knowledge acquisitions indexes
+            await self.db.knowledge_acquisitions.create_index("session_id")
+            await self.db.knowledge_acquisitions.create_index("player_id")
+            await self.db.knowledge_acquisitions.create_index("knowledge_id")
+            await self.db.knowledge_acquisitions.create_index("source_type")
+            await self.db.knowledge_acquisitions.create_index([("timestamp", -1)])
+            await self.db.knowledge_acquisitions.create_index([("player_id", 1), ("knowledge_id", 1)])
+
+            # Item acquisitions indexes
+            await self.db.item_acquisitions.create_index("session_id")
+            await self.db.item_acquisitions.create_index("player_id")
+            await self.db.item_acquisitions.create_index("item_id")
+            await self.db.item_acquisitions.create_index("source_type")
+            await self.db.item_acquisitions.create_index([("timestamp", -1)])
+            await self.db.item_acquisitions.create_index([("player_id", 1), ("item_id", 1)])
+
             logger.info("mongodb_indexes_created")
 
         except Exception as e:
@@ -892,6 +915,305 @@ class MongoPersistence:
 
         except Exception as e:
             logger.error("knowledge_load_failed", error=str(e))
+            return []
+
+    async def get_item(self, item_id: str) -> Optional[Dict[str, Any]]:
+        """Get single item by ID"""
+        try:
+            item = await self.db.items.find_one({"_id": item_id})
+            if item:
+                item.pop("_id", None)
+                item["item_id"] = item_id
+                return item
+            return None
+        except Exception as e:
+            logger.error("item_load_failed", item_id=item_id, error=str(e))
+            return None
+
+    async def get_knowledge_by_id(self, knowledge_id: str) -> Optional[Dict[str, Any]]:
+        """Get single knowledge by ID"""
+        try:
+            knowledge = await self.db.knowledge.find_one({"_id": knowledge_id})
+            if knowledge:
+                knowledge.pop("_id", None)
+                knowledge["knowledge_id"] = knowledge_id
+                return knowledge
+            return None
+        except Exception as e:
+            logger.error("knowledge_load_failed", knowledge_id=knowledge_id, error=str(e))
+            return None
+
+    # ============================================
+    # Encounter Persistence
+    # ============================================
+
+    async def save_encounter(
+        self,
+        session_id: str,
+        player_id: str,
+        encounter_type: str,
+        encounter_data: Dict[str, Any],
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Save encounter to MongoDB
+
+        Args:
+            session_id: Session ID
+            player_id: Player ID
+            encounter_type: Type of encounter (npc, event, discovery, challenge)
+            encounter_data: Encounter details
+            metadata: Context metadata (quest, place, scene, timestamp)
+
+        Returns:
+            Success status
+        """
+        try:
+            encounter_doc = {
+                "session_id": session_id,
+                "player_id": player_id,
+                "encounter_type": encounter_type,
+                "encounter_id": encounter_data.get("id"),
+                "encounter_name": encounter_data.get("name") or encounter_data.get("title"),
+                "encounter_description": encounter_data.get("description"),
+                "metadata": metadata,
+                "timestamp": metadata.get("timestamp") or datetime.utcnow().isoformat(),
+                "quest_id": metadata.get("quest_id"),
+                "place_id": metadata.get("place_id"),
+                "scene_id": metadata.get("scene_id"),
+                "stored_at": datetime.utcnow().isoformat()
+            }
+
+            await self.db.encounters.insert_one(encounter_doc)
+
+            logger.info(
+                "encounter_saved",
+                session_id=session_id,
+                player_id=player_id,
+                encounter_type=encounter_type,
+                encounter_name=encounter_doc["encounter_name"]
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error("encounter_save_failed", error=str(e))
+            return False
+
+    async def save_knowledge_acquisition(
+        self,
+        session_id: str,
+        player_id: str,
+        knowledge_id: str,
+        knowledge_data: Dict[str, Any],
+        source_type: str,
+        source_id: str,
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Save knowledge acquisition to MongoDB
+
+        Args:
+            session_id: Session ID
+            player_id: Player ID
+            knowledge_id: Knowledge ID
+            knowledge_data: Knowledge details
+            source_type: Source type (npc, discovery, challenge, event)
+            source_id: Source entity ID
+            metadata: Context metadata
+
+        Returns:
+            Success status
+        """
+        try:
+            acquisition_doc = {
+                "session_id": session_id,
+                "player_id": player_id,
+                "knowledge_id": knowledge_id,
+                "knowledge_name": knowledge_data.get("name") or knowledge_data.get("title"),
+                "knowledge_description": knowledge_data.get("description"),
+                "source_type": source_type,
+                "source_id": source_id,
+                "metadata": metadata,
+                "timestamp": metadata.get("timestamp") or datetime.utcnow().isoformat(),
+                "quest_id": metadata.get("quest_id"),
+                "place_id": metadata.get("place_id"),
+                "scene_id": metadata.get("scene_id"),
+                "stored_at": datetime.utcnow().isoformat()
+            }
+
+            await self.db.knowledge_acquisitions.insert_one(acquisition_doc)
+
+            logger.info(
+                "knowledge_acquisition_saved",
+                session_id=session_id,
+                player_id=player_id,
+                knowledge_name=acquisition_doc["knowledge_name"],
+                source_type=source_type
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error("knowledge_acquisition_save_failed", error=str(e))
+            return False
+
+    async def save_item_acquisition(
+        self,
+        session_id: str,
+        player_id: str,
+        item_id: str,
+        item_data: Dict[str, Any],
+        source_type: str,
+        source_id: Optional[str],
+        metadata: Dict[str, Any]
+    ) -> bool:
+        """
+        Save item acquisition to MongoDB
+
+        Args:
+            session_id: Session ID
+            player_id: Player ID
+            item_id: Item ID
+            item_data: Item details
+            source_type: Source type (npc, discovery, challenge, scene)
+            source_id: Source entity ID (optional for scene items)
+            metadata: Context metadata
+
+        Returns:
+            Success status
+        """
+        try:
+            acquisition_doc = {
+                "session_id": session_id,
+                "player_id": player_id,
+                "item_id": item_id,
+                "item_name": item_data.get("name"),
+                "item_description": item_data.get("description"),
+                "source_type": source_type,
+                "source_id": source_id,
+                "metadata": metadata,
+                "timestamp": metadata.get("timestamp") or datetime.utcnow().isoformat(),
+                "quest_id": metadata.get("quest_id"),
+                "place_id": metadata.get("place_id"),
+                "scene_id": metadata.get("scene_id"),
+                "stored_at": datetime.utcnow().isoformat()
+            }
+
+            await self.db.item_acquisitions.insert_one(acquisition_doc)
+
+            logger.info(
+                "item_acquisition_saved",
+                session_id=session_id,
+                player_id=player_id,
+                item_name=acquisition_doc["item_name"],
+                source_type=source_type
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error("item_acquisition_save_failed", error=str(e))
+            return False
+
+    async def get_player_encounters(
+        self,
+        player_id: str,
+        session_id: Optional[str] = None,
+        encounter_type: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get encounter history for a player"""
+        try:
+            query = {"player_id": player_id}
+
+            if session_id:
+                query["session_id"] = session_id
+
+            if encounter_type:
+                query["encounter_type"] = encounter_type
+
+            cursor = self.db.encounters.find(query).sort("timestamp", -1).limit(limit)
+
+            encounters = []
+            async for doc in cursor:
+                doc.pop("_id", None)
+                encounters.append(doc)
+
+            logger.info(
+                "player_encounters_retrieved",
+                player_id=player_id,
+                count=len(encounters)
+            )
+
+            return encounters
+
+        except Exception as e:
+            logger.error("encounters_retrieval_failed", error=str(e))
+            return []
+
+    async def get_player_knowledge_acquisitions(
+        self,
+        player_id: str,
+        session_id: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get knowledge acquisition history for a player"""
+        try:
+            query = {"player_id": player_id}
+
+            if session_id:
+                query["session_id"] = session_id
+
+            cursor = self.db.knowledge_acquisitions.find(query).sort("timestamp", -1).limit(limit)
+
+            acquisitions = []
+            async for doc in cursor:
+                doc.pop("_id", None)
+                acquisitions.append(doc)
+
+            logger.info(
+                "knowledge_acquisitions_retrieved",
+                player_id=player_id,
+                count=len(acquisitions)
+            )
+
+            return acquisitions
+
+        except Exception as e:
+            logger.error("knowledge_acquisitions_retrieval_failed", error=str(e))
+            return []
+
+    async def get_player_item_acquisitions(
+        self,
+        player_id: str,
+        session_id: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get item acquisition history for a player"""
+        try:
+            query = {"player_id": player_id}
+
+            if session_id:
+                query["session_id"] = session_id
+
+            cursor = self.db.item_acquisitions.find(query).sort("timestamp", -1).limit(limit)
+
+            acquisitions = []
+            async for doc in cursor:
+                doc.pop("_id", None)
+                acquisitions.append(doc)
+
+            logger.info(
+                "item_acquisitions_retrieved",
+                player_id=player_id,
+                count=len(acquisitions)
+            )
+
+            return acquisitions
+
+        except Exception as e:
+            logger.error("item_acquisitions_retrieval_failed", error=str(e))
             return []
 
     # ============================================

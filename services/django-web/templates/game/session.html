@@ -884,6 +884,567 @@
         flex-shrink: 0;
     }
 
+    .action-opportunities {
+        padding: 0.8rem;
+        margin-bottom: 0.6rem;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        border: 2px solid #667eea;
+        border-radius: 8px;
+        animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .action-opportunities-header {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 0.6rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .opportunity-group {
+        margin-bottom: 0.6rem;
+    }
+
+    .opportunity-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .opportunity-group-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #4a5568;
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .opportunity-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .opportunity-btn {
+        padding: 0.5rem 0.8rem;
+        background: white;
+        color: #667eea;
+        border: 1.5px solid #667eea;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .opportunity-btn:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .opportunity-btn.npc {
+        border-color: #48bb78;
+        color: #48bb78;
+    }
+
+    .opportunity-btn.npc:hover {
+        background: #48bb78;
+        color: white;
+    }
+
+    .opportunity-btn.item {
+        border-color: #ed64a6;
+        color: #ed64a6;
+    }
+
+    .opportunity-btn.item:hover {
+        background: #ed64a6;
+        color: white;
+    }
+
+    .opportunity-btn.discovery {
+        border-color: #f6ad55;
+        color: #f6ad55;
+    }
+
+    .opportunity-btn.discovery:hover {
+        background: #f6ad55;
+        color: white;
+    }
+
+    /* ===================================
+       Investigate Scene Panel Styles
+       =================================== */
+    .investigate-scene-button {
+        padding: 0.6rem 1rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .investigate-scene-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .investigate-scene-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .investigate-panel-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .investigate-panel {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 700px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .investigate-panel-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.2rem 1.5rem;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .investigate-panel-header h2 {
+        margin: 0;
+        font-size: 1.4rem;
+        font-weight: 600;
+    }
+
+    .panel-close-btn {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: none;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 1.5rem;
+        line-height: 1;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .panel-close-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+    }
+
+    .investigate-panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    .investigate-section {
+        margin-bottom: 0.8rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+
+    .investigate-section:hover {
+        border-color: #cbd5e0;
+    }
+
+    .investigate-section-header {
+        background: #f7fafc;
+        padding: 0.9rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.2s;
+    }
+
+    .investigate-section-header:hover {
+        background: #edf2f7;
+    }
+
+    .section-icon {
+        font-size: 1.3rem;
+    }
+
+    .section-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 1rem;
+        color: #2d3748;
+    }
+
+    .section-count {
+        background: #667eea;
+        color: white;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        min-width: 24px;
+        text-align: center;
+    }
+
+    .section-toggle {
+        color: #718096;
+        font-size: 0.9rem;
+        transition: transform 0.3s;
+    }
+
+    .investigate-section.collapsed .section-toggle {
+        transform: rotate(-90deg);
+    }
+
+    .investigate-section-body {
+        padding: 1rem;
+        background: white;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .investigate-section.collapsed .investigate-section-body {
+        display: none;
+    }
+
+    .empty-state {
+        color: #a0aec0;
+        font-style: italic;
+        text-align: center;
+        padding: 1rem;
+    }
+
+    .entity-item {
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 0.9rem;
+        margin-bottom: 0.6rem;
+        transition: all 0.2s;
+    }
+
+    .entity-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .entity-item:hover {
+        background: #edf2f7;
+        border-color: #cbd5e0;
+        transform: translateX(4px);
+    }
+
+    .entity-header {
+        display: flex;
+        align-items: start;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .entity-icon {
+        font-size: 1.8rem;
+        flex-shrink: 0;
+    }
+
+    .entity-info {
+        flex: 1;
+    }
+
+    .entity-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #2d3748;
+        margin-bottom: 0.3rem;
+    }
+
+    .entity-role,
+    .entity-description {
+        font-size: 0.85rem;
+        color: #718096;
+        margin-bottom: 0.3rem;
+    }
+
+    .entity-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.6rem;
+    }
+
+    .entity-action-btn {
+        padding: 0.4rem 0.8rem;
+        background: white;
+        color: #667eea;
+        border: 1.5px solid #667eea;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .entity-action-btn:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .entity-action-btn.primary {
+        background: #667eea;
+        color: white;
+    }
+
+    .entity-action-btn.primary:hover {
+        background: #5568d3;
+    }
+
+    /* ===================================
+       Acquisition Notifications Styles
+       =================================== */
+    .acquisition-notifications {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        max-width: 400px;
+        pointer-events: none;
+    }
+
+    .acquisition-notification {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        border-left: 4px solid #667eea;
+        animation: slideInRight 0.4s ease-out, fadeOut 0.4s ease-in 4.6s;
+        pointer-events: auto;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .acquisition-notification::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        animation: progressBar 5s linear;
+        width: 100%;
+    }
+
+    @keyframes progressBar {
+        from {
+            width: 100%;
+        }
+        to {
+            width: 0%;
+        }
+    }
+
+    .acquisition-notification:hover {
+        transform: translateX(-5px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(100px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes fadeOut {
+        from {
+            opacity: 1;
+        }
+        to {
+            opacity: 0;
+        }
+    }
+
+    .acquisition-notification.knowledge {
+        border-left-color: #3f51b5;
+    }
+
+    .acquisition-notification.item {
+        border-left-color: #ed64a6;
+    }
+
+    .acquisition-notification.npc {
+        border-left-color: #48bb78;
+    }
+
+    .acquisition-notification.discovery {
+        border-left-color: #f6ad55;
+    }
+
+    .acquisition-notification.challenge {
+        border-left-color: #9c27b0;
+    }
+
+    .notification-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .notification-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .notification-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #2d3748;
+    }
+
+    .notification-type {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .notification-type.knowledge {
+        color: #3f51b5;
+    }
+
+    .notification-type.item {
+        color: #ed64a6;
+    }
+
+    .notification-type.npc {
+        color: #48bb78;
+    }
+
+    .notification-type.discovery {
+        color: #f6ad55;
+    }
+
+    .notification-type.challenge {
+        color: #9c27b0;
+    }
+
+    .notification-body {
+        margin-left: 2.25rem;
+    }
+
+    .notification-description {
+        font-size: 0.85rem;
+        color: #4a5568;
+        margin-bottom: 0.4rem;
+        line-height: 1.4;
+    }
+
+    .notification-source {
+        font-size: 0.75rem;
+        color: #718096;
+        font-style: italic;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .notification-quest-link {
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.6rem;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
+        border: 1px solid #667eea;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #667eea;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-weight: 500;
+    }
+
+    .notification-progress {
+        margin-left: auto;
+        font-weight: 600;
+    }
+
     .chat-input {
         width: 100%;
         padding: 0.6rem;
@@ -1430,16 +1991,6 @@
                 </div>
             </div>
             <div class="drawer-content">
-                <!-- Character Section -->
-                <h3>🧙 Character</h3>
-                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
-                    <h4 style="margin-top: 0; color: #d4af37;">{{ character.name }}</h4>
-                    <div class="character-stat">
-                        <span class="stat-label">Bloom's Level:</span>
-                        <span class="stat-value" id="drawerBloomLevel">{{ character.blooms_level|title }}</span>
-                    </div>
-                </div>
-
                 <!-- Campaign Status Section -->
                 <h3>📜 Campaign</h3>
                 <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
@@ -1471,10 +2022,10 @@
             👥
         </button>
 
-        <!-- Right Drawer (Party/Progress) -->
+        <!-- Right Drawer (Journey Arc) -->
         <div class="drawer drawer-right" id="rightDrawer">
             <div class="drawer-header">
-                <h3>Party & Progress</h3>
+                <h3>Journey Arc</h3>
                 <div class="drawer-controls">
                     <button class="drawer-btn" onclick="toggleRightDrawerAnchor()" title="Anchor drawer">
                         📌
@@ -1485,10 +2036,88 @@
                 </div>
             </div>
             <div class="drawer-content">
-                <!-- Team Chat Component -->
-                {% include 'game/components/team_chat.html' %}
+                <!-- Character Section -->
+                <h3>🧙 Character</h3>
+                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 0.75rem;">
+                    <h4 style="margin-top: 0; color: #d4af37;">{{ character.name }}</h4>
+                    <div class="character-stat">
+                        <span class="stat-label">Race:</span>
+                        <span class="stat-value">{{ character.race|default:"Human" }}</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Class:</span>
+                        <span class="stat-value">{{ character.character_class|default:"Adventurer" }}</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Level:</span>
+                        <span class="stat-value">{{ character.level|default:"1" }}</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Age:</span>
+                        <span class="stat-value">{{ character.age|default:"25" }}</span>
+                    </div>
+                    <div class="character-stat">
+                        <span class="stat-label">Height:</span>
+                        <span class="stat-value">{{ character.height|default:"5'10\"" }}</span>
+                    </div>
+                </div>
 
-                <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+                <!-- Personal Evolution Section -->
+                <h3>⬆️ Personal Evolution</h3>
+                <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 0.75rem;">
+                    <div class="character-stat">
+                        <span class="stat-label">Current Stage:</span>
+                        <span class="stat-value" id="rightDrawerBloomLevel">{{ character.blooms_level|title }}</span>
+                    </div>
+
+                    <!-- Personal Evolution Arc Progress -->
+                    <div style="display: flex; align-items: center; gap: 3px; margin-top: 12px; padding-bottom: 20px;">
+                        {% with blooms_level=character.blooms_level %}
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'remembering' %}#6a5acd{% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'remembering' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'remembering' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Novice</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'understanding' %}#6a5acd{% elif blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'understanding' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'understanding' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Apprentice</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'applying' %}#6a5acd{% elif blooms_level == 'understanding' or blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'applying' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'applying' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Journeyman</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'analyzing' %}#6a5acd{% elif blooms_level == 'applying' or blooms_level == 'understanding' or blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'analyzing' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'analyzing' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Expert</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'evaluating' %}#6a5acd{% elif blooms_level == 'analyzing' or blooms_level == 'applying' or blooms_level == 'understanding' or blooms_level == 'remembering' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'evaluating' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'evaluating' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Master</div>
+                        </div>
+                        <div style="position: relative; flex: 1;">
+                            <div style="height: 6px; background-color: {% if blooms_level == 'creating' %}#6a5acd{% elif blooms_level != 'creating' %}rgba(106, 90, 205, 0.5){% else %}rgba(255, 255, 255, 0.1){% endif %}; border-radius: 3px;"></div>
+                            {% if blooms_level == 'creating' %}
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); width: 10px; height: 10px; background-color: #6a5acd; border: 2px solid #d4af37; border-radius: 50%;"></div>
+                            {% endif %}
+                            <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.6rem; {% if blooms_level == 'creating' %}color: #6a5acd; font-weight: 600;{% else %}color: #718096; opacity: 0.6;{% endif %}">Grandmaster</div>
+                        </div>
+                        {% endwith %}
+                    </div>
+                </div>
 
                 <!-- Progress Dashboard Component -->
                 {% include 'game/components/progress_dashboard.html' %}
@@ -1523,8 +2152,14 @@
                         Someone is typing...
                     </div>
                     <div class="chat-input-container">
+                        <!-- Quick Action Opportunities -->
+                        <div id="actionOpportunities" class="action-opportunities" style="display: none;"></div>
+
                         <textarea id="playerInput" class="chat-input" rows="3" placeholder="What do you do?" disabled></textarea>
                         <div class="input-controls">
+                            <button id="investigateSceneButton" class="investigate-scene-button" onclick="toggleInvestigatePanel()" disabled title="View all available actions in this scene">
+                                🔍 Investigate Scene
+                            </button>
                             <button id="micButton" class="mic-button" onclick="toggleMicrophone()" disabled title="Voice input">
                                 🎤
                             </button>
@@ -1588,7 +2223,7 @@
                         <div class="bottom-section-header">
                             📚 Knowledge Acquired
                         </div>
-                        <div class="bottom-section-content">
+                        <div class="bottom-section-content" id="knowledgeList">
                             <p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>
                         </div>
                     </div>
@@ -1598,18 +2233,18 @@
                         <div class="bottom-section-header">
                             🎒 Items Acquired
                         </div>
-                        <div class="bottom-section-content">
+                        <div class="bottom-section-content" id="itemsList">
                             <p style="font-style: italic; color: #a0aec0;">No items acquired yet. Find treasures on your journey!</p>
                         </div>
                     </div>
 
-                    <!-- Character Encounters Section -->
+                    <!-- Encounters Section (Events, Discoveries, Challenges, NPCs) -->
                     <div class="bottom-section">
                         <div class="bottom-section-header">
-                            👥 Character Encounters
+                            ⚡ Encounters
                         </div>
-                        <div class="bottom-section-content">
-                            <p style="font-style: italic; color: #a0aec0;">No characters encountered yet. Meet NPCs and allies!</p>
+                        <div class="bottom-section-content" id="encountersList">
+                            <p style="font-style: italic; color: #a0aec0;">No encounters yet. Explore to discover events, challenges, and characters!</p>
                         </div>
                     </div>
                 </div>
@@ -1659,6 +2294,85 @@
         <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
         <img id="lightboxImage" class="lightbox-image" src="" alt="">
         <div id="lightboxTitle" class="lightbox-title"></div>
+    </div>
+</div>
+
+<!-- Acquisition Notifications Container -->
+<div id="acquisitionNotifications" class="acquisition-notifications"></div>
+
+<!-- Investigate Scene Panel Modal -->
+<div id="investigateScenePanel" class="investigate-panel-overlay" style="display: none;">
+    <div class="investigate-panel">
+        <div class="investigate-panel-header">
+            <h2>🔍 Investigate Scene</h2>
+            <button class="panel-close-btn" onclick="toggleInvestigatePanel()">&times;</button>
+        </div>
+        <div class="investigate-panel-content">
+            <!-- NPCs Section -->
+            <div class="investigate-section" id="npcsSection">
+                <div class="investigate-section-header" onclick="toggleSection('npcs')">
+                    <span class="section-icon">👥</span>
+                    <span class="section-title">NPCs Present</span>
+                    <span class="section-count" id="npcsCount">0</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="investigate-section-body" id="npcsBody">
+                    <div class="empty-state">No NPCs in this scene</div>
+                </div>
+            </div>
+
+            <!-- Items Section -->
+            <div class="investigate-section" id="itemsSection">
+                <div class="investigate-section-header" onclick="toggleSection('items')">
+                    <span class="section-icon">🎒</span>
+                    <span class="section-title">Visible Items</span>
+                    <span class="section-count" id="itemsCount">0</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="investigate-section-body" id="itemsBody">
+                    <div class="empty-state">No items visible</div>
+                </div>
+            </div>
+
+            <!-- Discoveries Section -->
+            <div class="investigate-section" id="discoveriesSection">
+                <div class="investigate-section-header" onclick="toggleSection('discoveries')">
+                    <span class="section-icon">🔍</span>
+                    <span class="section-title">Discoveries</span>
+                    <span class="section-count" id="discoveriesCount">0</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="investigate-section-body" id="discoveriesBody">
+                    <div class="empty-state">No discoveries available</div>
+                </div>
+            </div>
+
+            <!-- Challenges Section -->
+            <div class="investigate-section" id="challengesSection">
+                <div class="investigate-section-header" onclick="toggleSection('challenges')">
+                    <span class="section-icon">⚔️</span>
+                    <span class="section-title">Active Challenges</span>
+                    <span class="section-count" id="challengesCount">0</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="investigate-section-body" id="challengesBody">
+                    <div class="empty-state">No challenges active</div>
+                </div>
+            </div>
+
+            <!-- Events Section -->
+            <div class="investigate-section" id="eventsSection">
+                <div class="investigate-section-header" onclick="toggleSection('events')">
+                    <span class="section-icon">📍</span>
+                    <span class="section-title">Active Events</span>
+                    <span class="section-count" id="eventsCount">0</span>
+                    <span class="section-toggle">▼</span>
+                </div>
+                <div class="investigate-section-body" id="eventsBody">
+                    <div class="empty-state">No events happening</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -2147,7 +2861,11 @@
                 break;
 
             case 'action_received':
-                addSystemMessage('Processing your action...');
+                if (lastActionSent) {
+                    addSystemMessage(`Processing: "${lastActionSent}"`);
+                } else {
+                    addSystemMessage('Processing your action...');
+                }
                 break;
 
             case 'typing_indicator':
@@ -2185,14 +2903,711 @@
             case 'challenge_created':
                 handleChallenge(data.challenge);
                 break;
+
+            case 'knowledge_gained':
+                addKnowledge(data.knowledge);
+                break;
+
+            case 'item_acquired':
+                addItem(data.item);
+                break;
+
+            case 'npc_encountered':
+                addEncounter({...data.npc, type: 'npc'});
+                break;
+
+            case 'event_encountered':
+                addEncounter({...data.event, type: 'event'});
+                break;
+
+            case 'discovery_encountered':
+                addEncounter({...data.discovery, type: 'discovery'});
+                break;
+
+            case 'challenge_encountered':
+                addEncounter({...data.challenge, type: 'challenge'});
+                break;
+
+            case 'action_opportunities':
+                displayActionOpportunities(data.opportunities, data.context);
+                break;
         }
     }
+
+    // ===================================
+    // Action Opportunities Display
+    // ===================================
+    function displayActionOpportunities(opportunities, context) {
+        const container = document.getElementById('actionOpportunities');
+
+        if (!container) {
+            console.error('Action opportunities container not found');
+            return;
+        }
+
+        // Check if there are any opportunities
+        const hasOpportunities = opportunities && Object.values(opportunities).some(arr => arr && arr.length > 0);
+
+        if (!hasOpportunities) {
+            container.style.display = 'none';
+            return;
+        }
+
+        // Build HTML for opportunities
+        let html = '<div class="action-opportunities-header">💡 Quick Actions</div>';
+
+        // NPCs
+        if (opportunities.npcs && opportunities.npcs.length > 0) {
+            html += '<div class="opportunity-group">';
+            html += '<div class="opportunity-group-title">👥 Talk To</div>';
+            html += '<div class="opportunity-buttons">';
+            opportunities.npcs.forEach(npc => {
+                const npcId = npc.id || '';
+                const npcAction = (npc.action || '').replace(/'/g, "\\'");
+                html += `<button class="opportunity-btn npc" data-context="${npc.context}" data-id="${npcId}" data-action="${npcAction}">${npc.action}</button>`;
+            });
+            html += '</div></div>';
+        }
+
+        // Items
+        if (opportunities.items && opportunities.items.length > 0) {
+            html += '<div class="opportunity-group">';
+            html += '<div class="opportunity-group-title">🎒 Items</div>';
+            html += '<div class="opportunity-buttons">';
+            opportunities.items.forEach(item => {
+                const itemAction = (item.action || '').replace(/'/g, "\\'");
+                html += `<button class="opportunity-btn item" data-context="${item.context}" data-action="${itemAction}">${item.action}</button>`;
+            });
+            html += '</div></div>';
+        }
+
+        // Discoveries
+        if (opportunities.discoveries && opportunities.discoveries.length > 0) {
+            html += '<div class="opportunity-group">';
+            html += '<div class="opportunity-group-title">🔍 Investigate</div>';
+            html += '<div class="opportunity-buttons">';
+            opportunities.discoveries.forEach(discovery => {
+                const discoveryId = discovery.id || '';
+                const discoveryAction = (discovery.action || '').replace(/'/g, "\\'");
+                html += `<button class="opportunity-btn discovery" data-context="${discovery.context}" data-id="${discoveryId}" data-action="${discoveryAction}">${discovery.action}</button>`;
+            });
+            html += '</div></div>';
+        }
+
+        // General actions
+        if (opportunities.actions && opportunities.actions.length > 0) {
+            html += '<div class="opportunity-group">';
+            html += '<div class="opportunity-group-title">⚡ Actions</div>';
+            html += '<div class="opportunity-buttons">';
+            opportunities.actions.forEach(action => {
+                const actionText = (action.action || '').replace(/'/g, "\\'");
+                html += `<button class="opportunity-btn" data-context="${action.context}" data-action="${actionText}">${action.action}</button>`;
+            });
+            html += '</div></div>';
+        }
+
+        container.innerHTML = html;
+        container.style.display = 'block';
+
+        // Add click handlers to all opportunity buttons
+        container.querySelectorAll('.opportunity-btn').forEach(btn => {
+            btn.addEventListener('click', handleOpportunityClick);
+        });
+    }
+
+    function handleOpportunityClick(event) {
+        const button = event.currentTarget;
+        const actionText = button.getAttribute('data-action');
+
+        if (!actionText) {
+            console.error('No action text found on button');
+            return;
+        }
+
+        // Submit the action as if player typed it
+        const playerInput = document.getElementById('playerInput');
+        if (playerInput) {
+            playerInput.value = actionText;
+            sendPlayerAction();
+        }
+
+        // Hide opportunities after click
+        const container = document.getElementById('actionOpportunities');
+        if (container) {
+            container.style.display = 'none';
+        }
+    }
+
+    // ===================================
+    // Investigate Scene Panel Functions
+    // ===================================
+    let currentSceneData = {
+        npcs: [],
+        items: [],
+        discoveries: [],
+        challenges: [],
+        events: []
+    };
+
+    function toggleInvestigatePanel() {
+        const panel = document.getElementById('investigateScenePanel');
+        if (!panel) return;
+
+        const isVisible = panel.style.display !== 'none';
+
+        if (isVisible) {
+            panel.style.display = 'none';
+        } else {
+            // Refresh panel content before showing
+            populateInvestigatePanel();
+            panel.style.display = 'flex';
+        }
+    }
+
+    function toggleSection(sectionName) {
+        const section = document.getElementById(sectionName + 'Section');
+        if (!section) return;
+
+        section.classList.toggle('collapsed');
+    }
+
+    function populateInvestigatePanel() {
+        // Populate NPCs
+        populateNPCs(currentSceneData.npcs);
+
+        // Populate Items
+        populateItems(currentSceneData.items);
+
+        // Populate Discoveries
+        populateDiscoveries(currentSceneData.discoveries);
+
+        // Populate Challenges
+        populateChallenges(currentSceneData.challenges);
+
+        // Populate Events
+        populateEvents(currentSceneData.events);
+    }
+
+    function populateNPCs(npcs) {
+        const body = document.getElementById('npcsBody');
+        const count = document.getElementById('npcsCount');
+
+        if (!npcs || npcs.length === 0) {
+            body.innerHTML = '<div class="empty-state">No NPCs in this scene</div>';
+            count.textContent = '0';
+            return;
+        }
+
+        count.textContent = npcs.length.toString();
+
+        let html = '';
+        npcs.forEach(npc => {
+            const npcId = npc.npc_id || npc._id || npc.id || '';
+            const npcName = npc.name || 'Unknown NPC';
+            const npcRole = npc.role || 'Character';
+            const npcDescription = npc.description || '';
+
+            html += `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div class="entity-icon">👤</div>
+                        <div class="entity-info">
+                            <div class="entity-name">${npcName}</div>
+                            <div class="entity-role">${npcRole}</div>
+                            ${npcDescription ? `<div class="entity-description">${npcDescription}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="entity-actions">
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Talk to ${npcName}')">💬 Talk</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Ask ${npcName} about their story')">📖 Ask About Story</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${npcName}')">🔍 Examine</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function populateItems(items) {
+        const body = document.getElementById('itemsBody');
+        const count = document.getElementById('itemsCount');
+
+        if (!items || items.length === 0) {
+            body.innerHTML = '<div class="empty-state">No items visible</div>';
+            count.textContent = '0';
+            return;
+        }
+
+        count.textContent = items.length.toString();
+
+        let html = '';
+        items.forEach(item => {
+            const itemName = typeof item === 'string' ? item : (item.name || 'Unknown Item');
+            const itemDescription = typeof item === 'object' ? (item.description || '') : '';
+
+            html += `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div class="entity-icon">📦</div>
+                        <div class="entity-info">
+                            <div class="entity-name">${itemName}</div>
+                            ${itemDescription ? `<div class="entity-description">${itemDescription}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="entity-actions">
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Take ${itemName}')">✋ Take</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${itemName}')">🔍 Examine</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function populateDiscoveries(discoveries) {
+        const body = document.getElementById('discoveriesBody');
+        const count = document.getElementById('discoveriesCount');
+
+        if (!discoveries || discoveries.length === 0) {
+            body.innerHTML = '<div class="empty-state">No discoveries available</div>';
+            count.textContent = '0';
+            return;
+        }
+
+        count.textContent = discoveries.length.toString();
+
+        let html = '';
+        discoveries.forEach(discovery => {
+            const discoveryId = discovery.discovery_id || discovery._id || discovery.id || '';
+            const discoveryName = discovery.name || 'Unknown Discovery';
+            const discoveryDescription = discovery.description || '';
+
+            html += `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div class="entity-icon">🔎</div>
+                        <div class="entity-info">
+                            <div class="entity-name">${discoveryName}</div>
+                            ${discoveryDescription ? `<div class="entity-description">${discoveryDescription}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="entity-actions">
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Investigate ${discoveryName}')">🔍 Investigate</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${discoveryName}')">👁️ Examine</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function populateChallenges(challenges) {
+        const body = document.getElementById('challengesBody');
+        const count = document.getElementById('challengesCount');
+
+        if (!challenges || challenges.length === 0) {
+            body.innerHTML = '<div class="empty-state">No challenges active</div>';
+            count.textContent = '0';
+            return;
+        }
+
+        count.textContent = challenges.length.toString();
+
+        let html = '';
+        challenges.forEach(challenge => {
+            const challengeId = challenge.challenge_id || challenge._id || challenge.id || '';
+            const challengeName = challenge.name || 'Unknown Challenge';
+            const challengeDescription = challenge.description || '';
+
+            html += `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div class="entity-icon">⚔️</div>
+                        <div class="entity-info">
+                            <div class="entity-name">${challengeName}</div>
+                            ${challengeDescription ? `<div class="entity-description">${challengeDescription}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="entity-actions">
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Attempt ${challengeName}')">⚔️ Attempt</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${challengeName}')">🔍 Examine</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function populateEvents(events) {
+        const body = document.getElementById('eventsBody');
+        const count = document.getElementById('eventsCount');
+
+        if (!events || events.length === 0) {
+            body.innerHTML = '<div class="empty-state">No events happening</div>';
+            count.textContent = '0';
+            return;
+        }
+
+        count.textContent = events.length.toString();
+
+        let html = '';
+        events.forEach(event => {
+            const eventId = event.event_id || event._id || event.id || '';
+            const eventName = event.name || 'Unknown Event';
+            const eventDescription = event.description || '';
+
+            html += `
+                <div class="entity-item">
+                    <div class="entity-header">
+                        <div class="entity-icon">📍</div>
+                        <div class="entity-info">
+                            <div class="entity-name">${eventName}</div>
+                            ${eventDescription ? `<div class="entity-description">${eventDescription}</div>` : ''}
+                        </div>
+                    </div>
+                    <div class="entity-actions">
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Participate in ${eventName}')">✨ Participate</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${eventName}')">🔍 Examine</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        body.innerHTML = html;
+    }
+
+    function performSceneAction(actionText) {
+        // Submit the action
+        const playerInput = document.getElementById('playerInput');
+        if (playerInput) {
+            playerInput.value = actionText;
+            sendPlayerAction();
+        }
+
+        // Close the investigate panel
+        toggleInvestigatePanel();
+    }
+
+    function updateSceneData(sceneData) {
+        // Update current scene data from WebSocket events
+        if (sceneData.available_npcs) {
+            currentSceneData.npcs = sceneData.available_npcs;
+        }
+
+        if (sceneData.visible_items) {
+            currentSceneData.items = sceneData.visible_items;
+        }
+
+        if (sceneData.available_discoveries) {
+            currentSceneData.discoveries = sceneData.available_discoveries;
+        }
+
+        if (sceneData.active_challenges) {
+            currentSceneData.challenges = sceneData.active_challenges;
+        }
+
+        if (sceneData.active_events) {
+            currentSceneData.events = sceneData.active_events;
+        }
+
+        // If investigate panel is open, refresh it
+        const panel = document.getElementById('investigateScenePanel');
+        if (panel && panel.style.display !== 'none') {
+            populateInvestigatePanel();
+        }
+    }
+
+    // ===================================
+    // Enhanced Acquisition Notification System
+    // ===================================
+    function showAcquisitionNotification(type, data) {
+        const container = document.getElementById('acquisitionNotifications');
+        if (!container) return;
+
+        // Determine icon based on type
+        const icons = {
+            knowledge: '📚',
+            item: '🎒',
+            npc: '👤',
+            discovery: '🔎',
+            challenge: '⚔️',
+            event: '📍'
+        };
+
+        const icon = icons[type] || '✨';
+        const title = data.name || data.title || 'Unknown';
+        const description = data.description || '';
+        const source = data.source || '';
+        const questLink = data.questLink || null;
+        const progress = data.progress || null;
+
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `acquisition-notification ${type}`;
+
+        let html = `
+            <div class="notification-header">
+                <span class="notification-icon">${icon}</span>
+                <div style="flex: 1;">
+                    <div class="notification-title">${title}</div>
+                    <div class="notification-type ${type}">${type}</div>
+                </div>
+            </div>
+        `;
+
+        if (description || source) {
+            html += `<div class="notification-body">`;
+
+            if (description) {
+                html += `<div class="notification-description">${description}</div>`;
+            }
+
+            if (source) {
+                html += `<div class="notification-source">📍 ${source}</div>`;
+            }
+
+            html += `</div>`;
+        }
+
+        if (questLink) {
+            html += `
+                <div class="notification-quest-link">
+                    <span>✅ ${questLink}</span>
+                    ${progress ? `<span class="notification-progress">${progress}</span>` : ''}
+                </div>
+            `;
+        }
+
+        notification.innerHTML = html;
+
+        // Add to container
+        container.appendChild(notification);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            notification.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.parentElement.removeChild(notification);
+                }
+            }, 300);
+        }, 5000);
+
+        // Click to dismiss
+        notification.addEventListener('click', () => {
+            notification.style.animation = 'fadeOut 0.2s ease-out';
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.parentElement.removeChild(notification);
+                }
+            }, 200);
+        });
+    }
+
+    // ===================================
+    // Knowledge, Items, and Encounters Management
+    // ===================================
+    let knowledgeAcquired = [];
+    let itemsAcquired = [];
+    let encountersRecord = [];
+
+    function addKnowledge(knowledge) {
+        // Check if already acquired
+        if (knowledgeAcquired.some(k => k.id === knowledge.id)) {
+            return;
+        }
+
+        knowledgeAcquired.push(knowledge);
+        updateKnowledgeList();
+
+        // Show enhanced notification
+        showAcquisitionNotification('knowledge', {
+            name: knowledge.name || knowledge.title,
+            description: knowledge.description || 'Knowledge acquired',
+            source: knowledge.source || 'Learned during your journey',
+            questLink: knowledge.questLink || null,
+            progress: knowledge.progress || null
+        });
+
+        // Also show system message for backwards compatibility
+        addSystemMessage(`📚 New knowledge acquired: ${knowledge.name || knowledge.title}`);
+    }
+
+    function addItem(item) {
+        // Check if already acquired
+        if (itemsAcquired.some(i => i.id === item.id)) {
+            return;
+        }
+
+        itemsAcquired.push(item);
+        updateItemsList();
+
+        // Show enhanced notification
+        showAcquisitionNotification('item', {
+            name: item.name,
+            description: item.description || 'Item acquired',
+            source: item.source || 'Found during your adventure',
+            questLink: item.questLink || null,
+            progress: item.progress || null
+        });
+
+        // Also show system message for backwards compatibility
+        addSystemMessage(`🎒 New item acquired: ${item.name}`);
+    }
+
+    function addEncounter(encounter) {
+        // Check if already encountered
+        if (encountersRecord.some(e => e.id === encounter.id && e.type === encounter.type)) {
+            return;
+        }
+
+        encountersRecord.push(encounter);
+        updateEncountersList();
+
+        // Show enhanced notification based on type
+        const type = encounter.type || 'encounter';
+        showAcquisitionNotification(type, {
+            name: encounter.name || encounter.title,
+            description: encounter.description || `${type.charAt(0).toUpperCase() + type.slice(1)} encountered`,
+            source: encounter.source || `Encountered in ${encounter.location || 'your journey'}`,
+            questLink: encounter.questLink || null,
+            progress: encounter.progress || null
+        });
+
+        // Show notification with appropriate icon
+        const icons = {
+            'npc': '👥',
+            'event': '🌟',
+            'discovery': '🔍',
+            'challenge': '⚔️'
+        };
+        const icon = icons[encounter.type] || '⚡';
+        const typeName = encounter.type ? encounter.type.charAt(0).toUpperCase() + encounter.type.slice(1) : 'Encounter';
+        addSystemMessage(`${icon} New ${typeName}: ${encounter.name || encounter.title}`);
+    }
+
+    function updateKnowledgeList() {
+        const knowledgeList = document.getElementById('knowledgeList');
+
+        if (knowledgeAcquired.length === 0) {
+            knowledgeList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>';
+            return;
+        }
+
+        let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+        knowledgeAcquired.forEach(knowledge => {
+            html += `
+                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid #d4af37; border-radius: 4px;">
+                    <div style="font-weight: 600; color: #d4af37; margin-bottom: 4px;">
+                        📚 ${knowledge.name || knowledge.title}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                        ${knowledge.description || 'Knowledge acquired'}
+                    </div>
+                </li>
+            `;
+        });
+        html += '</ul>';
+
+        knowledgeList.innerHTML = html;
+    }
+
+    function updateItemsList() {
+        const itemsList = document.getElementById('itemsList');
+
+        if (itemsAcquired.length === 0) {
+            itemsList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No items acquired yet. Find treasures on your journey!</p>';
+            return;
+        }
+
+        let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+        itemsAcquired.forEach(item => {
+            html += `
+                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid #667eea; border-radius: 4px;">
+                    <div style="font-weight: 600; color: #667eea; margin-bottom: 4px;">
+                        🎒 ${item.name}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                        ${item.description || 'Item in inventory'}
+                    </div>
+                </li>
+            `;
+        });
+        html += '</ul>';
+
+        itemsList.innerHTML = html;
+    }
+
+    function updateEncountersList() {
+        const encountersList = document.getElementById('encountersList');
+
+        if (encountersRecord.length === 0) {
+            encountersList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No encounters yet. Explore to discover events, challenges, and characters!</p>';
+            return;
+        }
+
+        // Define styling for each encounter type
+        const encounterStyles = {
+            'npc': {
+                icon: '👥',
+                color: '#48bb78',
+                label: 'NPC'
+            },
+            'event': {
+                icon: '🌟',
+                color: '#f6ad55',
+                label: 'Event'
+            },
+            'discovery': {
+                icon: '🔍',
+                color: '#4299e1',
+                label: 'Discovery'
+            },
+            'challenge': {
+                icon: '⚔️',
+                color: '#ed64a6',
+                label: 'Challenge'
+            }
+        };
+
+        let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+        encountersRecord.forEach(encounter => {
+            const style = encounterStyles[encounter.type] || encounterStyles['npc'];
+            const displayName = encounter.name || encounter.title || 'Unknown';
+            const displayDescription = encounter.description || encounter.role || `${style.label} encountered`;
+
+            html += `
+                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid ${style.color}; border-radius: 4px;">
+                    <div style="font-weight: 600; color: ${style.color}; margin-bottom: 4px;">
+                        ${style.icon} ${displayName}
+                        <span style="font-size: 0.75rem; font-weight: 400; opacity: 0.8; margin-left: 6px;">[${style.label}]</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                        ${displayDescription}
+                    </div>
+                </li>
+            `;
+        });
+        html += '</ul>';
+
+        encountersList.innerHTML = html;
+    }
+
+    // Store last action sent for display
+    let lastActionSent = '';
 
     function sendPlayerAction() {
         const input = document.getElementById('playerInput');
         const action = input.value.trim();
 
         if (!action || !isConnected) return;
+
+        // Store the action text before clearing
+        lastActionSent = action;
 
         ws.send(JSON.stringify({
             event: 'player_action',
@@ -2326,6 +3741,15 @@
         if (data.available_npcs) {
             updateNPCList(data.available_npcs);
         }
+
+        // Update investigate panel scene data
+        updateSceneData(data);
+
+        // Enable investigate scene button
+        const investigateBtn = document.getElementById('investigateSceneButton');
+        if (investigateBtn) {
+            investigateBtn.disabled = false;
+        }
     }
 
     function updateQuestInfo(questId, questTitle, questDescription, questObjectives) {
@@ -2455,9 +3879,9 @@
         if (data.blooms_level) {
             const bloomsLevel = data.blooms_level.charAt(0).toUpperCase() + data.blooms_level.slice(1);
             document.getElementById('headerBloomLevel').textContent = bloomsLevel;
-            const drawerBloomLevel = document.getElementById('drawerBloomLevel');
-            if (drawerBloomLevel) {
-                drawerBloomLevel.textContent = bloomsLevel;
+            const rightDrawerBloomLevel = document.getElementById('rightDrawerBloomLevel');
+            if (rightDrawerBloomLevel) {
+                rightDrawerBloomLevel.textContent = bloomsLevel;
             }
         }
 
@@ -2506,9 +3930,9 @@
                 if (state.blooms_level) {
                     const bloomsLevel = state.blooms_level.charAt(0).toUpperCase() + state.blooms_level.slice(1);
                     document.getElementById('headerBloomLevel').textContent = bloomsLevel;
-                    const drawerBloomLevel = document.getElementById('drawerBloomLevel');
-                    if (drawerBloomLevel) {
-                        drawerBloomLevel.textContent = bloomsLevel;
+                    const rightDrawerBloomLevel = document.getElementById('rightDrawerBloomLevel');
+                    if (rightDrawerBloomLevel) {
+                        rightDrawerBloomLevel.textContent = bloomsLevel;
                     }
                 }
 
@@ -2608,6 +4032,11 @@
         document.getElementById('playerInput').disabled = false;
         document.getElementById('sendButton').disabled = false;
         document.getElementById('micButton').disabled = false;
+
+        const investigateBtn = document.getElementById('investigateSceneButton');
+        if (investigateBtn) {
+            investigateBtn.disabled = false;
+        }
     }
 
     function disableInput() {

@@ -26,6 +26,284 @@ logger = get_logger(__name__)
 
 
 # ============================================
+# Helper Functions
+# ============================================
+
+def create_encounter_metadata(state: GameSessionState, player_id: str) -> dict:
+    """Create standardized encounter metadata with context"""
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "quest_id": state.get("current_quest_id"),
+        "place_id": state.get("current_place_id"),
+        "scene_id": state.get("current_scene_id"),
+        "player_id": player_id,
+        "session_id": state.get("session_id")
+    }
+
+
+async def persist_encounter(
+    session_id: str,
+    player_id: str,
+    encounter_type: str,
+    encounter_data: dict,
+    metadata: dict
+):
+    """Persist encounter to both MongoDB and Neo4j"""
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Save to MongoDB
+        await mongo_persistence.save_encounter(
+            session_id=session_id,
+            player_id=player_id,
+            encounter_type=encounter_type,
+            encounter_data=encounter_data,
+            metadata=metadata
+        )
+
+        # Save to Neo4j graph
+        await neo4j_graph.record_encounter(
+            player_id=player_id,
+            encounter_type=encounter_type,
+            encounter_id=encounter_data.get("id"),
+            encounter_name=encounter_data.get("name") or encounter_data.get("title", "Unknown"),
+            metadata=metadata
+        )
+
+    except Exception as e:
+        logger.error("encounter_persistence_failed", error=str(e))
+
+
+async def persist_knowledge_acquisition(
+    session_id: str,
+    player_id: str,
+    knowledge_id: str,
+    knowledge_data: dict,
+    source_type: str,
+    source_id: str,
+    metadata: dict
+):
+    """Persist knowledge acquisition to both MongoDB and Neo4j"""
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Save to MongoDB
+        await mongo_persistence.save_knowledge_acquisition(
+            session_id=session_id,
+            player_id=player_id,
+            knowledge_id=knowledge_id,
+            knowledge_data=knowledge_data,
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata
+        )
+
+        # Save to Neo4j graph
+        await neo4j_graph.record_knowledge_acquisition_with_source(
+            player_id=player_id,
+            knowledge_id=knowledge_id,
+            knowledge_name=knowledge_data.get("name") or knowledge_data.get("title", "Unknown"),
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata
+        )
+
+    except Exception as e:
+        logger.error("knowledge_acquisition_persistence_failed", error=str(e))
+
+
+async def persist_item_acquisition(
+    session_id: str,
+    player_id: str,
+    item_id: str,
+    item_data: dict,
+    source_type: str,
+    source_id: str,
+    metadata: dict
+):
+    """Persist item acquisition to both MongoDB and Neo4j"""
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Save to MongoDB
+        await mongo_persistence.save_item_acquisition(
+            session_id=session_id,
+            player_id=player_id,
+            item_id=item_id,
+            item_data=item_data,
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata
+        )
+
+        # Save to Neo4j graph
+        await neo4j_graph.record_item_acquisition_with_source(
+            player_id=player_id,
+            item_id=item_id,
+            item_name=item_data.get("name", "Unknown"),
+            source_type=source_type,
+            source_id=source_id,
+            metadata=metadata
+        )
+
+    except Exception as e:
+        logger.error("item_acquisition_persistence_failed", error=str(e))
+
+
+async def get_quest_progress_for_acquisition(
+    state: GameSessionState,
+    acquisition_type: str,
+    acquisition_id: str
+) -> dict:
+    """
+    Check if an acquisition relates to quest objectives and return progress data
+
+    Args:
+        state: Current game session state
+        acquisition_type: Type of acquisition ("knowledge", "item", etc.)
+        acquisition_id: ID of the acquired entity
+
+    Returns:
+        dict with questLink and progress if related to a quest, empty dict otherwise
+    """
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+
+        current_quest_id = state.get("current_quest_id")
+        if not current_quest_id:
+            return {}
+
+        # Load quest data
+        quest_data = await mongo_persistence.get_quest(current_quest_id)
+        if not quest_data:
+            return {}
+
+        # Check quest objectives for this acquisition
+        objectives = quest_data.get("objectives", [])
+        for objective in objectives:
+            objective_type = objective.get("type", "")
+            required_ids = objective.get("required_ids", [])
+
+            # Check if this acquisition matches an objective
+            if (objective_type == f"collect_{acquisition_type}" or
+                objective_type == f"acquire_{acquisition_type}" or
+                objective_type == f"learn_{acquisition_type}"):
+
+                if acquisition_id in required_ids:
+                    # This acquisition is part of a quest objective!
+                    # Calculate progress
+                    player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
+
+                    if acquisition_type == "knowledge":
+                        player_knowledge = state.get("player_knowledge", {}).get(player_id, [])
+                        acquired_count = sum(1 for rid in required_ids if rid in player_knowledge)
+                    elif acquisition_type == "item":
+                        player_inventory = state.get("player_inventories", {}).get(player_id, [])
+                        acquired_count = sum(1 for rid in required_ids if any(item.get("item_id") == rid for item in player_inventory))
+                    else:
+                        acquired_count = 0
+
+                    total_required = len(required_ids)
+
+                    return {
+                        "questLink": objective.get("description", "Quest Objective"),
+                        "progress": f"{acquired_count}/{total_required}"
+                    }
+
+        return {}
+
+    except Exception as e:
+        logger.error("quest_progress_check_failed", error=str(e))
+        return {}
+
+
+async def detect_acquirable_opportunities(
+    gm_response: str,
+    state: GameSessionState
+) -> dict:
+    """
+    Parse GM response to detect potential acquirable items, knowledge, and NPCs
+    Returns opportunities that can be presented as action buttons to the player
+    """
+    opportunities = {
+        "items": [],
+        "knowledge": [],
+        "npcs": [],
+        "discoveries": [],
+        "actions": []
+    }
+
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+
+        # Get available entities from current scene
+        available_npcs = state.get("available_npcs", [])
+        available_discoveries = state.get("available_discoveries", [])
+        visible_items = state.get("visible_items", [])
+
+        # Detect NPCs mentioned in response
+        for npc in available_npcs:
+            npc_name = npc.get("name", "")
+            if npc_name and npc_name.lower() in gm_response.lower():
+                opportunities["npcs"].append({
+                    "id": npc.get("npc_id") or npc.get("_id"),
+                    "name": npc_name,
+                    "role": npc.get("role", "Character"),
+                    "action": f"Ask {npc_name} about...",
+                    "context": "talk_to_npc"
+                })
+
+        # Detect discoveries mentioned
+        for discovery in available_discoveries:
+            discovery_name = discovery.get("name", "")
+            if discovery_name and discovery_name.lower() in gm_response.lower():
+                opportunities["discoveries"].append({
+                    "id": discovery.get("discovery_id") or discovery.get("_id"),
+                    "name": discovery_name,
+                    "description": discovery.get("description", ""),
+                    "action": f"Investigate {discovery_name}",
+                    "context": "investigate_discovery"
+                })
+
+        # Detect items mentioned
+        for item_name in visible_items:
+            if item_name and item_name.lower() in gm_response.lower():
+                opportunities["items"].append({
+                    "name": item_name,
+                    "action": f"Take {item_name}",
+                    "context": "take_item"
+                })
+
+        # Detect common action patterns
+        action_patterns = {
+            "examine": r"(?:examine|look at|inspect|check)\s+(?:the\s+)?(\w+(?:\s+\w+)?)",
+            "search": r"(?:search|look for|find)\s+(?:the\s+)?(\w+(?:\s+\w+)?)",
+            "ask_about": r"(?:ask about|inquire about|learn about)\s+(?:the\s+)?(\w+(?:\s+\w+)?)"
+        }
+
+        import re
+        for action_type, pattern in action_patterns.items():
+            matches = re.finditer(pattern, gm_response.lower())
+            for match in matches:
+                target = match.group(1)
+                if target:
+                    opportunities["actions"].append({
+                        "type": action_type,
+                        "target": target,
+                        "action": f"{action_type.replace('_', ' ').title()} {target}",
+                        "context": "perform_action"
+                    })
+
+    except Exception as e:
+        logger.error("opportunity_detection_failed", error=str(e))
+
+    return opportunities
+
+
+# ============================================
 # Workflow Nodes
 # ============================================
 
@@ -427,6 +705,22 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             state["available_npcs"]
         )
 
+        # Broadcast complete scene data via WebSocket for Investigate Scene panel
+        from ..api.websocket_manager import connection_manager
+        await connection_manager.broadcast_to_session(
+            state["session_id"],
+            {
+                "event": "scene_update",
+                "scene_description": scene_description,
+                "available_actions": available_actions,
+                "available_npcs": state.get("available_npcs", []),
+                "visible_items": state.get("visible_items", []),
+                "available_discoveries": state.get("available_discoveries", []),
+                "active_challenges": state.get("active_challenges", []),
+                "active_events": state.get("active_events", [])
+            }
+        )
+
         # Update workflow state
         state["current_node"] = "await_player_input"
         state["awaiting_player_input"] = True
@@ -666,6 +960,21 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
             }
             state["chat_messages"].append(chat_message)
 
+            # Detect opportunities in GM response
+            opportunities = await detect_acquirable_opportunities(answer, state)
+
+            # Broadcast opportunities if any found
+            if any(opportunities.values()):
+                from ..api.websocket_manager import connection_manager
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_opportunities",
+                        "opportunities": opportunities,
+                        "context": "gm_response"
+                    }
+                )
+
             outcome = {"question_answered": True}
 
         elif action_type == "talk_to_npc":
@@ -745,6 +1054,115 @@ What would you like to do?"""
                     state["session_id"],
                     npc_response
                 )
+
+                # Track NPC encounter
+                from ..api.websocket_manager import connection_manager
+                npc_data = None
+                for npc in state.get("available_npcs", []):
+                    if npc.get("npc_id") == target_id or npc.get("_id") == target_id:
+                        npc_data = npc
+                        break
+
+                if npc_data:
+                    # Broadcast NPC encounter event
+                    encounter_metadata = create_encounter_metadata(state, player_id)
+                    await connection_manager.broadcast_to_session(
+                        state["session_id"],
+                        {
+                            "event": "npc_encountered",
+                            "npc": {
+                                "id": npc_data.get("npc_id") or npc_data.get("_id"),
+                                "name": npc_data.get("name", "Unknown NPC"),
+                                "role": npc_data.get("role", "Character"),
+                                "description": npc_data.get("description", ""),
+                                "metadata": encounter_metadata
+                            }
+                        }
+                    )
+
+                # Track knowledge gained from dialogue
+                if npc_response.get("knowledge_revealed"):
+                    for knowledge_id in npc_response["knowledge_revealed"]:
+                        # Load knowledge details from MongoDB
+                        from ..services.mongo_persistence import mongo_persistence
+                        knowledge_data = await mongo_persistence.get_knowledge_by_id(knowledge_id)
+
+                        if knowledge_data:
+                            # Add to player's knowledge
+                            if "player_knowledge" not in state:
+                                state["player_knowledge"] = {}
+                            if player_id not in state["player_knowledge"]:
+                                state["player_knowledge"][player_id] = []
+
+                            if knowledge_id not in state["player_knowledge"][player_id]:
+                                state["player_knowledge"][player_id].append(knowledge_id)
+
+                                # Get quest progress for this knowledge
+                                quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
+
+                                # Broadcast knowledge gained event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "knowledge_gained",
+                                        "knowledge": {
+                                            "id": knowledge_id,
+                                            "name": knowledge_data.get("name") or knowledge_data.get("title", "Unknown Knowledge"),
+                                            "description": knowledge_data.get("description", "Knowledge acquired"),
+                                            "source": f"From talking with {npc_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
+
+                # Track items given by NPC during dialogue
+                if npc_response.get("items_given"):
+                    for item_id in npc_response["items_given"]:
+                        # Load item details from MongoDB
+                        from ..services.mongo_persistence import mongo_persistence
+                        item_data = await mongo_persistence.get_item(item_id)
+
+                        if item_data:
+                            # Add to player's inventory
+                            if player_id not in state["player_inventories"]:
+                                state["player_inventories"][player_id] = []
+
+                            # Check if player already has this item
+                            has_item = any(
+                                inv_item.get("item_id") == item_id
+                                for inv_item in state["player_inventories"][player_id]
+                            )
+
+                            if not has_item:
+                                # Add item to inventory
+                                inventory_item = {
+                                    "item_id": item_id,
+                                    "name": item_data.get("name", "Unknown Item"),
+                                    "description": item_data.get("description", ""),
+                                    "properties": item_data.get("properties", {}),
+                                    "acquired_at": datetime.utcnow().isoformat(),
+                                    "acquired_from": "npc",
+                                    "source_npc": target_id
+                                }
+                                state["player_inventories"][player_id].append(inventory_item)
+
+                                # Get quest progress for this item
+                                quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
+
+                                # Broadcast item acquired event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "item_acquired",
+                                        "item": {
+                                            "id": item_id,
+                                            "name": item_data.get("name", "Unknown Item"),
+                                            "description": item_data.get("description", f"Received from {npc_name}"),
+                                            "source": f"Gift from {npc_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
 
                 outcome = npc_response
                 requires_assessment = bool(npc_response.get("rubric_id"))
@@ -856,6 +1274,21 @@ What would you like to do?"""
             }
             state["chat_messages"].append(chat_message)
 
+            # Detect opportunities in examination
+            opportunities = await detect_acquirable_opportunities(examination_text, state)
+
+            # Broadcast opportunities if any found
+            if any(opportunities.values()):
+                from ..api.websocket_manager import connection_manager
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_opportunities",
+                        "opportunities": opportunities,
+                        "context": "examine"
+                    }
+                )
+
             outcome = {"examined": query}
 
         elif action_type == "perform_action":
@@ -877,20 +1310,509 @@ What would you like to do?"""
             }
             state["chat_messages"].append(chat_message)
 
+            # Detect opportunities in action outcome
+            opportunities = await detect_acquirable_opportunities(outcome_text, state)
+
+            # Broadcast opportunities if any found
+            if any(opportunities.values()):
+                from ..api.websocket_manager import connection_manager
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_opportunities",
+                        "opportunities": opportunities,
+                        "context": "action_outcome"
+                    }
+                )
+
             outcome = {"action_performed": action_description}
 
         elif action_type == "use_item":
             # Use item from inventory
             item_id = target_id
-            # TODO: Implement item usage logic with MCP
-            outcome = {"used_item": item_id}
+            item_name = parameters.get("item_name", item_id)
+
+            # Check if player has the item in inventory
+            player_inventory = state.get("player_inventories", {}).get(player_id, [])
+            has_item = any(item.get("item_id") == item_id or item.get("name") == item_name for item in player_inventory) if isinstance(player_inventory, list) else False
+
+            if has_item:
+                # Player has the item - generate outcome narrative
+                usage_context = parameters.get("usage_context", f"using {item_name}")
+                outcome_text = await gm_agent.generate_generic_action_outcome(
+                    f"use the {item_name} - {usage_context}",
+                    state
+                )
+            else:
+                # Player doesn't have the item - provide helpful guidance
+                outcome_text = f"""You reach for the {item_name}, but you don't currently have that item in your inventory.
+
+To acquire items, you can:
+• **Examine your surroundings** to find items in the scene
+• **Take items** that are visible and available
+• **Receive items** from NPCs through dialogue or quest completion
+• **Check your inventory** to see what items you currently have
+
+Would you like to look around for items, or try something else?"""
+
+            # Create chat message with the outcome
+            chat_message = {
+                "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                "session_id": state["session_id"],
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": outcome_text,
+                "metadata": {
+                    "action_type": "use_item",
+                    "item_id": item_id,
+                    "had_item": has_item
+                }
+            }
+            state["chat_messages"].append(chat_message)
+
+            outcome = {"used_item": item_id, "success": has_item}
+
+        elif action_type == "take_item":
+            # Take/pick up item from the scene
+            item_id = target_id
+            item_name = parameters.get("item_name", item_id)
+
+            # Load visible items from scene (these are full item objects with IDs)
+            from ..services.mongo_persistence import mongo_persistence
+            scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
+            visible_item_ids = scene_data.get("visible_item_ids", []) if scene_data else []
+
+            # Check if item is in visible items
+            item_data = None
+            if visible_item_ids:
+                # Try to find the item by ID or name
+                for vid in visible_item_ids:
+                    item_obj = await mongo_persistence.get_item(vid)
+                    if item_obj:
+                        # Match by ID or name
+                        if (item_obj.get("_id") == item_id or
+                            item_obj.get("item_id") == item_id or
+                            item_obj.get("name", "").lower() == item_name.lower()):
+                            item_data = item_obj
+                            item_id = item_obj.get("_id") or item_obj.get("item_id")
+                            break
+
+            if item_data:
+                # Item found - add to player inventory
+                if player_id not in state["player_inventories"]:
+                    state["player_inventories"][player_id] = []
+
+                # Add item to inventory
+                inventory_item = {
+                    "item_id": item_id,
+                    "name": item_data.get("name", item_name),
+                    "description": item_data.get("description", ""),
+                    "properties": item_data.get("properties", {}),
+                    "acquired_at": datetime.utcnow().isoformat()
+                }
+                state["player_inventories"][player_id].append(inventory_item)
+
+                # Remove from visible items in scene
+                if item_id in visible_item_ids:
+                    visible_item_ids.remove(item_id)
+
+                # Get quest progress for this item
+                quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
+
+                # Get scene name for source attribution
+                scene_name = scene_data.get("name", "the scene") if scene_data else "the scene"
+
+                # Broadcast item acquired event with source and quest data
+                from ..api.websocket_manager import connection_manager
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "item_acquired",
+                        "item": {
+                            "id": item_id,
+                            "name": item_data.get("name", item_name),
+                            "description": item_data.get("description", "Item acquired from the scene"),
+                            "source": f"Found in {scene_name}",
+                            **quest_info
+                        }
+                    }
+                )
+
+                # Generate narrative about taking the item
+                take_text = await gm_agent.generate_generic_action_outcome(
+                    f"pick up and take the {item_data.get('name', item_name)}",
+                    state
+                )
+
+                # Create chat message
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NARRATIVE",
+                    "sender_id": "game_master",
+                    "sender_name": "Game Master",
+                    "content": take_text,
+                    "metadata": {
+                        "action_type": "take_item",
+                        "item_acquired": item_id
+                    }
+                }
+                state["chat_messages"].append(chat_message)
+
+                outcome = {"item_taken": item_id, "success": True}
+
+            else:
+                # Item not found in scene - provide guidance
+                take_text = f"""You look around for the {item_name}, but you don't see that item available in this location.
+
+The items visible in this scene are:
+{chr(10).join(f"• **{item}**" for item in state.get("visible_items", [])) if state.get("visible_items") else "• No items are currently visible"}
+
+Try:
+• **Examining your surroundings** more carefully to find items
+• **Talking to NPCs** who might give you items
+• **Searching specific locations** mentioned in the scene description
+
+What would you like to do?"""
+
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NARRATIVE",
+                    "sender_id": "game_master",
+                    "sender_name": "Game Master",
+                    "content": take_text,
+                    "metadata": {
+                        "action_type": "take_item",
+                        "item_not_found": item_name
+                    }
+                }
+                state["chat_messages"].append(chat_message)
+
+                outcome = {"item_taken": item_name, "success": False}
+
+        elif action_type == "investigate_discovery":
+            # Investigate a discovery in the scene
+            discovery_id = target_id
+            discovery_name = parameters.get("discovery_name", discovery_id)
+
+            # Check if discovery exists in available discoveries
+            available_discoveries = state.get("available_discoveries", [])
+            discovery = None
+            for d in available_discoveries:
+                if d.get("_id") == discovery_id or d.get("discovery_id") == discovery_id or d.get("name", "").lower() == discovery_name.lower():
+                    discovery = d
+                    discovery_id = d.get("_id") or d.get("discovery_id")
+                    break
+
+            if discovery:
+                # Discovery found - generate investigation narrative
+                investigation_text = await gm_agent.generate_generic_action_outcome(
+                    f"investigate and examine the {discovery.get('name', discovery_name)}: {discovery.get('description', '')}",
+                    state
+                )
+
+                # Create chat message
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NARRATIVE",
+                    "sender_id": "game_master",
+                    "sender_name": "Game Master",
+                    "content": investigation_text,
+                    "metadata": {
+                        "action_type": "investigate_discovery",
+                        "discovery_id": discovery_id
+                    }
+                }
+                state["chat_messages"].append(chat_message)
+
+                # Track discovery encounter
+                from ..api.websocket_manager import connection_manager
+                encounter_metadata = create_encounter_metadata(state, player_id)
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "discovery_encountered",
+                        "discovery": {
+                            "id": discovery_id,
+                            "name": discovery.get("name", "Unknown Discovery"),
+                            "description": discovery.get("description", "Discovery investigated"),
+                            "metadata": encounter_metadata
+                        }
+                    }
+                )
+
+                # Award knowledge from discovery
+                knowledge_ids = discovery.get("knowledge_revealed", [])
+                if knowledge_ids:
+                    from ..services.mongo_persistence import mongo_persistence
+                    for knowledge_id in knowledge_ids:
+                        knowledge_data = await mongo_persistence.get_knowledge_by_id(knowledge_id)
+                        if knowledge_data:
+                            # Add to player's knowledge
+                            if "player_knowledge" not in state:
+                                state["player_knowledge"] = {}
+                            if player_id not in state["player_knowledge"]:
+                                state["player_knowledge"][player_id] = []
+
+                            if knowledge_id not in state["player_knowledge"][player_id]:
+                                state["player_knowledge"][player_id].append(knowledge_id)
+
+                                # Get quest progress for this knowledge
+                                quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
+
+                                # Get discovery name for source attribution
+                                discovery_name = discovery.get("name", "discovery")
+
+                                # Broadcast knowledge gained event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "knowledge_gained",
+                                        "knowledge": {
+                                            "id": knowledge_id,
+                                            "name": knowledge_data.get("name") or knowledge_data.get("title", "Unknown Knowledge"),
+                                            "description": knowledge_data.get("description", "Knowledge from discovery"),
+                                            "source": f"From investigating {discovery_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
+
+                # Award items from discovery
+                item_ids = discovery.get("items_revealed", [])
+                if item_ids:
+                    from ..services.mongo_persistence import mongo_persistence
+                    for item_id in item_ids:
+                        item_data = await mongo_persistence.get_item(item_id)
+                        if item_data:
+                            # Add to player's inventory
+                            if player_id not in state["player_inventories"]:
+                                state["player_inventories"][player_id] = []
+
+                            has_item = any(
+                                inv_item.get("item_id") == item_id
+                                for inv_item in state["player_inventories"][player_id]
+                            )
+
+                            if not has_item:
+                                inventory_item = {
+                                    "item_id": item_id,
+                                    "name": item_data.get("name", "Unknown Item"),
+                                    "description": item_data.get("description", ""),
+                                    "properties": item_data.get("properties", {}),
+                                    "acquired_at": datetime.utcnow().isoformat(),
+                                    "acquired_from": "discovery",
+                                    "source_discovery": discovery_id
+                                }
+                                state["player_inventories"][player_id].append(inventory_item)
+
+                                # Get quest progress for this item
+                                quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
+
+                                # Get discovery name for source attribution
+                                discovery_name = discovery.get("name", "discovery")
+
+                                # Broadcast item acquired event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "item_acquired",
+                                        "item": {
+                                            "id": item_id,
+                                            "name": item_data.get("name", "Unknown Item"),
+                                            "description": item_data.get("description", "Discovered item"),
+                                            "source": f"From investigating {discovery_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
+
+                outcome = {"discovery_investigated": discovery_id, "success": True}
+
+            else:
+                # Discovery not found - provide guidance
+                investigation_text = f"""You search for "{discovery_name}", but you don't see that particular discovery available here.
+
+The discoveries available in this scene are:
+{chr(10).join(f"• **{d.get('name', 'Unknown')}**: {d.get('description', 'No description')}" for d in available_discoveries) if available_discoveries else "• No discoveries are currently available"}
+
+Try examining your surroundings or asking what you can investigate."""
+
+                chat_message = {
+                    "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                    "session_id": state["session_id"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message_type": "DM_NARRATIVE",
+                    "sender_id": "game_master",
+                    "sender_name": "Game Master",
+                    "content": investigation_text,
+                    "metadata": {
+                        "action_type": "investigate_discovery",
+                        "discovery_not_found": discovery_name
+                    }
+                }
+                state["chat_messages"].append(chat_message)
+
+                outcome = {"discovery_investigated": discovery_name, "success": False}
 
         elif action_type == "attempt_challenge":
             # Attempt a challenge/puzzle
             challenge_id = target_id
-            # TODO: Implement challenge resolution logic
-            outcome = {"attempted_challenge": challenge_id}
-            requires_assessment = True
+
+            # Check if challenge exists in active challenges
+            active_challenges = state.get("active_challenges", [])
+            challenge = None
+            for ch in active_challenges:
+                if ch.get("_id") == challenge_id or ch.get("challenge_id") == challenge_id:
+                    challenge = ch
+                    break
+
+            if challenge:
+                # Challenge exists - generate attempt narrative
+                challenge_name = challenge.get("name", "challenge")
+                challenge_description = challenge.get("description", "")
+                attempt_text = await gm_agent.generate_generic_action_outcome(
+                    f"attempt the challenge: {challenge_name}. {challenge_description}",
+                    state
+                )
+
+                # Track challenge encounter
+                from ..api.websocket_manager import connection_manager
+                encounter_metadata = create_encounter_metadata(state, player_id)
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "challenge_encountered",
+                        "challenge": {
+                            "id": challenge_id,
+                            "name": challenge.get("name", "Unknown Challenge"),
+                            "description": challenge.get("description", "Challenge attempted"),
+                            "metadata": encounter_metadata
+                        }
+                    }
+                )
+
+                # Award knowledge from challenge completion
+                knowledge_ids = challenge.get("knowledge_revealed", [])
+                if knowledge_ids:
+                    from ..services.mongo_persistence import mongo_persistence
+                    for knowledge_id in knowledge_ids:
+                        knowledge_data = await mongo_persistence.get_knowledge_by_id(knowledge_id)
+                        if knowledge_data:
+                            # Add to player's knowledge
+                            if "player_knowledge" not in state:
+                                state["player_knowledge"] = {}
+                            if player_id not in state["player_knowledge"]:
+                                state["player_knowledge"][player_id] = []
+
+                            if knowledge_id not in state["player_knowledge"][player_id]:
+                                state["player_knowledge"][player_id].append(knowledge_id)
+
+                                # Get quest progress for this knowledge
+                                quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
+
+                                # Get challenge name for source attribution
+                                challenge_name = challenge.get("name", "challenge")
+
+                                # Broadcast knowledge gained event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "knowledge_gained",
+                                        "knowledge": {
+                                            "id": knowledge_id,
+                                            "name": knowledge_data.get("name") or knowledge_data.get("title", "Unknown Knowledge"),
+                                            "description": knowledge_data.get("description", "Knowledge from challenge"),
+                                            "source": f"From completing {challenge_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
+
+                # Award items from challenge completion
+                item_ids = challenge.get("items_rewarded", [])
+                if item_ids:
+                    from ..services.mongo_persistence import mongo_persistence
+                    for item_id in item_ids:
+                        item_data = await mongo_persistence.get_item(item_id)
+                        if item_data:
+                            # Add to player's inventory
+                            if player_id not in state["player_inventories"]:
+                                state["player_inventories"][player_id] = []
+
+                            has_item = any(
+                                inv_item.get("item_id") == item_id
+                                for inv_item in state["player_inventories"][player_id]
+                            )
+
+                            if not has_item:
+                                inventory_item = {
+                                    "item_id": item_id,
+                                    "name": item_data.get("name", "Unknown Item"),
+                                    "description": item_data.get("description", ""),
+                                    "properties": item_data.get("properties", {}),
+                                    "acquired_at": datetime.utcnow().isoformat(),
+                                    "acquired_from": "challenge",
+                                    "source_challenge": challenge_id
+                                }
+                                state["player_inventories"][player_id].append(inventory_item)
+
+                                # Get quest progress for this item
+                                quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
+
+                                # Get challenge name for source attribution
+                                challenge_name = challenge.get("name", "challenge")
+
+                                # Broadcast item acquired event with source and quest data
+                                await connection_manager.broadcast_to_session(
+                                    state["session_id"],
+                                    {
+                                        "event": "item_acquired",
+                                        "item": {
+                                            "id": item_id,
+                                            "name": item_data.get("name", "Unknown Item"),
+                                            "description": item_data.get("description", "Reward from challenge"),
+                                            "source": f"Reward from {challenge_name}",
+                                            **quest_info
+                                        }
+                                    }
+                                )
+
+            else:
+                # Challenge doesn't exist - provide guidance
+                attempt_text = f"""You attempt to tackle a challenge, but I'm not sure which specific challenge you're referring to.
+
+The available challenges in this scene are:
+{chr(10).join(f"• **{ch.get('name', 'Unknown')}**: {ch.get('description', 'No description')}" for ch in active_challenges) if active_challenges else "• No challenges are currently available"}
+
+Try examining your surroundings more carefully, or ask me about what challenges are available."""
+
+            # Create chat message with the attempt outcome
+            chat_message = {
+                "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                "session_id": state["session_id"],
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": attempt_text,
+                "metadata": {
+                    "action_type": "attempt_challenge",
+                    "challenge_id": challenge_id,
+                    "challenge_found": bool(challenge)
+                }
+            }
+            state["chat_messages"].append(chat_message)
+
+            outcome = {"attempted_challenge": challenge_id, "success": bool(challenge)}
+            requires_assessment = bool(challenge)  # Only assess if challenge was valid
 
         # Record action in history
         player_action: PlayerAction = {
