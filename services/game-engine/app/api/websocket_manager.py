@@ -84,6 +84,67 @@ class ConnectionManager:
             exclude_websocket=websocket
         )
 
+        # Send current game state on connection (for page refresh persistence)
+        try:
+            state = await redis_manager.load_state(session_id)
+            if state:
+                # Send quest progress
+                from ..workflows.game_loop import calculate_complete_quest_progress
+                quest_progress = await calculate_complete_quest_progress(state)
+                if quest_progress:
+                    logger.info(
+                        "sending_quest_progress_on_connect",
+                        session_id=session_id,
+                        quest_progress=quest_progress
+                    )
+                    await self.send_personal_message(
+                        {
+                            "event": "quest_progress_update",
+                            "quest_progress": quest_progress
+                        },
+                        websocket
+                    )
+
+                # Send scene data (for Investigate Scene panel)
+                if state.get("scene_description"):
+                    logger.info(
+                        "sending_scene_data_on_connect",
+                        session_id=session_id
+                    )
+
+                    # Enrich scene data with completion status
+                    enriched_discoveries = self._mark_completed_discoveries(
+                        state.get("available_discoveries", []),
+                        state,
+                        player_id
+                    )
+
+                    enriched_npcs = self._mark_encountered_npcs(
+                        state.get("available_npcs", []),
+                        state,
+                        player_id
+                    )
+
+                    await self.send_personal_message(
+                        {
+                            "event": "scene_update",
+                            "scene_description": state.get("scene_description", ""),
+                            "available_actions": state.get("available_actions", []),
+                            "available_npcs": enriched_npcs,
+                            "visible_items": state.get("visible_items", []),
+                            "available_discoveries": enriched_discoveries,
+                            "active_challenges": state.get("active_challenges", []),
+                            "active_events": state.get("active_events", [])
+                        },
+                        websocket
+                    )
+        except Exception as e:
+            logger.error(
+                "state_on_connect_failed",
+                session_id=session_id,
+                error=str(e)
+            )
+
     def disconnect(self, websocket: WebSocket, session_id: str):
         """
         Remove WebSocket connection from session
@@ -428,6 +489,81 @@ class ConnectionManager:
                 session_id=session_id,
                 error=str(e)
             )
+
+    def _mark_completed_discoveries(
+        self,
+        discoveries: list,
+        state: GameSessionState,
+        player_id: str
+    ) -> list:
+        """
+        Mark discoveries as investigated if player has acquired the knowledge
+
+        Args:
+            discoveries: List of discovery objects
+            state: Game state
+            player_id: Player ID
+
+        Returns:
+            List of discoveries with 'investigated' flag added
+        """
+        if not discoveries:
+            return []
+
+        player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+        enriched_discoveries = []
+
+        for discovery in discoveries:
+            discovery_copy = discovery.copy()
+            knowledge_revealed = discovery.get("knowledge_revealed", [])
+
+            # If discovery has knowledge and player has ALL of it, mark as investigated
+            if knowledge_revealed:
+                has_all_knowledge = all(
+                    kid in player_knowledge
+                    for kid in knowledge_revealed
+                )
+                discovery_copy["investigated"] = has_all_knowledge
+            else:
+                discovery_copy["investigated"] = False
+
+            enriched_discoveries.append(discovery_copy)
+
+        return enriched_discoveries
+
+    def _mark_encountered_npcs(
+        self,
+        npcs: list,
+        state: GameSessionState,
+        player_id: str
+    ) -> list:
+        """
+        Mark NPCs as encountered if player has talked to them
+
+        Args:
+            npcs: List of NPC objects
+            state: Game state
+            player_id: Player ID
+
+        Returns:
+            List of NPCs with 'encountered' flag added
+        """
+        if not npcs:
+            return []
+
+        # For now, we can check if the player has knowledge from the NPC
+        # In the future, we could track encounters more explicitly
+        player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+        enriched_npcs = []
+
+        for npc in npcs:
+            npc_copy = npc.copy()
+            # For now, mark all NPCs as not encountered
+            # TODO: Implement proper NPC encounter tracking
+            npc_copy["encountered"] = False
+            enriched_npcs.append(npc_copy)
+
+        return enriched_npcs
 
     async def handle_team_chat_message(
         self,

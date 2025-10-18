@@ -299,6 +299,7 @@ Available action types:
 - talk_to_npc: Player wants to talk to an NPC (keywords: "talk to", "speak with", "ask", "tell", "say to")
 - investigate_discovery: Player wants to investigate a specific discovery in the scene (keywords: "investigate", "examine", "inspect" + discovery name from available discoveries)
 - examine_object: Player wants to look at something closely or investigate the scene generally (keywords: "examine", "look at", "inspect", "search")
+- take_item: Player wants to pick up/take an item from the scene (keywords: "take", "pick up", "grab", "get", "collect" + item name from visible items)
 - use_item: Player wants to use an item from inventory (keywords: "use", "drink", "eat", "equip", "activate")
 - attempt_challenge: Player wants to attempt a challenge/puzzle (keywords: "attempt", "try", "solve")
 - perform_action: Player wants to perform a creative/freeform action that doesn't fit other categories (e.g., "climb the wall", "push the statue", "light the torch", "break down the door")
@@ -310,9 +311,10 @@ IMPORTANT PRIORITY ORDER:
 4. If the player wants to talk to an NPC, use "talk_to_npc"
 5. If the player wants to investigate a specific discovery that matches one in the available discoveries list, use "investigate_discovery"
 6. If the player wants to examine something generally, use "examine_object"
-7. If the player wants to use an item, use "use_item"
-8. If the player wants to attempt a challenge, use "attempt_challenge"
-9. Otherwise, use "perform_action" for creative/freeform actions
+7. If the player wants to take/pick up an item that matches one in the visible items list, use "take_item"
+8. If the player wants to use an item, use "use_item"
+9. If the player wants to attempt a challenge, use "attempt_challenge"
+10. Otherwise, use "perform_action" for creative/freeform actions
 
 Return ONLY valid JSON with NO markdown formatting, NO code blocks, NO additional text.
 

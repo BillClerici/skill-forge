@@ -173,26 +173,33 @@ async def get_quest_progress_for_acquisition(
         from ..services.mongo_persistence import mongo_persistence
 
         current_quest_id = state.get("current_quest_id")
+        logger.info("quest_progress_check", current_quest_id=current_quest_id, acquisition_type=acquisition_type, acquisition_id=acquisition_id)
         if not current_quest_id:
+            logger.info("no_current_quest_id")
             return {}
 
         # Load quest data
         quest_data = await mongo_persistence.get_quest(current_quest_id)
         if not quest_data:
+            logger.info("quest_data_not_found", quest_id=current_quest_id)
             return {}
 
         # Check quest objectives for this acquisition
         objectives = quest_data.get("objectives", [])
+        logger.info("checking_objectives", objective_count=len(objectives))
         for objective in objectives:
             objective_type = objective.get("type", "")
             required_ids = objective.get("required_ids", [])
+            logger.info("objective_check", objective_type=objective_type, expected_type=f"learn_{acquisition_type}", required_ids=required_ids, acquisition_id=acquisition_id)
 
             # Check if this acquisition matches an objective
             if (objective_type == f"collect_{acquisition_type}" or
                 objective_type == f"acquire_{acquisition_type}" or
                 objective_type == f"learn_{acquisition_type}"):
 
+                logger.info("type_matched", objective_type=objective_type)
                 if acquisition_id in required_ids:
+                    logger.info("acquisition_matched", acquisition_id=acquisition_id)
                     # This acquisition is part of a quest objective!
                     # Calculate progress
                     player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
@@ -208,16 +215,172 @@ async def get_quest_progress_for_acquisition(
 
                     total_required = len(required_ids)
 
-                    return {
+                    result = {
                         "questLink": objective.get("description", "Quest Objective"),
                         "progress": f"{acquired_count}/{total_required}"
                     }
+                    logger.info("returning_quest_progress", result=result)
+                    return result
 
+        logger.info("no_matching_objective_found")
         return {}
 
     except Exception as e:
         logger.error("quest_progress_check_failed", error=str(e))
         return {}
+
+
+async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
+    """
+    Calculate progress for ALL objectives in the current quest
+
+    Args:
+        state: Current game session state
+
+    Returns:
+        dict with quest progress data for all objectives
+    """
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+
+        current_quest_id = state.get("current_quest_id")
+        logger.info("calculate_complete_quest_progress_start", current_quest_id=current_quest_id)
+        if not current_quest_id:
+            logger.info("no_current_quest_id_returning_empty")
+            return {}
+
+        # Load quest data
+        quest_data = await mongo_persistence.get_quest(current_quest_id)
+        logger.info("quest_data_loaded", has_data=bool(quest_data))
+        if not quest_data:
+            logger.info("no_quest_data_returning_empty")
+            return {}
+
+        # Get player data
+        player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
+        if not player_id:
+            return {}
+
+        player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+        player_inventory = state.get("player_inventories", {}).get(player_id, [])
+
+        # Process each objective
+        objectives = quest_data.get("objectives", [])
+        objectives_progress = []
+        total_progress = 0
+
+        for objective in objectives:
+            objective_type = objective.get("type", "")
+            required_ids = objective.get("required_ids", [])
+            description = objective.get("description", "Quest Objective")
+
+            # Calculate progress based on objective type
+            acquired_count = 0
+            total_required = len(required_ids)
+
+            if objective_type in ["learn_knowledge", "acquire_knowledge"]:
+                acquired_count = sum(1 for rid in required_ids if rid in player_knowledge.keys())
+            elif objective_type in ["collect_item", "acquire_item"]:
+                acquired_count = sum(1 for rid in required_ids if any(item.get("item_id") == rid for item in player_inventory))
+
+            # Calculate percentage
+            progress_percent = (acquired_count / total_required * 100) if total_required > 0 else 0
+            total_progress += progress_percent
+
+            # Build objective progress data
+            objectives_progress.append({
+                "description": description,
+                "type": objective_type,
+                "current": acquired_count,
+                "total": total_required,
+                "progress": f"{acquired_count}/{total_required}",
+                "percent": round(progress_percent),
+                "completed": acquired_count >= total_required
+            })
+
+        # Calculate overall quest progress
+        overall_progress = round(total_progress / len(objectives)) if objectives else 0
+
+        result = {
+            "quest_id": current_quest_id,
+            "quest_name": quest_data.get("name", "Current Quest"),
+            "overall_progress": overall_progress,
+            "objectives": objectives_progress
+        }
+        logger.info("calculate_complete_quest_progress_returning", result=result)
+        return result
+
+    except Exception as e:
+        logger.error("complete_quest_progress_calculation_failed", error=str(e))
+        return {}
+
+
+async def format_player_input_for_display(
+    player_input: str,
+    action_interpretation: ActionInterpretation,
+    state: GameSessionState
+) -> str:
+    """
+    Format player input for display by replacing IDs with user-friendly names
+
+    Args:
+        player_input: Raw player input string
+        action_interpretation: Interpreted action data
+        state: Current game state
+
+    Returns:
+        Formatted string with friendly names
+    """
+    try:
+        from ..services.mongo_persistence import mongo_persistence
+
+        action_type = action_interpretation.get("action_type")
+        target_id = action_interpretation.get("target_id")
+        parameters = action_interpretation.get("parameters", {})
+
+        # Create a mapping of IDs to friendly names
+        friendly_input = player_input
+
+        # Handle item actions
+        if action_type == "take_item" and target_id:
+            # Try to get item name from parameters or look it up
+            item_name = parameters.get("item_name", target_id)
+
+            # If item_name looks like an ID, try to look up the friendly name
+            if "_" in item_name or item_name.islower():
+                # Load scene data to get visible items
+                scene_data = await mongo_persistence.get_scene(state.get("current_scene_id", ""))
+                if scene_data:
+                    visible_item_ids = scene_data.get("visible_item_ids", [])
+                    for vid in visible_item_ids:
+                        item_obj = await mongo_persistence.get_item(vid)
+                        if item_obj and (item_obj.get("_id") == target_id or
+                                        item_obj.get("name", "").lower() == item_name.lower()):
+                            friendly_name = item_obj.get("name", item_name)
+                            # Replace the ID/slug with friendly name
+                            friendly_input = friendly_input.replace(item_name, friendly_name)
+                            break
+
+        # Handle investigate discovery actions
+        elif action_type == "investigate_discovery" and target_id:
+            discovery_name = parameters.get("discovery_name", target_id)
+
+            # Check if discovery exists in available discoveries
+            available_discoveries = state.get("available_discoveries", [])
+            for d in available_discoveries:
+                if (d.get("_id") == target_id or
+                    d.get("discovery_id") == target_id or
+                    d.get("name", "").lower() == discovery_name.lower()):
+                    friendly_name = d.get("name", discovery_name)
+                    # Replace with friendly name
+                    friendly_input = friendly_input.replace(discovery_name, friendly_name)
+                    break
+
+        return friendly_input
+
+    except Exception as e:
+        logger.error("format_player_input_failed", error=str(e))
+        return player_input  # Return original on error
 
 
 async def detect_acquirable_opportunities(
@@ -628,11 +791,25 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             visible_item_ids = scene_data.get("visible_item_ids", [])
             if visible_item_ids:
                 visible_items = await mongo_persistence.get_items_by_ids(visible_item_ids)
-                state["visible_items"] = [item.get("name") for item in visible_items]
+
+                # Filter out items already in player's inventory
+                player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
+                player_inventory = state.get("player_inventories", {}).get(player_id, [])
+                acquired_item_ids = [item.get("item_id") for item in player_inventory]
+
+                # Only show items not yet acquired
+                filtered_items = [
+                    item for item in visible_items
+                    if item.get("_id") not in acquired_item_ids and item.get("item_id") not in acquired_item_ids
+                ]
+
+                state["visible_items"] = [item.get("name") for item in filtered_items]
                 logger.info(
                     "visible_items_loaded",
                     session_id=state["session_id"],
-                    count=len(visible_items)
+                    count=len(filtered_items),
+                    total_in_scene=len(visible_items),
+                    already_acquired=len(visible_items) - len(filtered_items)
                 )
             else:
                 state["visible_items"] = []
@@ -730,6 +907,21 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
                 "active_events": state.get("active_events", [])
             }
         )
+
+        # Calculate and broadcast quest progress for persistence on page refresh
+        logger.info("calculating_quest_progress_for_scene_generation", session_id=state["session_id"])
+        complete_progress = await calculate_complete_quest_progress(state)
+        logger.info("quest_progress_calculated", session_id=state["session_id"], has_progress=bool(complete_progress), progress_data=complete_progress)
+        if complete_progress:
+            logger.info("broadcasting_quest_progress_update", session_id=state["session_id"])
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "event": "quest_progress_update",
+                    "quest_progress": complete_progress
+                }
+            )
+            logger.info("quest_progress_broadcast_complete", session_id=state["session_id"])
 
         # Update workflow state
         state["current_node"] = "await_player_input"
@@ -859,6 +1051,13 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
         # Store interpreted action for execution
         state["pending_action"]["interpretation"] = action_interpretation
 
+        # Format player input for display with friendly names
+        display_input = await format_player_input_for_display(
+            player_input,
+            action_interpretation,
+            state
+        )
+
         # Add to chat history
         chat_message = {
             "message_id": f"msg_{datetime.utcnow().timestamp()}",
@@ -867,7 +1066,7 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
             "message_type": "PLAYER_ACTION",
             "sender_id": player_id,
             "sender_name": player.get("character_name", "Unknown"),
-            "content": player_input,
+            "content": display_input,
             "metadata": {
                 "action_type": action_interpretation["action_type"],
                 "target_id": action_interpretation.get("target_id")
@@ -1124,6 +1323,17 @@ What would you like to do?"""
                                         }
                                     }
                                 )
+
+                                                # Calculate and broadcast complete quest progress
+                                complete_progress = await calculate_complete_quest_progress(state)
+                                if complete_progress:
+                                    await connection_manager.broadcast_to_session(
+                                        state["session_id"],
+                                        {
+                                            "event": "quest_progress_update",
+                                            "quest_progress": complete_progress
+                                        }
+                                    )
 
                 # Track items given by NPC during dialogue
                 if npc_response.get("items_given"):
@@ -1424,9 +1634,11 @@ Would you like to look around for items, or try something else?"""
                 }
                 state["player_inventories"][player_id].append(inventory_item)
 
-                # Remove from visible items in scene
-                if item_id in visible_item_ids:
-                    visible_item_ids.remove(item_id)
+                # Remove from state's visible_items list (which contains names)
+                # This is session-specific and won't affect the scene template
+                item_name_to_remove = item_data.get("name", item_name)
+                if "visible_items" in state and item_name_to_remove in state["visible_items"]:
+                    state["visible_items"].remove(item_name_to_remove)
 
                 # Get quest progress for this item
                 quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
@@ -1595,6 +1807,17 @@ What would you like to do?"""
                                         }
                                     }
                                 )
+
+                                # Calculate and broadcast complete quest progress
+                                complete_progress = await calculate_complete_quest_progress(state)
+                                if complete_progress:
+                                    await connection_manager.broadcast_to_session(
+                                        state["session_id"],
+                                        {
+                                            "event": "quest_progress_update",
+                                            "quest_progress": complete_progress
+                                        }
+                                    )
 
                 # Award items from discovery
                 item_ids = discovery.get("items_revealed", [])

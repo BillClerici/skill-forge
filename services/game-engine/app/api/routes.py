@@ -600,31 +600,21 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
         player_knowledge_map = state.get("player_knowledge", {})
         player_inventories_map = state.get("player_inventories", {})
 
-        # Collect all unique knowledge IDs and item IDs
+        # Collect all unique knowledge IDs
         all_knowledge_ids = []
         for player_knowledge in player_knowledge_map.values():
             if isinstance(player_knowledge, dict):
                 all_knowledge_ids.extend(player_knowledge.keys())
 
-        all_item_ids = []
-        for player_inventory in player_inventories_map.values():
-            if isinstance(player_inventory, list):
-                all_item_ids.extend(player_inventory)
-
-        # Fetch full objects from MongoDB
+        # Fetch knowledge objects from MongoDB
         knowledge_objects = []
         if all_knowledge_ids:
             knowledge_objects = await mongo_persistence.get_knowledge_by_ids(all_knowledge_ids)
 
-        item_objects = []
-        if all_item_ids:
-            item_objects = await mongo_persistence.get_items_by_ids(all_item_ids)
-
-        # Create maps for easy lookup
+        # Create map for easy knowledge lookup
         knowledge_map = {k.get("knowledge_id"): k for k in knowledge_objects}
-        item_map = {i.get("item_id"): i for i in item_objects}
 
-        # Build player-specific knowledge and inventory with full objects
+        # Build player-specific knowledge with full objects
         player_knowledge_full = {}
         for player_id, knowledge_dict in player_knowledge_map.items():
             player_knowledge_full[player_id] = []
@@ -633,13 +623,14 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
                     if knowledge_id in knowledge_map:
                         player_knowledge_full[player_id].append(knowledge_map[knowledge_id])
 
+        # Player inventories are already full objects in state (not just IDs)
+        # Each item is a dict with: item_id, name, description, properties, acquired_at
         player_inventories_full = {}
-        for player_id, item_ids in player_inventories_map.items():
+        for player_id, inventory_items in player_inventories_map.items():
             player_inventories_full[player_id] = []
-            if isinstance(item_ids, list):
-                for item_id in item_ids:
-                    if item_id in item_map:
-                        player_inventories_full[player_id].append(item_map[item_id])
+            if isinstance(inventory_items, list):
+                # Items are already full objects, just return them
+                player_inventories_full[player_id] = inventory_items
 
         # Return safe subset of state (not full internal state)
         return {

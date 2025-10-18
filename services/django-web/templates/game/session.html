@@ -392,7 +392,7 @@
         grid-column: 2;
         grid-row: 1;
         display: grid;
-        grid-template-rows: 60% 40%;
+        grid-template-rows: 50% 50%;
         gap: 0.75rem;
         min-width: 0;
         min-height: 0;
@@ -400,9 +400,9 @@
         height: 100%;
     }
 
-    /* Map/Images Section - Right Side Top (60% height) */
+    /* Map/Images Section - Right Side Bottom (50% height) */
     .tile-map {
-        grid-row: 1;
+        grid-row: 2;
         min-width: 0;
         overflow: hidden;
         background: white;
@@ -410,31 +410,33 @@
         border-radius: 8px;
     }
 
-    /* Bottom Row Container for 3 sections */
-    .bottom-sections {
-        grid-row: 2;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.75rem;
-        min-width: 0;
-        min-height: 0;
-        overflow: visible;
+    /* Info Sections Container */
+    .info-sections {
+        grid-row: 1;
+        display: flex;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    /* Info Panel (Tabbed Section) */
+    .tile-info {
+        width: 100%;
         height: 100%;
     }
 
-    /* Individual bottom sections */
-    .bottom-section {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .info-panel {
         display: flex;
         flex-direction: column;
-        border: 2px solid #e2e8f0;
-        min-height: 0;
         height: 100%;
+        background: white;
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+        box-sizing: border-box;
     }
 
-    .bottom-section-header {
+    .info-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 0.5rem 0.75rem;
@@ -442,19 +444,86 @@
         font-size: 0.85rem;
         flex-shrink: 0;
         border-bottom: 2px solid rgba(212, 175, 55, 0.3);
-        border-top-left-radius: 8px;
-        border-top-right-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
 
-    .bottom-section-content {
+    .info-header span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .info-toolbar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: row;
+        gap: 0.25rem;
+        padding: 0.5rem 0.5rem 0 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .info-toolbar-btn {
+        background: rgba(255, 255, 255, 0.15);
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: rgba(255, 255, 255, 0.7);
+        padding: 0.6rem 1.2rem;
+        border-radius: 0;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+        white-space: nowrap;
+        position: relative;
+    }
+
+    .info-toolbar-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.95);
+    }
+
+    .info-toolbar-btn.active {
+        background: #f7fafc;
+        color: #4a5568;
+        border-bottom: 3px solid #d4af37;
+        font-weight: 700;
+    }
+
+    .tab-count {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        margin-left: 4px;
+    }
+
+    .info-content {
+        flex: 1;
+        overflow: visible;
+        position: relative;
+        background: #f7fafc;
+        min-height: 0;
+    }
+
+    .info-tab {
+        display: none;
+        height: 100%;
+    }
+
+    .info-tab.active {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: visible;
+    }
+
+    .info-tab-content {
         flex: 1;
         overflow-y: auto;
         padding: 0.6rem;
-        background: #f7fafc;
         font-size: 0.85rem;
         color: #4a5568;
-        border-bottom-left-radius: 8px;
-        border-bottom-right-radius: 8px;
+        text-align: left;
     }
 
     /* When both drawers anchored, adjust main content */
@@ -1580,16 +1649,6 @@
         background: #f7fafc;
     }
 
-    .info-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 1rem;
-        display: none;
-    }
-
-    .info-content.active {
-        display: block;
-    }
 
     .quest-objective {
         padding: 0.4rem 0.3rem;
@@ -2289,9 +2348,47 @@
                 </div>
             </div>
 
-            <!-- Right Column (Map + Bottom Sections) -->
+            <!-- Right Column (Info Tabs + Visualizations) -->
             <div class="right-column">
-                <!-- Map/Images Section - Top (60% height) -->
+                <!-- Game Information Tabbed Section - Top (50% height) -->
+                <div class="info-sections">
+                    <div class="grid-tile tile-info">
+                        <div class="info-panel">
+                            <div class="info-header">
+                                <span>📋 Game Information</span>
+                            </div>
+                            <div class="info-toolbar">
+                                <button class="info-toolbar-btn active" onclick="selectInfoTab('knowledge')">📚 Knowledge <span id="knowledgeCount" class="tab-count">(0)</span></button>
+                                <button class="info-toolbar-btn" onclick="selectInfoTab('items')">🎒 Items <span id="itemsCount" class="tab-count">(0)</span></button>
+                                <button class="info-toolbar-btn" onclick="selectInfoTab('encounters')">⚡ Encounters <span id="encountersCount" class="tab-count">(0)</span></button>
+                            </div>
+                            <div class="info-content">
+                                <!-- Knowledge Tab -->
+                                <div class="info-tab active" id="knowledgeTab">
+                                    <div class="info-tab-content" id="knowledgeList">
+                                        <p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>
+                                    </div>
+                                </div>
+
+                                <!-- Items Tab -->
+                                <div class="info-tab" id="itemsTab">
+                                    <div class="info-tab-content" id="itemsList">
+                                        <p style="font-style: italic; color: #a0aec0;">No items acquired yet. Find treasures on your journey!</p>
+                                    </div>
+                                </div>
+
+                                <!-- Encounters Tab -->
+                                <div class="info-tab" id="encountersTab">
+                                    <div class="info-tab-content" id="encountersList">
+                                        <p style="font-style: italic; color: #a0aec0;">No encounters yet. Explore to discover events, challenges, and characters!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map/Images Section - Bottom (50% height) -->
                 <div class="grid-tile tile-map">
                     <div class="map-panel">
                         <div class="map-header">
@@ -2332,39 +2429,6 @@
                                 <div>No images available</div>
                                 <div style="font-size: 0.9rem; opacity: 0.5;">Images will appear here when available</div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bottom 3 Sections - (40% height) -->
-                <div class="bottom-sections">
-                    <!-- Knowledge Acquired Section -->
-                    <div class="bottom-section">
-                        <div class="bottom-section-header">
-                            📚 Knowledge Acquired
-                        </div>
-                        <div class="bottom-section-content" id="knowledgeList">
-                            <p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>
-                        </div>
-                    </div>
-
-                    <!-- Items Acquired Section -->
-                    <div class="bottom-section">
-                        <div class="bottom-section-header">
-                            🎒 Items Acquired
-                        </div>
-                        <div class="bottom-section-content" id="itemsList">
-                            <p style="font-style: italic; color: #a0aec0;">No items acquired yet. Find treasures on your journey!</p>
-                        </div>
-                    </div>
-
-                    <!-- Encounters Section (Events, Discoveries, Challenges, NPCs) -->
-                    <div class="bottom-section">
-                        <div class="bottom-section-header">
-                            ⚡ Encounters
-                        </div>
-                        <div class="bottom-section-content" id="encountersList">
-                            <p style="font-style: italic; color: #a0aec0;">No encounters yet. Explore to discover events, challenges, and characters!</p>
                         </div>
                     </div>
                 </div>
@@ -2525,11 +2589,11 @@
     let audioChunks = [];
     let isRecording = false;
 
-    // Drawer state
-    let leftDrawerOpen = false;
-    let rightDrawerOpen = false;
-    let leftDrawerAnchored = false;
-    let rightDrawerAnchored = false;
+    // Drawer state - Load from localStorage if available
+    let leftDrawerOpen = localStorage.getItem('leftDrawerOpen') === 'true' || false;
+    let rightDrawerOpen = localStorage.getItem('rightDrawerOpen') === 'true' || false;
+    let leftDrawerAnchored = localStorage.getItem('leftDrawerAnchored') === 'true' || false;
+    let rightDrawerAnchored = localStorage.getItem('rightDrawerAnchored') === 'true' || false;
 
     // Make ws global for team chat component
     window.ws = ws;
@@ -2600,12 +2664,10 @@
 
     // Fetch campaign images from API
     async function fetchCampaignImages() {
-        console.log('Fetching campaign images for:', CAMPAIGN_ID);
         try {
             const response = await fetch(`/api/campaigns/${CAMPAIGN_ID}/images/`);
             if (response.ok) {
                 const data = await response.json();
-                console.log('Received image data:', data);
                 campaignImages = data.images;
 
                 // Add placeholder images for empty categories
@@ -2619,8 +2681,6 @@
                         });
                     }
                 });
-
-                console.log('Campaign images after placeholders:', campaignImages);
 
                 // Initialize and display world images on first load
                 hideLoadingState();
@@ -2651,18 +2711,44 @@
         displayCategoryImages(category);
     }
 
+    // ===================================
+    // Info Tab Management
+    // ===================================
+    function selectInfoTab(tabName) {
+        // Update button active states
+        const buttons = document.querySelectorAll('.info-toolbar-btn');
+        buttons.forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+
+        // Hide all tabs
+        const tabs = document.querySelectorAll('.info-tab');
+        tabs.forEach(tab => {
+            tab.classList.remove('active');
+        });
+
+        // Show selected tab
+        const tabMap = {
+            'knowledge': 'knowledgeTab',
+            'items': 'itemsTab',
+            'encounters': 'encountersTab'
+        };
+
+        const selectedTab = document.getElementById(tabMap[tabName]);
+        if (selectedTab) {
+            selectedTab.classList.add('active');
+        }
+    }
+
     // Display images for a specific category
     function displayCategoryImages(category) {
         const images = campaignImages[category] || [];
-        console.log(`Displaying category: ${category}, images:`, images);
-
         if (images.length === 0) {
-            console.log('No images, showing placeholder');
             showPlaceholder();
             return;
         }
 
-        console.log('Showing carousel');
         showCarousel();
         updateCarousel();
     }
@@ -2670,11 +2756,9 @@
     // Update carousel display
     function updateCarousel() {
         const images = campaignImages[currentImageCategory] || [];
-        console.log(`updateCarousel - category: ${currentImageCategory}, index: ${currentImageIndex}, total images:`, images.length);
         if (images.length === 0) return;
 
         const currentImage = images[currentImageIndex];
-        console.log('Current image:', currentImage);
 
         // Update main image
         const cleanTitle = cleanImageTitle(currentImage.title);
@@ -2778,11 +2862,9 @@
 
     // UI State Management
     function showCarousel() {
-        console.log('showCarousel called');
         document.getElementById('carouselLoading').style.display = 'none';
         document.getElementById('carouselPlaceholder').style.display = 'none';
         document.getElementById('imageCarousel').style.display = 'flex';
-        console.log('Carousel display set to flex');
     }
 
     function showPlaceholder() {
@@ -2798,7 +2880,6 @@
     // Initialize carousel on first load
     function initializeCarousel() {
         // Display world images (will always have at least placeholder)
-        console.log('Initializing carousel with world images:', campaignImages.world);
         displayCategoryImages('world');
 
         // Add click event to carousel image to open lightbox
@@ -2823,6 +2904,9 @@
             drawer.classList.remove('open');
             toggle.classList.remove('hidden');
         }
+
+        // Save to localStorage
+        localStorage.setItem('leftDrawerOpen', leftDrawerOpen);
     }
 
     function toggleRightDrawer() {
@@ -2837,6 +2921,9 @@
             drawer.classList.remove('open');
             toggle.classList.remove('hidden');
         }
+
+        // Save to localStorage
+        localStorage.setItem('rightDrawerOpen', rightDrawerOpen);
     }
 
     function toggleLeftDrawerAnchor() {
@@ -2872,6 +2959,10 @@
                 header.classList.add('right-condensed');
             }
         }
+
+        // Save to localStorage
+        localStorage.setItem('leftDrawerAnchored', leftDrawerAnchored);
+        localStorage.setItem('leftDrawerOpen', leftDrawerOpen);
     }
 
     function toggleRightDrawerAnchor() {
@@ -2907,6 +2998,59 @@
                 header.classList.add('left-condensed');
             }
         }
+
+        // Save to localStorage
+        localStorage.setItem('rightDrawerAnchored', rightDrawerAnchored);
+        localStorage.setItem('rightDrawerOpen', rightDrawerOpen);
+    }
+
+    // Restore drawer state from localStorage
+    function restoreDrawerState() {
+        const drawer = document.getElementById('leftDrawer');
+        const grid = document.getElementById('gameGrid');
+        const header = document.querySelector('.game-header');
+        const leftToggle = document.getElementById('leftDrawerToggle');
+        const rightDrawer = document.getElementById('rightDrawer');
+        const rightToggle = document.getElementById('rightDrawerToggle');
+
+        // If no saved state exists, default to both drawers anchored (first time)
+        const hasStoredState = localStorage.getItem('leftDrawerAnchored') !== null;
+
+        if (!hasStoredState) {
+            // First time visit - pin both drawers by default
+            toggleLeftDrawerAnchor();
+            toggleRightDrawerAnchor();
+            return;
+        }
+
+        // Restore left drawer state
+        if (leftDrawerAnchored) {
+            drawer.classList.add('anchored');
+            grid.classList.add('left-anchored');
+            header.classList.add('left-condensed');
+            leftToggle.style.display = 'none';
+        } else if (leftDrawerOpen) {
+            drawer.classList.add('open');
+            leftToggle.classList.add('hidden');
+        }
+
+        // Restore right drawer state
+        if (rightDrawerAnchored) {
+            rightDrawer.classList.add('anchored');
+            grid.classList.add('right-anchored');
+            header.classList.add('right-condensed');
+            rightToggle.style.display = 'none';
+        } else if (rightDrawerOpen) {
+            rightDrawer.classList.add('open');
+            rightToggle.classList.add('hidden');
+        }
+
+        // If both are anchored, apply both-anchored class
+        if (leftDrawerAnchored && rightDrawerAnchored) {
+            grid.classList.add('both-anchored');
+            header.classList.add('both-condensed');
+            header.classList.remove('left-condensed', 'right-condensed');
+        }
     }
 
     // Initialize on page load
@@ -2919,9 +3063,8 @@
         // Fetch campaign images
         fetchCampaignImages();
 
-        // Open and pin both drawers by default
-        toggleLeftDrawerAnchor();
-        toggleRightDrawerAnchor();
+        // Restore drawer state from localStorage (or set defaults)
+        restoreDrawerState();
     });
 
     function connectWebSocket() {
@@ -3025,7 +3168,13 @@
                 break;
 
             case 'knowledge_gained':
+                console.log('WebSocket knowledge_gained event:', data);
+                console.log('knowledge object:', data.knowledge);
                 addKnowledge(data.knowledge);
+                break;
+
+            case 'quest_progress_update':
+                updateQuestProgress(data.quest_progress);
                 break;
 
             case 'item_acquired':
@@ -3159,6 +3308,18 @@
     }
 
     // ===================================
+    // Name Formatting Helper
+    // ===================================
+    function formatDisplayName(name) {
+        if (!name) return 'Unknown';
+        // Remove underscores and convert to title case
+        return name
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    }
+
+    // ===================================
     // Investigate Scene Panel Functions
     // ===================================
     let currentSceneData = {
@@ -3274,19 +3435,20 @@
         items.forEach(item => {
             const itemName = typeof item === 'string' ? item : (item.name || 'Unknown Item');
             const itemDescription = typeof item === 'object' ? (item.description || '') : '';
+            const displayName = formatDisplayName(itemName);
 
             html += `
                 <div class="entity-item">
                     <div class="entity-header">
                         <div class="entity-icon">📦</div>
                         <div class="entity-info">
-                            <div class="entity-name">${itemName}</div>
+                            <div class="entity-name">${displayName}</div>
                             ${itemDescription ? `<div class="entity-description">${itemDescription}</div>` : ''}
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Take ${itemName}')">✋ Take</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${itemName}')">🔍 Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Pick up the ${itemName} from the scene')">✋ Take</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine the ${itemName}')">🔍 Examine</button>
                     </div>
                 </div>
             `;
@@ -3313,21 +3475,22 @@
             const discoveryName = discovery.name || 'Unknown Discovery';
             const discoveryDescription = discovery.description || '';
 
-            // Check if this discovery has been completed
-            const isCompleted = completedDiscoveries.has(discoveryName);
-            const completedClass = isCompleted ? ' completed' : '';
+            // Check if this discovery has been investigated (from backend)
+            const isInvestigated = discovery.investigated || false;
+            const completedClass = isInvestigated ? ' completed' : '';
+            const investigatedLabel = isInvestigated ? '<span style="color: #4caf50; font-weight: 600; margin-left: 8px;">✓ Investigated</span>' : '';
 
             html += `
                 <div class="entity-item${completedClass}">
                     <div class="entity-header">
                         <div class="entity-icon">🔎</div>
                         <div class="entity-info">
-                            <div class="entity-name">${discoveryName}</div>
+                            <div class="entity-name">${discoveryName} ${investigatedLabel}</div>
                             ${discoveryDescription ? `<div class="entity-description">${discoveryDescription}</div>` : ''}
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Investigate ${discoveryName}')">🔍 Investigate</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Investigate ${discoveryName}')" ${isInvestigated ? 'disabled' : ''}>🔍 ${isInvestigated ? 'Already Investigated' : 'Investigate'}</button>
                         <button class="entity-action-btn" onclick="performSceneAction('Examine ${discoveryName}')">👁️ Examine</button>
                     </div>
                 </div>
@@ -3458,8 +3621,12 @@
     // Enhanced Acquisition Notification System
     // ===================================
     function showAcquisitionNotification(type, data) {
+        console.log('showAcquisitionNotification called with:', type, data);
         const container = document.getElementById('acquisitionNotifications');
-        if (!container) return;
+        if (!container) {
+            console.error('acquisitionNotifications container not found!');
+            return;
+        }
 
         // Determine icon based on type
         const icons = {
@@ -3472,11 +3639,14 @@
         };
 
         const icon = icons[type] || '✨';
-        const title = data.name || data.title || 'Unknown';
+        const rawTitle = data.name || data.title || 'Unknown';
+        const title = formatDisplayName(rawTitle);
         const description = data.description || '';
         const source = data.source || '';
         const questLink = data.questLink || null;
         const progress = data.progress || null;
+
+        console.log('Notification params - questLink:', questLink, 'progress:', progress);
 
         // Create notification element
         const notification = document.createElement('div');
@@ -3507,12 +3677,15 @@
         }
 
         if (questLink) {
+            console.log('Adding quest link to notification!', questLink, progress);
             html += `
                 <div class="notification-quest-link">
                     <span>✅ ${questLink}</span>
                     ${progress ? `<span class="notification-progress">${progress}</span>` : ''}
                 </div>
             `;
+        } else {
+            console.log('No questLink, skipping quest progress display');
         }
 
         notification.innerHTML = html;
@@ -3549,16 +3722,21 @@
     let encountersRecord = [];
     let completedDiscoveries = new Set(); // Track completed discovery names
     let completedChallenges = new Set(); // Track completed challenge names
+    let lastQuestProgress = null; // Store the last quest progress data from backend
 
     function refreshQuestProgress() {
-        // Refresh quest objectives to update progress bars
-        const questObjectivesDiv = document.getElementById('drawerQuestObjectives');
-        if (questObjectivesDiv && CAMPAIGN_FIRST_QUEST && CAMPAIGN_FIRST_QUEST.objectives) {
-            updateQuestObjectives(CAMPAIGN_FIRST_QUEST.objectives);
+        // Refresh quest objectives using backend data if available
+        if (lastQuestProgress) {
+            updateQuestProgress(lastQuestProgress);
         }
+        // If no backend data yet, do nothing - wait for WebSocket update
     }
 
     function addKnowledge(knowledge) {
+        // Debug: Log what we received
+        console.log('addKnowledge received:', knowledge);
+        console.log('questLink:', knowledge.questLink, 'progress:', knowledge.progress);
+
         // Check if already acquired
         if (knowledgeAcquired.some(k => k.id === knowledge.id)) {
             return;
@@ -3602,6 +3780,22 @@
 
         itemsAcquired.push(item);
         updateItemsList();
+
+        // Remove from visible items in Investigate Scene panel
+        if (currentSceneData && currentSceneData.items) {
+            // Remove by matching item name or ID
+            currentSceneData.items = currentSceneData.items.filter(sceneItem => {
+                const sceneItemName = typeof sceneItem === 'string' ? sceneItem : sceneItem.name;
+                const acquiredItemName = item.name;
+                return sceneItemName !== acquiredItemName && sceneItem !== acquiredItemName;
+            });
+
+            // Refresh the Investigate Scene panel if it's open
+            const panel = document.getElementById('investigateScenePanel');
+            if (panel && panel.style.display !== 'none') {
+                populateItems(currentSceneData.items);
+            }
+        }
 
         // Refresh quest progress bars
         refreshQuestProgress();
@@ -3655,6 +3849,12 @@
 
     function updateKnowledgeList() {
         const knowledgeList = document.getElementById('knowledgeList');
+        const knowledgeCount = document.getElementById('knowledgeCount');
+
+        // Update count badge
+        if (knowledgeCount) {
+            knowledgeCount.textContent = `(${knowledgeAcquired.length})`;
+        }
 
         if (knowledgeAcquired.length === 0) {
             knowledgeList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>';
@@ -3663,12 +3863,13 @@
 
         let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
         knowledgeAcquired.forEach(knowledge => {
+            const displayName = formatDisplayName(knowledge.name || knowledge.title);
             html += `
-                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid #d4af37; border-radius: 4px;">
-                    <div style="font-weight: 600; color: #d4af37; margin-bottom: 4px;">
-                        📚 ${knowledge.name || knowledge.title}
+                <li style="padding: 8px; margin-bottom: 6px; background: white; border-left: 3px solid #d4af37; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="color: #d4af37; margin-bottom: 4px;">
+                        📚 ${displayName}
                     </div>
-                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                    <div style="font-size: 0.85rem; color: #4a5568; font-weight: normal;">
                         ${knowledge.description || 'Knowledge acquired'}
                     </div>
                 </li>
@@ -3681,6 +3882,12 @@
 
     function updateItemsList() {
         const itemsList = document.getElementById('itemsList');
+        const itemsCount = document.getElementById('itemsCount');
+
+        // Update count badge
+        if (itemsCount) {
+            itemsCount.textContent = `(${itemsAcquired.length})`;
+        }
 
         if (itemsAcquired.length === 0) {
             itemsList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No items acquired yet. Find treasures on your journey!</p>';
@@ -3689,12 +3896,13 @@
 
         let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
         itemsAcquired.forEach(item => {
+            const displayName = formatDisplayName(item.name);
             html += `
-                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid #667eea; border-radius: 4px;">
-                    <div style="font-weight: 600; color: #667eea; margin-bottom: 4px;">
-                        🎒 ${item.name}
+                <li style="padding: 8px; margin-bottom: 6px; background: white; border-left: 3px solid #667eea; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="color: #667eea; margin-bottom: 4px;">
+                        🎒 ${displayName}
                     </div>
-                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                    <div style="font-size: 0.85rem; color: #4a5568; font-weight: normal;">
                         ${item.description || 'Item in inventory'}
                     </div>
                 </li>
@@ -3707,6 +3915,12 @@
 
     function updateEncountersList() {
         const encountersList = document.getElementById('encountersList');
+        const encountersCount = document.getElementById('encountersCount');
+
+        // Update count badge
+        if (encountersCount) {
+            encountersCount.textContent = `(${encountersRecord.length})`;
+        }
 
         if (encountersRecord.length === 0) {
             encountersList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No encounters yet. Explore to discover events, challenges, and characters!</p>';
@@ -3744,12 +3958,12 @@
             const displayDescription = encounter.description || encounter.role || `${style.label} encountered`;
 
             html += `
-                <li style="padding: 8px; margin-bottom: 6px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid ${style.color}; border-radius: 4px;">
-                    <div style="font-weight: 600; color: ${style.color}; margin-bottom: 4px;">
+                <li style="padding: 8px; margin-bottom: 6px; background: white; border-left: 3px solid ${style.color}; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div style="color: ${style.color}; margin-bottom: 4px;">
                         ${style.icon} ${displayName}
-                        <span style="font-size: 0.75rem; font-weight: 400; opacity: 0.8; margin-left: 6px;">[${style.label}]</span>
+                        <span style="font-size: 0.75rem; opacity: 0.8; margin-left: 6px;">[${style.label}]</span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #a0aec0;">
+                    <div style="font-size: 0.85rem; color: #4a5568; font-weight: normal;">
                         ${displayDescription}
                     </div>
                 </li>
@@ -3943,8 +4157,15 @@
         if (questTitle) {
             drawerQuestInfoDiv.innerHTML = `<h4 style="margin: 0; color: #d4af37; font-size: 1.1rem;">${questTitle}</h4>`;
 
+            // Show placeholder while waiting for WebSocket quest progress data
             if (questObjectives && questObjectives.length > 0) {
-                updateQuestObjectives(questObjectives);
+                if (lastQuestProgress) {
+                    // Use cached backend data if available
+                    updateQuestProgress(lastQuestProgress);
+                } else {
+                    // Show loading placeholder - will be replaced by WebSocket update
+                    document.getElementById('drawerQuestObjectives').innerHTML = '<p style="color: #b8b8d1; font-size: 0.9rem;">Loading quest progress...</p>';
+                }
             } else {
                 document.getElementById('drawerQuestObjectives').innerHTML = '<p style="color: #b8b8d1; font-size: 0.9rem;">No specific objectives yet. Explore freely!</p>';
             }
@@ -4152,6 +4373,67 @@
         const overallColorClass = getProgressColorClass(overallProgress);
 
         // Add overall progress bar at the top
+        const overallProgressHTML = `
+            <div class="quest-overall-progress">
+                <div class="quest-overall-progress-label">
+                    <span>Quest Progress</span>
+                    <span class="quest-overall-progress-percent">${overallProgress}%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill ${overallColorClass}" style="width: ${overallProgress}%"></div>
+                </div>
+            </div>
+        `;
+
+        drawerObjectivesDiv.innerHTML = overallProgressHTML + objectivesHTML;
+    }
+
+    function updateQuestProgress(questProgress) {
+        // Update quest progress display with actual backend data
+        const drawerObjectivesDiv = document.getElementById('drawerQuestObjectives');
+
+        if (!questProgress || !questProgress.objectives) {
+            return;
+        }
+
+        // Store for future refreshes
+        lastQuestProgress = questProgress;
+
+        let objectivesHTML = '';
+        const objectives = questProgress.objectives;
+
+        objectives.forEach(objective => {
+            const isCompleted = objective.completed || false;
+            const checkIcon = isCompleted ? '⚔️' : '🔸';
+            const completedClass = isCompleted ? ' completed' : '';
+            const progress = objective.percent || 0;
+            const colorClass = getProgressColorClass(progress);
+            const percentText = `${objective.current}/${objective.total} - ${progress}%`;
+
+            // Build progress bar HTML
+            const progressHTML = `
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill ${colorClass}" style="width: ${progress}%"></div>
+                </div>
+            `;
+
+            objectivesHTML += `
+                <div class="quest-objective${completedClass}">
+                    <span class="objective-checkbox">${checkIcon}</span>
+                    <div class="objective-content">
+                        <div class="objective-description">
+                            <span>${objective.description}</span>
+                            <span class="objective-progress-percent ${colorClass.replace('progress-', 'text-')}">${percentText}</span>
+                        </div>
+                        ${progressHTML}
+                    </div>
+                </div>
+            `;
+        });
+
+        // Add overall progress bar at the top
+        const overallProgress = questProgress.overall_progress || 0;
+        const overallColorClass = getProgressColorClass(overallProgress);
         const overallProgressHTML = `
             <div class="quest-overall-progress">
                 <div class="quest-overall-progress-label">
