@@ -264,6 +264,10 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
         player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
         player_inventory = state.get("player_inventories", {}).get(player_id, [])
 
+        # PERFORMANCE OPTIMIZATION: Convert to sets for O(1) lookups instead of O(n)
+        player_knowledge_ids = set(player_knowledge.keys())
+        player_item_ids = {item.get("item_id") for item in player_inventory if item.get("item_id")}
+
         # Process each objective
         objectives = quest_data.get("objectives", [])
         objectives_progress = []
@@ -279,9 +283,13 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
             total_required = len(required_ids)
 
             if objective_type in ["learn_knowledge", "acquire_knowledge"]:
-                acquired_count = sum(1 for rid in required_ids if rid in player_knowledge.keys())
+                # Set intersection - O(n) instead of O(n*m)
+                required_set = set(required_ids)
+                acquired_count = len(required_set & player_knowledge_ids)
             elif objective_type in ["collect_item", "acquire_item"]:
-                acquired_count = sum(1 for rid in required_ids if any(item.get("item_id") == rid for item in player_inventory))
+                # Set intersection - O(n) instead of O(n*m*p)
+                required_set = set(required_ids)
+                acquired_count = len(required_set & player_item_ids)
 
             # Calculate percentage
             progress_percent = (acquired_count / total_required * 100) if total_required > 0 else 0
@@ -501,13 +509,9 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
         campaign = await mongo_persistence.get_campaign(state["campaign_id"])
 
         if campaign and campaign.get("quest_ids") and len(campaign["quest_ids"]) > 0:
-            # Get ALL quests to sort by order_sequence
+            # Get ALL quests to sort by order_sequence (BATCH QUERY - Performance optimization)
             quest_ids = campaign["quest_ids"]
-            all_quests = []
-            for qid in quest_ids:
-                quest = await mongo_persistence.get_quest(qid)
-                if quest:
-                    all_quests.append(quest)
+            all_quests = await mongo_persistence.get_quests_by_ids(quest_ids)
 
             # Sort quests by order_sequence
             all_quests.sort(key=lambda q: q.get("order_sequence", 0))
@@ -520,12 +524,8 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
                 # Use Place/Scene structure: Get first place (by order_sequence), then first scene
                 place_ids = first_quest.get("place_ids", [])
                 if place_ids and len(place_ids) > 0:
-                    # Load all places to sort by order_sequence
-                    all_places = []
-                    for pid in place_ids:
-                        place = await mongo_persistence.get_place(pid)
-                        if place:
-                            all_places.append(place)
+                    # Load all places to sort by order_sequence (BATCH QUERY - Performance optimization)
+                    all_places = await mongo_persistence.get_places_by_ids(place_ids)
 
                     # Sort places by order_sequence
                     all_places.sort(key=lambda p: p.get("order_sequence", 0))
@@ -534,14 +534,10 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
                         first_place = all_places[0]
                         first_place_id = first_place.get("_id") or first_place.get("place_id")
 
-                        # Load all scenes to sort by order_sequence
+                        # Load all scenes to sort by order_sequence (BATCH QUERY - Performance optimization)
                         scene_ids = first_place.get("scene_ids", [])
                         if scene_ids:
-                            all_scenes = []
-                            for sid in scene_ids:
-                                scene = await mongo_persistence.get_scene(sid)
-                                if scene:
-                                    all_scenes.append(scene)
+                            all_scenes = await mongo_persistence.get_scenes_by_ids(scene_ids)
 
                             # Sort scenes by order_sequence
                             all_scenes.sort(key=lambda s: s.get("order_sequence", 0))
@@ -712,92 +708,96 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
 
         # Load scene data from MongoDB
         from ..services.mongo_persistence import mongo_persistence
+        import asyncio
 
-        scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
+        # PERFORMANCE OPTIMIZATION: Parallelize scene and place data loading
+        place_data_task = None
+        if state.get("current_place_id"):
+            place_data_task = mongo_persistence.get_place(state["current_place_id"])
+
+        # Load scene and place data in parallel
+        if place_data_task:
+            scene_data, place_data = await asyncio.gather(
+                mongo_persistence.get_scene(state["current_scene_id"]),
+                place_data_task
+            )
+        else:
+            scene_data = await mongo_persistence.get_scene(state["current_scene_id"])
+            place_data = None
 
         # Store scene name and place name in state for display
         if scene_data:
             state["scene_name"] = scene_data.get("name", "Current Location")
             state["location_name"] = scene_data.get("name", "Current Location")  # Primary location field
-            # Try to load place name if we have a place_id
-            if state.get("current_place_id"):
-                place_data = await mongo_persistence.get_place(state["current_place_id"])
-                if place_data:
-                    state["place_name"] = place_data.get("name", "")
+            if place_data:
+                state["place_name"] = place_data.get("name", "")
 
-        # Get NPCs at current location
-        npcs_at_location = await mongo_persistence.get_npcs_at_location(state["current_scene_id"])
-
-        if npcs_at_location:
-            state["available_npcs"] = npcs_at_location
-            logger.info(
-                "npcs_loaded_from_mongodb",
-                session_id=state["session_id"],
-                scene_id=state["current_scene_id"],
-                npc_count=len(npcs_at_location)
-            )
-        else:
-            state["available_npcs"] = []
-            logger.warning(
-                "no_npcs_found_at_location",
-                session_id=state["session_id"],
-                scene_id=state["current_scene_id"]
-            )
-
-        # Load all scene-related content if scene data exists
+        # PERFORMANCE OPTIMIZATION: Parallelize all scene-related content loading
         if scene_data:
-            # Load discoveries
+            # Extract all IDs needed
             discovery_ids = scene_data.get("discovery_ids", [])
-            if discovery_ids:
-                discoveries = await mongo_persistence.get_discoveries_by_ids(discovery_ids)
-                state["available_discoveries"] = discoveries
-                logger.info(
-                    "discoveries_loaded",
-                    session_id=state["session_id"],
-                    count=len(discoveries)
-                )
-            else:
-                state["available_discoveries"] = []
-
-            # Load events
             event_ids = scene_data.get("event_ids", [])
-            if event_ids:
-                events = await mongo_persistence.get_events_by_ids(event_ids)
-                state["active_events"] = events
-                logger.info(
-                    "events_loaded",
-                    session_id=state["session_id"],
-                    count=len(events)
-                )
-            else:
-                state["active_events"] = []
-
-            # Load challenges
             challenge_ids = scene_data.get("challenge_ids", [])
-            if challenge_ids:
-                challenges = await mongo_persistence.get_challenges_by_ids(challenge_ids)
-                state["active_challenges"] = challenges
+            visible_item_ids = scene_data.get("visible_item_ids", [])
+            required_knowledge_ids = scene_data.get("required_knowledge", [])
+            required_item_ids = scene_data.get("required_items", [])
+
+            # Load all content in parallel (7 queries at once instead of sequential)
+            (
+                npcs_at_location,
+                discoveries,
+                events,
+                challenges,
+                visible_items,
+                required_knowledge,
+                required_items
+            ) = await asyncio.gather(
+                mongo_persistence.get_npcs_at_location(state["current_scene_id"]),
+                mongo_persistence.get_discoveries_by_ids(discovery_ids) if discovery_ids else asyncio.sleep(0, result=[]),
+                mongo_persistence.get_events_by_ids(event_ids) if event_ids else asyncio.sleep(0, result=[]),
+                mongo_persistence.get_challenges_by_ids(challenge_ids) if challenge_ids else asyncio.sleep(0, result=[]),
+                mongo_persistence.get_items_by_ids(visible_item_ids) if visible_item_ids else asyncio.sleep(0, result=[]),
+                mongo_persistence.get_knowledge_by_ids(required_knowledge_ids) if required_knowledge_ids else asyncio.sleep(0, result=[]),
+                mongo_persistence.get_items_by_ids(required_item_ids) if required_item_ids else asyncio.sleep(0, result=[])
+            )
+
+            # Set NPCs
+            state["available_npcs"] = npcs_at_location if npcs_at_location else []
+            if npcs_at_location:
                 logger.info(
-                    "challenges_loaded",
+                    "npcs_loaded_from_mongodb",
                     session_id=state["session_id"],
-                    count=len(challenges)
+                    scene_id=state["current_scene_id"],
+                    npc_count=len(npcs_at_location)
                 )
             else:
-                state["active_challenges"] = []
+                logger.warning(
+                    "no_npcs_found_at_location",
+                    session_id=state["session_id"],
+                    scene_id=state["current_scene_id"]
+                )
 
-            # Load visible items (items present in the scene)
-            # Note: This is different from player inventory
-            # Items in the scene can be picked up or interacted with
-            visible_item_ids = scene_data.get("visible_item_ids", [])
-            if visible_item_ids:
-                visible_items = await mongo_persistence.get_items_by_ids(visible_item_ids)
+            # Set discoveries
+            state["available_discoveries"] = discoveries
+            if discoveries:
+                logger.info("discoveries_loaded", session_id=state["session_id"], count=len(discoveries))
 
-                # Filter out items already in player's inventory
+            # Set events
+            state["active_events"] = events
+            if events:
+                logger.info("events_loaded", session_id=state["session_id"], count=len(events))
+
+            # Set challenges
+            state["active_challenges"] = challenges
+            if challenges:
+                logger.info("challenges_loaded", session_id=state["session_id"], count=len(challenges))
+
+            # Filter visible items to exclude already acquired
+            if visible_items:
                 player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
                 player_inventory = state.get("player_inventories", {}).get(player_id, [])
                 acquired_item_ids = [item.get("item_id") for item in player_inventory]
 
-                # Only show items not yet acquired
                 filtered_items = [
                     item for item in visible_items
                     if item.get("_id") not in acquired_item_ids and item.get("item_id") not in acquired_item_ids
@@ -814,33 +814,18 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             else:
                 state["visible_items"] = []
 
-            # Load required knowledge (knowledge needed to access this scene)
-            required_knowledge_ids = scene_data.get("required_knowledge", [])
-            if required_knowledge_ids:
-                required_knowledge = await mongo_persistence.get_knowledge_by_ids(required_knowledge_ids)
-                state["scene_required_knowledge"] = required_knowledge
-                logger.info(
-                    "scene_required_knowledge_loaded",
-                    session_id=state["session_id"],
-                    count=len(required_knowledge)
-                )
-            else:
-                state["scene_required_knowledge"] = []
+            # Set required knowledge
+            state["scene_required_knowledge"] = required_knowledge
+            if required_knowledge:
+                logger.info("scene_required_knowledge_loaded", session_id=state["session_id"], count=len(required_knowledge))
 
-            # Load required items (items needed to access this scene)
-            required_item_ids = scene_data.get("required_items", [])
-            if required_item_ids:
-                required_items = await mongo_persistence.get_items_by_ids(required_item_ids)
-                state["scene_required_items"] = required_items
-                logger.info(
-                    "scene_required_items_loaded",
-                    session_id=state["session_id"],
-                    count=len(required_items)
-                )
-            else:
-                state["scene_required_items"] = []
+            # Set required items
+            state["scene_required_items"] = required_items
+            if required_items:
+                logger.info("scene_required_items_loaded", session_id=state["session_id"], count=len(required_items))
         else:
             # No scene data found, initialize empty lists
+            state["available_npcs"] = []
             state["available_discoveries"] = []
             state["active_events"] = []
             state["active_challenges"] = []
@@ -1154,7 +1139,32 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
             # Player is asking the Game Master a question
             question = parameters.get("question", pending_action.get("player_input", ""))
 
-            answer = await gm_agent.answer_player_question(question, state)
+            # Import connection manager for streaming
+            from ..api.websocket_manager import connection_manager
+
+            # Define streaming callback to broadcast chunks via WebSocket
+            async def stream_answer_chunk(chunk: str):
+                """Callback to broadcast streaming answer chunks"""
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "gm_answer_chunk",
+                        "chunk": chunk,
+                        "is_complete": False
+                    }
+                )
+
+            answer = await gm_agent.answer_player_question(question, state, stream_callback=stream_answer_chunk)
+
+            # Broadcast final completion chunk
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "event": "gm_answer_chunk",
+                    "chunk": "",
+                    "is_complete": True
+                }
+            )
 
             # Add GM answer to chat
             chat_message = {
@@ -1476,10 +1486,36 @@ What would you like to do?"""
             # Generate examination description using Game Master
             query = parameters.get("query", pending_action.get("player_input", ""))
 
-            # Use Game Master to generate detailed examination outcome
+            # Import connection manager for streaming
+            from ..api.websocket_manager import connection_manager
+
+            # Define streaming callback to broadcast chunks via WebSocket
+            async def stream_action_chunk(chunk: str):
+                """Callback to broadcast streaming action outcome chunks"""
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": chunk,
+                        "is_complete": False
+                    }
+                )
+
+            # Use Game Master to generate detailed examination outcome with streaming
             examination_text = await gm_agent.generate_generic_action_outcome(
                 f"look around and examine {query}" if query else "look around and observe the surroundings",
-                state
+                state,
+                stream_callback=stream_action_chunk
+            )
+
+            # Broadcast final completion chunk
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "event": "action_outcome_chunk",
+                    "chunk": "",
+                    "is_complete": True
+                }
             )
 
             chat_message = {
@@ -1515,8 +1551,37 @@ What would you like to do?"""
             # Handle generic/creative freeform action
             action_description = parameters.get("action_description", pending_action.get("player_input", ""))
 
-            # Use Game Master to generate narrative outcome for this creative action
-            outcome_text = await gm_agent.generate_generic_action_outcome(action_description, state)
+            # Import connection manager for streaming
+            from ..api.websocket_manager import connection_manager
+
+            # Define streaming callback to broadcast chunks via WebSocket
+            async def stream_action_chunk(chunk: str):
+                """Callback to broadcast streaming action outcome chunks"""
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": chunk,
+                        "is_complete": False
+                    }
+                )
+
+            # Use Game Master to generate narrative outcome for this creative action with streaming
+            outcome_text = await gm_agent.generate_generic_action_outcome(
+                action_description,
+                state,
+                stream_callback=stream_action_chunk
+            )
+
+            # Broadcast final completion chunk
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "event": "action_outcome_chunk",
+                    "chunk": "",
+                    "is_complete": True
+                }
+            )
 
             chat_message = {
                 "message_id": f"msg_{datetime.utcnow().timestamp()}",
@@ -1557,11 +1622,37 @@ What would you like to do?"""
             has_item = any(item.get("item_id") == item_id or item.get("name") == item_name for item in player_inventory) if isinstance(player_inventory, list) else False
 
             if has_item:
-                # Player has the item - generate outcome narrative
+                # Import connection manager for streaming
+                from ..api.websocket_manager import connection_manager
+
+                # Define streaming callback to broadcast chunks via WebSocket
+                async def stream_action_chunk(chunk: str):
+                    """Callback to broadcast streaming action outcome chunks"""
+                    await connection_manager.broadcast_to_session(
+                        state["session_id"],
+                        {
+                            "event": "action_outcome_chunk",
+                            "chunk": chunk,
+                            "is_complete": False
+                        }
+                    )
+
+                # Player has the item - generate outcome narrative with streaming
                 usage_context = parameters.get("usage_context", f"using {item_name}")
                 outcome_text = await gm_agent.generate_generic_action_outcome(
                     f"use the {item_name} - {usage_context}",
-                    state
+                    state,
+                    stream_callback=stream_action_chunk
+                )
+
+                # Broadcast final completion chunk
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": "",
+                        "is_complete": True
+                    }
                 )
             else:
                 # Player doesn't have the item - provide helpful guidance
@@ -1662,10 +1753,33 @@ Would you like to look around for items, or try something else?"""
                     }
                 )
 
-                # Generate narrative about taking the item
+                # Define streaming callback to broadcast chunks via WebSocket
+                async def stream_action_chunk(chunk: str):
+                    """Callback to broadcast streaming action outcome chunks"""
+                    await connection_manager.broadcast_to_session(
+                        state["session_id"],
+                        {
+                            "event": "action_outcome_chunk",
+                            "chunk": chunk,
+                            "is_complete": False
+                        }
+                    )
+
+                # Generate narrative about taking the item with streaming
                 take_text = await gm_agent.generate_generic_action_outcome(
                     f"pick up and take the {item_data.get('name', item_name)}",
-                    state
+                    state,
+                    stream_callback=stream_action_chunk
+                )
+
+                # Broadcast final completion chunk
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": "",
+                        "is_complete": True
+                    }
                 )
 
                 # Create chat message
@@ -1732,10 +1846,36 @@ What would you like to do?"""
                     break
 
             if discovery:
-                # Discovery found - generate investigation narrative
+                # Import connection manager for streaming
+                from ..api.websocket_manager import connection_manager
+
+                # Define streaming callback to broadcast chunks via WebSocket
+                async def stream_action_chunk(chunk: str):
+                    """Callback to broadcast streaming action outcome chunks"""
+                    await connection_manager.broadcast_to_session(
+                        state["session_id"],
+                        {
+                            "event": "action_outcome_chunk",
+                            "chunk": chunk,
+                            "is_complete": False
+                        }
+                    )
+
+                # Discovery found - generate investigation narrative with streaming
                 investigation_text = await gm_agent.generate_generic_action_outcome(
                     f"investigate and examine the {discovery.get('name', discovery_name)}: {discovery.get('description', '')}",
-                    state
+                    state,
+                    stream_callback=stream_action_chunk
+                )
+
+                # Broadcast final completion chunk
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": "",
+                        "is_complete": True
+                    }
                 )
 
                 # Create chat message
@@ -1909,16 +2049,41 @@ Try examining your surroundings or asking what you can investigate."""
                     break
 
             if challenge:
-                # Challenge exists - generate attempt narrative
+                # Import connection manager for streaming
+                from ..api.websocket_manager import connection_manager
+
+                # Define streaming callback to broadcast chunks via WebSocket
+                async def stream_action_chunk(chunk: str):
+                    """Callback to broadcast streaming action outcome chunks"""
+                    await connection_manager.broadcast_to_session(
+                        state["session_id"],
+                        {
+                            "event": "action_outcome_chunk",
+                            "chunk": chunk,
+                            "is_complete": False
+                        }
+                    )
+
+                # Challenge exists - generate attempt narrative with streaming
                 challenge_name = challenge.get("name", "challenge")
                 challenge_description = challenge.get("description", "")
                 attempt_text = await gm_agent.generate_generic_action_outcome(
                     f"attempt the challenge: {challenge_name}. {challenge_description}",
-                    state
+                    state,
+                    stream_callback=stream_action_chunk
+                )
+
+                # Broadcast final completion chunk
+                await connection_manager.broadcast_to_session(
+                    state["session_id"],
+                    {
+                        "event": "action_outcome_chunk",
+                        "chunk": "",
+                        "is_complete": True
+                    }
                 )
 
                 # Track challenge encounter
-                from ..api.websocket_manager import connection_manager
                 encounter_metadata = create_encounter_metadata(state, player_id)
                 await connection_manager.broadcast_to_session(
                     state["session_id"],

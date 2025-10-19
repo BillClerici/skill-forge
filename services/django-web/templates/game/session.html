@@ -3114,6 +3114,14 @@
                 handleSceneChunk(data);
                 break;
 
+            case 'gm_answer_chunk':
+                handleStreamingChunk(data);
+                break;
+
+            case 'action_outcome_chunk':
+                handleStreamingChunk(data);
+                break;
+
             case 'scene_update':
             case 'initial_scene':
                 updateScene(data);
@@ -3190,6 +3198,9 @@
                 break;
 
             case 'discovery_encountered':
+                console.log('======= discovery_encountered EVENT =======');
+                console.log('Discovery data:', data.discovery);
+                console.log('Discovery name:', data.discovery.name);
                 addEncounter({...data.discovery, type: 'discovery'});
                 break;
 
@@ -3458,6 +3469,9 @@
     }
 
     function populateDiscoveries(discoveries) {
+        console.log('======= populateDiscoveries START =======');
+        console.log('completedDiscoveries Set:', Array.from(completedDiscoveries));
+
         const body = document.getElementById('discoveriesBody');
         const count = document.getElementById('discoveriesCount');
 
@@ -3475,8 +3489,14 @@
             const discoveryName = discovery.name || 'Unknown Discovery';
             const discoveryDescription = discovery.description || '';
 
-            // Check if this discovery has been investigated (from backend)
-            const isInvestigated = discovery.investigated || false;
+            console.log(`Checking discovery: "${discoveryName}"`);
+            console.log(`  - discovery.investigated: ${discovery.investigated}`);
+            console.log(`  - completedDiscoveries.has("${discoveryName}"): ${completedDiscoveries.has(discoveryName)}`);
+
+            // Check if this discovery has been investigated (from backend OR from our tracking)
+            const isInvestigated = discovery.investigated || completedDiscoveries.has(discoveryName);
+            console.log(`  - isInvestigated: ${isInvestigated}`);
+
             const completedClass = isInvestigated ? ' completed' : '';
             const investigatedLabel = isInvestigated ? '<span style="color: #4caf50; font-weight: 600; margin-left: 8px;">✓ Investigated</span>' : '';
 
@@ -3734,16 +3754,22 @@
 
     function addKnowledge(knowledge) {
         // Debug: Log what we received
-        console.log('addKnowledge received:', knowledge);
-        console.log('questLink:', knowledge.questLink, 'progress:', knowledge.progress);
+        console.log('======= addKnowledge START =======');
+        console.log('Knowledge received:', knowledge);
+        console.log('Current knowledgeAcquired array length BEFORE:', knowledgeAcquired.length);
+        console.log('Current knowledgeAcquired array:', JSON.stringify(knowledgeAcquired));
 
         // Check if already acquired
         if (knowledgeAcquired.some(k => k.id === knowledge.id)) {
+            console.log('Knowledge already acquired, skipping');
             return;
         }
 
         knowledgeAcquired.push(knowledge);
+        console.log('Knowledge added. New length:', knowledgeAcquired.length);
+        console.log('Calling updateKnowledgeList()...');
         updateKnowledgeList();
+        console.log('updateKnowledgeList() completed');
 
         // Track the source discovery as completed if provided
         if (knowledge.source_discovery || knowledge.discovery_name) {
@@ -3822,6 +3848,16 @@
         encountersRecord.push(encounter);
         updateEncountersList();
 
+        // Track discovery as completed if this is a discovery encounter
+        if (encounter.type === 'discovery' && encounter.name) {
+            completedDiscoveries.add(encounter.name);
+            console.log('Discovery marked as completed (from encounter):', encounter.name);
+            // Refresh the Investigate Scene dialog if it's open
+            if (currentSceneData && currentSceneData.discoveries) {
+                populateDiscoveries(currentSceneData.discoveries);
+            }
+        }
+
         // Refresh quest progress bars
         refreshQuestProgress();
 
@@ -3848,18 +3884,28 @@
     }
 
     function updateKnowledgeList() {
+        console.log('======= updateKnowledgeList START =======');
+        console.log('knowledgeAcquired.length:', knowledgeAcquired.length);
+
         const knowledgeList = document.getElementById('knowledgeList');
         const knowledgeCount = document.getElementById('knowledgeCount');
+
+        console.log('knowledgeList element:', knowledgeList);
+        console.log('knowledgeCount element:', knowledgeCount);
 
         // Update count badge
         if (knowledgeCount) {
             knowledgeCount.textContent = `(${knowledgeAcquired.length})`;
+            console.log('Updated count badge to:', knowledgeAcquired.length);
         }
 
         if (knowledgeAcquired.length === 0) {
             knowledgeList.innerHTML = '<p style="font-style: italic; color: #a0aec0;">No knowledge acquired yet. Explore the world to learn more!</p>';
+            console.log('Set empty state message');
             return;
         }
+
+        console.log('Building knowledge list HTML...');
 
         let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
         knowledgeAcquired.forEach(knowledge => {
@@ -3878,6 +3924,8 @@
         html += '</ul>';
 
         knowledgeList.innerHTML = html;
+        console.log('Knowledge list HTML updated. Final HTML length:', html.length);
+        console.log('======= updateKnowledgeList END =======');
     }
 
     function updateItemsList() {
@@ -4041,6 +4089,51 @@
         if (!isFirstSceneLoad) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+    }
+
+    // Handle streaming chunks for GM answers and action outcomes
+    function handleStreamingChunk(data) {
+        const chatMessages = document.getElementById('chatMessages');
+
+        if (!streamingMessageDiv) {
+            streamingContent = "";
+            streamingMessageDiv = document.createElement('div');
+            streamingMessageDiv.className = 'chat-message message-dm';
+            streamingMessageDiv.innerHTML = `
+                <div class="message-sender">👤 Game Master</div>
+                <div class="message-content" id="streamingContent"></div>
+                <div class="message-time">${formatTime(new Date().toISOString())}</div>
+            `;
+            chatMessages.appendChild(streamingMessageDiv);
+        }
+
+        if (data.is_complete) {
+            if (streamingMessageDiv) {
+                const contentDiv = streamingMessageDiv.querySelector('.message-content');
+                contentDiv.innerHTML = formatMessageContent(streamingContent);
+
+                const plainText = contentDiv.innerText || contentDiv.textContent;
+                addTTSButtonToMessage(streamingMessageDiv, plainText);
+
+                if (autoPlayEnabled && plainText.length < 3000) {
+                    setTimeout(() => {
+                        playTextToSpeech(plainText, streamingMessageDiv);
+                    }, 500);
+                } else if (autoPlayEnabled && plainText.length >= 3000) {
+                    console.log('Skipping auto-play: text too long (' + plainText.length + ' chars)');
+                }
+            }
+
+            streamingMessageDiv = null;
+            streamingContent = "";
+            return;
+        }
+
+        streamingContent += data.chunk;
+        const contentDiv = streamingMessageDiv.querySelector('.message-content');
+        contentDiv.innerHTML = formatMessageContent(streamingContent);
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     function addChatMessage(message) {
@@ -4627,27 +4720,27 @@
                 // Load persisted knowledge and items
                 if (state.player_knowledge && state.players && state.players.length > 0) {
                     const playerId = state.players[0].player_id;
-                    const playerKnowledge = state.player_knowledge[playerId] || [];
+                    const playerKnowledgeDict = state.player_knowledge[playerId] || {};
 
-                    // Populate knowledgeAcquired array with full objects
-                    playerKnowledge.forEach(knowledge => {
-                        // Format knowledge object for frontend
-                        const knowledgeObj = {
-                            id: knowledge.knowledge_id,
-                            name: knowledge.name || knowledge.title,
-                            description: knowledge.description || '',
-                            source: knowledge.source || 'Learned during your journey',
-                            source_discovery: knowledge.source_discovery || null
-                        };
+                    // player_knowledge is a dictionary: {knowledge_id: level}
+                    // We need to iterate over the keys (knowledge IDs)
+                    const knowledgeIds = Object.keys(playerKnowledgeDict);
 
-                        // Add to knowledgeAcquired if not already present
-                        if (!knowledgeAcquired.some(k => k.id === knowledgeObj.id)) {
+                    // For each knowledge ID, we should have received a knowledge_gained event
+                    // that already added it to knowledgeAcquired. But if we're loading from
+                    // persisted state on page load/refresh, we won't have those objects.
+                    // For now, just create placeholder objects from the IDs.
+                    knowledgeIds.forEach(knowledgeId => {
+                        // Check if already in knowledgeAcquired
+                        if (!knowledgeAcquired.some(k => k.id === knowledgeId)) {
+                            // Create a placeholder - the real data should come from knowledge_gained events
+                            const knowledgeObj = {
+                                id: knowledgeId,
+                                name: knowledgeId.replace(/_/g, ' ').replace(/knowledge /gi, ''),
+                                description: 'Previously acquired knowledge',
+                                source: 'From previous session'
+                            };
                             knowledgeAcquired.push(knowledgeObj);
-
-                            // Track completed discovery
-                            if (knowledgeObj.source_discovery) {
-                                completedDiscoveries.add(knowledgeObj.source_discovery);
-                            }
                         }
                     });
 
@@ -4928,16 +5021,18 @@
                 }
             }
 
-            const params = new URLSearchParams({
-                text: text,
-                voice_type: voiceType
-            });
-
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-            const response = await fetch(`http://localhost:9500/api/v1/tts/generate?${params.toString()}`, {
+            const response = await fetch(`http://localhost:9500/api/v1/tts/generate`, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text,
+                    voice_type: voiceType
+                }),
                 signal: controller.signal
             });
 

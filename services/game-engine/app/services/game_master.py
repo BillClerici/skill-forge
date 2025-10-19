@@ -559,7 +559,8 @@ Respond as {npc_name}.""")
     async def answer_player_question(
         self,
         question: str,
-        state: GameSessionState
+        state: GameSessionState,
+        stream_callback=None
     ) -> str:
         """
         Answer player's question about the game world, quest, or story
@@ -567,6 +568,7 @@ Respond as {npc_name}.""")
         Args:
             question: Player's question
             state: Current game session state
+            stream_callback: Optional async callback to receive text chunks as they're generated
 
         Returns:
             Game Master's response
@@ -650,7 +652,8 @@ Return ONLY your answer (no JSON, no additional commentary).""")
             ])
 
             chain = prompt | self.llm
-            response = await chain.ainvoke({
+
+            prompt_params = {
                 "question": question,
                 "conversation_history": self._format_chat_history(state.get("chat_messages", []), last_n=10),
                 "world_name": world.get("world_name", "Unknown World") if world else "Unknown World",
@@ -662,9 +665,20 @@ Return ONLY your answer (no JSON, no additional commentary).""")
                 "quest_title": quest.get("name", "Current Quest") if quest else "Current Quest",
                 "scene_name": scene.get("name", "Current Location") if scene else "Current Location",
                 "recent_actions": self._format_recent_actions(state.get("action_history", [])[-3:])
-            })
+            }
 
-            answer = response.content.strip()
+            # Use streaming if callback provided
+            if stream_callback:
+                answer = ""
+                async for chunk in chain.astream(prompt_params):
+                    if hasattr(chunk, 'content'):
+                        chunk_text = chunk.content
+                        answer += chunk_text
+                        await stream_callback(chunk_text)
+                answer = answer.strip()
+            else:
+                response = await chain.ainvoke(prompt_params)
+                answer = response.content.strip()
 
             logger.info(
                 "player_question_answered",
@@ -689,7 +703,8 @@ Return ONLY your answer (no JSON, no additional commentary).""")
     async def generate_generic_action_outcome(
         self,
         action_description: str,
-        state: GameSessionState
+        state: GameSessionState,
+        stream_callback=None
     ) -> str:
         """
         Generate narrative outcome for a freeform/creative player action
@@ -697,6 +712,7 @@ Return ONLY your answer (no JSON, no additional commentary).""")
         Args:
             action_description: What the player is attempting to do
             state: Current game session state
+            stream_callback: Optional async callback to receive text chunks as they're generated
 
         Returns:
             Narrative description of the action's outcome
@@ -754,7 +770,8 @@ Return ONLY the narrative outcome (no JSON, no additional commentary).""")
             ])
 
             chain = prompt | self.llm
-            response = await chain.ainvoke({
+
+            prompt_params = {
                 "action_description": action_description,
                 "conversation_history": self._format_chat_history(state.get("chat_messages", []), last_n=10),
                 "scene_name": scene.get("name", "Current Location") if scene else "Current Location",
@@ -764,9 +781,20 @@ Return ONLY the narrative outcome (no JSON, no additional commentary).""")
                 "active_events": ", ".join([e.get("name", "") for e in state.get("active_events", [])]) or "None",
                 "recent_actions": self._format_recent_actions(state.get("action_history", [])[-3:]),
                 "blooms_level": cognitive_profile.get("current_bloom_tier", "Understand")
-            })
+            }
 
-            outcome = response.content.strip()
+            # Use streaming if callback provided
+            if stream_callback:
+                outcome = ""
+                async for chunk in chain.astream(prompt_params):
+                    if hasattr(chunk, 'content'):
+                        chunk_text = chunk.content
+                        outcome += chunk_text
+                        await stream_callback(chunk_text)
+                outcome = outcome.strip()
+            else:
+                response = await chain.ainvoke(prompt_params)
+                outcome = response.content.strip()
 
             logger.info(
                 "generic_action_outcome_generated",

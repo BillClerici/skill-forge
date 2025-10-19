@@ -214,6 +214,94 @@ class RedisSessionManager:
             logger.error("get_active_sessions_failed", error=str(e))
             return []
 
+    # ===================================
+    # PERFORMANCE OPTIMIZATION: Generic Data Caching
+    # ===================================
+
+    async def cache_get(self, key: str) -> Optional[Dict[str, Any]]:
+        """
+        Get cached data from Redis
+
+        Args:
+            key: Cache key
+
+        Returns:
+            Cached data or None if not found
+        """
+        try:
+            cached = await self.redis.get(key)
+            if cached:
+                logger.debug("cache_hit", key=key)
+                return json.loads(cached)
+            logger.debug("cache_miss", key=key)
+            return None
+        except Exception as e:
+            logger.error("cache_get_failed", key=key, error=str(e))
+            return None
+
+    async def cache_set(self, key: str, data: Dict[str, Any], ttl_seconds: int = 3600) -> bool:
+        """
+        Set cached data in Redis
+
+        Args:
+            key: Cache key
+            data: Data to cache
+            ttl_seconds: Time to live in seconds (default 1 hour)
+
+        Returns:
+            True if cached successfully
+        """
+        try:
+            data_json = json.dumps(data, default=str)
+            await self.redis.setex(key, ttl_seconds, data_json)
+            logger.debug("cache_set", key=key, ttl_seconds=ttl_seconds, size_bytes=len(data_json))
+            return True
+        except Exception as e:
+            logger.error("cache_set_failed", key=key, error=str(e))
+            return False
+
+    async def cache_delete(self, key: str) -> bool:
+        """
+        Delete cached data from Redis
+
+        Args:
+            key: Cache key
+
+        Returns:
+            True if deleted successfully
+        """
+        try:
+            await self.redis.delete(key)
+            logger.debug("cache_deleted", key=key)
+            return True
+        except Exception as e:
+            logger.error("cache_delete_failed", key=key, error=str(e))
+            return False
+
+    async def cache_get_campaign(self, campaign_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached campaign data"""
+        return await self.cache_get(f"campaign:{campaign_id}")
+
+    async def cache_set_campaign(self, campaign_id: str, data: Dict[str, Any]) -> bool:
+        """Cache campaign data (1 hour TTL)"""
+        return await self.cache_set(f"campaign:{campaign_id}", data, ttl_seconds=3600)
+
+    async def cache_get_quest(self, quest_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached quest data"""
+        return await self.cache_get(f"quest:{quest_id}")
+
+    async def cache_set_quest(self, quest_id: str, data: Dict[str, Any]) -> bool:
+        """Cache quest data (1 hour TTL)"""
+        return await self.cache_set(f"quest:{quest_id}", data, ttl_seconds=3600)
+
+    async def cache_get_world(self, world_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached world data"""
+        return await self.cache_get(f"world:{world_id}")
+
+    async def cache_set_world(self, world_id: str, data: Dict[str, Any]) -> bool:
+        """Cache world data (1 hour TTL)"""
+        return await self.cache_set(f"world:{world_id}", data, ttl_seconds=3600)
+
 
 # Global instance
 redis_manager = RedisSessionManager()

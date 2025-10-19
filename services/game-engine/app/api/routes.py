@@ -3,8 +3,9 @@ FastAPI Routes for Game Engine
 Includes WebSocket endpoints and REST API
 """
 from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Query
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile, Query, Body
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime
 import json
@@ -755,17 +756,20 @@ async def _execute_workflow_initialization(
 # Text-to-Speech (TTS) Endpoints
 # ============================================
 
+class TTSRequest(BaseModel):
+    """Request model for TTS generation"""
+    text: str
+    voice_type: str = "game_master"
+
 @router.post("/tts/generate")
 async def generate_tts(
-    text: str = Query(..., description="Text to convert to speech"),
-    voice_type: str = Query("game_master", description="Voice type: game_master, dramatic, friendly, mysterious, heroic")
+    request: TTSRequest
 ) -> StreamingResponse:
     """
     Generate text-to-speech audio for narration
 
     Args:
-        text: Text to convert to speech
-        voice_type: Type of voice to use
+        request: TTS request containing text and voice_type
 
     Returns:
         Audio stream (MP3)
@@ -779,12 +783,12 @@ async def generate_tts(
 
         logger.info(
             "tts_generation_requested",
-            text_length=len(text),
-            voice_type=voice_type
+            text_length=len(request.text),
+            voice_type=request.voice_type
         )
 
         # Generate audio with caching for better performance
-        audio_bytes = tts_service.generate_speech_bytes(text, voice_type)
+        audio_bytes = tts_service.generate_speech_bytes(request.text, request.voice_type)
 
         if not audio_bytes:
             raise HTTPException(

@@ -479,7 +479,7 @@ class MongoPersistence:
 
     async def get_campaign(self, campaign_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get campaign data from MongoDB
+        Get campaign data from MongoDB with Redis caching
 
         Args:
             campaign_id: Campaign ID
@@ -488,6 +488,14 @@ class MongoPersistence:
             Campaign data or None
         """
         try:
+            # PERFORMANCE OPTIMIZATION: Check Redis cache first
+            from .redis_manager import redis_manager
+            cached = await redis_manager.cache_get_campaign(campaign_id)
+            if cached:
+                logger.info("campaign_loaded_from_cache", campaign_id=campaign_id)
+                return cached
+
+            # Cache miss - load from MongoDB
             campaign = await self.db.campaigns.find_one({"_id": campaign_id})
 
             if campaign:
@@ -495,7 +503,10 @@ class MongoPersistence:
                 campaign.pop("_id", None)
                 campaign["campaign_id"] = campaign_id
 
-                logger.info("campaign_loaded", campaign_id=campaign_id)
+                # Cache for future requests
+                await redis_manager.cache_set_campaign(campaign_id, campaign)
+
+                logger.info("campaign_loaded_from_mongodb", campaign_id=campaign_id)
                 return campaign
             else:
                 logger.warning("campaign_not_found", campaign_id=campaign_id)
@@ -507,7 +518,7 @@ class MongoPersistence:
 
     async def get_quest(self, quest_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get quest data from MongoDB
+        Get quest data from MongoDB with Redis caching
 
         Args:
             quest_id: Quest ID
@@ -516,6 +527,14 @@ class MongoPersistence:
             Quest data or None
         """
         try:
+            # PERFORMANCE OPTIMIZATION: Check Redis cache first
+            from .redis_manager import redis_manager
+            cached = await redis_manager.cache_get_quest(quest_id)
+            if cached:
+                logger.info("quest_loaded_from_cache", quest_id=quest_id)
+                return cached
+
+            # Cache miss - load from MongoDB
             quest = await self.db.quests.find_one({"_id": quest_id})
 
             if quest:
@@ -523,7 +542,10 @@ class MongoPersistence:
                 quest.pop("_id", None)
                 quest["quest_id"] = quest_id
 
-                logger.info("quest_loaded", quest_id=quest_id, title=quest.get("title", "Unknown"))
+                # Cache for future requests
+                await redis_manager.cache_set_quest(quest_id, quest)
+
+                logger.info("quest_loaded_from_mongodb", quest_id=quest_id, title=quest.get("title", "Unknown"))
                 return quest
             else:
                 logger.warning("quest_not_found", quest_id=quest_id)
@@ -915,6 +937,156 @@ class MongoPersistence:
 
         except Exception as e:
             logger.error("knowledge_load_failed", error=str(e))
+            return []
+
+    async def get_quests_by_ids(self, quest_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get quests by their IDs (batch query)
+
+        Args:
+            quest_ids: List of quest IDs
+
+        Returns:
+            List of quest data
+        """
+        try:
+            if not quest_ids:
+                return []
+
+            cursor = self.db.quests.find({"_id": {"$in": quest_ids}})
+
+            quests_list = []
+            async for quest in cursor:
+                quest_id = quest.pop("_id", None)
+                quest["quest_id"] = quest_id
+                quests_list.append(quest)
+
+            logger.info("quests_batch_loaded", count=len(quests_list), requested=len(quest_ids))
+
+            return quests_list
+
+        except Exception as e:
+            logger.error("quests_batch_load_failed", error=str(e))
+            return []
+
+    async def get_places_by_ids(self, place_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get places by their IDs (batch query)
+
+        Args:
+            place_ids: List of place IDs
+
+        Returns:
+            List of place data
+        """
+        try:
+            if not place_ids:
+                return []
+
+            cursor = self.db.places.find({"_id": {"$in": place_ids}})
+
+            places_list = []
+            async for place in cursor:
+                place_id = place.pop("_id", None)
+                place["place_id"] = place_id
+                places_list.append(place)
+
+            logger.info("places_batch_loaded", count=len(places_list), requested=len(place_ids))
+
+            return places_list
+
+        except Exception as e:
+            logger.error("places_batch_load_failed", error=str(e))
+            return []
+
+    async def get_scenes_by_ids(self, scene_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get scenes by their IDs (batch query)
+
+        Args:
+            scene_ids: List of scene IDs
+
+        Returns:
+            List of scene data
+        """
+        try:
+            if not scene_ids:
+                return []
+
+            cursor = self.db.scenes.find({"_id": {"$in": scene_ids}})
+
+            scenes_list = []
+            async for scene in cursor:
+                scene_id = scene.pop("_id", None)
+                scene["scene_id"] = scene_id
+                scenes_list.append(scene)
+
+            logger.info("scenes_batch_loaded", count=len(scenes_list), requested=len(scene_ids))
+
+            return scenes_list
+
+        except Exception as e:
+            logger.error("scenes_batch_load_failed", error=str(e))
+            return []
+
+    async def get_regions_by_ids(self, region_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get regions by their IDs (batch query)
+
+        Args:
+            region_ids: List of region IDs
+
+        Returns:
+            List of region data
+        """
+        try:
+            if not region_ids:
+                return []
+
+            cursor = self.db.regions.find({"_id": {"$in": region_ids}})
+
+            regions_list = []
+            async for region in cursor:
+                region_id = region.pop("_id", None)
+                region["region_id"] = region_id
+                regions_list.append(region)
+
+            logger.info("regions_batch_loaded", count=len(regions_list), requested=len(region_ids))
+
+            return regions_list
+
+        except Exception as e:
+            logger.error("regions_batch_load_failed", error=str(e))
+            return []
+
+    async def get_species_by_ids(self, species_ids: List[str]) -> List[Dict[str, Any]]:
+        """
+        Get species by their IDs (batch query)
+
+        Args:
+            species_ids: List of species IDs
+
+        Returns:
+            List of species data
+        """
+        try:
+            if not species_ids:
+                return []
+
+            cursor = self.db.species.find({"_id": {"$in": species_ids}})
+
+            species_list = []
+            async for spec in cursor:
+                species_id = spec.pop("_id", None)
+                spec["species_id"] = species_id
+                species_list.append(spec)
+
+            logger.info("species_batch_loaded", count=len(species_list), requested=len(species_ids))
+
+            return species_list
+
+        except Exception as e:
+            logger.error("species_batch_load_failed", error=str(e))
             return []
 
     async def get_item(self, item_id: str) -> Optional[Dict[str, Any]]:
