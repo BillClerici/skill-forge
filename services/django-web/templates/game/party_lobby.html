@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Party Lobby - {{ campaign.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .party-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .party-header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
+
+    .party-header h1 {
+        font-size: 2.5rem;
+        background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-weight: 800;
+        margin-bottom: 0.5rem;
+        filter: brightness(1.2);
+    }
+
+    .party-header p {
+        font-size: 1.1rem;
+        color: #a0aec0;
+    }
+
+    .campaign-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 2rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .campaign-info h2 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+    }
+
+    .campaign-info p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .players-section {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .players-section h3 {
+        color: #2d3748;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+    }
+
+    .player-list {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .player-card {
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        border-left: 4px solid #667eea;
+    }
+
+    .player-icon {
+        font-size: 2rem;
+    }
+
+    .player-info {
+        flex: 1;
+    }
+
+    .player-name {
+        font-weight: 700;
+        color: #2d3748;
+        font-size: 1.1rem;
+    }
+
+    .character-name {
+        color: #718096;
+        font-size: 0.9rem;
+    }
+
+    .player-status {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .status-ready {
+        background: #48bb78;
+        color: white;
+    }
+
+    .status-waiting {
+        background: #edf2f7;
+        color: #718096;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-secondary {
+        background: #e2e8f0;
+        color: #4a5568;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+        background: #cbd5e0;
+    }
+
+    .waiting-message {
+        text-align: center;
+        padding: 2rem;
+        background: #fff5e6;
+        border-radius: 8px;
+        color: #8b6914;
+        margin-top: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="party-container">
+    <div class="party-header">
+        <h1><span style="-webkit-text-fill-color: initial;">👥</span> Party Lobby</h1>
+        <p>Gather your party and prepare for adventure!</p>
+    </div>
+
+    <div class="campaign-info">
+        <h2>{{ campaign.title }}</h2>
+        <p>{{ campaign.description|default:"Embark on an epic adventure together!" }}</p>
+    </div>
+
+    <div class="players-section">
+        <h3>Party Members ({{ players|length }}/{{ party_settings.max_players|default:4 }})</h3>
+
+        <div class="player-list">
+            {% for player in players %}
+            <div class="player-card">
+                <div class="player-icon">🎮</div>
+                <div class="player-info">
+                    <div class="player-name">Player {{ forloop.counter }}</div>
+                    <div class="character-name">{{ player.character_name|default:"Unknown Character" }}</div>
+                </div>
+                <span class="player-status status-ready">Ready</span>
+            </div>
+            {% endfor %}
+
+            {% if players|length < party_settings.max_players|default:4 %}
+            <div class="player-card" style="opacity: 0.5; border-left-color: #cbd5e0;">
+                <div class="player-icon">⏳</div>
+                <div class="player-info">
+                    <div class="player-name">Waiting for players...</div>
+                    <div class="character-name">Share the session link to invite friends</div>
+                </div>
+                <span class="player-status status-waiting">Waiting</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <button onclick="window.location.href='{% url 'game_lobby' %}'" class="btn-secondary">
+            ⬅️ Back to Lobby
+        </button>
+
+        {% if players|length >= party_settings.min_players|default:1 %}
+        <button onclick="startPartyGame()" class="btn-primary">
+            🎮 Start Adventure
+        </button>
+        {% else %}
+        <div class="waiting-message">
+            ⏳ Waiting for at least {{ party_settings.min_players|default:1 }} player(s) to join...
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function startPartyGame() {
+        // Redirect to the game session
+        window.location.href = '{% url 'game_session' session_id %}';
+    }
+</script>
+{% endblock %}

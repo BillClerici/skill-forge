@@ -6,6 +6,8 @@ import requests
 import uuid
 import os
 import json
+import redis
+from datetime import datetime
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.views import View
@@ -20,6 +22,11 @@ from members.models import Player
 MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mongodb:27017')
 mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client['skillforge']
+
+# Redis connection
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 
 class GameLobbyView(View):
@@ -75,10 +82,55 @@ class GameLobbyView(View):
             # TODO: Remove this for production - for testing, show all characters
             characters = Character.objects.filter(is_active=True)
 
+        # Get active game sessions from Redis
+        active_sessions = []
+        try:
+            # Get all session keys from Redis
+            session_keys = redis_client.keys('session:state:*')
+
+            for key in session_keys:
+                session_data_raw = redis_client.get(key)
+                if session_data_raw:
+                    session_data = json.loads(session_data_raw)
+                    session_id = session_data.get('session_id', '')
+
+                    # Get campaign info
+                    campaign_id = session_data.get('campaign_id')
+                    campaign_info = db.campaigns.find_one({'_id': campaign_id}) if campaign_id else None
+
+                    # Get character info
+                    players = session_data.get('players', [])
+                    character_names = []
+                    for player_data in players:
+                        char_id = player_data.get('character_id')
+                        if char_id:
+                            try:
+                                character = Character.objects.get(character_id=char_id)
+                                character_names.append(character.name)
+                            except Character.DoesNotExist:
+                                character_names.append('Unknown Character')
+
+                    active_sessions.append({
+                        'session_id': session_id,
+                        'campaign_name': campaign_info.get('name', 'Unknown Campaign') if campaign_info else 'Unknown Campaign',
+                        'campaign_id': campaign_id,
+                        'started_at': session_data.get('started_at', ''),
+                        'status': session_data.get('status', 'active'),
+                        'character_names': character_names,
+                        'current_scene': session_data.get('scene_name', 'Unknown Location'),
+                        'player_count': len(players)
+                    })
+
+            # Sort by started_at (most recent first)
+            active_sessions.sort(key=lambda x: x['started_at'], reverse=True)
+        except Exception as e:
+            print(f"Error fetching active sessions: {e}")
+
         context = {
             'campaigns': campaigns,
             'characters': characters,
-            'player_id': player_id
+            'player_id': player_id,
+            'active_sessions': active_sessions
         }
 
         return render(request, 'game/lobby.html', context)
@@ -579,3 +631,44 @@ class CampaignImagesAPIView(View):
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+
+
+class DeleteSessionView(View):
+    """Delete a game session from all storage"""
+
+    def post(self, request):
+        try:
+            session_id = request.POST.get('session_id')
+            if not session_id:
+                return JsonResponse({'error': 'Session ID is required'}, status=400)
+
+            # Delete from Redis (session state and cache)
+            try:
+                # Delete session state
+                redis_client.delete(f'session:state:{session_id}')
+                # Delete session lock
+                redis_client.delete(f'session:lock:{session_id}')
+                # Delete any cached campaign/quest data for this session
+                redis_client.delete(f'campaign:{session_id}')
+                redis_client.delete(f'quest:{session_id}')
+            except Exception as e:
+                print(f"Error deleting from Redis: {e}")
+
+            # Delete from MongoDB (if session data is persisted there)
+            try:
+                db.game_sessions.delete_many({'session_id': session_id})
+            except Exception as e:
+                print(f"Error deleting from MongoDB: {e}")
+
+            # Note: PostgreSQL Character data is NOT deleted since it's independent of sessions
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Session deleted successfully'
+            })
+
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e),
+                'success': False
+            }, status=500)

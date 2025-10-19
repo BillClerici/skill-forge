@@ -18,16 +18,239 @@
 
     .lobby-header h1 {
         font-size: 3rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
+        font-weight: 800;
         margin-bottom: 0.5rem;
+        filter: brightness(1.2);
     }
 
     .lobby-header p {
         font-size: 1.2rem;
-        color: #718096;
+        color: #a0aec0;
+    }
+
+    /* Games in Progress Section */
+    .games-in-progress {
+        margin-bottom: 3rem;
+    }
+
+    .games-in-progress-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 3px solid #667eea;
+    }
+
+    .games-in-progress-header h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        filter: brightness(1.2);
+    }
+
+    .session-count {
+        background: #ffffff;
+        color: #000000;
+        padding: 0.15rem 0.5rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 900;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        border: 2px solid #667eea;
+        min-width: 1.5rem;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+    .sessions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .session-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .session-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+        pointer-events: none;
+    }
+
+    .session-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(102, 126, 234, 0.4);
+    }
+
+    .session-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .session-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 0.25rem;
+    }
+
+    .session-status {
+        background: rgba(76, 175, 80, 0.9);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .session-info {
+        position: relative;
+        z-index: 1;
+        margin-bottom: 1rem;
+    }
+
+    .session-meta {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .session-meta strong {
+        color: white;
+        font-weight: 600;
+    }
+
+    .session-characters {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .character-tag {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+    .session-actions {
+        display: flex;
+        gap: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .btn-join {
+        flex: 1;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.95);
+        color: #667eea;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-join:hover {
+        background: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-delete {
+        padding: 0.75rem 1rem;
+        background: rgba(239, 68, 68, 0.9);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .btn-delete:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .empty-sessions {
+        text-align: center;
+        padding: 3rem;
+        background: #f7fafc;
+        border-radius: 12px;
+        color: #a0aec0;
+    }
+
+    .empty-sessions-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    /* Delete Confirmation Modal - Matching App Style */
+    #deleteSessionModal.modal {
+        max-width: 600px;
+    }
+
+    #deleteSessionModal .modal-content {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #e0e0e0;
+    }
+
+    #deleteSessionModal h4 {
+        color: #ff6b6b;
+    }
+
+    #deleteSessionModal .modal-footer {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+
+    .warning-box {
+        background: rgba(255, 107, 107, 0.1);
+        border-left: 4px solid #ff6b6b;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 4px;
     }
 
     .campaigns-grid {
@@ -257,7 +480,7 @@
 {% block content %}
 <div class="lobby-container">
     <div class="lobby-header">
-        <h1>🎮 Choose Your Adventure</h1>
+        <h1><span style="filter: none; -webkit-text-fill-color: initial;">🎮</span> Choose Your Adventure</h1>
         <p>Select a campaign and character to begin your journey</p>
     </div>
 
@@ -265,6 +488,66 @@
     <div class="no-characters">
         <p>You don't have any characters yet!</p>
         <a href="{% url 'player_list' %}">Create a character</a> to start playing.
+    </div>
+    {% endif %}
+
+    <!-- Games in Progress Section -->
+    {% if active_sessions %}
+    <div class="games-in-progress">
+        <div class="games-in-progress-header">
+            <h2>
+                <span style="-webkit-text-fill-color: initial;">🎯</span> Games in Progress
+                <span class="session-count" style="-webkit-text-fill-color: #000000; color: #000000;">{{ active_sessions|length }}</span>
+            </h2>
+        </div>
+
+        <div class="sessions-grid">
+            {% for session in active_sessions %}
+            <div class="session-card">
+                <div class="session-header">
+                    <div>
+                        <div class="session-title">{{ session.campaign_name }}</div>
+                        <div class="session-meta">
+                            <span>📍</span>
+                            <span>{{ session.current_scene }}</span>
+                        </div>
+                    </div>
+                    <span class="session-status">{{ session.status|upper }}</span>
+                </div>
+
+                <div class="session-info">
+                    {% if session.character_names %}
+                    <div class="session-characters">
+                        <strong>👥 Characters:</strong>
+                        {% for character in session.character_names %}
+                        <span class="character-tag">{{ character }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="session-actions">
+                    <button class="btn-join" onclick="window.location.href='{% url 'game_session' session.session_id %}'">
+                        🎮 Continue Game
+                    </button>
+                    <button class="btn-delete" onclick="deleteSession('{{ session.session_id }}', event)">
+                        🗑️ Delete
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="games-in-progress">
+        <div class="games-in-progress-header">
+            <h2><span style="-webkit-text-fill-color: initial;">🎯</span> Games in Progress</h2>
+        </div>
+        <div class="empty-sessions">
+            <div class="empty-sessions-icon">🎮</div>
+            <p>No active game sessions</p>
+            <p style="font-size: 0.875rem; margin-top: 0.5rem;">Start a new game below to begin your adventure!</p>
+        </div>
     </div>
     {% endif %}
 
@@ -354,6 +637,40 @@
     <input type="hidden" name="auto_start" id="autoStart" value="false">
 </form>
 
+<!-- Delete Confirmation Modal -->
+<div id="deleteSessionModal" class="modal">
+    <div class="modal-content">
+        <h4>
+            <i class="material-icons left" style="font-size: 2rem;">warning</i>
+            Delete Game Session
+        </h4>
+        <p style="font-size: 1.1rem; margin: 20px 0; line-height: 1.6;">
+            <strong style="color: #ff6b6b;">WARNING:</strong> This action will permanently delete this game session and ALL related data.
+        </p>
+        <div class="warning-box">
+            <p style="margin: 0; line-height: 1.8;">
+                All progress, quest data, discoveries, and session state will be permanently removed from:
+            </p>
+            <ul style="margin: 10px 0 0 0; padding-left: 25px; line-height: 1.8;">
+                <li><strong>Redis:</strong> Session state and cached data</li>
+                <li><strong>MongoDB:</strong> Game session records and progress</li>
+            </ul>
+        </div>
+        <p style="font-size: 0.95rem; margin: 15px 0; color: #ffab40;">
+            <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+            <strong>This operation cannot be undone.</strong>
+        </p>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
+            <i class="material-icons left">cancel</i>Cancel
+        </a>
+        <button id="confirmDeleteBtn" class="btn waves-effect waves-light red darken-2" onclick="confirmDelete()">
+            <i class="material-icons left">delete_forever</i>Yes, Delete Session
+        </button>
+    </div>
+</div>
+
 <script>
     let selectedCampaignId = null;
     let selectedCharacterId = null;
@@ -414,6 +731,97 @@
 
     function showCampaignDetails(campaignId) {
         window.location.href = `/campaigns/${campaignId}/`;
+    }
+
+    let pendingDeleteSessionId = null;
+    let pendingDeleteButton = null;
+
+    // Initialize Materialize modals
+    document.addEventListener('DOMContentLoaded', function() {
+        const elems = document.querySelectorAll('.modal');
+        const instances = M.Modal.init(elems, {
+            onCloseEnd: function() {
+                // Reset pending delete variables when modal closes
+                pendingDeleteSessionId = null;
+                pendingDeleteButton = null;
+            }
+        });
+    });
+
+    function deleteSession(sessionId, event) {
+        event.stopPropagation();
+
+        // Store the session ID and button for later
+        pendingDeleteSessionId = sessionId;
+        pendingDeleteButton = event.target;
+
+        // Show the modal using Materialize
+        const modalElem = document.getElementById('deleteSessionModal');
+        const modal = M.Modal.getInstance(modalElem);
+        modal.open();
+    }
+
+    function confirmDelete() {
+        if (!pendingDeleteSessionId || !pendingDeleteButton) {
+            return;
+        }
+
+        // Close modal
+        const modalElem = document.getElementById('deleteSessionModal');
+        const modal = M.Modal.getInstance(modalElem);
+        modal.close();
+
+        const button = pendingDeleteButton;
+        const sessionId = pendingDeleteSessionId;
+
+        button.disabled = true;
+        button.textContent = '⏳ Deleting...';
+
+        fetch('{% url "delete_session" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `session_id=${encodeURIComponent(sessionId)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the session card with animation
+                const card = button.closest('.session-card');
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.9)';
+
+                setTimeout(() => {
+                    card.remove();
+
+                    // Check if there are any sessions left
+                    const sessionsGrid = document.querySelector('.sessions-grid');
+                    if (sessionsGrid && sessionsGrid.children.length === 0) {
+                        // Reload page to show empty state
+                        window.location.reload();
+                    } else {
+                        // Update session count
+                        const sessionCount = document.querySelector('.session-count');
+                        if (sessionCount) {
+                            const currentCount = parseInt(sessionCount.textContent);
+                            sessionCount.textContent = currentCount - 1;
+                        }
+                    }
+                }, 300);
+            } else {
+                alert('Failed to delete session: ' + (data.error || 'Unknown error'));
+                button.disabled = false;
+                button.textContent = '🗑️ Delete';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to delete session. Please try again.');
+            button.disabled = false;
+            button.textContent = '🗑️ Delete';
+        });
     }
 </script>
 {% endblock %}
