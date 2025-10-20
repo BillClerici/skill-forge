@@ -103,8 +103,10 @@ async def finalize_campaign_node(state: CampaignWorkflowState) -> CampaignWorkfl
         state["retry_count"] = 0
 
     except Exception as e:
+        import traceback
         error_msg = f"Error finalizing campaign: {str(e)}"
         logger.error(error_msg)
+        logger.error(f"Traceback: {traceback.format_exc()}")
         state["errors"].append(error_msg)
         state["retry_count"] += 1
 

@@ -31,126 +31,196 @@ async def persist_objective_hierarchy_to_neo4j(state: Dict[str, Any], driver: Dr
             logger.warning("No campaign_id found - skipping objective persistence")
             return
 
+        logger.info(f"Using campaign_id: {campaign_id} (type: {type(campaign_id)})")
+
+        # Verify campaign_id is not None or empty
+        if campaign_id is None or campaign_id == "":
+            logger.error("campaign_id is None or empty!")
+            raise ValueError("campaign_id cannot be None or empty")
+
         decompositions = state.get("objective_decompositions", [])
         if not decompositions:
             logger.warning("No objective decompositions found - skipping")
             return
 
+        logger.info(f"Processing {len(decompositions)} objective decompositions")
+
         with driver.session() as session:
-            objectives_created = 0
+            # Start a transaction for atomic operations
+            tx = session.begin_transaction()
 
-            # Create Campaign Objectives and Quest Objectives
-            for decomp in decompositions:
-                campaign_obj_id = decomp.get("campaign_objective_id")
-                campaign_obj_desc = decomp.get("campaign_objective_description")
+            try:
+                objectives_created = 0
 
-                # 1. Create Campaign Objective node
-                session.run("""
-                    MERGE (co:CampaignObjective {id: $obj_id})
-                    SET co.description = $description,
-                        co.status = 'not_started',
-                        co.completion_criteria = $criteria,
-                        co.minimum_quests_required = $min_quests,
-                        co.campaign_id = $campaign_id
+                # Create Campaign Objectives and Quest Objectives
+                for decomp_idx, decomp in enumerate(decompositions):
+                    campaign_obj_id = decomp.get("campaign_objective_id")
+                    campaign_obj_desc = decomp.get("campaign_objective_description")
 
-                    WITH co
-                    MATCH (camp:Campaign {id: $campaign_id})
-                    MERGE (camp)-[:HAS_OBJECTIVE]->(co)
-                """, {
-                    "obj_id": campaign_obj_id,
-                    "description": campaign_obj_desc,
-                    "criteria": decomp.get("completion_criteria", []),
-                    "min_quests": decomp.get("minimum_quests_required", 1),
-                    "campaign_id": campaign_id
-                })
+                    if not campaign_obj_id:
+                        logger.warning(f"Decomposition {decomp_idx} missing campaign_objective_id, skipping")
+                        continue
 
-                objectives_created += 1
-                logger.debug(f"Created campaign objective: {campaign_obj_desc[:50]}...")
+                    # 1. Create Campaign Objective node
+                    try:
+                        params = {
+                            "obj_id": campaign_obj_id,
+                            "description": campaign_obj_desc,
+                            "criteria": decomp.get("completion_criteria", []),
+                            "min_quests": decomp.get("minimum_quests_required", 1),
+                            "campaign_id": campaign_id
+                        }
+                        logger.debug(f"Creating CampaignObjective with params: obj_id={campaign_obj_id}, campaign_id={campaign_id}")
 
-                # 2. Create Quest Objectives
-                for qobj in decomp.get("quest_objectives", []):
-                    qobj_id = qobj.get("objective_id")
-                    qobj_desc = qobj.get("description")
-                    quest_num = qobj.get("quest_number", 1)
+                        tx.run("""
+                            MERGE (co:CampaignObjective {id: $obj_id})
+                            SET co.description = $description,
+                                co.status = 'not_started',
+                                co.completion_criteria = $criteria,
+                                co.minimum_quests_required = $min_quests,
+                                co.campaign_id = $campaign_id
 
-                    # Create Quest Objective node
-                    session.run("""
-                        MERGE (qo:QuestObjective {id: $obj_id})
-                        SET qo.description = $description,
-                            qo.blooms_level = $blooms_level,
-                            qo.quest_number = $quest_num,
-                            qo.success_criteria = $criteria,
-                            qo.status = 'not_started',
-                            qo.campaign_id = $campaign_id,
-                            qo.is_required = $is_required
+                            WITH co
+                            MATCH (camp:Campaign {id: $campaign_id})
+                            MERGE (camp)-[:HAS_OBJECTIVE]->(co)
+                        """, params)
 
-                        WITH qo
-                        MATCH (co:CampaignObjective {id: $campaign_obj_id})
-                        MERGE (qo)-[:SUPPORTS]->(co)
-                        MERGE (co)-[:DECOMPOSES_TO]->(qo)
-                    """, {
-                        "obj_id": qobj_id,
-                        "description": qobj_desc,
-                        "blooms_level": qobj.get("blooms_level", 3),
-                        "quest_num": quest_num,
-                        "criteria": qobj.get("success_criteria", []),
-                        "campaign_id": campaign_id,
-                        "is_required": qobj.get("is_required", True),
-                        "campaign_obj_id": campaign_obj_id
-                    })
+                        objectives_created += 1
+                        logger.debug(f"Created campaign objective: {campaign_obj_desc[:50]}...")
+                    except Exception as e:
+                        logger.error(f"Failed to create CampaignObjective {campaign_obj_id}: {str(e)}")
+                        logger.error(f"Parameters: {params}")
+                        raise
 
-                    objectives_created += 1
-                    logger.debug(f"Created quest objective: {qobj_desc[:50]}...")
+                    # 2. Create Quest Objectives
+                    for qobj_idx, qobj in enumerate(decomp.get("quest_objectives", [])):
+                        qobj_id = qobj.get("objective_id")
+                        qobj_desc = qobj.get("description")
+                        quest_num = qobj.get("quest_number", 1)
 
-                    # 3. Link Quest Objective to Quest node
-                    # Match quest by order_sequence and campaign_id
-                    session.run("""
-                        MATCH (qo:QuestObjective {id: $obj_id})
-                        MATCH (q:Quest)
-                        WHERE q.campaign_id = $campaign_id
-                          AND q.order_sequence = $quest_num
-                        MERGE (q)-[:ACHIEVES]->(qo)
-                    """, {
-                        "obj_id": qobj_id,
-                        "campaign_id": campaign_id,
-                        "quest_num": quest_num
-                    })
+                        if not qobj_id:
+                            logger.warning(f"Quest objective {qobj_idx} missing objective_id, skipping")
+                            continue
 
-                    # 4. Link knowledge domain requirements
-                    for kg_domain in qobj.get("required_knowledge_domains", []):
-                        session.run("""
-                            MATCH (qo:QuestObjective {id: $obj_id})
-                            MATCH (k:Knowledge)
-                            WHERE k.campaign_id = $campaign_id
-                              AND (k.knowledge_type CONTAINS $domain
-                                   OR k.name CONTAINS $domain
-                                   OR k.primary_dimension CONTAINS $domain)
-                            MERGE (qo)-[:REQUIRES_KNOWLEDGE {domain: $domain}]->(k)
-                        """, {
-                            "obj_id": qobj_id,
-                            "campaign_id": campaign_id,
-                            "domain": kg_domain.lower()
-                        })
+                        # Create Quest Objective node
+                        try:
+                            params = {
+                                "obj_id": qobj_id,
+                                "description": qobj_desc,
+                                "blooms_level": qobj.get("blooms_level", 3),
+                                "quest_num": quest_num,
+                                "criteria": qobj.get("success_criteria", []),
+                                "campaign_id": campaign_id,
+                                "is_required": qobj.get("is_required", True),
+                                "campaign_obj_id": campaign_obj_id
+                            }
+                            logger.debug(f"Creating QuestObjective with params: obj_id={qobj_id}, campaign_id={campaign_id}")
 
-                    # 5. Link item category requirements
-                    for item_category in qobj.get("required_item_categories", []):
-                        session.run("""
-                            MATCH (qo:QuestObjective {id: $obj_id})
-                            MATCH (i:Item)
-                            WHERE i.campaign_id = $campaign_id
-                              AND (i.item_type CONTAINS $category
-                                   OR i.name CONTAINS $category)
-                            MERGE (qo)-[:REQUIRES_ITEM {category: $category}]->(i)
-                        """, {
-                            "obj_id": qobj_id,
-                            "campaign_id": campaign_id,
-                            "category": item_category.lower()
-                        })
+                            tx.run("""
+                                MERGE (qo:QuestObjective {id: $obj_id})
+                                SET qo.description = $description,
+                                    qo.blooms_level = $blooms_level,
+                                    qo.quest_number = $quest_num,
+                                    qo.success_criteria = $criteria,
+                                    qo.status = 'not_started',
+                                    qo.campaign_id = $campaign_id,
+                                    qo.is_required = $is_required
 
-        logger.info(f"✓ Created {objectives_created} objective nodes in Neo4j")
+                                WITH qo
+                                MATCH (co:CampaignObjective {id: $campaign_obj_id})
+                                MERGE (qo)-[:SUPPORTS]->(co)
+                                MERGE (co)-[:DECOMPOSES_TO]->(qo)
+                            """, params)
+
+                            objectives_created += 1
+                            logger.debug(f"Created quest objective: {qobj_desc[:50] if qobj_desc else 'No description'}...")
+                        except Exception as e:
+                            logger.error(f"Failed to create QuestObjective {qobj_id}: {str(e)}")
+                            logger.error(f"Parameters: {params}")
+                            raise
+
+                        # 3. Link Quest Objective to Quest node
+                        try:
+                            params = {
+                                "obj_id": qobj_id,
+                                "campaign_id": campaign_id,
+                                "quest_num": quest_num
+                            }
+                            logger.debug(f"Linking QuestObjective {qobj_id} to Quest with quest_num={quest_num}, campaign_id={campaign_id}")
+
+                            tx.run("""
+                                MATCH (qo:QuestObjective {id: $obj_id})
+                                MATCH (q:Quest)
+                                WHERE q.campaign_id = $campaign_id
+                                  AND q.order_sequence = $quest_num
+                                MERGE (q)-[:ACHIEVES]->(qo)
+                            """, params)
+                        except Exception as e:
+                            logger.error(f"Failed to link QuestObjective {qobj_id} to Quest: {str(e)}")
+                            logger.error(f"Parameters: {params}")
+                            raise
+
+                        # 4. Link knowledge domain requirements
+                        for kg_domain in qobj.get("required_knowledge_domains", []):
+                            try:
+                                params = {
+                                    "obj_id": qobj_id,
+                                    "campaign_id": campaign_id,
+                                    "domain": kg_domain.lower()
+                                }
+                                logger.debug(f"Linking knowledge domain '{kg_domain}' to QuestObjective {qobj_id}")
+
+                                tx.run("""
+                                    MATCH (qo:QuestObjective {id: $obj_id})
+                                    MATCH (k:Knowledge)
+                                    WHERE k.campaign_id = $campaign_id
+                                      AND (k.knowledge_type CONTAINS $domain
+                                           OR k.name CONTAINS $domain
+                                           OR k.primary_dimension CONTAINS $domain)
+                                    MERGE (qo)-[:REQUIRES_KNOWLEDGE {domain: $domain}]->(k)
+                                """, params)
+                            except Exception as e:
+                                logger.error(f"Failed to link knowledge domain '{kg_domain}' to QuestObjective {qobj_id}: {str(e)}")
+                                logger.error(f"Parameters: {params}")
+                                # Non-critical, continue
+
+                        # 5. Link item category requirements
+                        for item_category in qobj.get("required_item_categories", []):
+                            try:
+                                params = {
+                                    "obj_id": qobj_id,
+                                    "campaign_id": campaign_id,
+                                    "category": item_category.lower()
+                                }
+                                logger.debug(f"Linking item category '{item_category}' to QuestObjective {qobj_id}")
+
+                                tx.run("""
+                                    MATCH (qo:QuestObjective {id: $obj_id})
+                                    MATCH (i:Item)
+                                    WHERE i.campaign_id = $campaign_id
+                                      AND (i.item_type CONTAINS $category
+                                           OR i.name CONTAINS $category)
+                                    MERGE (qo)-[:REQUIRES_ITEM {category: $category}]->(i)
+                                """, params)
+                            except Exception as e:
+                                logger.error(f"Failed to link item category '{item_category}' to QuestObjective {qobj_id}: {str(e)}")
+                                logger.error(f"Parameters: {params}")
+                                # Non-critical, continue
+
+                # Commit the transaction
+                tx.commit()
+                logger.info(f"✓ Created {objectives_created} objective nodes in Neo4j (transaction committed)")
+
+            except Exception as e:
+                # Rollback transaction on any error
+                tx.rollback()
+                logger.error(f"Transaction rolled back due to error: {str(e)}")
+                raise
 
     except Exception as e:
         logger.error(f"Error persisting objective hierarchy to Neo4j: {str(e)}")
+        logger.error(f"Campaign ID: {state.get('final_campaign_id')}")
+        logger.error(f"Decompositions count: {len(state.get('objective_decompositions', []))}")
         raise
 
 

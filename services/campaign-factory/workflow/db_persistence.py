@@ -498,61 +498,89 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
 
     relationships_created = 0
 
+    logger.info(f"Starting Neo4j relationship creation for campaign: {campaign_id}")
+
     with neo4j_driver.session() as session:
         # Create Campaign node first
-        session.run(
-            """
-            MERGE (camp:Campaign {id: $campaign_id})
-            SET camp.name = $campaign_name,
-                camp.campaign_id = $campaign_id,
-                camp.status = $status,
-                camp.created_at = $created_at
-            """,
-            campaign_id=campaign_id,
-            campaign_name=state["campaign_core"]["name"],
-            status="active",
-            created_at=state["created_at"]
-        )
+        try:
+            logger.info(f"Creating Campaign node with id: {campaign_id}, name: {state['campaign_core']['name']}")
+            session.run(
+                """
+                MERGE (camp:Campaign {id: $campaign_id})
+                SET camp.name = $campaign_name,
+                    camp.campaign_id = $campaign_id,
+                    camp.status = $status,
+                    camp.created_at = $created_at
+                """,
+                campaign_id=campaign_id,
+                campaign_name=state["campaign_core"]["name"],
+                status="active",
+                created_at=state["created_at"]
+            )
+            logger.info(f"✓ Campaign node created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create Campaign node: {str(e)}")
+            logger.error(f"Campaign ID: {campaign_id}, Type: {type(campaign_id)}")
+            raise
 
         # Character participates in Campaign (optional - only if character_id exists)
         if state.get("character_id"):
+            try:
+                logger.info(f"Linking Character to Campaign - character_id: {state.get('character_id')}, campaign_id: {campaign_id}")
+                session.run(
+                    """
+                    MATCH (camp:Campaign {id: $campaign_id})
+                    MERGE (c:Character {id: $character_id})
+                    MERGE (c)-[:PARTICIPATES_IN]->(camp)
+                    """,
+                    character_id=state["character_id"],
+                    campaign_id=campaign_id
+                )
+                relationships_created += 1
+                logger.info("✓ Character linked to Campaign successfully")
+            except Exception as e:
+                logger.error(f"Failed to link Character to Campaign: {str(e)}")
+                logger.error(f"Parameters: character_id={state.get('character_id')}, campaign_id={campaign_id}")
+                raise
+
+        # Campaign takes place in World and Region
+        try:
+            logger.info(f"Linking Campaign to World and Region - campaign_id: {campaign_id}, world_id: {state.get('world_id')}, region_id: {state.get('region_id')}")
             session.run(
                 """
                 MATCH (camp:Campaign {id: $campaign_id})
-                MERGE (c:Character {id: $character_id})
-                MERGE (c)-[:PARTICIPATES_IN]->(camp)
+                MATCH (w:World {id: $world_id})
+                MATCH (r:Region {id: $region_id})
+                MERGE (camp)-[:TAKES_PLACE_IN]->(w)
+                MERGE (camp)-[:LOCATED_IN]->(r)
                 """,
-                character_id=state["character_id"],
-                campaign_id=campaign_id
+                campaign_id=campaign_id,
+                world_id=state["world_id"],
+                region_id=state["region_id"]
             )
-            relationships_created += 1
-
-        # Campaign takes place in World and Region
-        session.run(
-            """
-            MATCH (camp:Campaign {id: $campaign_id})
-            MATCH (w:World {id: $world_id})
-            MATCH (r:Region {id: $region_id})
-            MERGE (camp)-[:TAKES_PLACE_IN]->(w)
-            MERGE (camp)-[:LOCATED_IN]->(r)
-            """,
-            campaign_id=campaign_id,
-            world_id=state["world_id"],
-            region_id=state["region_id"]
-        )
-        relationships_created += 2
+            relationships_created += 2
+            logger.info("✓ Campaign linked to World and Region successfully")
+        except Exception as e:
+            logger.error(f"Failed to link Campaign to World and Region: {str(e)}")
+            logger.error(f"Parameters: campaign_id={campaign_id}, world_id={state.get('world_id')}, region_id={state.get('region_id')}")
+            raise
 
         # Campaign contains Quests, and create full hierarchy
         # Use same ID generation as MongoDB (flat counters, not nested indices)
         global_place_counter = 0
         global_scene_counter = 0
 
+        logger.info(f"Creating Quest nodes for {len(state['quests'])} quests")
+
         for quest_idx, quest in enumerate(state["quests"]):
             # Use the quest ID that was generated during workflow execution
             quest_id = quest.get("quest_id", f"quest_{state['request_id']}_{quest_idx}")
 
+            logger.info(f"Creating Quest {quest_idx + 1}/{len(state['quests'])}: {quest_id}")
+
             # Create Quest node and link to Campaign
-            session.run(
+            try:
+                session.run(
                 """
                 MATCH (camp:Campaign {id: $campaign_id})
                 MATCH (r:Region {id: $region_id})
@@ -582,8 +610,13 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 duration=quest.get("estimated_duration_minutes", 0),
                 location_id=quest["level_1_location_id"],
                 location_name=quest.get("level_1_location_name", "Unknown Location")
-            )
-            relationships_created += 4
+                )
+                relationships_created += 4
+                logger.info(f"✓ Quest {quest_id} created successfully")
+            except Exception as e:
+                logger.error(f"Failed to create Quest {quest_id}: {str(e)}")
+                logger.error(f"Quest data: {quest.get('name')}, campaign_id={campaign_id}")
+                raise
 
             # Find places for this quest and create Place nodes
             quest_places = [p for p in state["places"] if p.get("parent_quest_id") == quest.get("quest_id", "")]
@@ -615,6 +648,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     """,
                     quest_id=quest_id,
                     world_id=state["world_id"],
+                    campaign_id=campaign_id,
                     place_id=place_id,
                     place_name=place["name"],
                     order_sequence=place.get("order_sequence", 0),
@@ -655,6 +689,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         """,
                         place_id=place_id,
                         world_id=state["world_id"],
+                        campaign_id=campaign_id,
                         scene_id=scene_id,
                         scene_name=scene["name"],
                         order_sequence=scene.get("order_sequence", 0),
@@ -1145,12 +1180,16 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
         logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
 
         # NEW: Persist objective hierarchy and assignments
-        logger.info("Persisting objective hierarchy to Neo4j...")
+        logger.info(f"Persisting objective hierarchy to Neo4j for campaign: {campaign_id}...")
+        logger.info(f"State has final_campaign_id: {state.get('final_campaign_id')}")
         try:
             await persist_objective_hierarchy_to_neo4j(state, neo4j_driver)
             logger.info("✓ Objective hierarchy persisted")
         except Exception as e:
             logger.error(f"Failed to persist objective hierarchy: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             # Non-critical, continue
 
         # NEW: Persist dimensional development
