@@ -1146,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Populate final review
      */
-    function populateFinalReview() {
+    async function populateFinalReview() {
         // Show campaign name in final review if the element exists
         const campaignNameElement = document.getElementById('final-review-campaign-name');
         if (campaignNameElement) {
@@ -1159,6 +1159,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('final-review-story').textContent = wizardState.selected_story ? wizardState.selected_story.title : 'N/A';
         document.getElementById('final-review-quests').textContent = `${wizardState.quests.length} Quests (${wizardState.quest_difficulty} difficulty, ~${wizardState.quest_playtime_minutes} min each)`;
         document.getElementById('final-review-summary').textContent = `Campaign "${wizardState.campaign_name}" includes ${wizardState.quests.length} quests, ${wizardState.places.length} places, ${wizardState.scenes.length} scenes. ${wizardState.new_locations.length} new locations were created.`;
+
+        // NEW: Load and display validation report
+        await loadValidationReport();
     }
 
     /**
@@ -1660,6 +1663,276 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Polling error:', error);
             }
         }, 2000);
+    }
+
+    /**
+     * Load and display validation report
+     */
+    async function loadValidationReport() {
+        if (!requestId) return;
+
+        const validationContainer = document.getElementById('validation-report-container');
+        if (!validationContainer) return;
+
+        validationContainer.innerHTML = '<div class="center-align" style="padding: 20px;"><div class="preloader-wrapper small active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p style="color: var(--rpg-silver); margin-top: 15px;">Loading validation report...</p></div>';
+
+        try {
+            const response = await fetch(`/campaigns/wizard/api/validation-report/${requestId}`);
+            if (!response.ok) {
+                validationContainer.innerHTML = '<p style="color: var(--rpg-silver);">Validation report not available yet.</p>';
+                return;
+            }
+
+            const data = await response.json();
+            const report = data.validation_report;
+
+            if (!report) {
+                validationContainer.innerHTML = '<p style="color: var(--rpg-silver);">No validation report found.</p>';
+                return;
+            }
+
+            displayValidationReport(report);
+        } catch (error) {
+            console.error('Error loading validation report:', error);
+            validationContainer.innerHTML = '<p style="color: #f44336;">Error loading validation report.</p>';
+        }
+    }
+
+    /**
+     * Display validation report
+     */
+    function displayValidationReport(report) {
+        const container = document.getElementById('validation-report-container');
+
+        const passed = report.validation_passed;
+        const stats = report.stats || {};
+        const errors = report.errors || [];
+        const warnings = report.warnings || [];
+
+        const statusColor = passed ? 'var(--rpg-green)' : '#f44336';
+        const statusIcon = passed ? 'check_circle' : 'error';
+        const statusText = passed ? 'PASSED' : 'FAILED';
+
+        let html = `
+            <div style="margin-bottom: 25px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                    <i class="material-icons" style="color: ${statusColor}; font-size: 32px;">${statusIcon}</i>
+                    <h5 style="color: ${statusColor}; margin: 0;">Objective Cascade Validation: ${statusText}</h5>
+                </div>
+
+                <!-- Statistics Dashboard -->
+                <div class="row" style="margin-bottom: 20px;">
+                    <div class="col s6 m3">
+                        <div style="padding: 15px; background: rgba(76, 175, 80, 0.1); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 28px; color: var(--rpg-green); font-weight: bold;">${stats.campaign_objectives_covered || 0}/${stats.total_campaign_objectives || 0}</div>
+                            <div style="color: #b8b8d1; font-size: 0.85rem; margin-top: 5px;">Campaign Objectives</div>
+                        </div>
+                    </div>
+                    <div class="col s6 m3">
+                        <div style="padding: 15px; background: rgba(76, 175, 80, 0.1); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 28px; color: var(--rpg-green); font-weight: bold;">${stats.quest_objectives_addressable || 0}/${stats.total_quest_objectives || 0}</div>
+                            <div style="color: #b8b8d1; font-size: 0.85rem; margin-top: 5px;">Quest Objectives</div>
+                        </div>
+                    </div>
+                    <div class="col s6 m3">
+                        <div style="padding: 15px; background: rgba(76, 175, 80, 0.1); border-radius: 8px; text-align: center;">
+                            <div style="font-size: 28px; color: var(--rpg-green); font-weight: bold;">${stats.knowledge_acquirable || 0}/${stats.total_knowledge || 0}</div>
+                            <div style="color: #b8b8d1; font-size: 0.85rem; margin-top: 5px;">Knowledge Items</div>
+                        </div>
+                    </div>
+                    <div class="col s6 m3">
+                        <div style="padding: 15px; background: ${stats.items_with_redundancy < stats.total_items ? 'rgba(255, 193, 7, 0.1)' : 'rgba(76, 175, 80, 0.1)'}; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 28px; color: ${stats.items_with_redundancy < stats.total_items ? '#FFC107' : 'var(--rpg-green)'}; font-weight: bold;">${stats.items_with_redundancy || 0}/${stats.total_items || 0}</div>
+                            <div style="color: #b8b8d1; font-size: 0.85rem; margin-top: 5px;">Items with Redundancy</div>
+                        </div>
+                    </div>
+                </div>
+        `;
+
+        // Display errors if any
+        if (errors.length > 0) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background: rgba(244, 67, 54, 0.1); border-left: 3px solid #f44336; border-radius: 4px;">
+                    <h6 style="color: #f44336; margin-top: 0;"><i class="material-icons tiny" style="vertical-align: middle;">error</i> Errors (${errors.length})</h6>
+                    <ul style="margin-bottom: 0;">
+            `;
+            errors.forEach(error => {
+                html += `
+                    <li style="color: #b8b8d1; margin-bottom: 10px;">
+                        <strong style="color: #f44336;">${error.check}:</strong> ${error.message}
+                        ${error.recommendations && error.recommendations.length > 0 ? `
+                            <div style="margin-top: 5px; padding-left: 15px; color: #90caf9;">
+                                <strong>Recommendation:</strong> ${error.recommendations[0]}
+                            </div>
+                        ` : ''}
+                    </li>
+                `;
+            });
+            html += `
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Display warnings if any
+        if (warnings.length > 0) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background: rgba(255, 193, 7, 0.1); border-left: 3px solid #FFC107; border-radius: 4px;">
+                    <h6 style="color: #FFC107; margin-top: 0;"><i class="material-icons tiny" style="vertical-align: middle;">warning</i> Warnings (${warnings.length})</h6>
+                    <ul style="margin-bottom: 0;">
+            `;
+            warnings.forEach(warning => {
+                html += `
+                    <li style="color: #b8b8d1; margin-bottom: 10px;">
+                        <strong style="color: #FFC107;">${warning.check}:</strong> ${warning.message}
+                        ${warning.recommendations && warning.recommendations.length > 0 ? `
+                            <div style="margin-top: 5px; padding-left: 15px; color: #90caf9;">
+                                <strong>Recommendation:</strong> ${warning.recommendations[0]}
+                            </div>
+                        ` : ''}
+                    </li>
+                `;
+            });
+            html += `
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Success message
+        if (passed && errors.length === 0) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; background: rgba(76, 175, 80, 0.1); border-left: 3px solid var(--rpg-green); border-radius: 4px;">
+                    <p style="color: var(--rpg-green); margin: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i>
+                        <strong>All validation checks passed!</strong> ${warnings.length > 0 ? 'There are some warnings, but they are non-critical and the campaign can proceed.' : 'Your campaign is ready for finalization.'}
+                    </p>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    /**
+     * Load and display objective decomposition
+     */
+    async function loadObjectiveDecomposition() {
+        if (!requestId) return;
+
+        const objectiveContainer = document.getElementById('objective-decomposition-container');
+        if (!objectiveContainer) return;
+
+        objectiveContainer.innerHTML = '<div class="center-align" style="padding: 20px;"><div class="preloader-wrapper small active"><div class="spinner-layer spinner-blue-only"><div class="circle-clipper left"><div class="circle"></div></div><div class="gap-patch"><div class="circle"></div></div><div class="circle-clipper right"><div class="circle"></div></div></div></div><p style="color: var(--rpg-silver); margin-top: 15px;">Loading objective decomposition...</p></div>';
+
+        try {
+            const response = await fetch(`/campaigns/wizard/api/objective-decomposition/${requestId}`);
+            if (!response.ok) {
+                objectiveContainer.innerHTML = '<p style="color: var(--rpg-silver);">Objective decomposition not available yet.</p>';
+                return;
+            }
+
+            const data = await response.json();
+            const decompositions = data.objective_decompositions || [];
+
+            if (decompositions.length === 0) {
+                objectiveContainer.innerHTML = '<p style="color: var(--rpg-silver);">No objective decompositions found.</p>';
+                return;
+            }
+
+            displayObjectiveDecomposition(decompositions);
+        } catch (error) {
+            console.error('Error loading objective decomposition:', error);
+            objectiveContainer.innerHTML = '<p style="color: #f44336;">Error loading objective decomposition.</p>';
+        }
+    }
+
+    /**
+     * Display objective decomposition tree
+     */
+    function displayObjectiveDecomposition(decompositions) {
+        const container = document.getElementById('objective-decomposition-container');
+
+        let html = '<div style="padding: 15px; background: rgba(27, 27, 46, 0.4); border-radius: 8px;">';
+
+        decompositions.forEach((decomp, index) => {
+            html += `
+                <div style="margin-bottom: ${index < decompositions.length - 1 ? '30px' : '0'}; padding: 15px; background: rgba(106, 90, 205, 0.1); border-left: 3px solid var(--rpg-purple); border-radius: 4px;">
+                    <h6 style="color: var(--rpg-gold); margin-top: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">flag</i>
+                        Campaign Objective: ${decomp.campaign_objective_description}
+                    </h6>
+
+                    ${decomp.completion_criteria && decomp.completion_criteria.length > 0 ? `
+                        <div style="margin: 10px 0; padding-left: 25px;">
+                            <strong style="color: var(--rpg-silver); font-size: 0.9rem;">Completion Criteria:</strong>
+                            <ul style="margin: 5px 0 10px 0;">
+                                ${decomp.completion_criteria.map(criteria => `<li style="color: #b8b8d1; font-size: 0.85rem;">${criteria}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+
+                    <div style="padding-left: 25px; margin-top: 15px;">
+                        <strong style="color: var(--rpg-silver);">Quest Objectives (${decomp.minimum_quests_required || 1} required):</strong>
+                        ${(decomp.quest_objectives || []).map((qobj, qIndex) => `
+                            <div style="margin-top: 12px; padding: 12px; background: rgba(27, 27, 46, 0.6); border-radius: 4px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="display: inline-block; width: 24px; height: 24px; background: var(--rpg-purple); color: white; border-radius: 50%; text-align: center; line-height: 24px; font-size: 0.8rem; font-weight: bold;">${qobj.quest_number || qIndex + 1}</span>
+                                    <span style="color: var(--rpg-gold); font-weight: bold;">Quest ${qobj.quest_number || qIndex + 1}: ${qobj.description}</span>
+                                </div>
+
+                                ${qobj.success_criteria && qobj.success_criteria.length > 0 ? `
+                                    <div style="margin-top: 8px; padding-left: 32px;">
+                                        <span style="color: var(--rpg-silver); font-size: 0.85rem;">Success Criteria:</span>
+                                        <ul style="margin: 3px 0;">
+                                            ${qobj.success_criteria.map(criteria => `<li style="color: #b8b8d1; font-size: 0.8rem;">${criteria}</li>`).join('')}
+                                        </ul>
+                                    </div>
+                                ` : ''}
+
+                                ${qobj.required_knowledge_domains && qobj.required_knowledge_domains.length > 0 ? `
+                                    <div style="margin-top: 8px; padding-left: 32px;">
+                                        <span style="color: var(--rpg-silver); font-size: 0.85rem;">Required Knowledge:</span>
+                                        <div style="margin-top: 3px;">
+                                            ${qobj.required_knowledge_domains.map(domain => `
+                                                <span class="chip" style="background-color: rgba(106, 90, 205, 0.2); color: var(--rpg-purple); font-size: 0.75rem; height: 24px; line-height: 24px; margin: 2px;">
+                                                    <i class="material-icons tiny" style="vertical-align: middle;">school</i> ${domain}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${qobj.required_item_categories && qobj.required_item_categories.length > 0 ? `
+                                    <div style="margin-top: 8px; padding-left: 32px;">
+                                        <span style="color: var(--rpg-silver); font-size: 0.85rem;">Required Items:</span>
+                                        <div style="margin-top: 3px;">
+                                            ${qobj.required_item_categories.map(category => `
+                                                <span class="chip" style="background-color: rgba(255, 193, 7, 0.2); color: #FFC107; font-size: 0.75rem; height: 24px; line-height: 24px; margin: 2px;">
+                                                    <i class="material-icons tiny" style="vertical-align: middle;">inventory_2</i> ${category}
+                                                </span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${qobj.blooms_level ? `
+                                    <div style="margin-top: 8px; padding-left: 32px;">
+                                        <span class="chip" style="background-color: rgba(76, 175, 80, 0.2); color: var(--rpg-green); font-size: 0.75rem; height: 24px; line-height: 24px;">
+                                            Bloom's Level ${qobj.blooms_level}
+                                        </span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
     }
 
     // Initialize

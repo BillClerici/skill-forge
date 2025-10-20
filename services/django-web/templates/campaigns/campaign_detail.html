@@ -203,6 +203,96 @@
                             </div>
                         </li>
                         {% endif %}
+
+                        {% if validation_report %}
+                        <li>
+                            <div class="collapsible-header" style="background: rgba(212, 175, 55, 0.1); border-left: 3px solid var(--rpg-gold); display: flex; align-items: center; gap: 8px;">
+                                <i class="material-icons" style="color: var(--rpg-gold);">assessment</i>
+                                <span style="color: var(--rpg-gold); font-weight: 500;">Validation Report</span>
+                                {% if validation_report.validation_passed %}
+                                    <span class="chip" style="background-color: rgba(76, 175, 80, 0.2); color: #4CAF50; font-size: 0.75rem; height: 24px; line-height: 24px; margin-left: 10px;">✓ Passed</span>
+                                {% else %}
+                                    <span class="chip" style="background-color: rgba(244, 67, 54, 0.2); color: #f44336; font-size: 0.75rem; height: 24px; line-height: 24px; margin-left: 10px;">✗ Has Issues</span>
+                                {% endif %}
+                            </div>
+                            <div class="collapsible-body" style="background: rgba(27, 27, 46, 0.5); border-left: 3px solid var(--rpg-gold); padding: 20px;">
+
+                                <!-- Errors -->
+                                {% if validation_report.errors %}
+                                <div style="margin-bottom: 20px;">
+                                    <h6 style="color: #f44336; font-size: 1rem; margin-bottom: 10px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle;">error</i>
+                                        Errors ({{ validation_report.errors|length }})
+                                    </h6>
+                                    <ul style="margin: 0; padding-left: 20px;">
+                                        {% for error in validation_report.errors %}
+                                        <li style="color: #ff8a80; margin-bottom: 8px; line-height: 1.5;">{{ error.message }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                <!-- Warnings -->
+                                {% if validation_report.warnings %}
+                                <div style="margin-bottom: 20px;">
+                                    <h6 style="color: #ffab40; font-size: 1rem; margin-bottom: 10px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle;">warning</i>
+                                        Warnings ({{ validation_report.warnings|length }})
+                                    </h6>
+                                    <ul style="margin: 0; padding-left: 20px;">
+                                        {% for warning in validation_report.warnings %}
+                                        <li style="color: #ffcc80; margin-bottom: 8px; line-height: 1.5;">{{ warning.message }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                <!-- Statistics -->
+                                {% if validation_report.stats_display %}
+                                <div style="margin-bottom: 20px;">
+                                    <h6 style="color: var(--rpg-silver); font-size: 1rem; margin-bottom: 10px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle;">analytics</i>
+                                        Statistics
+                                    </h6>
+                                    <div style="background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 6px; border: 1px solid rgba(212, 175, 55, 0.2);">
+                                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; color: #b8b8d1; font-size: 0.9rem;">
+                                            {% for stat in validation_report.stats_display %}
+                                            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                                <span style="color: var(--rpg-silver);">{{ stat.display_name }}:</span>
+                                                <span style="color: var(--rpg-gold); font-weight: 500;">{{ stat.value }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Auto-fix Suggestions -->
+                                {% if validation_report.auto_fix_suggestions %}
+                                <div>
+                                    <h6 style="color: var(--rpg-blue); font-size: 1rem; margin-bottom: 10px;">
+                                        <i class="material-icons tiny" style="vertical-align: middle;">build</i>
+                                        Auto-fix Suggestions ({{ validation_report.auto_fix_suggestions|length }})
+                                    </h6>
+                                    <ul style="margin: 0; padding-left: 20px;">
+                                        {% for suggestion in validation_report.auto_fix_suggestions %}
+                                        <li style="color: #82b1ff; margin-bottom: 8px; line-height: 1.5;">{{ suggestion.description }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                                {% endif %}
+
+                                <!-- Validation Timestamp -->
+                                {% if validation_report.validation_timestamp %}
+                                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: #888; font-size: 0.8rem;">
+                                    <i class="material-icons tiny" style="vertical-align: middle;">schedule</i>
+                                    Validated: {{ validation_report.validation_timestamp }}
+                                </div>
+                                {% endif %}
+
+                            </div>
+                        </li>
+                        {% endif %}
                     </ul>
 
                     <div style="margin-top: 20px;">

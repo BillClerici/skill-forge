@@ -16,13 +16,16 @@ from .nodes_core import (
     generate_campaign_core_node,
     wait_for_core_approval_node
 )
+from .nodes_objective_decomposition import decompose_campaign_objectives_node
 from .nodes_narrative_planner import plan_campaign_narrative
 from .nodes_quest import generate_quests_node
 from .nodes_place_scene import (
     generate_places_node,
     generate_scenes_node
 )
+from .nodes_scene_assignments import generate_scene_assignments_node
 from .nodes_elements import generate_scene_elements_node
+from .nodes_validation import validate_objective_cascade_node
 from .nodes_finalize import finalize_campaign_node
 
 logger = logging.getLogger(__name__)
@@ -66,8 +69,13 @@ def route_after_core_approval(state: CampaignWorkflowState) -> str:
             if state.get("scenes") and len(state.get("scenes", [])) > 0:
                 # Scenes generated, check if elements are done
                 if state.get("npcs") or state.get("discoveries") or state.get("challenges"):
-                    # Elements generated, go to finalize
-                    return "finalize"
+                    # Elements generated, check if validation is done
+                    if state.get("validation_report"):
+                        # Validation done, go to finalize
+                        return "finalize"
+                    else:
+                        # Need validation
+                        return "validate_cascade"
                 else:
                     # Need to generate elements
                     return "generate_elements"
@@ -77,8 +85,8 @@ def route_after_core_approval(state: CampaignWorkflowState) -> str:
             else:
                 # Quests generated, need places
                 return "generate_places"
-        # NEW: Go to narrative planning first
-        return "plan_narrative"
+        # NEW: Go to objective decomposition first
+        return "decompose_objectives"
     return "wait_for_approval"
 
 
@@ -103,10 +111,24 @@ def route_after_places(state: CampaignWorkflowState) -> str:
     return "generate_scenes"
 
 
+def route_after_objective_decomposition(state: CampaignWorkflowState) -> str:
+    """Route after objective decomposition"""
+    if state.get("errors", []):
+        return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_decomp"
+    return "plan_narrative"
+
+
 def route_after_scenes(state: CampaignWorkflowState) -> str:
     """Route after scene generation"""
     if state.get("errors", []):
         return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_scenes"
+    return "generate_scene_assignments"
+
+
+def route_after_scene_assignments(state: CampaignWorkflowState) -> str:
+    """Route after scene objective assignments"""
+    if state.get("errors", []):
+        return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_assignments"
     return "generate_elements"
 
 
@@ -114,7 +136,23 @@ def route_after_elements(state: CampaignWorkflowState) -> str:
     """Route after scene element generation"""
     if state.get("errors", []):
         return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_elements"
-    return "finalize"
+    return "validate_cascade"
+
+
+def route_after_validation(state: CampaignWorkflowState) -> str:
+    """Route after objective cascade validation"""
+    if state.get("errors", []):
+        return "failed" if state.get("retry_count", 0) >= state.get("max_retries", 3) else "retry_validation"
+
+    # Check if validation passed
+    validation_report = state.get("validation_report", {})
+    if validation_report.get("validation_passed", False):
+        return "finalize"
+    else:
+        # Validation failed - for now, warn and continue to finalization
+        # In future, could route to auto-fix node here
+        logger.warning("Objective cascade validation failed but continuing to finalization")
+        return "finalize"
 
 
 def route_after_finalize(state: CampaignWorkflowState) -> str:
@@ -136,12 +174,15 @@ def create_campaign_workflow() -> StateGraph:
     2. Story Selection - User selects or regenerates
     3. Campaign Core - Generate plot, storyline, objectives
     4. Core Approval - User approves or modifies
-    5. Narrative Planning - Plan entire campaign story arc (NEW)
-    6. Quest Generation - Generate quests from narrative blueprint
-    7. Place Generation - Generate Level 2 locations (places)
-    8. Scene Generation - Generate Level 3 locations (scenes)
-    9. Element Generation - Generate NPCs, discoveries, events, challenges
-    10. Finalization - Validate and persist
+    5. Objective Decomposition - Decompose campaign objectives into quest objectives (NEW)
+    6. Narrative Planning - Plan entire campaign story arc with objective awareness (NEW)
+    7. Quest Generation - Generate quests from narrative blueprint
+    8. Place Generation - Generate Level 2 locations (places)
+    9. Scene Generation - Generate Level 3 locations (scenes)
+    10. Scene Assignment - Link scenes to objectives (NEW)
+    11. Element Generation - Generate NPCs, discoveries, events, challenges
+    12. Cascade Validation - Validate objective cascade (NEW)
+    13. Finalization - Persist to databases
 
     Human-in-the-loop gates:
     - Story selection (can regenerate)
@@ -157,11 +198,14 @@ def create_campaign_workflow() -> StateGraph:
     workflow.add_node("handle_story_regeneration", handle_story_regeneration_node)
     workflow.add_node("generate_campaign_core", generate_campaign_core_node)
     workflow.add_node("wait_for_core_approval", wait_for_core_approval_node)
-    workflow.add_node("plan_narrative", plan_campaign_narrative)  # NEW: Narrative planning
+    workflow.add_node("decompose_objectives", decompose_campaign_objectives_node)  # NEW: Objective decomposition
+    workflow.add_node("plan_narrative", plan_campaign_narrative)  # NEW: Objective-aware narrative planning
     workflow.add_node("generate_quests", generate_quests_node)
     workflow.add_node("generate_places", generate_places_node)
     workflow.add_node("generate_scenes", generate_scenes_node)
+    workflow.add_node("generate_scene_assignments", generate_scene_assignments_node)  # NEW: Scene-objective linking
     workflow.add_node("generate_elements", generate_scene_elements_node)
+    workflow.add_node("validate_cascade", validate_objective_cascade_node)  # NEW: Cascade validation
     workflow.add_node("finalize", finalize_campaign_node)
 
     # Set entry point
@@ -205,13 +249,24 @@ def create_campaign_workflow() -> StateGraph:
         "wait_for_core_approval",
         route_after_core_approval,
         {
-            "plan_narrative": "plan_narrative",  # NEW: Route to narrative planning
+            "decompose_objectives": "decompose_objectives",  # NEW: Route to objective decomposition
             "generate_quests": "generate_quests",
             "generate_places": "generate_places",
             "generate_scenes": "generate_scenes",
             "generate_elements": "generate_elements",
+            "validate_cascade": "validate_cascade",
             "finalize": "finalize",
             "wait_for_approval": END  # FIX: End workflow instead of looping
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "decompose_objectives",
+        route_after_objective_decomposition,
+        {
+            "plan_narrative": "plan_narrative",
+            "retry_decomp": "decompose_objectives",
+            "failed": END
         }
     )
 
@@ -249,8 +304,18 @@ def create_campaign_workflow() -> StateGraph:
         "generate_scenes",
         route_after_scenes,
         {
-            "generate_elements": "generate_elements",
+            "generate_scene_assignments": "generate_scene_assignments",
             "retry_scenes": "generate_scenes",
+            "failed": END
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "generate_scene_assignments",
+        route_after_scene_assignments,
+        {
+            "generate_elements": "generate_elements",
+            "retry_assignments": "generate_scene_assignments",
             "failed": END
         }
     )
@@ -259,8 +324,18 @@ def create_campaign_workflow() -> StateGraph:
         "generate_elements",
         route_after_elements,
         {
-            "finalize": "finalize",
+            "validate_cascade": "validate_cascade",
             "retry_elements": "generate_elements",
+            "failed": END
+        }
+    )
+
+    workflow.add_conditional_edges(
+        "validate_cascade",
+        route_after_validation,
+        {
+            "finalize": "finalize",
+            "retry_validation": "validate_cascade",
             "failed": END
         }
     )

@@ -1049,3 +1049,306 @@ async def transcribe_player_action(
             error=str(e)
         )
         raise HTTPException(status_code=500, detail="Failed to process voice action")
+
+
+# ============================================
+# Objective Cascade Endpoints (Campaign Design Integration)
+# ============================================
+
+@router.get("/session/{session_id}/objectives")
+async def get_session_objectives(
+    session_id: str,
+    player_id: str = Query(..., description="Player ID")
+) -> Dict[str, Any]:
+    """
+    Get all objective progress for a player in a session.
+
+    Returns:
+    - Campaign objectives with progress
+    - Current quest objectives
+    - Scene objectives (what can be done in current scene)
+    - Knowledge/items available in scene
+    - Dimensional development progress
+
+    Args:
+        session_id: Session ID
+        player_id: Player ID
+
+    Returns:
+        Comprehensive objective progress data
+    """
+    try:
+        # Load session state
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        campaign_id = state.get("campaign_id")
+        current_scene_id = state.get("current_scene_id")
+
+        # Import neo4j_graph here to avoid circular import
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Get objective progress from Neo4j
+        progress = await neo4j_graph.get_player_objective_progress(
+            player_id,
+            campaign_id
+        )
+
+        # Get scene objectives and resources
+        scene_data = {}
+        if current_scene_id:
+            scene_data = await neo4j_graph.get_scene_objectives(current_scene_id)
+
+        # Get dimensional progress
+        dimensions = await neo4j_graph.get_dimensional_progress(
+            player_id,
+            campaign_id
+        )
+
+        # Get available acquisition paths for scene resources
+        scene_knowledge = []
+        for knowledge in scene_data.get("provides_knowledge", []):
+            paths = await neo4j_graph.get_available_acquisition_paths(
+                player_id,
+                knowledge["id"],
+                "knowledge"
+            )
+            scene_knowledge.append({
+                **knowledge,
+                "acquisition_paths": paths,
+                "redundancy_level": paths[0]["redundancy_level"] if paths else "low"
+            })
+
+        scene_items = []
+        for item in scene_data.get("provides_items", []):
+            paths = await neo4j_graph.get_available_acquisition_paths(
+                player_id,
+                item["id"],
+                "item"
+            )
+            scene_items.append({
+                **item,
+                "acquisition_paths": paths,
+                "redundancy_level": paths[0]["redundancy_level"] if paths else "low"
+            })
+
+        logger.info(
+            "session_objectives_retrieved",
+            session_id=session_id,
+            player_id=player_id,
+            campaign_objectives=len(progress.get("campaign_objectives", [])),
+            scene_knowledge=len(scene_knowledge),
+            scene_items=len(scene_items)
+        )
+
+        return {
+            "campaign_objectives": progress["campaign_objectives"],
+            "current_quest_objectives": [
+                qo for co in progress["campaign_objectives"]
+                for qo in co["quest_objectives"]
+                if qo["status"] in ["not_started", "in_progress"]
+            ],
+            "scene_objectives": scene_data.get("advances_quest_objectives", []),
+            "scene_knowledge": scene_knowledge,
+            "scene_items": scene_items,
+            "dimensions": dimensions["dimensions"],
+            "overall_progress": progress["overall_progress"]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "get_session_objectives_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to get session objectives")
+
+
+@router.get("/session/{session_id}/knowledge/{knowledge_id}/paths")
+async def get_knowledge_acquisition_paths(
+    session_id: str,
+    knowledge_id: str,
+    player_id: str = Query(..., description="Player ID")
+) -> Dict[str, Any]:
+    """
+    Get all ways to acquire a specific knowledge item.
+    Shows which paths are still available.
+
+    Args:
+        session_id: Session ID
+        knowledge_id: Knowledge ID
+        player_id: Player ID
+
+    Returns:
+        List of acquisition paths with availability info
+    """
+    try:
+        # Verify session exists
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Import neo4j_graph here to avoid circular import
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Get acquisition paths
+        paths = await neo4j_graph.get_available_acquisition_paths(
+            player_id,
+            knowledge_id,
+            "knowledge"
+        )
+
+        logger.info(
+            "knowledge_paths_retrieved",
+            session_id=session_id,
+            knowledge_id=knowledge_id,
+            total_paths=len(paths)
+        )
+
+        return {
+            "knowledge_id": knowledge_id,
+            "paths": paths,
+            "total_paths": len(paths),
+            "available_paths": len([p for p in paths if p["available"]]),
+            "redundancy_level": paths[0]["redundancy_level"] if paths else "low"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "get_knowledge_paths_failed",
+            session_id=session_id,
+            knowledge_id=knowledge_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to get knowledge acquisition paths")
+
+
+@router.get("/session/{session_id}/item/{item_id}/paths")
+async def get_item_acquisition_paths(
+    session_id: str,
+    item_id: str,
+    player_id: str = Query(..., description="Player ID")
+) -> Dict[str, Any]:
+    """
+    Get all ways to acquire a specific item.
+    Shows which paths are still available.
+
+    Args:
+        session_id: Session ID
+        item_id: Item ID
+        player_id: Player ID
+
+    Returns:
+        List of acquisition paths with availability info
+    """
+    try:
+        # Verify session exists
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Import neo4j_graph here to avoid circular import
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Get acquisition paths
+        paths = await neo4j_graph.get_available_acquisition_paths(
+            player_id,
+            item_id,
+            "item"
+        )
+
+        logger.info(
+            "item_paths_retrieved",
+            session_id=session_id,
+            item_id=item_id,
+            total_paths=len(paths)
+        )
+
+        return {
+            "item_id": item_id,
+            "paths": paths,
+            "total_paths": len(paths),
+            "available_paths": len([p for p in paths if p["available"]]),
+            "redundancy_level": paths[0]["redundancy_level"] if paths else "low"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "get_item_paths_failed",
+            session_id=session_id,
+            item_id=item_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to get item acquisition paths")
+
+
+@router.get("/session/{session_id}/dimensional-progress")
+async def get_dimensional_development(
+    session_id: str,
+    player_id: str = Query(..., description="Player ID")
+) -> Dict[str, Any]:
+    """
+    Get player's dimensional development progress.
+
+    Tracks progress across 7 dimensions:
+    - Physical
+    - Emotional
+    - Intellectual
+    - Social
+    - Spiritual
+    - Vocational
+    - Environmental
+
+    Args:
+        session_id: Session ID
+        player_id: Player ID
+
+    Returns:
+        Dimensional progress data
+    """
+    try:
+        # Verify session exists
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        campaign_id = state.get("campaign_id")
+
+        # Import neo4j_graph here to avoid circular import
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Get dimensional progress
+        dimensions = await neo4j_graph.get_dimensional_progress(
+            player_id,
+            campaign_id
+        )
+
+        logger.info(
+            "dimensional_progress_retrieved",
+            session_id=session_id,
+            player_id=player_id,
+            dimensions_tracked=len(dimensions.get("dimensions", []))
+        )
+
+        return dimensions
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "get_dimensional_progress_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to get dimensional progress")

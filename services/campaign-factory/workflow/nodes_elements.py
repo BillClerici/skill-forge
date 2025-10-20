@@ -6,6 +6,7 @@ import os
 import logging
 import json
 import uuid
+from datetime import datetime
 from typing import List
 from langchain_anthropic import ChatAnthropic
 from langchain.prompts import ChatPromptTemplate
@@ -99,6 +100,7 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
 
             # Step 1: Determine what elements this scene needs
             elements_needed = await determine_scene_elements(scene, state)
+            logger.info(f"DEBUG: elements_needed = {json.dumps(elements_needed, indent=2)[:500]}")
 
             # Step 2: Generate NPCs using subgraph
             for npc_role in elements_needed.get("npcs", []):
@@ -149,9 +151,12 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 discovery_id = discovery.get("discovery_id", "")
                 scene["discovery_ids"].append(discovery_id)
 
-                # Track knowledge/items from discovery
-                _track_knowledge_from_spec(discovery_spec, discovery_id, "environmental_discovery", scene, knowledge_tracker)
-                _track_items_from_spec(discovery_spec, discovery_id, "environmental_discovery", scene, item_tracker)
+                # DEBUG: Log what we're tracking (from the generated discovery entity)
+                logger.info(f"DEBUG: Discovery provides_knowledge_ids={discovery.get('provides_knowledge_ids', [])}, provides_item_ids={discovery.get('provides_item_ids', [])}")
+
+                # Track knowledge/items from discovery entity
+                _track_knowledge_from_spec(discovery, discovery_id, "environmental_discovery", scene, knowledge_tracker)
+                _track_items_from_spec(discovery, discovery_id, "environmental_discovery", scene, item_tracker)
 
             # Step 4: Generate events
             for event_spec in elements_needed.get("events", []):
@@ -171,17 +176,98 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 challenge_id = challenge.get("challenge_id", "")
                 scene["challenge_ids"].append(challenge_id)
 
-                # Track knowledge/items from challenge
-                _track_knowledge_from_spec(challenge_spec, challenge_id, "challenge", scene, knowledge_tracker)
-                _track_items_from_spec(challenge_spec, challenge_id, "challenge", scene, item_tracker)
+                # DEBUG: Log what we're tracking (from the generated challenge entity)
+                logger.info(f"DEBUG: Challenge provides_knowledge_ids={challenge.get('provides_knowledge_ids', [])}, provides_item_ids={challenge.get('provides_item_ids', [])}")
 
-        # Step 6: Generate Knowledge Entities from collected data
-        logger.info(f"Generating knowledge entities from {len(knowledge_tracker)} unique knowledge items")
-        scene_knowledge_entities = await generate_knowledge_entities(knowledge_tracker, state)
+                # Track knowledge/items from challenge entity
+                _track_knowledge_from_spec(challenge, challenge_id, "challenge", scene, knowledge_tracker)
+                _track_items_from_spec(challenge, challenge_id, "challenge", scene, item_tracker)
 
-        # Step 7: Generate Items from collected data
-        logger.info(f"Generating items from {len(item_tracker)} unique items")
-        scene_items = await generate_item_entities(item_tracker, state)
+        # Step 6: Merge acquisition methods into existing knowledge entities using IDs
+        logger.info(f"DEBUG: knowledge_tracker has {len(knowledge_tracker)} knowledge IDs")
+        logger.info(f"DEBUG: item_tracker has {len(item_tracker)} item IDs")
+        logger.info(f"Merging acquisition methods for {len(knowledge_tracker)} knowledge items into existing entities")
+
+        existing_knowledge = state.get("knowledge_entities", [])
+
+        # Build ID-based lookup for existing knowledge - NO MORE NAME MATCHING!
+        existing_knowledge_map = {}  # knowledge_id -> knowledge entity
+        for kg in existing_knowledge:
+            kg_id = kg.get("knowledge_id", "")
+            if kg_id:
+                existing_knowledge_map[kg_id] = kg
+
+        logger.info(f"DEBUG: Existing knowledge IDs: {list(existing_knowledge_map.keys())[:10]}")
+
+        # Merge acquisition methods from tracker into existing entities by ID
+        unmatched_ids = []
+        for knowledge_id, tracker_data in knowledge_tracker.items():
+            if knowledge_id in existing_knowledge_map:
+                # Entity exists - ADD acquisition methods to it
+                existing_entity = existing_knowledge_map[knowledge_id]
+                existing_methods = existing_entity.get("acquisition_methods", [])
+                new_methods = tracker_data.get("acquisition_methods", [])
+
+                # Merge methods (avoid duplicates based on entity_id)
+                existing_entity_ids = {m.get("entity_id") for m in existing_methods}
+                for method in new_methods:
+                    if method.get("entity_id") not in existing_entity_ids:
+                        existing_methods.append(method)
+
+                existing_entity["acquisition_methods"] = existing_methods
+                logger.info(f"Merged {len(new_methods)} acquisition methods into knowledge ID {knowledge_id}: {existing_entity.get('name')}")
+            else:
+                # Entity doesn't exist - this should never happen with ID-based system!
+                logger.warning(f"Knowledge ID {knowledge_id} not found in existing entities - AI may have hallucinated an ID")
+                unmatched_ids.append(knowledge_id)
+
+        if unmatched_ids:
+            logger.error(f"Unmatched knowledge IDs (AI hallucinated these): {unmatched_ids}")
+
+        # No new entities to create - all knowledge should already exist from quest generation
+        state["knowledge_entities"] = existing_knowledge
+
+        # Step 7: Merge acquisition methods into existing item entities using IDs
+        logger.info(f"Merging acquisition methods for {len(item_tracker)} items into existing entities")
+
+        existing_items = state.get("item_entities", [])
+
+        # Build ID-based lookup for existing items - NO MORE NAME MATCHING!
+        existing_items_map = {}  # item_id -> item entity
+        for item in existing_items:
+            item_id = item.get("item_id", "")
+            if item_id:
+                existing_items_map[item_id] = item
+
+        logger.info(f"DEBUG: Existing item IDs: {list(existing_items_map.keys())[:10]}")
+
+        # Merge acquisition methods from tracker into existing entities by ID
+        unmatched_item_ids = []
+        for item_id, tracker_data in item_tracker.items():
+            if item_id in existing_items_map:
+                # Entity exists - ADD acquisition methods to it
+                existing_entity = existing_items_map[item_id]
+                existing_methods = existing_entity.get("acquisition_methods", [])
+                new_methods = tracker_data.get("acquisition_methods", [])
+
+                # Merge methods (avoid duplicates based on entity_id)
+                existing_entity_ids = {m.get("entity_id") for m in existing_methods}
+                for method in new_methods:
+                    if method.get("entity_id") not in existing_entity_ids:
+                        existing_methods.append(method)
+
+                existing_entity["acquisition_methods"] = existing_methods
+                logger.info(f"Merged {len(new_methods)} acquisition methods into item ID {item_id}: {existing_entity.get('name')}")
+            else:
+                # Entity doesn't exist - this should never happen with ID-based system!
+                logger.warning(f"Item ID {item_id} not found in existing entities - AI may have hallucinated an ID")
+                unmatched_item_ids.append(item_id)
+
+        if unmatched_item_ids:
+            logger.error(f"Unmatched item IDs (AI hallucinated these): {unmatched_item_ids}")
+
+        # No new entities to create - all items should already exist from quest generation
+        state["item_entities"] = existing_items
 
         # Update state with all generated elements
         state["npcs"] = all_npcs
@@ -189,20 +275,17 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         state["events"] = all_events
         state["challenges"] = all_challenges
 
-        # CRITICAL FIX: EXTEND existing knowledge/items instead of overwriting
-        # Quest generation already created knowledge/items from objectives
-        # We need to ADD scene-based knowledge/items to those, not replace them
-        existing_knowledge = state.get("knowledge_entities", [])
-        existing_items = state.get("item_entities", [])
+        logger.info(f"Final counts: {len(state['knowledge_entities'])} knowledge entities, {len(state['item_entities'])} item entities")
 
-        logger.info(f"Merging knowledge: {len(existing_knowledge)} from quests + {len(scene_knowledge_entities)} from scenes")
-        logger.info(f"Merging items: {len(existing_items)} from quests + {len(scene_items)} from scenes")
-
-        state["knowledge_entities"] = existing_knowledge + scene_knowledge_entities
-        state["item_entities"] = existing_items + scene_items
+        # NO CONVERSION NEEDED! The AI now returns IDs directly in provides_knowledge_ids and provides_item_ids
+        # All entities (discoveries, challenges, events, NPCs) already have the correct IDs from the AI
 
         # Create checkpoint after element generation
         create_checkpoint(state, "elements_generated")
+
+        # Count knowledge/items with acquisition methods for reporting
+        knowledge_with_methods = sum(1 for kg in state["knowledge_entities"] if len(kg.get("acquisition_methods", [])) > 0)
+        items_with_methods = sum(1 for item in state["item_entities"] if len(item.get("acquisition_methods", [])) > 0)
 
         add_audit_entry(
             state,
@@ -213,19 +296,23 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 "num_discoveries": len(all_discoveries),
                 "num_events": len(all_events),
                 "num_challenges": len(all_challenges),
-                "num_knowledge_entities_from_scenes": len(scene_knowledge_entities),
-                "num_items_from_scenes": len(scene_items),
+                "num_knowledge_tracked": len(knowledge_tracker),
+                "num_items_tracked": len(item_tracker),
                 "total_knowledge_entities": len(state["knowledge_entities"]),
                 "total_items": len(state["item_entities"]),
+                "knowledge_with_acquisition_methods": knowledge_with_methods,
+                "items_with_acquisition_methods": items_with_methods,
+                "unmatched_knowledge_ids": len(unmatched_ids) if unmatched_ids else 0,
+                "unmatched_item_ids": len(unmatched_item_ids) if unmatched_item_ids else 0,
                 "new_species_created": len(state["new_species_ids"])
             },
             "success"
         )
 
         logger.info(f"Generated {len(all_npcs)} NPCs, {len(all_discoveries)} discoveries, "
-                   f"{len(all_events)} events, {len(all_challenges)} challenges, "
-                   f"{len(scene_knowledge_entities)} scene knowledge, {len(scene_items)} scene items "
-                   f"(Total: {len(state['knowledge_entities'])} knowledge, {len(state['item_entities'])} items)")
+                   f"{len(all_events)} events, {len(all_challenges)} challenges")
+        logger.info(f"Merged acquisition methods: {knowledge_with_methods}/{len(state['knowledge_entities'])} knowledge, "
+                   f"{items_with_methods}/{len(state['item_entities'])} items have acquisition methods")
 
         # Reset step progress for next phase
         state["step_progress"] = 0
@@ -263,18 +350,50 @@ async def determine_scene_elements(scene: dict, state: CampaignWorkflowState) ->
     """
 
     # Determine which knowledge/items should be available in this scene
+    # Use objective-driven mapping from scene_objective_assignments
     scene_knowledge = []
     scene_items = []
 
-    # Get knowledge and items that should be in this scene (from objective mapping)
-    for kg in state.get("knowledge_entities", []):
-        # Simple check: if knowledge name appears in scene description or is generic
-        # In a real system, this would use the mapping from objective_system
-        scene_knowledge.append(kg)
+    # Find this scene's assignment
+    scene_assignment = None
+    for assignment in state.get("scene_objective_assignments", []):
+        if assignment["scene_id"] == scene.get("scene_id"):
+            scene_assignment = assignment
+            break
 
-    for item in state.get("item_entities", []):
-        # Simple check: if item name appears in scene description or is generic
-        scene_items.append(item)
+    if scene_assignment:
+        # Get knowledge that should be provided in this scene
+        knowledge_domains = [kg["domain"] for kg in scene_assignment.get("provides_knowledge", [])]
+
+        # Match knowledge entities to domains
+        for kg in state.get("knowledge_entities", []):
+            kg_name = kg.get("name", "")
+            kg_type = kg.get("knowledge_type", "skill")
+
+            # Check if knowledge matches any required domain
+            if kg_name in knowledge_domains or any(kg_type.lower() in domain.lower() for domain in knowledge_domains):
+                scene_knowledge.append(kg)
+
+        # Get items that should be provided in this scene
+        item_categories = [item["category"] for item in scene_assignment.get("provides_items", [])]
+
+        # Match item entities to categories
+        for item in state.get("item_entities", []):
+            item_name = item.get("name", "")
+            item_type = item.get("item_type", "tool")
+
+            # Check if item matches any required category
+            if item_name in item_categories or any(item_type.lower() in category.lower() for category in item_categories):
+                scene_items.append(item)
+
+    # Fallback: if no assignment or no matches, use a subset for variety
+    if not scene_assignment or (len(scene_knowledge) == 0 and len(state.get("knowledge_entities", [])) > 0):
+        # Provide up to 3 knowledge items for variety
+        scene_knowledge = state.get("knowledge_entities", [])[:3]
+
+    if not scene_assignment or (len(scene_items) == 0 and len(state.get("item_entities", [])) > 0):
+        # Provide up to 3 items for variety
+        scene_items = state.get("item_entities", [])[:3]
 
     # Get character profile to determine which dimensions to target
     character_profile = state.get("character_profile")
@@ -287,16 +406,23 @@ async def determine_scene_elements(scene: dict, state: CampaignWorkflowState) ->
         # Default to balanced dimensions
         target_dimensions = ["intellectual", "social", "emotional"]
 
-    # Format knowledge/items for prompt
-    knowledge_str = "\n".join([
-        f"- {kg.get('name', 'Unknown')} ({kg.get('knowledge_type', 'skill')}, {kg.get('primary_dimension', 'intellectual')})"
-        for kg in scene_knowledge[:3]  # Limit to 3 for brevity
-    ])
+    # Format knowledge/items for prompt using ID-based selection
+    # AI will select by ID, not by name - much more reliable!
+    if len(scene_knowledge) > 0:
+        knowledge_str = "AVAILABLE KNOWLEDGE (select by ID in provides_knowledge_ids):\n" + "\n".join([
+            f'- ID: {kg.get("knowledge_id", "unknown")} | Name: "{kg.get("name", "Unknown")}" | Type: {kg.get("knowledge_type", "skill")} | Dimension: {kg.get("primary_dimension", "intellectual")}'
+            for kg in scene_knowledge
+        ])
+    else:
+        knowledge_str = "No knowledge entities available for this scene."
 
-    items_str = "\n".join([
-        f"- {item.get('name', 'Unknown')} ({item.get('item_type', 'tool')})"
-        for item in scene_items[:3]  # Limit to 3 for brevity
-    ])
+    if len(scene_items) > 0:
+        items_str = "AVAILABLE ITEMS (select by ID in provides_item_ids):\n" + "\n".join([
+            f'- ID: {item.get("item_id", "unknown")} | Name: "{item.get("name", "Unknown")}" | Type: {item.get("item_type", "tool")}'
+            for item in scene_items
+        ])
+    else:
+        items_str = "No item entities available for this scene."
 
     dimensions_str = ", ".join(target_dimensions)
 
@@ -333,6 +459,14 @@ For example:
   2. Discovery of an ancient manual
   3. Challenge: solving a mining puzzle
 
+CRITICAL CONSTRAINT - KNOWLEDGE/ITEM SELECTION:
+You MUST select knowledge and items by their IDs from the "AVAILABLE KNOWLEDGE" and "AVAILABLE ITEMS" lists below.
+- Use provides_knowledge_ids (NOT provides_knowledge) with the ID values from the list
+- Use provides_item_ids (NOT provides_items) with the ID values from the list
+- DO NOT invent new IDs. ONLY use IDs that appear in the available lists.
+- If the available lists say "No knowledge/items available", leave the ID arrays EMPTY.
+- Any ID that doesn't exist in the provided list will cause critical validation errors.
+
 Return your response as JSON:
 {{
   "npcs": ["quest_giver", "merchant", "wise_elder"],
@@ -340,8 +474,8 @@ Return your response as JSON:
     {{
       "type": "lore",
       "description": "Ancient text about...",
-      "provides_knowledge": ["knowledge_name"],
-      "provides_items": [],
+      "provides_knowledge_ids": ["knowledge_abc123"],
+      "provides_item_ids": [],
       "dimension": "intellectual"
     }}
   ],
@@ -349,8 +483,8 @@ Return your response as JSON:
     {{
       "type": "scripted",
       "description": "Unexpected event...",
-      "provides_knowledge": [],
-      "provides_items": ["item_name"],
+      "provides_knowledge_ids": [],
+      "provides_item_ids": ["item_def456"],
       "dimension": "emotional"
     }}
   ],
@@ -358,8 +492,8 @@ Return your response as JSON:
     {{
       "type": "riddle",
       "description": "Solve the ancient riddle...",
-      "provides_knowledge": ["knowledge_name"],
-      "provides_items": [],
+      "provides_knowledge_ids": ["knowledge_ghi789"],
+      "provides_item_ids": [],
       "dimension": "intellectual",
       "difficulty": "Medium"
     }}
@@ -375,10 +509,8 @@ Location: {location}
 Quest Objectives Supported by This Scene:
 {objectives}
 
-Knowledge Available in Campaign:
 {knowledge}
 
-Items Available in Campaign:
 {items}
 
 Target Dimensions for Character Growth:
@@ -386,10 +518,33 @@ Target Dimensions for Character Growth:
 
 Campaign Target Bloom's Level: {blooms_level}
 
+CRITICAL REMINDER:
+- In provides_knowledge_ids arrays, use ONLY IDs from the "AVAILABLE KNOWLEDGE" list above
+- In provides_item_ids arrays, use ONLY IDs from the "AVAILABLE ITEMS" list above
+- Copy the IDs EXACTLY as shown (like "knowledge_abc123" or "item_def456")
+- If lists say "No knowledge/items available", leave the ID arrays EMPTY []
+- DO NOT invent new IDs or modify existing ones
+
 Determine what elements this scene needs. Remember to create REDUNDANCY (2-3 ways to get the same knowledge/items).""")
     ])
 
-    # Format objectives (from parent quest)
+    # Format objectives that this scene supports
+    objectives_str = ""
+    if scene_assignment:
+        quest_obj_ids = scene_assignment.get("advances_quest_objectives", [])
+        if len(quest_obj_ids) > 0:
+            objectives_str = "This scene supports the following quest objectives:\n"
+            # Find the actual objectives from objective_progress
+            for obj_progress in state.get("objective_progress", []):
+                if obj_progress["objective_id"] in quest_obj_ids:
+                    objectives_str += f"  - {obj_progress['description']}\n"
+        else:
+            objectives_str = "(No specific objectives assigned to this scene)"
+    else:
+        objectives_str = "(No scene assignment found - scene objectives unknown)"
+        logger.warning(f"No scene assignment found for scene '{scene.get('name')}' - element generation may be suboptimal")
+
+    # Format parent quest for context (legacy - keep for backward compatibility)
     parent_quest = None
     for quest in state.get("quests", []):
         for place in state.get("places", []):
@@ -399,9 +554,10 @@ Determine what elements this scene needs. Remember to create REDUNDANCY (2-3 way
         if parent_quest:
             break
 
-    objectives_str = ""
-    if parent_quest:
-        structured_objectives = parent_quest.get("structured_objectives", [])
+    # If we couldn't get objectives from scene_assignment, fall back to parent quest
+    if not objectives_str or objectives_str == "(No scene assignment found - scene objectives unknown)":
+        if parent_quest:
+            structured_objectives = parent_quest.get("structured_objectives", [])
         if structured_objectives:
             objectives_str = "\n".join([
                 f"- {obj.get('description', 'Unnamed objective')}"
@@ -422,8 +578,8 @@ Determine what elements this scene needs. Remember to create REDUNDANCY (2-3 way
         "scene_description": scene["description"],
         "location": scene["level_3_location_name"],
         "objectives": objectives_str,
-        "knowledge": knowledge_str if knowledge_str else "No specific knowledge requirements",
-        "items": items_str if items_str else "No specific item requirements",
+        "knowledge": knowledge_str,  # Already has fallback message
+        "items": items_str,  # Already has fallback message
         "target_dimensions": dimensions_str,
         "blooms_level": state["campaign_core"]["target_blooms_level"]
     })
@@ -476,7 +632,8 @@ Create a compelling discovery element.""")
         "knowledge_type": spec.get("type", "information"),
         "blooms_level": state["campaign_core"]["target_blooms_level"],
         "unlocks_scenes": [],  # May be set based on narrative flow
-        "provides_knowledge_ids": spec.get("provides_knowledge", []),
+        "provides_knowledge_ids": spec.get("provides_knowledge_ids", []),  # ID-based!
+        "provides_item_ids": spec.get("provides_item_ids", []),  # ID-based!
         "rubric_id": rubric_id,
         "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
     }
@@ -562,6 +719,8 @@ Create a compelling event element.""")
         "event_type": spec.get("type", "scripted"),
         "trigger_conditions": {},
         "outcomes": enriched.get("outcomes", []),
+        "provides_knowledge_ids": spec.get("provides_knowledge_ids", []),  # ID-based!
+        "provides_item_ids": spec.get("provides_item_ids", []),  # ID-based!
         "rubric_id": rubric_id,
         "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
     }
@@ -672,9 +831,9 @@ Create a compelling challenge element.""")
         "required_knowledge": [],  # TODO: Link to knowledge requirements from spec
         "required_items": [],  # TODO: Link to item requirements from spec
 
-        # Rewards system
-        "provides_knowledge_ids": spec.get("provides_knowledge", []),
-        "provides_item_ids": spec.get("provides_items", []),
+        # Rewards system - ID-based!
+        "provides_knowledge_ids": spec.get("provides_knowledge_ids", []),
+        "provides_item_ids": spec.get("provides_item_ids", []),
         "rubric_id": rubric_id,
 
         # Legacy support

@@ -306,9 +306,12 @@ Generate 4 progressive levels of understanding.""")
 
                 partial_levels_raw = json.loads(response.content.strip())
 
-                # Create KnowledgeData entity
+                # Create KnowledgeData entity with ID now (needed for name-to-ID conversion)
+                import uuid
+                knowledge_id = f"knowledge_{uuid.uuid4().hex[:16]}"
+
                 knowledge_entity: KnowledgeData = {
-                    "knowledge_id": None,  # Will be set on persistence
+                    "knowledge_id": knowledge_id,  # Generate ID immediately for linking
                     "name": kg_name,
                     "description": kg_spec.get("knowledge_description", ""),
                     "knowledge_type": kg_spec.get("knowledge_type", "skill"),
@@ -382,8 +385,12 @@ async def create_item_entities_from_objectives(
                 )
             ]
 
+            # Generate item ID immediately for linking
+            import uuid
+            item_id = f"item_{uuid.uuid4().hex[:16]}"
+
             item_entity: ItemData = {
-                "item_id": None,  # Will be set on persistence
+                "item_id": item_id,  # Generate ID immediately for linking
                 "name": item_name,
                 "description": item_spec.get("item_description", ""),
                 "item_type": item_spec.get("item_type", "tool"),
@@ -477,43 +484,86 @@ def validate_objective_achievability(
 
 def map_knowledge_to_scenes(
     knowledge_entities: List[KnowledgeData],
-    scenes: List[SceneData],
+    scene_assignments: List[Dict[str, Any]],
     redundancy_factor: int = 3
 ) -> Dict[str, List[str]]:
     """
-    Map knowledge entities to scenes that should provide them.
+    Map knowledge entities to scenes based on objective assignments.
 
+    Uses scene_objective_assignments to determine which scenes should provide which knowledge.
     Creates redundancy by assigning each knowledge entity to multiple scenes.
 
     Args:
         knowledge_entities: All knowledge entities to distribute
-        scenes: All scenes in the campaign
+        scene_assignments: Scene objective assignments with knowledge domain requirements
         redundancy_factor: How many scenes should provide each knowledge (default 3)
 
     Returns:
         Dict mapping knowledge_id -> list of scene_ids
     """
     try:
-        logger.info(f"Mapping {len(knowledge_entities)} knowledge entities to {len(scenes)} scenes")
+        logger.info(f"Mapping {len(knowledge_entities)} knowledge entities to {len(scene_assignments)} scene assignments")
 
         knowledge_to_scenes: Dict[str, List[str]] = {}
 
-        # Simple distribution strategy: spread knowledge across scenes evenly
-        for i, knowledge in enumerate(knowledge_entities):
-            kg_name = knowledge["name"]
+        # Build map of knowledge_id -> knowledge entity
+        kg_id_to_entity = {kg.get("knowledge_id", kg.get("name")): kg for kg in knowledge_entities}
 
-            # Select scenes for this knowledge (with redundancy)
-            # Distribute evenly across scenes
-            scene_indices = [
-                (i + j * len(knowledge_entities)) % len(scenes)
-                for j in range(redundancy_factor)
+        # Strategy 1: Use objective-driven assignment from scene_objective_assignments
+        # Build map of domain -> scenes that should provide that domain
+        domain_to_scenes: Dict[str, List[str]] = {}
+        for assignment in scene_assignments:
+            scene_id = assignment.get("scene_id")
+            for kg_spec in assignment.get("provides_knowledge", []):
+                domain = kg_spec.get("domain", kg_spec.get("knowledge_id", ""))
+                if domain not in domain_to_scenes:
+                    domain_to_scenes[domain] = []
+                domain_to_scenes[domain].append(scene_id)
+
+        # Match knowledge entities to domains
+        for knowledge in knowledge_entities:
+            kg_id = knowledge.get("knowledge_id", knowledge["name"])
+            kg_name = knowledge["name"]
+            kg_type = knowledge.get("knowledge_type", "skill")
+
+            # Try exact name match first
+            if kg_name in domain_to_scenes:
+                knowledge_to_scenes[kg_id] = domain_to_scenes[kg_name][:redundancy_factor]
+                logger.debug(f"Knowledge '{kg_name}' matched to {len(knowledge_to_scenes[kg_id])} scenes by name")
+                continue
+
+            # Try type-based matching
+            type_matches = [
+                scene_id
+                for domain, scene_ids in domain_to_scenes.items()
+                if kg_type.lower() in domain.lower()
+                for scene_id in scene_ids
             ]
 
-            selected_scenes = [scenes[idx]["scene_id"] for idx in scene_indices if idx < len(scenes)]
+            if len(type_matches) >= redundancy_factor:
+                knowledge_to_scenes[kg_id] = type_matches[:redundancy_factor]
+                logger.debug(f"Knowledge '{kg_name}' matched to {len(knowledge_to_scenes[kg_id])} scenes by type")
+                continue
 
-            knowledge_to_scenes[kg_name] = selected_scenes
+            # Fallback: Distribute evenly across all scenes with knowledge assignments
+            scenes_with_knowledge = list(set([
+                assignment["scene_id"]
+                for assignment in scene_assignments
+                if len(assignment.get("provides_knowledge", [])) > 0
+            ]))
 
-            logger.debug(f"Knowledge '{kg_name}' will be available in {len(selected_scenes)} scenes")
+            if len(scenes_with_knowledge) > 0:
+                # Use modulo to distribute evenly
+                i = len(knowledge_to_scenes)  # Use number of already-assigned knowledge as offset
+                selected_scenes = [
+                    scenes_with_knowledge[(i + j) % len(scenes_with_knowledge)]
+                    for j in range(min(redundancy_factor, len(scenes_with_knowledge)))
+                ]
+                knowledge_to_scenes[kg_id] = selected_scenes
+                logger.debug(f"Knowledge '{kg_name}' distributed to {len(selected_scenes)} scenes (fallback)")
+            else:
+                logger.warning(f"No scenes available for knowledge '{kg_name}'")
+                knowledge_to_scenes[kg_id] = []
 
         return knowledge_to_scenes
 
@@ -524,45 +574,89 @@ def map_knowledge_to_scenes(
 
 def map_items_to_scenes(
     item_entities: List[ItemData],
-    scenes: List[SceneData],
+    scene_assignments: List[Dict[str, Any]],
     redundancy_factor: int = 2
 ) -> Dict[str, List[str]]:
     """
-    Map item entities to scenes that should provide them.
+    Map item entities to scenes based on objective assignments.
 
+    Uses scene_objective_assignments to determine which scenes should provide which items.
     Creates redundancy by assigning each item to multiple scenes.
 
     Args:
         item_entities: All item entities to distribute
-        scenes: All scenes in the campaign
+        scene_assignments: Scene objective assignments with item category requirements
         redundancy_factor: How many scenes should provide each item (default 2)
 
     Returns:
         Dict mapping item_id -> list of scene_ids
     """
     try:
-        logger.info(f"Mapping {len(item_entities)} item entities to {len(scenes)} scenes")
+        logger.info(f"Mapping {len(item_entities)} item entities to {len(scene_assignments)} scene assignments")
 
         item_to_scenes: Dict[str, List[str]] = {}
 
-        # Quest-critical items get more redundancy
-        for i, item in enumerate(item_entities):
+        # Build map of item_id -> item entity
+        item_id_to_entity = {item.get("item_id", item.get("name")): item for item in item_entities}
+
+        # Strategy 1: Use objective-driven assignment from scene_objective_assignments
+        # Build map of category -> scenes that should provide that category
+        category_to_scenes: Dict[str, List[str]] = {}
+        for assignment in scene_assignments:
+            scene_id = assignment.get("scene_id")
+            for item_spec in assignment.get("provides_items", []):
+                category = item_spec.get("category", item_spec.get("item_id", ""))
+                if category not in category_to_scenes:
+                    category_to_scenes[category] = []
+                category_to_scenes[category].append(scene_id)
+
+        # Match item entities to categories
+        for item in item_entities:
+            item_id = item.get("item_id", item["name"])
             item_name = item["name"]
+            item_type = item.get("item_type", "tool")
 
             # Quest-critical items get +1 redundancy
             actual_redundancy = redundancy_factor + (1 if item.get("is_quest_critical") else 0)
 
-            # Select scenes for this item (with redundancy)
-            scene_indices = [
-                (i + j * len(item_entities)) % len(scenes)
-                for j in range(actual_redundancy)
+            # Try exact name match first
+            if item_name in category_to_scenes:
+                item_to_scenes[item_id] = category_to_scenes[item_name][:actual_redundancy]
+                logger.debug(f"Item '{item_name}' matched to {len(item_to_scenes[item_id])} scenes by name")
+                continue
+
+            # Try type-based matching
+            type_matches = [
+                scene_id
+                for category, scene_ids in category_to_scenes.items()
+                if item_type.lower() in category.lower()
+                for scene_id in scene_ids
             ]
 
-            selected_scenes = [scenes[idx]["scene_id"] for idx in scene_indices if idx < len(scenes)]
+            if len(type_matches) >= actual_redundancy:
+                item_to_scenes[item_id] = type_matches[:actual_redundancy]
+                logger.debug(f"Item '{item_name}' matched to {len(item_to_scenes[item_id])} scenes by type")
+                continue
 
-            item_to_scenes[item_name] = selected_scenes
+            # Fallback: Distribute evenly across all scenes with item assignments
+            scenes_with_items = list(set([
+                assignment["scene_id"]
+                for assignment in scene_assignments
+                if len(assignment.get("provides_items", [])) > 0
+            ]))
 
-            logger.debug(f"Item '{item_name}' will be available in {len(selected_scenes)} scenes")
+            if len(scenes_with_items) > 0:
+                # Use modulo to distribute evenly
+                i = len(item_to_scenes)  # Use number of already-assigned items as offset
+                selected_scenes = [
+                    scenes_with_items[(i + j) % len(scenes_with_items)]
+                    for j in range(min(actual_redundancy, len(scenes_with_items)))
+                ]
+                item_to_scenes[item_id] = selected_scenes
+                logger.debug(f"Item '{item_name}' distributed to {len(selected_scenes)} scenes (fallback)")
+            else:
+                logger.warning(f"No scenes available for item '{item_name}'")
+                item_to_scenes[item_id] = []
 
         return item_to_scenes
 

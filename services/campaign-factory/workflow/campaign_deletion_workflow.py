@@ -298,8 +298,8 @@ async def delete_mongodb_campaign_node(state: CampaignDeletionState) -> Campaign
 
 async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDeletionState:
     """
-    Delete all campaign-related entities from Neo4j using ID pattern matching
-    This is more reliable than relationship traversal since relationships may not exist
+    Delete all campaign-related entities from Neo4j using campaign_id property matching
+    This is more reliable than relationship traversal or ID pattern matching
     """
     try:
         campaign_id = state['campaign_id']
@@ -308,13 +308,13 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
         total_deleted = 0
 
         with neo4j_driver.session() as session:
-            # Delete all campaign entities by ID pattern
+            # Delete all campaign entities by campaign_id property
             # This works regardless of whether relationships were created properly
 
             # 1. Delete Quest nodes
             result = session.run("""
                 MATCH (q:Quest)
-                WHERE q.id STARTS WITH 'quest_' AND q.id CONTAINS $campaign_id
+                WHERE q.campaign_id = $campaign_id
                 DETACH DELETE q
                 RETURN count(q) as deleted_count
             """, campaign_id=campaign_id)
@@ -325,7 +325,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 2. Delete Place nodes
             result = session.run("""
                 MATCH (p:Place)
-                WHERE p.id STARTS WITH 'place_' AND p.id CONTAINS $campaign_id
+                WHERE p.campaign_id = $campaign_id
                 DETACH DELETE p
                 RETURN count(p) as deleted_count
             """, campaign_id=campaign_id)
@@ -336,7 +336,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 3. Delete Scene nodes
             result = session.run("""
                 MATCH (s:Scene)
-                WHERE s.id STARTS WITH 'scene_' AND s.id CONTAINS $campaign_id
+                WHERE s.campaign_id = $campaign_id
                 DETACH DELETE s
                 RETURN count(s) as deleted_count
             """, campaign_id=campaign_id)
@@ -347,7 +347,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 4. Delete NPC nodes
             result = session.run("""
                 MATCH (n:NPC)
-                WHERE n.id STARTS WITH 'npc_' AND n.id CONTAINS $campaign_id
+                WHERE n.campaign_id = $campaign_id
                 DETACH DELETE n
                 RETURN count(n) as deleted_count
             """, campaign_id=campaign_id)
@@ -358,7 +358,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 5. Delete Challenge nodes
             result = session.run("""
                 MATCH (c:Challenge)
-                WHERE c.id STARTS WITH 'challenge_' AND c.id CONTAINS $campaign_id
+                WHERE c.campaign_id = $campaign_id
                 DETACH DELETE c
                 RETURN count(c) as deleted_count
             """, campaign_id=campaign_id)
@@ -369,7 +369,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 6. Delete Discovery nodes
             result = session.run("""
                 MATCH (d:Discovery)
-                WHERE d.id STARTS WITH 'discovery_' AND d.id CONTAINS $campaign_id
+                WHERE d.campaign_id = $campaign_id
                 DETACH DELETE d
                 RETURN count(d) as deleted_count
             """, campaign_id=campaign_id)
@@ -380,7 +380,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 7. Delete Event nodes
             result = session.run("""
                 MATCH (e:Event)
-                WHERE e.id STARTS WITH 'event_' AND e.id CONTAINS $campaign_id
+                WHERE e.campaign_id = $campaign_id
                 DETACH DELETE e
                 RETURN count(e) as deleted_count
             """, campaign_id=campaign_id)
@@ -391,7 +391,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 8. Delete Knowledge nodes
             result = session.run("""
                 MATCH (k:Knowledge)
-                WHERE k.id STARTS WITH 'knowledge_' AND k.id CONTAINS $campaign_id
+                WHERE k.campaign_id = $campaign_id
                 DETACH DELETE k
                 RETURN count(k) as deleted_count
             """, campaign_id=campaign_id)
@@ -402,7 +402,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 9. Delete Item nodes
             result = session.run("""
                 MATCH (i:Item)
-                WHERE i.id STARTS WITH 'item_' AND i.id CONTAINS $campaign_id
+                WHERE i.campaign_id = $campaign_id
                 DETACH DELETE i
                 RETURN count(i) as deleted_count
             """, campaign_id=campaign_id)
@@ -413,7 +413,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             # 10. Delete Rubric nodes
             result = session.run("""
                 MATCH (r:Rubric)
-                WHERE r.id STARTS WITH 'rubric_' AND r.id CONTAINS $campaign_id
+                WHERE r.campaign_id = $campaign_id
                 DETACH DELETE r
                 RETURN count(r) as deleted_count
             """, campaign_id=campaign_id)
@@ -421,7 +421,28 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             total_deleted += rubric_count
             logger.info(f"Deleted {rubric_count} Rubric nodes from Neo4j")
 
-            # 11. Finally, delete the Campaign node itself
+            # 11. Delete CampaignObjective nodes (NEW - from objective cascade system)
+            result = session.run("""
+                MATCH (c:Campaign {id: $campaign_id})-[:HAS_OBJECTIVE]->(co:CampaignObjective)
+                DETACH DELETE co
+                RETURN count(co) as deleted_count
+            """, campaign_id=campaign_id)
+            campaign_obj_count = result.single()['deleted_count']
+            total_deleted += campaign_obj_count
+            logger.info(f"Deleted {campaign_obj_count} CampaignObjective nodes from Neo4j")
+
+            # 12. Delete QuestObjective nodes (NEW - from objective cascade system)
+            result = session.run("""
+                MATCH (qo:QuestObjective)
+                WHERE qo.campaign_id = $campaign_id OR qo.id CONTAINS $campaign_id
+                DETACH DELETE qo
+                RETURN count(qo) as deleted_count
+            """, campaign_id=campaign_id)
+            quest_obj_count = result.single()['deleted_count']
+            total_deleted += quest_obj_count
+            logger.info(f"Deleted {quest_obj_count} QuestObjective nodes from Neo4j")
+
+            # 13. Finally, delete the Campaign node itself
             result = session.run("""
                 MATCH (c:Campaign {id: $campaign_id})
                 DETACH DELETE c
@@ -450,6 +471,8 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
                 'knowledge': knowledge_count,
                 'items': item_count,
                 'rubrics': rubric_count,
+                'campaign_objectives': campaign_obj_count,
+                'quest_objectives': quest_obj_count,
                 'campaign': campaign_count
             }
         }]

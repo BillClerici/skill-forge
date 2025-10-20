@@ -529,51 +529,75 @@
                 </span>
 
                 <p style="color: #b8b8d1; margin-bottom: 30px;">
-                    Review your complete campaign configuration before final generation.
+                    Review your complete campaign configuration and validation results before final generation.
                 </p>
 
-                <div id="final-review-content" style="padding: 20px; background: rgba(27, 27, 46, 0.4); border-radius: 8px;">
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Campaign Name:</strong>
-                        <p id="final-review-campaign-name" style="color: #b8b8d1;"></p>
+                <!-- Tabs for Final Review -->
+                <ul class="tabs" style="background-color: rgba(27, 27, 46, 0.6);">
+                    <li class="tab col s6">
+                        <a href="#summary-tab" class="active" style="color: var(--rpg-gold);">
+                            <i class="material-icons tiny" style="vertical-align: middle;">info</i> Summary
+                        </a>
+                    </li>
+                    <li class="tab col s6">
+                        <a href="#validation-tab" style="color: var(--rpg-gold);">
+                            <i class="material-icons tiny" style="vertical-align: middle;">verified</i> Validation
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- Summary Tab -->
+                <div id="summary-tab" style="padding: 20px; background: rgba(27, 27, 46, 0.4); border-radius: 0 0 8px 8px; min-height: 400px;">
+                    <div id="final-review-content">
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Campaign Name:</strong>
+                            <p id="final-review-campaign-name" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Universe:</strong>
+                            <p id="final-review-universe" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">World:</strong>
+                            <p id="final-review-world" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Region:</strong>
+                            <p id="final-review-region" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Selected Story:</strong>
+                            <p id="final-review-story" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Quest Configuration:</strong>
+                            <p id="final-review-quests" style="color: #b8b8d1;"></p>
+                        </div>
+
+                        <div class="review-section">
+                            <strong style="color: var(--rpg-gold);">Campaign Summary:</strong>
+                            <p id="final-review-summary" style="color: #b8b8d1;"></p>
+                        </div>
                     </div>
 
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Universe:</strong>
-                        <p id="final-review-universe" style="color: #b8b8d1;"></p>
-                    </div>
-
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">World:</strong>
-                        <p id="final-review-world" style="color: #b8b8d1;"></p>
-                    </div>
-
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Region:</strong>
-                        <p id="final-review-region" style="color: #b8b8d1;"></p>
-                    </div>
-
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Selected Story:</strong>
-                        <p id="final-review-story" style="color: #b8b8d1;"></p>
-                    </div>
-
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Quest Configuration:</strong>
-                        <p id="final-review-quests" style="color: #b8b8d1;"></p>
-                    </div>
-
-                    <div class="review-section">
-                        <strong style="color: var(--rpg-gold);">Campaign Summary:</strong>
-                        <p id="final-review-summary" style="color: #b8b8d1;"></p>
+                    <div style="margin-top: 30px; padding: 15px; background: rgba(47, 158, 68, 0.1); border-left: 3px solid var(--rpg-green); border-radius: 4px;">
+                        <p style="color: var(--rpg-green); margin: 0;">
+                            <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i>
+                            <strong>Ready to finalize!</strong> All elements have been generated and reviewed.
+                        </p>
                     </div>
                 </div>
 
-                <div style="margin-top: 30px; padding: 15px; background: rgba(47, 158, 68, 0.1); border-left: 3px solid var(--rpg-green); border-radius: 4px;">
-                    <p style="color: var(--rpg-green); margin: 0;">
-                        <i class="material-icons tiny" style="vertical-align: middle;">check_circle</i>
-                        <strong>Ready to finalize!</strong> All elements have been generated and reviewed.
-                    </p>
+                <!-- Validation Tab -->
+                <div id="validation-tab" style="padding: 20px; background: rgba(27, 27, 46, 0.4); border-radius: 0 0 8px 8px; min-height: 400px; display: none;">
+                    <div id="validation-report-container">
+                        <p style="color: var(--rpg-silver);">Loading validation report...</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1285,5 +1309,12 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/campaign_wizard_v2.js' %}?v=4"></script>
+<script src="{% static 'js/campaign_wizard_v2.js' %}?v=5"></script>
+<script>
+    // Initialize Materialize tabs for final review
+    document.addEventListener('DOMContentLoaded', function() {
+        var elems = document.querySelectorAll('.tabs');
+        M.Tabs.init(elems);
+    });
+</script>
 {% endblock %}

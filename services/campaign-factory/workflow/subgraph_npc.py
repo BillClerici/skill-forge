@@ -355,18 +355,28 @@ Generate a complete NPC with personality and backstory.""")
             raise ValueError(error_msg)
 
         # Create NPCData
+        # Extract knowledge/items from npc_role spec if it's a dict
+        npc_role_data = state.get("npc_role", "neutral")
+        provides_knowledge = []
+        provides_items = []
+        if isinstance(npc_role_data, dict):
+            provides_knowledge = npc_role_data.get("provides_knowledge", [])
+            provides_items = npc_role_data.get("provides_items", [])
+
         npc: NPCData = {
             "npc_id": npc_id,  # Set immediately so scenes can reference it
             "name": npc_name,
             "species_id": species_id,
             "species_name": species_name,
             "personality_traits": npc_data.get("personality_traits", []),
-            "role": state.get("npc_role", "neutral"),
+            "role": state.get("npc_role", "neutral") if not isinstance(npc_role_data, dict) else npc_role_data.get("type", "neutral"),
             "dialogue_style": npc_data.get("dialogue_style", ""),
             "backstory": npc_data.get("backstory", ""),
             "level_3_location_id": state.get("level_3_location_id", ""),
             "level_3_location_name": state.get("location_name", "Unknown Location"),
             "is_world_permanent": True,  # All campaign NPCs are added to world
+            "provides_knowledge_ids": provides_knowledge,  # Knowledge NPC can teach
+            "provides_item_ids": provides_items,  # Items NPC can give/sell
             "rubric_id": rubric_id
         }
 

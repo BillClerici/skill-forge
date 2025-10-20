@@ -50,20 +50,15 @@ from campaigns.views import (
     CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
     CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
     CampaignDeletionProgressView, CampaignDeletionStatusAPI,
-    CampaignReorderQuestsView, QuestReorderPlacesView, PlaceReorderScenesView
+    CampaignReorderQuestsView, QuestReorderPlacesView, PlaceReorderScenesView,
+    SessionObjectivesAPIView
 )
 from campaigns.views_gameplay import (
     GameLobbyView, StartGameSessionView, GameSessionView,
     PartyLobbyView, JoinSessionView, SessionControlView, CampaignImagesAPIView,
     DeleteSessionView
 )
-from campaigns.wizard_views import (
-    campaign_wizard_start, campaign_wizard_init, campaign_wizard_story_selection,
-    campaign_wizard_select_story, campaign_wizard_regenerate_stories,
-    campaign_wizard_core_approval, campaign_wizard_approve_core,
-    campaign_wizard_progress, campaign_wizard_status, campaign_wizard_complete,
-    get_worlds_for_universe, get_regions_for_world
-)
+# V1 wizard views removed - using V2 only
 from campaigns import wizard_views_v2
 from characters.views import (
     CharacterCreateView, CharacterDetailView, CharacterSheetView, CharacterEditView, CharacterDeleteView,
@@ -181,6 +176,7 @@ urlpatterns = [
     # Game Lobby & Sessions
     path('game/lobby/', GameLobbyView.as_view(), name='game_lobby'),
     path('game/session/<str:session_id>/', GameSessionView.as_view(), name='game_session'),
+    path('api/session/<str:session_id>/objectives/', SessionObjectivesAPIView.as_view(), name='session_objectives'),
     path('game/party/<str:session_id>/', PartyLobbyView.as_view(), name='party_lobby'),
     path('game/join/', JoinSessionView.as_view(), name='join_session'),
     path('game/session/<str:session_id>/control/', SessionControlView.as_view(), name='session_control'),
@@ -204,21 +200,8 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/reorder-places/', QuestReorderPlacesView.as_view(), name='quest_reorder_places'),
     path('campaigns/<str:campaign_id>/places/<str:place_id>/reorder-scenes/', PlaceReorderScenesView.as_view(), name='place_reorder_scenes'),
 
-    # Campaign Wizard
-    path('campaigns/wizard/', campaign_wizard_start, name='campaign_wizard_start'),
-    path('campaigns/wizard/init/', campaign_wizard_init, name='campaign_wizard_init'),
-    path('campaigns/wizard/story-selection/', campaign_wizard_story_selection, name='campaign_wizard_story_selection'),
-    path('campaigns/wizard/select-story/', campaign_wizard_select_story, name='campaign_wizard_select_story'),
-    path('campaigns/wizard/regenerate-stories/', campaign_wizard_regenerate_stories, name='campaign_wizard_regenerate_stories'),
-    path('campaigns/wizard/core-approval/', campaign_wizard_core_approval, name='campaign_wizard_core_approval'),
-    path('campaigns/wizard/approve-core/', campaign_wizard_approve_core, name='campaign_wizard_approve_core'),
-    path('campaigns/wizard/progress/', campaign_wizard_progress, name='campaign_wizard_progress'),
-    path('campaigns/wizard/status/', campaign_wizard_status, name='campaign_wizard_status'),
-    path('campaigns/wizard/complete/', campaign_wizard_complete, name='campaign_wizard_complete'),
-
-    # Campaign Wizard AJAX helpers
-    path('api/worlds-for-universe/<str:universe_id>/', get_worlds_for_universe, name='get_worlds_for_universe'),
-    path('api/regions-for-world/<str:world_id>/', get_regions_for_world, name='get_regions_for_world'),
+    # Campaign Wizard V2 - Main Entry Point
+    path('campaigns/wizard/', wizard_views_v2.campaign_wizard_v2, name='campaign_wizard_v2'),
 
     # Campaign Wizard V2 API Endpoints
     path('campaigns/wizard/api/worlds/<str:universe_id>', wizard_views_v2.get_worlds_for_universe_api, name='get_worlds_for_universe_api'),
@@ -232,6 +215,11 @@ urlpatterns = [
     path('campaigns/wizard/api/status/<str:request_id>', wizard_views_v2.get_workflow_status_api, name='get_workflow_status_api'),
     path('campaigns/wizard/api/finalize', wizard_views_v2.finalize_campaign_api, name='finalize_campaign_api'),
     path('campaigns/wizard/api/in-progress', wizard_views_v2.list_in_progress_campaigns_api, name='list_in_progress_campaigns_api'),
+    # NEW: Objective cascade endpoints
+    path('campaigns/wizard/api/objective-decomposition/<str:request_id>', wizard_views_v2.get_objective_decomposition_api, name='get_objective_decomposition_api'),
+    path('campaigns/wizard/api/scene-assignments/<str:request_id>', wizard_views_v2.get_scene_assignments_api, name='get_scene_assignments_api'),
+    path('campaigns/wizard/api/validation-report/<str:request_id>', wizard_views_v2.get_validation_report_api, name='get_validation_report_api'),
+    path('campaigns/wizard/api/retry-validation/<str:request_id>', wizard_views_v2.retry_validation_api, name='retry_validation_api'),
 
     # Characters
     path('players/<uuid:player_id>/characters/create/', CharacterCreateView.as_view(), name='character_create'),

@@ -1160,6 +1160,54 @@ async def get_campaign_status(request_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting campaign status: {str(e)}")
 
+@app.get("/campaign-wizard/validation-report/{request_id}")
+async def get_validation_report(request_id: str):
+    """
+    Get validation report for a campaign workflow
+
+    Returns validation errors, warnings, statistics, and auto-fix suggestions
+    """
+    try:
+        # Get progress from Redis
+        progress_key = f"campaign:progress:{request_id}"
+        progress_data = await redis_client.get(progress_key)
+
+        if not progress_data:
+            raise HTTPException(status_code=404, detail="Campaign request not found")
+
+        data = json.loads(progress_data)
+        validation_report = data.get("validation_report")
+
+        if not validation_report:
+            # Check if validation phase has been reached
+            current_phase = data.get("current_phase", "")
+            progress_percentage = data.get("progress_percentage", 0)
+
+            # Validation runs at 98% progress
+            if progress_percentage < 98 or current_phase not in ["validation", "finalize"]:
+                # Return 404 so frontend shows "not available yet" message
+                raise HTTPException(status_code=404, detail="Validation not yet complete")
+
+            # Validation should have run but no report found
+            # Return empty report structure
+            return {
+                "validation_report": {
+                    "validation_timestamp": None,
+                    "validation_passed": True,
+                    "errors": [],
+                    "warnings": [],
+                    "stats": {},
+                    "auto_fix_suggestions": []
+                }
+            }
+
+        return {"validation_report": validation_report}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting validation report: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=9000)

@@ -777,6 +777,519 @@ class Neo4jGraphService:
             logger.error("npc_recommendation_failed", error=str(e))
             return []
 
+    # ============================================
+    # Objective Cascade System (Campaign Design Integration)
+    # ============================================
+
+    async def get_player_objective_progress(
+        self,
+        player_id: str,
+        campaign_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get player's progress on campaign and quest objectives.
+
+        Returns campaign objectives with nested quest objectives,
+        showing completion percentage and status for each level.
+
+        Args:
+            player_id: Player ID
+            campaign_id: Campaign ID
+
+        Returns:
+            Dict containing:
+            - campaign_objectives: List of campaign objectives with nested quest objectives
+            - overall_progress: Overall campaign completion percentage
+        """
+        try:
+            async with self.driver.session() as session:
+                query = """
+                MATCH (camp:Campaign {id: $campaign_id})-[:HAS_OBJECTIVE]->(co:CampaignObjective)
+                OPTIONAL MATCH (co)-[:DECOMPOSES_TO]->(qo:QuestObjective)
+                OPTIONAL MATCH (p:Player {player_id: $player_id})-[prog:PROGRESS]->(qo)
+                OPTIONAL MATCH (q:Quest)-[:ACHIEVES]->(qo)
+                WITH co,
+                     collect(DISTINCT {
+                         id: qo.id,
+                         description: qo.description,
+                         status: COALESCE(qo.status, 'not_started'),
+                         quest_name: q.name,
+                         quest_number: qo.quest_number,
+                         blooms_level: qo.blooms_level,
+                         progress: COALESCE(prog.percentage, 0),
+                         completed_at: prog.completed_at
+                     }) as quest_objectives
+                OPTIONAL MATCH (p2:Player {player_id: $player_id})-[cprog:PROGRESS]->(co)
+                RETURN co.id as id,
+                       co.description as description,
+                       COALESCE(co.status, 'not_started') as status,
+                       COALESCE(cprog.percentage, 0) as completion_percentage,
+                       co.completion_criteria as completion_criteria,
+                       co.minimum_quests_required as minimum_quests_required,
+                       quest_objectives
+                ORDER BY co.description
+                """
+
+                result = await session.run(
+                    query,
+                    campaign_id=campaign_id,
+                    player_id=player_id
+                )
+
+                campaign_objectives = []
+                total_progress = 0
+                async for record in result:
+                    # Filter out empty quest objectives
+                    quest_objs = [
+                        qo for qo in record["quest_objectives"]
+                        if qo.get("id") is not None
+                    ]
+
+                    campaign_objectives.append({
+                        "id": record["id"],
+                        "description": record["description"],
+                        "status": record["status"],
+                        "completion_percentage": record["completion_percentage"],
+                        "completion_criteria": record["completion_criteria"],
+                        "minimum_quests_required": record["minimum_quests_required"],
+                        "quest_objectives": quest_objs
+                    })
+
+                    total_progress += record["completion_percentage"]
+
+                overall_progress = (
+                    total_progress / len(campaign_objectives)
+                    if campaign_objectives else 0
+                )
+
+                logger.info(
+                    "objective_progress_retrieved",
+                    player_id=player_id,
+                    campaign_id=campaign_id,
+                    overall_progress=overall_progress
+                )
+
+                return {
+                    "campaign_objectives": campaign_objectives,
+                    "overall_progress": int(overall_progress)
+                }
+
+        except Exception as e:
+            logger.error("objective_progress_retrieval_failed", error=str(e))
+            return {"campaign_objectives": [], "overall_progress": 0}
+
+    async def get_available_acquisition_paths(
+        self,
+        player_id: str,
+        resource_id: str,
+        resource_type: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Find all ways to acquire a knowledge/item, showing which paths
+        are still available based on player's acquisition status.
+
+        Args:
+            player_id: Player ID
+            resource_id: Knowledge or Item ID
+            resource_type: "knowledge" or "item"
+
+        Returns:
+            List of acquisition paths with availability and redundancy info
+        """
+        try:
+            label = "Knowledge" if resource_type == "knowledge" else "Item"
+
+            async with self.driver.session() as session:
+                query = f"""
+                MATCH (r:{label} {{id: $resource_id}})
+                MATCH (e)-[rel]->(r)
+                WHERE type(rel) IN ['TEACHES', 'GIVES', 'REVEALS', 'CONTAINS', 'REWARDS', 'GRANTS']
+                MATCH (s:Scene)-[:CONTAINS]->(e)
+
+                // Check if player has already acquired this resource
+                OPTIONAL MATCH (p:Player {{player_id: $player_id}})-[acq:ACQUIRED]->(r)
+
+                // Get redundancy info
+                WITH s, e, type(rel) as rel_type, acq, r.redundancy_paths as total_paths
+
+                RETURN s.id as scene_id,
+                       s.name as scene_name,
+                       e.id as encounter_id,
+                       e.name as encounter_name,
+                       labels(e)[0] as encounter_type,
+                       rel_type as relationship_type,
+                       acq IS NULL as available,
+                       CASE
+                           WHEN total_paths >= 3 THEN 'high'
+                           WHEN total_paths = 2 THEN 'medium'
+                           ELSE 'low'
+                       END as redundancy_level,
+                       COALESCE(s.order_sequence, 0) as scene_order
+                ORDER BY scene_order
+                """
+
+                result = await session.run(
+                    query,
+                    resource_id=resource_id,
+                    player_id=player_id
+                )
+
+                paths = []
+                async for record in result:
+                    # Map encounter type to method
+                    encounter_type = record["encounter_type"].lower()
+                    method = {
+                        "npc": "npc",
+                        "discovery": "discovery",
+                        "challenge": "challenge",
+                        "event": "event"
+                    }.get(encounter_type, encounter_type)
+
+                    paths.append({
+                        "method": method,
+                        "encounter_id": record["encounter_id"],
+                        "encounter_name": record["encounter_name"],
+                        "encounter_type": record["encounter_type"],
+                        "scene_id": record["scene_id"],
+                        "scene_name": record["scene_name"],
+                        "available": record["available"],
+                        "redundancy_level": record["redundancy_level"]
+                    })
+
+                logger.info(
+                    "acquisition_paths_retrieved",
+                    resource_id=resource_id,
+                    resource_type=resource_type,
+                    total_paths=len(paths)
+                )
+
+                return paths
+
+        except Exception as e:
+            logger.error("acquisition_paths_retrieval_failed", error=str(e))
+            return []
+
+    async def get_scene_objectives(
+        self,
+        scene_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get all objectives that can be advanced in this scene,
+        plus knowledge and items that can be acquired.
+
+        Args:
+            scene_id: Scene ID
+
+        Returns:
+            Dict containing objectives, knowledge, and items available in scene
+        """
+        try:
+            async with self.driver.session() as session:
+                query = """
+                MATCH (s:Scene {id: $scene_id})
+
+                // Quest objectives
+                OPTIONAL MATCH (s)-[:ADVANCES]->(qo:QuestObjective)
+
+                // Campaign objectives
+                OPTIONAL MATCH (s)-[:ADVANCES]->(co:CampaignObjective)
+
+                // Knowledge provisions - get encounter methods
+                OPTIONAL MATCH (s)-[:CONTAINS]->(ek)
+                OPTIONAL MATCH (ek)-[rk]->(k:Knowledge)
+                WHERE type(rk) IN ['TEACHES', 'REVEALS', 'REWARDS', 'GRANTS']
+
+                // Item provisions - get encounter methods
+                OPTIONAL MATCH (s)-[:CONTAINS]->(ei)
+                OPTIONAL MATCH (ei)-[ri]->(i:Item)
+                WHERE type(ri) IN ['GIVES', 'CONTAINS', 'REWARDS', 'GRANTS']
+
+                RETURN s.id as scene_id,
+                       s.name as scene_name,
+                       collect(DISTINCT {
+                           id: qo.id,
+                           description: qo.description,
+                           success_criteria: qo.success_criteria
+                       }) as quest_objectives,
+                       collect(DISTINCT {
+                           id: co.id,
+                           description: co.description
+                       }) as campaign_objectives,
+                       collect(DISTINCT {
+                           id: k.id,
+                           name: k.name,
+                           max_level: k.max_level,
+                           description: k.description,
+                           method: type(rk)
+                       }) as knowledge_items,
+                       collect(DISTINCT {
+                           id: i.id,
+                           name: i.name,
+                           category: i.category,
+                           description: i.description,
+                           method: type(ri)
+                       }) as item_items
+                """
+
+                result = await session.run(query, scene_id=scene_id)
+                record = await result.single()
+
+                if not record:
+                    return {
+                        "scene_id": scene_id,
+                        "scene_name": None,
+                        "advances_quest_objectives": [],
+                        "advances_campaign_objectives": [],
+                        "provides_knowledge": [],
+                        "provides_items": []
+                    }
+
+                # Process knowledge items - group by knowledge ID and collect methods
+                knowledge_map = {}
+                for k in record["knowledge_items"]:
+                    if k.get("id"):
+                        kid = k["id"]
+                        if kid not in knowledge_map:
+                            knowledge_map[kid] = {
+                                "id": kid,
+                                "name": k.get("name"),
+                                "max_level": k.get("max_level"),
+                                "description": k.get("description"),
+                                "acquisition_methods": []
+                            }
+                        if k.get("method"):
+                            method = k["method"].lower().replace("_", " ")
+                            if method not in knowledge_map[kid]["acquisition_methods"]:
+                                knowledge_map[kid]["acquisition_methods"].append(method)
+
+                # Process item items - group by item ID and collect methods
+                item_map = {}
+                for i in record["item_items"]:
+                    if i.get("id"):
+                        iid = i["id"]
+                        if iid not in item_map:
+                            item_map[iid] = {
+                                "id": iid,
+                                "name": i.get("name"),
+                                "category": i.get("category"),
+                                "description": i.get("description"),
+                                "acquisition_methods": []
+                            }
+                        if i.get("method"):
+                            method = i["method"].lower().replace("_", " ")
+                            if method not in item_map[iid]["acquisition_methods"]:
+                                item_map[iid]["acquisition_methods"].append(method)
+
+                # Filter out empty objectives
+                quest_objectives = [
+                    qo for qo in record["quest_objectives"]
+                    if qo.get("id") is not None
+                ]
+                campaign_objectives = [
+                    co for co in record["campaign_objectives"]
+                    if co.get("id") is not None
+                ]
+
+                result_data = {
+                    "scene_id": record["scene_id"],
+                    "scene_name": record["scene_name"],
+                    "advances_quest_objectives": quest_objectives,
+                    "advances_campaign_objectives": campaign_objectives,
+                    "provides_knowledge": list(knowledge_map.values()),
+                    "provides_items": list(item_map.values())
+                }
+
+                logger.info(
+                    "scene_objectives_retrieved",
+                    scene_id=scene_id,
+                    quest_objectives=len(quest_objectives),
+                    knowledge_items=len(knowledge_map),
+                    items=len(item_map)
+                )
+
+                return result_data
+
+        except Exception as e:
+            logger.error("scene_objectives_retrieval_failed", error=str(e))
+            return {
+                "scene_id": scene_id,
+                "scene_name": None,
+                "advances_quest_objectives": [],
+                "advances_campaign_objectives": [],
+                "provides_knowledge": [],
+                "provides_items": []
+            }
+
+    async def get_dimensional_progress(
+        self,
+        player_id: str,
+        campaign_id: str
+    ) -> Dict[str, Any]:
+        """
+        Get player's dimensional development progress across
+        7 dimensions (Physical, Emotional, Intellectual, Social,
+        Spiritual, Vocational, Environmental).
+
+        Args:
+            player_id: Player ID
+            campaign_id: Campaign ID
+
+        Returns:
+            Dict with dimensional progress information
+        """
+        try:
+            async with self.driver.session() as session:
+                query = """
+                MATCH (d:Dimension)
+
+                // Knowledge for this dimension in campaign
+                OPTIONAL MATCH (k:Knowledge {campaign_id: $campaign_id})-[:DEVELOPS]->(d)
+
+                // Player's acquired knowledge
+                OPTIONAL MATCH (p:Player {player_id: $player_id})-[acq:ACQUIRED]->(k)
+
+                // Challenges for this dimension
+                OPTIONAL MATCH (ch:Challenge {campaign_id: $campaign_id})-[:DEVELOPS]->(d)
+                OPTIONAL MATCH (p)-[comp:COMPLETED]->(ch)
+
+                WITH d,
+                     count(DISTINCT k) as total_knowledge,
+                     count(DISTINCT acq) as acquired_knowledge,
+                     count(DISTINCT ch) as total_challenges,
+                     count(DISTINCT comp) as completed_challenges
+
+                RETURN d.name as dimension_name,
+                       total_knowledge,
+                       acquired_knowledge,
+                       total_challenges,
+                       completed_challenges
+                ORDER BY d.name
+                """
+
+                result = await session.run(
+                    query,
+                    player_id=player_id,
+                    campaign_id=campaign_id
+                )
+
+                dimensions = []
+                async for record in result:
+                    total_knowledge = record["total_knowledge"]
+                    acquired_knowledge = record["acquired_knowledge"]
+                    total_challenges = record["total_challenges"]
+                    completed_challenges = record["completed_challenges"]
+
+                    # Calculate overall progress for this dimension
+                    # Weight: 60% knowledge, 40% challenges
+                    knowledge_pct = (
+                        (acquired_knowledge / total_knowledge * 100)
+                        if total_knowledge > 0 else 0
+                    )
+                    challenges_pct = (
+                        (completed_challenges / total_challenges * 100)
+                        if total_challenges > 0 else 0
+                    )
+                    overall_pct = (knowledge_pct * 0.6) + (challenges_pct * 0.4)
+
+                    # Map percentage to level (1-6 based on Bloom's taxonomy)
+                    current_level = min(int(overall_pct / 16.67) + 1, 6)
+                    target_level = min(current_level + 1, 6)
+
+                    dimensions.append({
+                        "name": record["dimension_name"],
+                        "current_level": current_level,
+                        "target_level": target_level,
+                        "percentage": int(overall_pct),
+                        "knowledge_acquired": acquired_knowledge,
+                        "knowledge_total": total_knowledge,
+                        "challenges_completed": completed_challenges,
+                        "challenges_total": total_challenges
+                    })
+
+                logger.info(
+                    "dimensional_progress_retrieved",
+                    player_id=player_id,
+                    campaign_id=campaign_id,
+                    dimensions_tracked=len(dimensions)
+                )
+
+                return {"dimensions": dimensions}
+
+        except Exception as e:
+            logger.error("dimensional_progress_retrieval_failed", error=str(e))
+            return {"dimensions": []}
+
+    async def record_objective_progress(
+        self,
+        player_id: str,
+        objective_id: str,
+        objective_type: str,
+        completion_percentage: int,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Record player's progress on a specific objective
+        (either campaign or quest level).
+
+        Args:
+            player_id: Player ID
+            objective_id: Objective ID
+            objective_type: "campaign" or "quest"
+            completion_percentage: 0-100
+            metadata: Optional metadata about the progress
+
+        Returns:
+            Success status
+        """
+        try:
+            label = "CampaignObjective" if objective_type == "campaign" else "QuestObjective"
+
+            async with self.driver.session() as session:
+                query = f"""
+                MATCH (p:Player {{player_id: $player_id}})
+                MATCH (obj:{label} {{id: $objective_id}})
+                MERGE (p)-[prog:PROGRESS]->(obj)
+                SET prog.percentage = $percentage,
+                    prog.updated_at = $timestamp,
+                    prog.metadata = $metadata,
+                    prog.status = CASE
+                        WHEN $percentage >= 100 THEN 'completed'
+                        WHEN $percentage > 0 THEN 'in_progress'
+                        ELSE 'not_started'
+                    END
+                SET obj.status = prog.status
+
+                // If completed, set completion timestamp
+                FOREACH (_ IN CASE WHEN $percentage >= 100 THEN [1] ELSE [] END |
+                    SET prog.completed_at = $timestamp
+                )
+
+                RETURN prog
+                """
+
+                await session.run(
+                    query,
+                    player_id=player_id,
+                    objective_id=objective_id,
+                    percentage=completion_percentage,
+                    timestamp=datetime.utcnow().isoformat(),
+                    metadata=metadata or {}
+                )
+
+                logger.info(
+                    "objective_progress_recorded",
+                    player_id=player_id,
+                    objective_id=objective_id,
+                    objective_type=objective_type,
+                    percentage=completion_percentage
+                )
+
+                return True
+
+        except Exception as e:
+            logger.error("objective_progress_recording_failed", error=str(e))
+            return False
+
 
 # Global instance
 neo4j_graph = Neo4jGraphService()

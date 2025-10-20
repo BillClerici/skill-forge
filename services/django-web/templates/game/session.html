@@ -1016,7 +1016,10 @@
         font-size: 0.85rem;
         font-weight: 500;
         transition: all 0.2s;
-        white-space: nowrap;
+        white-space: normal;
+        word-wrap: break-word;
+        max-width: 200px;
+        line-height: 1.3;
     }
 
     .opportunity-btn:hover {
@@ -2084,6 +2087,41 @@
         color: #4a5568;
         margin: 1rem 0 0.5rem 0;
     }
+
+    /* ===================================
+       Objectives Sidebar Styles
+       =================================== */
+    .objectives-panel.collapsed {
+        right: -330px !important;
+    }
+
+    .objectives-panel::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .objectives-panel::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    .objectives-panel::-webkit-scrollbar-thumb {
+        background: rgba(106, 90, 205, 0.5);
+        border-radius: 4px;
+    }
+
+    .objectives-panel::-webkit-scrollbar-thumb:hover {
+        background: rgba(106, 90, 205, 0.7);
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    .objective-completed-animation {
+        animation: pulse 0.5s ease-in-out;
+    }
 </style>
 {% endblock %}
 
@@ -2317,6 +2355,105 @@
 
                 <!-- Progress Dashboard Component -->
                 {% include 'game/components/progress_dashboard.html' %}
+            </div>
+        </div>
+
+        <!-- Objectives Sidebar (Right Panel) -->
+        <div id="objectives-sidebar" class="objectives-panel" style="
+            position: fixed;
+            right: 20px;
+            top: 120px;
+            width: 350px;
+            background: rgba(27, 27, 46, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            max-height: calc(100vh - 140px);
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 90;
+            transition: right 0.3s ease-in-out;
+        ">
+            <!-- Header with Toggle -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h5 style="color: #FFD700; margin: 0; font-size: 1.1rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle; font-size: 18px;">flag</i>
+                    Objectives
+                </h5>
+                <button id="toggle-objectives-btn" class="btn-flat" style="color: white; padding: 0; min-width: 36px; height: 36px;">
+                    <i class="material-icons">chevron_right</i>
+                </button>
+            </div>
+
+            <!-- Campaign Objectives -->
+            <div id="campaign-objectives-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h6 style="color: #C0C0C0; margin: 0; font-size: 0.9rem;">
+                        Campaign Progress
+                    </h6>
+                    <span id="overall-progress-badge" style="
+                        background: rgba(106, 90, 205, 0.3);
+                        color: #6A5ACD;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                        font-size: 0.75rem;
+                        font-weight: bold;
+                    ">0%</span>
+                </div>
+                <div id="campaign-objectives-list">
+                    <!-- Populated via JavaScript -->
+                    <p style="color: #888; font-size: 0.85rem; text-align: center; padding: 20px;">
+                        Loading objectives...
+                    </p>
+                </div>
+            </div>
+
+            <!-- Current Quest Objectives -->
+            <div id="quest-objectives-container" style="margin-top: 20px;">
+                <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">assignment</i>
+                    Current Quest
+                </h6>
+                <div id="quest-objectives-list">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Scene Objectives -->
+            <div id="scene-objectives-container" style="margin-top: 20px;">
+                <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">location_on</i>
+                    This Scene
+                </h6>
+                <div id="scene-objectives-list">
+                    <!-- Populated via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Scene Resources (Knowledge & Items) -->
+            <div id="scene-resources-container" style="margin-top: 20px;">
+                <h6 style="color: #FFD700; margin-bottom: 8px; font-size: 0.9rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">school</i>
+                    Available Resources
+                </h6>
+
+                <div id="scene-knowledge-list" style="margin-bottom: 10px;">
+                    <!-- Knowledge items -->
+                </div>
+
+                <div id="scene-items-list">
+                    <!-- Item items -->
+                </div>
+            </div>
+
+            <!-- Dimensional Development -->
+            <div id="dimensional-progress-container" style="margin-top: 20px;">
+                <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                    <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">psychology</i>
+                    Dimensional Development
+                </h6>
+                <div id="dimensions-list">
+                    <!-- Populated via JavaScript -->
+                </div>
             </div>
         </div>
 
@@ -2576,6 +2713,9 @@
         </div>
     </div>
 </div>
+
+<!-- Load Game Session Objectives JavaScript -->
+<script src="{% static 'js/game_session.js' %}"></script>
 
 <script>
     // Game Session Configuration
@@ -3228,6 +3368,22 @@
             case 'action_opportunities':
                 displayActionOpportunities(data.opportunities, data.context);
                 break;
+
+            case 'objective_progress':
+                // Handle quest objective progress updates
+                if (typeof window.GameSessionObjectives !== 'undefined' &&
+                    typeof window.GameSessionObjectives.handleObjectiveProgress === 'function') {
+                    window.GameSessionObjectives.handleObjectiveProgress(data);
+                }
+                break;
+
+            case 'campaign_objective_progress':
+                // Handle campaign objective progress updates
+                if (typeof window.GameSessionObjectives !== 'undefined' &&
+                    typeof window.GameSessionObjectives.handleCampaignObjectiveProgress === 'function') {
+                    window.GameSessionObjectives.handleCampaignObjectiveProgress(data);
+                }
+                break;
         }
     }
 
@@ -3425,6 +3581,9 @@
             const npcRole = npc.role || 'Character';
             const npcDescription = npc.description || '';
 
+            // Escape single quotes and backslashes for onclick handlers
+            const escapedName = npcName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             html += `
                 <div class="entity-item">
                     <div class="entity-header">
@@ -3436,9 +3595,9 @@
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Talk to ${npcName}')">💬 Talk</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Ask ${npcName} about their story')">📖 Ask About Story</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${npcName}')">🔍 Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Talk to ${escapedName}')">💬 Talk</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Ask ${escapedName} about their story')">📖 Ask About Story</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${escapedName}')">🔍 Examine</button>
                     </div>
                 </div>
             `;
@@ -3465,6 +3624,9 @@
             const itemDescription = typeof item === 'object' ? (item.description || '') : '';
             const displayName = formatDisplayName(itemName);
 
+            // Escape single quotes and backslashes for onclick handlers
+            const escapedItemName = itemName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             html += `
                 <div class="entity-item">
                     <div class="entity-header">
@@ -3475,8 +3637,8 @@
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Pick up the ${itemName} from the scene')">✋ Take</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine the ${itemName}')">🔍 Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Pick up the ${escapedItemName} from the scene')">✋ Take</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine the ${escapedItemName}')">🔍 Examine</button>
                     </div>
                 </div>
             `;
@@ -3517,6 +3679,9 @@
             const completedClass = isInvestigated ? ' completed' : '';
             const investigatedLabel = isInvestigated ? '<span style="color: #4caf50; font-weight: 600; margin-left: 8px;">✓ Investigated</span>' : '';
 
+            // Escape single quotes and backslashes for onclick handlers
+            const escapedDiscoveryName = discoveryName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             html += `
                 <div class="entity-item${completedClass}">
                     <div class="entity-header">
@@ -3527,8 +3692,8 @@
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Investigate ${discoveryName}')" ${isInvestigated ? 'disabled' : ''}>🔍 ${isInvestigated ? 'Already Investigated' : 'Investigate'}</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${discoveryName}')">👁️ Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Investigate ${escapedDiscoveryName}')" ${isInvestigated ? 'disabled' : ''}>🔍 ${isInvestigated ? 'Already Investigated' : 'Investigate'}</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${escapedDiscoveryName}')">👁️ Examine</button>
                     </div>
                 </div>
             `;
@@ -3555,6 +3720,9 @@
             const challengeName = challenge.name || 'Unknown Challenge';
             const challengeDescription = challenge.description || '';
 
+            // Escape single quotes and backslashes for onclick handlers
+            const escapedChallengeName = challengeName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             html += `
                 <div class="entity-item">
                     <div class="entity-header">
@@ -3565,8 +3733,8 @@
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Attempt ${challengeName}')">⚔️ Attempt</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${challengeName}')">🔍 Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Attempt ${escapedChallengeName}')">⚔️ Attempt</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${escapedChallengeName}')">🔍 Examine</button>
                     </div>
                 </div>
             `;
@@ -3593,6 +3761,9 @@
             const eventName = event.name || 'Unknown Event';
             const eventDescription = event.description || '';
 
+            // Escape single quotes and backslashes for onclick handlers
+            const escapedEventName = eventName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             html += `
                 <div class="entity-item">
                     <div class="entity-header">
@@ -3603,8 +3774,8 @@
                         </div>
                     </div>
                     <div class="entity-actions">
-                        <button class="entity-action-btn primary" onclick="performSceneAction('Participate in ${eventName}')">✨ Participate</button>
-                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${eventName}')">🔍 Examine</button>
+                        <button class="entity-action-btn primary" onclick="performSceneAction('Participate in ${escapedEventName}')">✨ Participate</button>
+                        <button class="entity-action-btn" onclick="performSceneAction('Examine ${escapedEventName}')">🔍 Examine</button>
                     </div>
                 </div>
             `;

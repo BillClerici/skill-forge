@@ -349,11 +349,30 @@ Convert this narrative chapter into a detailed quest with objectives.""")
                 logger.error(f"Error processing objectives for quest '{quest['name']}': {str(e)}")
                 continue
 
-        # Store knowledge and item entities in state
-        state["knowledge_entities"] = all_knowledge_entities
-        state["item_entities"] = all_item_entities
+        # Deduplicate knowledge and item entities across all quests
+        # Multiple quests may create objectives for the same knowledge/item
+        unique_knowledge = {}
+        for kg in all_knowledge_entities:
+            kg_name = kg.get("name", "")
+            if kg_name and kg_name not in unique_knowledge:
+                unique_knowledge[kg_name] = kg
 
-        logger.info(f"Total campaign resources: {len(all_knowledge_entities)} knowledge, {len(all_item_entities)} items")
+        unique_items = {}
+        for item in all_item_entities:
+            item_name = item.get("name", "")
+            if item_name and item_name not in unique_items:
+                unique_items[item_name] = item
+
+        deduplicated_knowledge = list(unique_knowledge.values())
+        deduplicated_items = list(unique_items.values())
+
+        logger.info(f"Deduplication: {len(all_knowledge_entities)} -> {len(deduplicated_knowledge)} knowledge, {len(all_item_entities)} -> {len(deduplicated_items)} items")
+
+        # Store knowledge and item entities in state
+        state["knowledge_entities"] = deduplicated_knowledge
+        state["item_entities"] = deduplicated_items
+
+        logger.info(f"Total campaign resources: {len(deduplicated_knowledge)} knowledge, {len(deduplicated_items)} items")
 
         # Create checkpoint after quest generation
         state["step_progress"] = 95

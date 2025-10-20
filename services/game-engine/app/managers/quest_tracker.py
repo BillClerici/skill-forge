@@ -392,6 +392,344 @@ class QuestProgressionTracker:
                 "error": str(e)
             }
 
+    # ============================================
+    # Objective Cascade Tracking (Neo4j Integration)
+    # ============================================
+
+    async def check_objective_cascade(
+        self,
+        session_id: str,
+        player_id: str,
+        state: GameSessionState
+    ) -> Dict[str, Any]:
+        """
+        Check progress on all levels of objective cascade:
+        - Campaign objectives
+        - Quest objectives
+        - Scene objectives
+
+        Integrates with Neo4j objective hierarchy from Campaign Design Wizard.
+
+        Args:
+            session_id: Session ID
+            player_id: Player ID
+            state: Game session state
+
+        Returns:
+            Progress report with UI updates
+        """
+        try:
+            campaign_id = state.get("campaign_id")
+
+            # Get current objective hierarchy progress from Neo4j
+            progress = await neo4j_graph.get_player_objective_progress(
+                player_id,
+                campaign_id
+            )
+
+            # Check each quest objective for completion
+            updates_sent = []
+
+            for camp_obj in progress["campaign_objectives"]:
+                for quest_obj in camp_obj["quest_objectives"]:
+                    if quest_obj["status"] != "completed":
+                        # Check if conditions are met
+                        completion = await self._check_quest_objective_conditions(
+                            quest_obj["id"],
+                            player_id,
+                            state
+                        )
+
+                        # If progress has been made, update Neo4j
+                        if completion["percentage"] > quest_obj.get("progress", 0):
+                            await neo4j_graph.record_objective_progress(
+                                player_id,
+                                quest_obj["id"],
+                                "quest",
+                                completion["percentage"],
+                                completion["metadata"]
+                            )
+
+                            # Broadcast update to UI via WebSocket
+                            await connection_manager.broadcast_to_session(
+                                session_id,
+                                {
+                                    "event": "objective_progress",
+                                    "objective_id": quest_obj["id"],
+                                    "objective_description": quest_obj["description"],
+                                    "percentage": completion["percentage"],
+                                    "criteria_met": completion["criteria_met"],
+                                    "timestamp": datetime.utcnow().isoformat()
+                                }
+                            )
+
+                            updates_sent.append({
+                                "objective_id": quest_obj["id"],
+                                "new_percentage": completion["percentage"]
+                            })
+
+            # Check campaign objectives (calculated from quest objective progress)
+            for camp_obj in progress["campaign_objectives"]:
+                quest_progress = [
+                    qo["progress"] for qo in camp_obj["quest_objectives"]
+                ]
+                campaign_percentage = (
+                    sum(quest_progress) / len(quest_progress)
+                    if quest_progress else 0
+                )
+
+                # If campaign objective progress changed, update
+                if campaign_percentage != camp_obj.get("completion_percentage", 0):
+                    await neo4j_graph.record_objective_progress(
+                        player_id,
+                        camp_obj["id"],
+                        "campaign",
+                        int(campaign_percentage)
+                    )
+
+                    # Broadcast campaign objective progress
+                    await connection_manager.broadcast_to_session(
+                        session_id,
+                        {
+                            "event": "campaign_objective_progress",
+                            "objective_id": camp_obj["id"],
+                            "objective_description": camp_obj["description"],
+                            "percentage": campaign_percentage,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    )
+
+                    updates_sent.append({
+                        "objective_id": camp_obj["id"],
+                        "new_percentage": int(campaign_percentage),
+                        "type": "campaign"
+                    })
+
+            logger.info(
+                "objective_cascade_checked",
+                session_id=session_id,
+                player_id=player_id,
+                updates=len(updates_sent)
+            )
+
+            return {
+                "progress": progress,
+                "updates_sent": updates_sent
+            }
+
+        except Exception as e:
+            logger.error("objective_cascade_check_failed", error=str(e))
+            return {
+                "progress": {"campaign_objectives": [], "overall_progress": 0},
+                "updates_sent": [],
+                "error": str(e)
+            }
+
+    async def _check_quest_objective_conditions(
+        self,
+        quest_objective_id: str,
+        player_id: str,
+        state: GameSessionState
+    ) -> Dict[str, Any]:
+        """
+        Check if quest objective conditions are met based on:
+        - Knowledge acquired
+        - Items collected
+        - Scenes visited
+        - NPCs talked to
+        - Challenges completed
+
+        Args:
+            quest_objective_id: Quest objective ID
+            player_id: Player ID
+            state: Game session state
+
+        Returns:
+            Dict with completion percentage, criteria met, and metadata
+        """
+        try:
+            # Get objective definition from Neo4j
+            async with neo4j_graph.driver.session() as session:
+                result = await session.run("""
+                    MATCH (qo:QuestObjective {id: $obj_id})
+                    OPTIONAL MATCH (qo)-[:REQUIRES_KNOWLEDGE]->(k:Knowledge)
+                    OPTIONAL MATCH (qo)-[:REQUIRES_ITEM]->(i:Item)
+                    RETURN qo.success_criteria as criteria,
+                           collect(DISTINCT k.id) as required_knowledge,
+                           collect(DISTINCT i.id) as required_items
+                """, obj_id=quest_objective_id)
+
+                record = await result.single()
+
+            if not record:
+                logger.warning(
+                    "quest_objective_not_found",
+                    objective_id=quest_objective_id
+                )
+                return {
+                    "percentage": 0,
+                    "criteria_met": [],
+                    "criteria_total": 0,
+                    "metadata": {}
+                }
+
+            criteria = record["criteria"] or []
+            required_knowledge = [k for k in record["required_knowledge"] if k]
+            required_items = [i for i in record["required_items"] if i]
+
+            criteria_met = []
+            criteria_total = len(criteria)
+
+            # Check each criterion
+            for criterion in criteria:
+                met = await self._check_criterion(
+                    criterion,
+                    player_id,
+                    state,
+                    required_knowledge,
+                    required_items
+                )
+                if met:
+                    criteria_met.append(criterion)
+
+            # Calculate percentage
+            percentage = (
+                (len(criteria_met) / criteria_total * 100)
+                if criteria_total > 0 else 0
+            )
+
+            # Check knowledge progress
+            player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+            knowledge_acquired = [
+                k for k in required_knowledge
+                if k in player_knowledge
+            ]
+
+            # Check items progress
+            player_inventories = state.get("player_inventories", {}).get(player_id, [])
+            items_collected = [
+                i for i in required_items
+                if any(inv.get("item_id") == i for inv in player_inventories)
+            ]
+
+            return {
+                "percentage": int(percentage),
+                "criteria_met": criteria_met,
+                "criteria_total": criteria_total,
+                "metadata": {
+                    "knowledge_progress": len(knowledge_acquired),
+                    "knowledge_total": len(required_knowledge),
+                    "items_progress": len(items_collected),
+                    "items_total": len(required_items)
+                }
+            }
+
+        except Exception as e:
+            logger.error(
+                "quest_objective_check_failed",
+                objective_id=quest_objective_id,
+                error=str(e)
+            )
+            return {
+                "percentage": 0,
+                "criteria_met": [],
+                "criteria_total": 0,
+                "metadata": {}
+            }
+
+    async def _check_criterion(
+        self,
+        criterion: str,
+        player_id: str,
+        state: GameSessionState,
+        required_knowledge: List[str],
+        required_items: List[str]
+    ) -> bool:
+        """
+        Check if a specific success criterion is met.
+
+        Examples:
+        - "Find 3 clues" -> Check if 3 discoveries were made
+        - "Collect 2 samples" -> Check if 2 specific items collected
+        - "Talk to Old Miner" -> Check if NPC interaction occurred
+        - "Complete corrupted water analysis" -> Check if challenge completed
+
+        Args:
+            criterion: Success criterion description
+            player_id: Player ID
+            state: Game session state
+            required_knowledge: Required knowledge IDs
+            required_items: Required item IDs
+
+        Returns:
+            True if criterion is met
+        """
+        criterion_lower = criterion.lower()
+
+        # Pattern matching for different criterion types
+        if "find" in criterion_lower or "discover" in criterion_lower:
+            # Check discoveries/events in state
+            completed_discoveries = state.get("completed_discoveries", [])
+            # Extract number from criterion (e.g., "Find 3 clues" -> 3)
+            import re
+            match = re.search(r'\d+', criterion)
+            target_count = int(match.group()) if match else 1
+            return len(completed_discoveries) >= target_count
+
+        elif "collect" in criterion_lower or "gather" in criterion_lower:
+            # Check if required items are collected
+            player_inventories = state.get("player_inventories", {}).get(player_id, [])
+            items_collected = sum(
+                1 for i in required_items
+                if any(inv.get("item_id") == i for inv in player_inventories)
+            )
+            import re
+            match = re.search(r'\d+', criterion)
+            target_count = int(match.group()) if match else len(required_items)
+            return items_collected >= target_count
+
+        elif "talk to" in criterion_lower or "speak with" in criterion_lower:
+            # Check if NPC was talked to
+            conversation_history = state.get("conversation_history", [])
+            # Extract NPC name from criterion
+            # Simple check: if any conversation happened, consider met
+            # (More sophisticated NPC name matching could be added)
+            return len(conversation_history) > 0
+
+        elif "complete" in criterion_lower or "finish" in criterion_lower:
+            # Check if challenge was completed
+            completed_challenges = state.get("completed_challenges", [])
+            # Could check for specific challenge IDs
+            return len(completed_challenges) > 0
+
+        elif "visit" in criterion_lower or "reach" in criterion_lower:
+            # Check if scene/location was visited
+            completed_scene_ids = state.get("completed_scene_ids", [])
+            import re
+            match = re.search(r'\d+', criterion)
+            target_count = int(match.group()) if match else 1
+            return len(completed_scene_ids) >= target_count
+
+        elif "acquire" in criterion_lower or "learn" in criterion_lower:
+            # Check if knowledge was acquired
+            player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
+            knowledge_acquired = sum(
+                1 for k in required_knowledge
+                if k in player_knowledge
+            )
+            import re
+            match = re.search(r'\d+', criterion)
+            target_count = int(match.group()) if match else len(required_knowledge)
+            return knowledge_acquired >= target_count
+
+        else:
+            # Default: consider criterion as a descriptive note, not automatically checkable
+            logger.warning(
+                "unknown_criterion_pattern",
+                criterion=criterion
+            )
+            return False
+
 
 # Global instance
 quest_tracker = QuestProgressionTracker()

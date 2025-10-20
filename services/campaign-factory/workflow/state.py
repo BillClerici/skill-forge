@@ -96,6 +96,8 @@ class NPCData(TypedDict):
     level_3_location_id: str
     level_3_location_name: str
     is_world_permanent: bool  # True if added to world's NPC pool
+    provides_knowledge_ids: List[str]  # Knowledge IDs this NPC can teach/provide
+    provides_item_ids: List[str]  # Item IDs this NPC can give/sell
     rubric_id: Optional[str]  # Link to evaluation rubric for conversations
 
 
@@ -157,7 +159,10 @@ class EventData(TypedDict):
     event_type: str  # scripted, conditional, random
     trigger_conditions: Dict[str, Any]
     outcomes: List[Dict[str, Any]]
+    provides_knowledge_ids: List[str]  # Knowledge IDs this event can provide
+    provides_item_ids: List[str]  # Item IDs this event can provide
     rubric_id: Optional[str]  # Link to evaluation rubric for dynamic event
+    scene_id: Optional[str]  # Link to parent scene
 
 
 class ItemData(TypedDict):
@@ -308,6 +313,101 @@ class QuestObjective(TypedDict):
     status: str  # not_started, in_progress, completed
 
 
+class ObjectiveProgress(TypedDict):
+    """
+    Track progress on a single objective (campaign or quest level)
+    """
+    objective_id: str
+    level: str  # campaign or quest
+    parent_id: Optional[str]  # For quest objectives, the quest_id
+    description: str
+    blooms_level: int
+    status: str  # not_started, in_progress, completed
+    completion_percentage: float  # 0.0 to 1.0
+
+    # Success criteria
+    success_criteria: List[str]  # List of conditions that must be met
+
+    # Supporting elements
+    supporting_quest_objectives: List[str]  # For campaign objectives
+    supporting_scenes: List[str]  # Scene IDs that advance this objective
+    required_knowledge: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "min_level": 2}]
+    required_items: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+
+    # Progress tracking
+    knowledge_acquired: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "current_level": 2}]
+    items_acquired: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+
+    # Metadata
+    created_at: str
+    last_updated: Optional[str]
+
+
+class ObjectiveDecomposition(TypedDict):
+    """
+    Maps campaign objectives to quest objectives (decomposition tree)
+    """
+    campaign_objective_id: str
+    campaign_objective_description: str
+
+    # Decomposition into quest-level sub-objectives
+    quest_objectives: List[Dict[str, Any]]  # [{"quest_id": "q1", "objective_id": "obj_1", "description": "...", "contribution": "..."}]
+
+    # Requirements aggregation
+    total_knowledge_required: List[str]  # Knowledge domain names
+    total_items_required: List[str]  # Item category names
+
+    # Success criteria
+    completion_criteria: List[str]
+    minimum_quests_required: int  # How many quests must be completed
+
+    # Metadata
+    created_at: str
+
+
+class SceneObjectiveAssignment(TypedDict):
+    """
+    Links scenes to the objectives they support
+    """
+    scene_id: str
+    scene_name: str
+
+    # Objectives this scene advances
+    advances_quest_objectives: List[str]  # Quest objective IDs
+    advances_campaign_objectives: List[str]  # Campaign objective IDs
+
+    # What this scene provides
+    provides_knowledge: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "max_level": 3}]
+    provides_items: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+
+    # Acquisition methods in this scene
+    acquisition_methods: List[Dict[str, Any]]  # [{"type": "npc_conversation", "entity_id": "npc_001", ...}]
+
+    # Metadata
+    is_required: bool  # Must be completed to finish campaign
+    is_redundant: bool  # Provides alternative path to same objectives
+
+
+class ValidationReport(TypedDict):
+    """
+    Report from objective cascade validation
+    """
+    validation_timestamp: str
+    validation_passed: bool
+
+    # Errors (must be fixed)
+    errors: List[Dict[str, Any]]  # [{"type": "missing_link", "severity": "critical", "message": "...", "affected_ids": [...]}]
+
+    # Warnings (should be reviewed)
+    warnings: List[Dict[str, Any]]  # [{"type": "weak_link", "severity": "medium", "message": "...", "recommendations": [...]}]
+
+    # Statistics
+    stats: Dict[str, Any]
+
+    # Auto-fix suggestions
+    auto_fix_suggestions: List[Dict[str, Any]]  # [{"action": "add_encounter", "scene_id": "...", "provides": "..."}]
+
+
 class CampaignWorkflowState(TypedDict):
     """
     Complete state for Campaign Factory workflow
@@ -316,11 +416,14 @@ class CampaignWorkflowState(TypedDict):
     1. Initialization (user selections)
     2. Story Generation (3 ideas, user selection)
     3. Campaign Core Generation (plot, storyline, objectives)
-    4. Quest Generation (based on user specs)
-    5. Place Generation (Level 2 locations)
-    6. Scene Generation (Level 3 locations)
-    7. Scene Element Generation (NPCs, discoveries, events, challenges)
-    8. Finalization (validation, persistence)
+    3.5. Objective Decomposition (NEW - map campaign -> quest objectives)
+    4. Narrative Planning (story blueprint with objective awareness)
+    5. Quest Generation (based on user specs)
+    6. Place Generation (Level 2 locations)
+    7. Scene Generation (Level 3 locations with objective assignments)
+    8. Scene Element Generation (NPCs, discoveries, events, challenges)
+    9. Validation (cascade validation with auto-fix)
+    10. Finalization (validation, persistence)
     """
 
     # Request metadata
@@ -382,6 +485,15 @@ class CampaignWorkflowState(TypedDict):
     # Character development
     character_profile: Optional[CharacterDevelopmentProfile]  # Player character's development
 
+    # NEW: Objective tracking and validation
+    objective_progress: List[ObjectiveProgress]  # All objective progress tracking
+    objective_decompositions: List[ObjectiveDecomposition]  # Campaign -> Quest objective mappings
+    scene_objective_assignments: List[SceneObjectiveAssignment]  # Scene -> Objective mappings
+    validation_report: Optional[ValidationReport]  # Latest validation results
+
+    # NEW: Generation mode
+    generation_mode: str  # "narrative_first" (default) or "objective_first"
+
     # World enrichment tracking
     new_species_ids: List[str]  # Species created and added to world
     new_location_ids: List[str]  # DEPRECATED: Use new_locations instead
@@ -389,7 +501,7 @@ class CampaignWorkflowState(TypedDict):
     new_npc_ids: List[str]  # NPCs created and added to world
 
     # Workflow state management
-    current_phase: str  # init, story_gen, core_gen, quest_gen, place_gen, scene_gen, element_gen, finalize
+    current_phase: str  # init, story_gen, core_gen, objective_decomp, narrative_plan, quest_gen, place_gen, scene_gen, element_gen, validation, finalize
     current_node: str
     errors: List[str]
     warnings: List[str]

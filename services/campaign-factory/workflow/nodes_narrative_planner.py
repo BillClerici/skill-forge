@@ -163,6 +163,14 @@ SCENE GUIDELINES:
 - Scenes should be UNIQUE - no generic "tavern scene" or "market scene"
 - 1-3 scenes per place, each with a clear narrative purpose
 
+OBJECTIVE-DRIVEN DESIGN (CRITICAL):
+- Each scene MUST explicitly support at least ONE quest objective
+- Specify which quest objectives the scene advances
+- Identify what knowledge domains the player should acquire in this scene
+- Identify what item categories the player should obtain in this scene
+- Create REDUNDANCY: Important objectives should be achievable through multiple scenes (2-3 different scenes)
+- Every quest objective must be addressable in at least 2 different scenes
+
 Return a JSON structure with this EXACT format:
 {{
   "campaign_story_arc": {{
@@ -192,7 +200,11 @@ Return a JSON structure with this EXACT format:
               "scene_name": "Specific scene name (e.g., 'The Desperate Plea', 'The Hidden Map')",
               "scene_description": "What happens in this specific narrative moment",
               "story_beat": "Which story beat from above this scene advances",
-              "key_interactions": "NPCs, discoveries, or events that occur here"
+              "key_interactions": "NPCs, discoveries, or events that occur here",
+              "supports_quest_objectives": ["quest_obj_id_1", "quest_obj_id_2"],
+              "provides_knowledge_domains": ["domain1", "domain2"],
+              "provides_item_categories": ["category1"],
+              "is_required_for_quest_completion": true
             }}
           ]
         }}
@@ -215,13 +227,19 @@ Name: {campaign_name}
 Plot: {plot}
 Primary Objectives: {primary_objectives}
 
+Quest Objectives (decomposed from campaign objectives):
+{quest_objectives_breakdown}
+
 Campaign Specifications:
 - Number of Quests: {num_quests}
 - Difficulty: {difficulty}
 - Target Bloom's Level: {blooms_level}
 
 Create a comprehensive narrative blueprint for this {num_quests}-quest campaign.
-Make each quest a distinct chapter. Places can be reused across quests, but each scene must be unique.""")
+Make each quest a distinct chapter. Places can be reused across quests, but each scene must be unique.
+
+CRITICAL: Each scene must specify which quest objectives it supports and what knowledge/items it provides.
+Ensure every quest objective is addressable in at least 2 different scenes for redundancy.""")
         ])
 
         # Format primary objectives
@@ -230,9 +248,24 @@ Make each quest a distinct chapter. Places can be reused across quests, but each
             for obj in state["campaign_core"]["primary_objectives"]
         ])
 
+        # Format quest objectives breakdown (from decomposition)
+        quest_objectives_breakdown = ""
+        if state.get("objective_decompositions"):
+            for decomp in state["objective_decompositions"]:
+                quest_objectives_breakdown += f"\nCampaign Objective: {decomp['campaign_objective_description']}\n"
+                quest_objectives_breakdown += "  Quest-level objectives:\n"
+                for qobj in decomp["quest_objectives"]:
+                    quest_num = qobj.get("quest_number", "?")
+                    quest_objectives_breakdown += f"    Quest {quest_num}: {qobj['objective_id']} - {qobj['description']}\n"
+                    quest_objectives_breakdown += f"      Requires knowledge: {', '.join(qobj.get('required_knowledge_domains', []))}\n"
+                    quest_objectives_breakdown += f"      Requires items: {', '.join(qobj.get('required_item_categories', []))}\n"
+        else:
+            # Fallback if decomposition hasn't run yet
+            quest_objectives_breakdown = "(No objective decomposition available - using campaign objectives only)"
+
         # Generate narrative blueprint
         state["step_progress"] = 30
-        state["status_message"] = f"Generating {state['num_quests']}-quest story arc..."
+        state["status_message"] = f"Generating {state['num_quests']}-quest story arc with objective awareness..."
         await publish_progress(state)
 
         chain = prompt | anthropic_client
@@ -240,6 +273,7 @@ Make each quest a distinct chapter. Places can be reused across quests, but each
             "campaign_name": state["campaign_core"]["name"],
             "plot": state["campaign_core"]["plot"],
             "primary_objectives": objectives_str,
+            "quest_objectives_breakdown": quest_objectives_breakdown,
             "num_quests": state["num_quests"],
             "difficulty": state["quest_difficulty"],
             "blooms_level": state["campaign_core"]["target_blooms_level"]

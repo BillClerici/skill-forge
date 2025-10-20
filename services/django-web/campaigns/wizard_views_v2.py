@@ -434,3 +434,104 @@ def list_in_progress_campaigns_api(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_objective_decomposition_api(request, request_id):
+    """
+    AJAX: Get objective decomposition for a campaign workflow
+    Returns campaign objectives decomposed into quest objectives
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                f"{ORCHESTRATOR_URL}/campaign-wizard/objective-decomposition/{request_id}"
+            )
+
+            if response.status_code == 404:
+                return JsonResponse({'error': 'Request not found'}, status=404)
+
+            if response.status_code != 200:
+                return JsonResponse({'error': 'Failed to get objective decomposition'}, status=500)
+
+            return JsonResponse(response.json())
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_scene_assignments_api(request, request_id):
+    """
+    AJAX: Get scene-objective assignments for a campaign workflow
+    Returns which objectives each scene advances and what resources it provides
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                f"{ORCHESTRATOR_URL}/campaign-wizard/scene-assignments/{request_id}"
+            )
+
+            if response.status_code == 404:
+                return JsonResponse({'error': 'Request not found'}, status=404)
+
+            if response.status_code != 200:
+                return JsonResponse({'error': 'Failed to get scene assignments'}, status=500)
+
+            return JsonResponse(response.json())
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_validation_report_api(request, request_id):
+    """
+    AJAX: Get validation report for a campaign workflow
+    Returns validation errors, warnings, statistics, and auto-fix suggestions
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                f"{ORCHESTRATOR_URL}/campaign-wizard/validation-report/{request_id}"
+            )
+
+            if response.status_code == 404:
+                return JsonResponse({'error': 'Request not found'}, status=404)
+
+            if response.status_code != 200:
+                return JsonResponse({'error': 'Failed to get validation report'}, status=500)
+
+            return JsonResponse(response.json())
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def retry_validation_api(request, request_id):
+    """
+    AJAX: Retry validation after making changes
+    Triggers re-validation of the objective cascade
+    """
+    try:
+        # Use default UUID if user is not authenticated
+        user_id = str(request.user.id) if request.user.is_authenticated else "b1fbc0c6-7a49-40ba-9ec4-d4b69ae5387f"
+
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{ORCHESTRATOR_URL}/campaign-wizard/retry-validation/{request_id}",
+                json={
+                    'request_id': request_id,
+                    'user_id': user_id
+                }
+            )
+
+            if response.status_code != 200:
+                return JsonResponse({'error': 'Failed to retry validation'}, status=500)
+
+        return JsonResponse({'status': 'validating'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

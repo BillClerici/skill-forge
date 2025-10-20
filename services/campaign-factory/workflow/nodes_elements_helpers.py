@@ -38,32 +38,63 @@ def _normalize_name(name: str) -> str:
     return name.strip().lower().replace(" ", "_").replace("-", "_")
 
 
+def _format_friendly_name(name: str) -> str:
+    """
+    Convert snake_case/camelCase names to friendly Title Case display names.
+
+    Examples:
+        "settlement_geography" -> "Settlement Geography"
+        "observation_journal" -> "Observation Journal"
+        "Formation Markers" -> "Formation Markers"
+        "ancient_rune_reading" -> "Ancient Rune Reading"
+        "NPCDiplomacy" -> "NPC Diplomacy"
+
+    Returns:
+        Friendly formatted name
+    """
+    if not name:
+        return name
+
+    # If name has spaces and mixed case, assume it's already formatted
+    if " " in name and any(c.isupper() for c in name):
+        return name.strip()
+
+    # Replace underscores and hyphens with spaces
+    name = name.replace("_", " ").replace("-", " ")
+
+    # Split camelCase (e.g., "NPCDiplomacy" -> "NPC Diplomacy")
+    import re
+    name = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
+    name = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', name)
+
+    # Title case each word
+    return name.title().strip()
+
+
 def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str, scene: dict, knowledge_tracker: dict):
     """
-    Track knowledge from a spec (NPC, discovery, event, challenge).
+    Track knowledge from a spec (NPC, discovery, event, challenge) using IDs.
 
     Args:
-        spec: The specification dict with provides_knowledge
+        spec: The specification dict with provides_knowledge_ids
         entity_id: ID of the entity providing the knowledge
         interaction_type: Type of interaction (npc_conversation, environmental_discovery, etc.)
         scene: Scene dict where this knowledge is available
-        knowledge_tracker: Dict to track all knowledge
+        knowledge_tracker: Dict to track all knowledge by ID
     """
-    knowledge_names = spec.get("provides_knowledge", [])
+    # Use ID-based field instead of name-based
+    knowledge_ids = spec.get("provides_knowledge_ids", [])
     dimension = spec.get("dimension", "intellectual")
     difficulty = spec.get("difficulty", "Medium")
 
-    for knowledge_name in knowledge_names:
-        if not knowledge_name or knowledge_name.strip() == "":
+    for knowledge_id in knowledge_ids:
+        if not knowledge_id or knowledge_id.strip() == "":
             continue
 
-        # Normalize name to prevent duplicates with different formatting
-        normalized_name = _normalize_name(knowledge_name)
-
+        # Track by ID - no normalization needed!
         # Initialize tracker for this knowledge if not exists
-        if normalized_name not in knowledge_tracker:
-            knowledge_tracker[normalized_name] = {
-                "display_name": knowledge_name,  # Preserve original formatting for first occurrence
+        if knowledge_id not in knowledge_tracker:
+            knowledge_tracker[knowledge_id] = {
                 "scenes": [],
                 "acquisition_methods": [],
                 "dimension": dimension
@@ -71,8 +102,8 @@ def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str
 
         # Add scene if not already added
         scene_id = scene.get("scene_id", "")
-        if scene_id and scene_id not in knowledge_tracker[normalized_name]["scenes"]:
-            knowledge_tracker[normalized_name]["scenes"].append(scene_id)
+        if scene_id and scene_id not in knowledge_tracker[knowledge_id]["scenes"]:
+            knowledge_tracker[knowledge_id]["scenes"].append(scene_id)
 
         # Add acquisition method
         acquisition_method = {
@@ -84,42 +115,40 @@ def _track_knowledge_from_spec(spec: dict, entity_id: str, interaction_type: str
             "conditions": {}
         }
 
-        knowledge_tracker[normalized_name]["acquisition_methods"].append(acquisition_method)
+        knowledge_tracker[knowledge_id]["acquisition_methods"].append(acquisition_method)
 
 
 def _track_items_from_spec(spec: dict, entity_id: str, interaction_type: str, scene: dict, item_tracker: dict):
     """
-    Track items from a spec (NPC, discovery, event, challenge).
+    Track items from a spec (NPC, discovery, event, challenge) using IDs.
 
     Args:
-        spec: The specification dict with provides_items
+        spec: The specification dict with provides_item_ids
         entity_id: ID of the entity providing the item
         interaction_type: Type of interaction
         scene: Scene dict where this item is available
-        item_tracker: Dict to track all items
+        item_tracker: Dict to track all items by ID
     """
-    item_names = spec.get("provides_items", [])
+    # Use ID-based field instead of name-based
+    item_ids = spec.get("provides_item_ids", [])
     difficulty = spec.get("difficulty", "Medium")
 
-    for item_name in item_names:
-        if not item_name or item_name.strip() == "":
+    for item_id in item_ids:
+        if not item_id or item_id.strip() == "":
             continue
 
-        # Normalize name to prevent duplicates with different formatting
-        normalized_name = _normalize_name(item_name)
-
+        # Track by ID - no normalization needed!
         # Initialize tracker for this item if not exists
-        if normalized_name not in item_tracker:
-            item_tracker[normalized_name] = {
-                "display_name": item_name,  # Preserve original formatting for first occurrence
+        if item_id not in item_tracker:
+            item_tracker[item_id] = {
                 "scenes": [],
                 "acquisition_methods": []
             }
 
         # Add scene if not already added
         scene_id = scene.get("scene_id", "")
-        if scene_id and scene_id not in item_tracker[normalized_name]["scenes"]:
-            item_tracker[normalized_name]["scenes"].append(scene_id)
+        if scene_id and scene_id not in item_tracker[item_id]["scenes"]:
+            item_tracker[item_id]["scenes"].append(scene_id)
 
         # Add acquisition method
         acquisition_method = {
@@ -131,7 +160,7 @@ def _track_items_from_spec(spec: dict, entity_id: str, interaction_type: str, sc
             "conditions": {}
         }
 
-        item_tracker[normalized_name]["acquisition_methods"].append(acquisition_method)
+        item_tracker[item_id]["acquisition_methods"].append(acquisition_method)
 
 
 async def generate_knowledge_entities(knowledge_tracker: dict, state: dict) -> List[KnowledgeData]:

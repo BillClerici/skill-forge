@@ -11,6 +11,15 @@ import psycopg2
 from datetime import datetime
 
 from .state import CampaignWorkflowState
+from .neo4j_objective_persistence import (
+    persist_objective_hierarchy_to_neo4j,
+    persist_dimensional_objectives_to_neo4j
+)
+from .neo4j_scene_assignment_persistence import (
+    persist_scene_assignments_to_neo4j,
+    persist_acquisition_paths_to_neo4j,
+    persist_redundancy_analysis_to_neo4j
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +98,8 @@ async def persist_campaign_to_mongodb(state: CampaignWorkflowState) -> str:
                 "num_npcs": len(state["npcs"]),
                 "new_species_created": len(state["new_species_ids"]),
                 "new_locations_created": len(state["new_location_ids"])
-            }
+            },
+            "validation_report": state.get("validation_report")  # Include validation report if available
         }
 
         # Use replace_one with upsert to handle retries gracefully
@@ -287,6 +297,8 @@ async def persist_npcs(state: CampaignWorkflowState):
             "world_id": state["world_id"],
             "level_3_location_id": npc["level_3_location_id"],
             "is_world_permanent": npc.get("is_world_permanent", True),
+            "knowledge_revealed": npc.get("provides_knowledge_ids", []),  # Knowledge NPC can teach
+            "items_revealed": npc.get("provides_item_ids", []),  # Items NPC can give/sell
             "origin_campaign_id": f"campaign_{state['request_id']}",
             "created_at": datetime.utcnow().isoformat()
         }
@@ -319,6 +331,7 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "knowledge_type": discovery.get("knowledge_type", "lore"),
             "blooms_level": discovery.get("blooms_level", 2),
             "unlocks_scenes": discovery.get("unlocks_scenes", []),
+            "knowledge_revealed": discovery.get("provides_knowledge_ids", []),  # Link to knowledge items
             "campaign_id": campaign_id,  # FIX 4: Add campaign_id
             "scene_id": discovery.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
@@ -344,6 +357,8 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "event_type": event.get("event_type", "scripted"),
             "trigger_conditions": event.get("trigger_conditions", {}),
             "outcomes": event.get("outcomes", []),
+            "knowledge_revealed": event.get("provides_knowledge_ids", []),  # Knowledge gained from event
+            "items_revealed": event.get("provides_item_ids", []),  # Items obtained from event
             "campaign_id": campaign_id,  # FIX 4: Add campaign_id
             "scene_id": event.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
@@ -371,6 +386,8 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             "blooms_level": challenge.get("blooms_level", 3),
             "success_rewards": challenge.get("success_rewards", {}),
             "failure_consequences": challenge.get("failure_consequences", {}),
+            "knowledge_revealed": challenge.get("provides_knowledge_ids", []),  # Link to knowledge items (on success)
+            "items_revealed": challenge.get("provides_item_ids", []),  # Link to item rewards (on success)
             "campaign_id": campaign_id,  # FIX 4: Add campaign_id
             "scene_id": challenge.get("scene_id"),  # FIX 4: Add scene_id for tracking
             "created_at": datetime.utcnow().isoformat()
@@ -390,6 +407,7 @@ async def persist_scene_elements(state: CampaignWorkflowState):
 
         knowledge_doc = {
             "_id": knowledge_id,
+            "knowledge_id": knowledge_id,  # Also save as field for game engine
             "name": knowledge["name"],
             "description": knowledge["description"],
             "knowledge_type": knowledge["knowledge_type"],
@@ -417,6 +435,7 @@ async def persist_scene_elements(state: CampaignWorkflowState):
 
         item_doc = {
             "_id": item_id,
+            "item_id": item_id,  # Also save as field for game engine
             "name": item["name"],
             "description": item["description"],
             "item_type": item["item_type"],
@@ -539,6 +558,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 MATCH (r:Region {id: $region_id})
                 MERGE (q:Quest {id: $quest_id})
                 SET q.name = $quest_name,
+                    q.campaign_id = $campaign_id,
                     q.order_sequence = $order_sequence,
                     q.difficulty_level = $difficulty,
                     q.estimated_duration_minutes = $duration
@@ -577,6 +597,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     MATCH (q:Quest {id: $quest_id})
                     MERGE (p:Place {id: $place_id})
                     SET p.name = $place_name,
+                        p.campaign_id = $campaign_id,
                         p.order_sequence = $order_sequence
                     MERGE (q)-[:CONTAINS]->(p)
 
@@ -616,6 +637,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         MATCH (p:Place {id: $place_id})
                         MERGE (sc:Scene {id: $scene_id})
                         SET sc.name = $scene_name,
+                            sc.campaign_id = $campaign_id,
                             sc.order_sequence = $order_sequence
                         MERGE (p)-[:CONTAINS]->(sc)
 
@@ -1081,10 +1103,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 """
                 MERGE (r:Rubric {id: $rubric_id})
                 SET r.rubric_type = $rubric_type,
+                    r.campaign_id = $campaign_id,
                     r.interaction_name = $interaction_name,
                     r.primary_dimension = $primary_dimension
                 """,
                 rubric_id=rubric_id,
+                campaign_id=campaign_id,
                 rubric_type=rubric.get("rubric_type", "evaluation"),
                 interaction_name=rubric.get("interaction_name", "Unknown Interaction"),
                 primary_dimension=rubric.get("primary_dimension", "intellectual")
@@ -1118,7 +1142,52 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             relationships_created += 1
             logger.info(f"Created rubric {rubric_id} and linked to {entity_record['entity_type']} {entity_id}")
 
-    logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
+        logger.info(f"Created {relationships_created} Neo4j relationships (including Knowledge, Items, and Rubrics)")
+
+        # NEW: Persist objective hierarchy and assignments
+        logger.info("Persisting objective hierarchy to Neo4j...")
+        try:
+            await persist_objective_hierarchy_to_neo4j(state, neo4j_driver)
+            logger.info("✓ Objective hierarchy persisted")
+        except Exception as e:
+            logger.error(f"Failed to persist objective hierarchy: {str(e)}")
+            # Non-critical, continue
+
+        # NEW: Persist dimensional development
+        logger.info("Persisting dimensional development to Neo4j...")
+        try:
+            await persist_dimensional_objectives_to_neo4j(state, neo4j_driver)
+            logger.info("✓ Dimensional development persisted")
+        except Exception as e:
+            logger.error(f"Failed to persist dimensional development: {str(e)}")
+            # Non-critical, continue
+
+        # NEW: Persist scene-objective assignments
+        logger.info("Persisting scene-objective assignments to Neo4j...")
+        try:
+            await persist_scene_assignments_to_neo4j(state, neo4j_driver)
+            logger.info("✓ Scene assignments persisted")
+        except Exception as e:
+            logger.error(f"Failed to persist scene assignments: {str(e)}")
+            # Non-critical, continue
+
+        # NEW: Persist detailed acquisition paths
+        logger.info("Persisting acquisition paths to Neo4j...")
+        try:
+            await persist_acquisition_paths_to_neo4j(state, neo4j_driver)
+            logger.info("✓ Acquisition paths persisted")
+        except Exception as e:
+            logger.error(f"Failed to persist acquisition paths: {str(e)}")
+            # Non-critical, continue
+
+        # NEW: Analyze and persist redundancy information
+        logger.info("Analyzing redundancy in Neo4j...")
+        try:
+            await persist_redundancy_analysis_to_neo4j(state, neo4j_driver)
+            logger.info("✓ Redundancy analysis complete")
+        except Exception as e:
+            logger.error(f"Failed to analyze redundancy: {str(e)}")
+            # Non-critical, continue
 
     return relationships_created
 

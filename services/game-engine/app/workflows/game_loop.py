@@ -303,7 +303,7 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
                 "total": total_required,
                 "progress": f"{acquired_count}/{total_required}",
                 "percent": round(progress_percent),
-                "completed": acquired_count >= total_required
+                "completed": total_required > 0 and acquired_count >= total_required  # Fix: Don't mark as completed if no tracking (total=0)
             })
 
         # Calculate overall quest progress
@@ -461,12 +461,23 @@ async def detect_acquirable_opportunities(
             for match in matches:
                 target = match.group(1)
                 if target:
+                    # Format action text with proper capitalization
+                    action_verb = action_type.replace('_', ' ').title()
+                    action_text = f"{action_verb} {target.title()}"
+
                     opportunities["actions"].append({
                         "type": action_type,
                         "target": target,
-                        "action": f"{action_type.replace('_', ' ').title()} {target}",
+                        "action": action_text,
                         "context": "perform_action"
                     })
+
+                    logger.debug(
+                        "opportunity_detected",
+                        action_type=action_type,
+                        target=target,
+                        action_text=action_text
+                    )
 
     except Exception as e:
         logger.error("opportunity_detection_failed", error=str(e))

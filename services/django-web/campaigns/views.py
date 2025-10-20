@@ -721,6 +721,9 @@ class CampaignDetailView(View):
 
             campaign_json['quests'].append(quest_data)
 
+        # Get validation report if available
+        validation_report = campaign.get('validation_report')
+
         return render(request, 'campaigns/campaign_detail.html', {
             'campaign': campaign,
             'worlds': worlds,
@@ -728,7 +731,8 @@ class CampaignDetailView(View):
             'quests': quests,
             'is_new_format': is_new_format,
             'members': list(players),  # For backwards compatibility
-            'campaign_json': json.dumps(campaign_json)
+            'campaign_json': json.dumps(campaign_json),
+            'validation_report': validation_report
         })
 
     def post(self, request, campaign_id):
@@ -1901,4 +1905,38 @@ class PlaceReorderScenesView(View):
 
         except Exception as e:
             logger.error(f"Error reordering scenes: {e}", exc_info=True)
+            return JsonResponse({'error': str(e)}, status=500)
+
+
+class SessionObjectivesAPIView(View):
+    """Proxy to Game Engine for session objectives"""
+
+    def get(self, request, session_id):
+        """Get objectives progress for a session"""
+        try:
+            player_id = request.GET.get('player_id')
+            if not player_id:
+                return JsonResponse({'error': 'player_id required'}, status=400)
+
+            # Proxy to game engine
+            GAME_ENGINE_URL = os.getenv('GAME_ENGINE_URL', 'http://game-engine:9500')
+
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get(
+                    f"{GAME_ENGINE_URL}/api/v1/session/{session_id}/objectives",
+                    params={"player_id": player_id}
+                )
+
+                if response.status_code == 404:
+                    return JsonResponse({'error': 'Session not found'}, status=404)
+
+                if response.status_code != 200:
+                    return JsonResponse({'error': 'Failed to get objectives'}, status=500)
+
+                return JsonResponse(response.json())
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting session objectives: {e}", exc_info=True)
             return JsonResponse({'error': str(e)}, status=500)
