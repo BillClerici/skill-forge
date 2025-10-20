@@ -1356,6 +1356,18 @@ What would you like to do?"""
                                         }
                                     )
 
+                                # Check objective cascade and broadcast progress updates
+                                try:
+                                    from ..managers.quest_tracker import QuestProgressionTracker
+                                    quest_tracker = QuestProgressionTracker()
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade: {e}")
+
                 # Track items given by NPC during dialogue
                 if npc_response.get("items_given"):
                     for item_id in npc_response["items_given"]:
@@ -1969,6 +1981,18 @@ What would you like to do?"""
                                             "quest_progress": complete_progress
                                         }
                                     )
+
+                                # Check objective cascade and broadcast progress updates
+                                try:
+                                    from ..managers.quest_tracker import QuestProgressionTracker
+                                    quest_tracker = QuestProgressionTracker()
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade: {e}")
 
                 # Award items from discovery
                 item_ids = discovery.get("items_revealed", [])

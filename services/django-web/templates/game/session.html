@@ -73,6 +73,19 @@
         width: calc(100% - 640px - 2rem);
     }
 
+    /* When both right drawers are anchored */
+    .game-header.both-right-condensed {
+        margin-right: calc(640px + 1rem);
+        width: calc(100% - 640px - 2rem);
+    }
+
+    /* When left drawer + both right drawers are anchored */
+    .game-header.left-condensed.both-right-condensed {
+        margin-left: calc(320px + 1rem);
+        margin-right: calc(640px + 1rem);
+        width: calc(100% - 960px - 2rem);
+    }
+
     .campaign-info-row {
         display: flex;
         align-items: center;
@@ -194,6 +207,36 @@
         position: fixed; /* Keep fixed, don't make it part of flex layout */
         transform: translateX(0);
         top: 64px; /* Below main nav */
+    }
+
+    /* Second Right Drawer (Campaign Progress) */
+    .drawer-right-progress {
+        position: fixed;
+        right: 0;
+        top: 64px; /* Below main nav */
+        bottom: 0;
+        width: 320px;
+        transform: translateX(100%);
+        border-left: 2px solid rgba(212, 175, 55, 0.2); /* RPG gold border */
+    }
+
+    .drawer-right-progress.open {
+        transform: translateX(0);
+    }
+
+    .drawer-right-progress.anchored {
+        position: fixed;
+        transform: translateX(0);
+        top: 64px;
+    }
+
+    /* When Journey drawer is also anchored, offset Progress drawer to the left */
+    .drawer-right.anchored ~ .drawer-right-progress.anchored {
+        right: 320px; /* Position to the left of Journey drawer */
+    }
+
+    .drawer-right-progress .drawer-header {
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
     }
 
     .drawer-header {
@@ -334,6 +377,31 @@
     }
 
     .drawer-toggle-right.hidden {
+        right: 320px;
+    }
+
+    /* Stack right drawer toggles vertically */
+    .drawer-toggle-right-journey {
+        right: 0;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+        top: calc(50% - 60px); /* Offset up */
+        z-index: 150; /* Above drawers (drawers are z-index: 110) */
+    }
+
+    .drawer-toggle-right-journey.hidden {
+        right: 320px;
+    }
+
+    .drawer-toggle-right-progress {
+        right: 0;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+        top: calc(50% + 10px); /* Offset down */
+        z-index: 150; /* Above drawers (drawers are z-index: 110) */
+    }
+
+    .drawer-toggle-right-progress.hidden {
         right: 320px;
     }
 
@@ -531,6 +599,19 @@
         margin-left: 320px;
         margin-right: 320px;
         width: calc(100% - 640px);
+    }
+
+    /* When both right drawers are anchored */
+    .game-grid.both-right-anchored {
+        margin-right: 640px;
+        width: calc(100% - 640px);
+    }
+
+    /* When left drawer + both right drawers are anchored */
+    .game-grid.left-anchored.both-right-anchored {
+        margin-left: 320px;
+        margin-right: 640px;
+        width: calc(100% - 960px);
     }
 
     /* ===================================
@@ -2251,9 +2332,12 @@
             </div>
         </div>
 
-        <!-- Right Drawer Toggle -->
-        <button class="drawer-toggle drawer-toggle-right" id="rightDrawerToggle" onclick="toggleRightDrawer()">
+        <!-- Right Drawer Toggles -->
+        <button class="drawer-toggle drawer-toggle-right-journey" id="rightDrawerJourneyToggle" onclick="toggleRightDrawerJourney()">
             👥
+        </button>
+        <button class="drawer-toggle drawer-toggle-right-progress" id="rightDrawerProgressToggle" onclick="toggleRightDrawerProgress()">
+            📊
         </button>
 
         <!-- Right Drawer (Journey Arc) -->
@@ -2261,10 +2345,10 @@
             <div class="drawer-header">
                 <h3>Journey Arc</h3>
                 <div class="drawer-controls">
-                    <button class="drawer-btn" onclick="toggleRightDrawerAnchor()" title="Anchor drawer">
+                    <button class="drawer-btn" onclick="toggleRightDrawerJourneyAnchor()" title="Anchor drawer">
                         📌
                     </button>
-                    <button class="drawer-btn" onclick="toggleRightDrawer()">
+                    <button class="drawer-btn" onclick="toggleRightDrawerJourney()">
                         ✕
                     </button>
                 </div>
@@ -2358,8 +2442,97 @@
             </div>
         </div>
 
-        <!-- Objectives Sidebar (Right Panel) -->
+        <!-- Right Drawer (Campaign Progress) -->
+        <div class="drawer drawer-right-progress" id="rightDrawerProgress">
+            <div class="drawer-header">
+                <h3>Campaign Progress</h3>
+                <div class="drawer-controls">
+                    <button class="drawer-btn" onclick="toggleRightDrawerProgressAnchor()" title="Anchor drawer">
+                        📌
+                    </button>
+                    <button class="drawer-btn" onclick="toggleRightDrawerProgress()">
+                        ✕
+                    </button>
+                </div>
+            </div>
+            <div class="drawer-content">
+                <!-- Campaign Objectives -->
+                <div id="campaign-objectives-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h6 style="color: #C0C0C0; margin: 0; font-size: 0.9rem;">
+                            Overall Progress
+                        </h6>
+                        <span id="overall-progress-badge" style="
+                            background: rgba(106, 90, 205, 0.3);
+                            color: #6A5ACD;
+                            padding: 2px 8px;
+                            border-radius: 12px;
+                            font-size: 0.75rem;
+                            font-weight: bold;
+                        ">0%</span>
+                    </div>
+                    <div id="campaign-objectives-list">
+                        <!-- Populated via JavaScript -->
+                        <p style="color: #888; font-size: 0.85rem; text-align: center; padding: 20px;">
+                            Loading objectives...
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Current Quest Objectives -->
+                <div id="quest-objectives-container" style="margin-top: 20px;">
+                    <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">assignment</i>
+                        Current Quest
+                    </h6>
+                    <div id="quest-objectives-list">
+                        <!-- Populated via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Scene Objectives -->
+                <div id="scene-objectives-container" style="margin-top: 20px;">
+                    <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">location_on</i>
+                        This Scene
+                    </h6>
+                    <div id="scene-objectives-list">
+                        <!-- Populated via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Scene Resources (Knowledge & Items) -->
+                <div id="scene-resources-container" style="margin-top: 20px;">
+                    <h6 style="color: #FFD700; margin-bottom: 8px; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">school</i>
+                        Available Resources
+                    </h6>
+
+                    <div id="scene-knowledge-list" style="margin-bottom: 10px;">
+                        <!-- Knowledge items -->
+                    </div>
+
+                    <div id="scene-items-list">
+                        <!-- Item items -->
+                    </div>
+                </div>
+
+                <!-- Dimensional Development -->
+                <div id="dimensional-progress-container" style="margin-top: 20px;">
+                    <h6 style="color: #C0C0C0; margin-bottom: 8px; font-size: 0.9rem;">
+                        <i class="material-icons tiny" style="vertical-align: middle; font-size: 16px;">psychology</i>
+                        Dimensional Development
+                    </h6>
+                    <div id="dimensions-list">
+                        <!-- Populated via JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Objectives Sidebar (Right Panel) - HIDDEN, content moved to Campaign Progress drawer -->
         <div id="objectives-sidebar" class="objectives-panel" style="
+            display: none;
             position: fixed;
             right: 20px;
             top: 120px;
@@ -2748,9 +2921,11 @@
 
     // Drawer state - Load from localStorage if available
     let leftDrawerOpen = localStorage.getItem('leftDrawerOpen') === 'true' || false;
-    let rightDrawerOpen = localStorage.getItem('rightDrawerOpen') === 'true' || false;
+    let rightDrawerJourneyOpen = localStorage.getItem('rightDrawerJourneyOpen') === 'true' || false;
+    let rightDrawerProgressOpen = localStorage.getItem('rightDrawerProgressOpen') === 'true' || false;
     let leftDrawerAnchored = localStorage.getItem('leftDrawerAnchored') === 'true' || false;
-    let rightDrawerAnchored = localStorage.getItem('rightDrawerAnchored') === 'true' || false;
+    let rightDrawerJourneyAnchored = localStorage.getItem('rightDrawerJourneyAnchored') === 'true' || false;
+    let rightDrawerProgressAnchored = localStorage.getItem('rightDrawerProgressAnchored') === 'true' || false;
 
     // Make ws global for team chat component
     window.ws = ws;
@@ -3066,12 +3241,12 @@
         localStorage.setItem('leftDrawerOpen', leftDrawerOpen);
     }
 
-    function toggleRightDrawer() {
-        rightDrawerOpen = !rightDrawerOpen;
+    function toggleRightDrawerJourney() {
+        rightDrawerJourneyOpen = !rightDrawerJourneyOpen;
         const drawer = document.getElementById('rightDrawer');
-        const toggle = document.getElementById('rightDrawerToggle');
+        const toggle = document.getElementById('rightDrawerJourneyToggle');
 
-        if (rightDrawerOpen) {
+        if (rightDrawerJourneyOpen) {
             drawer.classList.add('open');
             toggle.classList.add('hidden');
         } else {
@@ -3080,7 +3255,24 @@
         }
 
         // Save to localStorage
-        localStorage.setItem('rightDrawerOpen', rightDrawerOpen);
+        localStorage.setItem('rightDrawerJourneyOpen', rightDrawerJourneyOpen);
+    }
+
+    function toggleRightDrawerProgress() {
+        rightDrawerProgressOpen = !rightDrawerProgressOpen;
+        const drawer = document.getElementById('rightDrawerProgress');
+        const toggle = document.getElementById('rightDrawerProgressToggle');
+
+        if (rightDrawerProgressOpen) {
+            drawer.classList.add('open');
+            toggle.classList.add('hidden');
+        } else {
+            drawer.classList.remove('open');
+            toggle.classList.remove('hidden');
+        }
+
+        // Save to localStorage
+        localStorage.setItem('rightDrawerProgressOpen', rightDrawerProgressOpen);
     }
 
     function toggleLeftDrawerAnchor() {
@@ -3098,7 +3290,7 @@
             toggle.style.display = 'none';
             leftDrawerOpen = false;
 
-            if (rightDrawerAnchored) {
+            if (rightDrawerJourneyAnchored) {
                 grid.classList.add('both-anchored');
                 header.classList.add('both-condensed');
                 header.classList.remove('left-condensed');
@@ -3112,7 +3304,7 @@
             toggle.style.display = 'block';
             toggle.classList.remove('hidden');
 
-            if (rightDrawerAnchored) {
+            if (rightDrawerJourneyAnchored) {
                 header.classList.add('right-condensed');
             }
         }
@@ -3122,43 +3314,124 @@
         localStorage.setItem('leftDrawerOpen', leftDrawerOpen);
     }
 
-    function toggleRightDrawerAnchor() {
-        rightDrawerAnchored = !rightDrawerAnchored;
+    function toggleRightDrawerJourneyAnchor() {
+        rightDrawerJourneyAnchored = !rightDrawerJourneyAnchored;
         const drawer = document.getElementById('rightDrawer');
         const grid = document.getElementById('gameGrid');
         const header = document.querySelector('.game-header');
-        const toggle = document.getElementById('rightDrawerToggle');
+        const toggle = document.getElementById('rightDrawerJourneyToggle');
 
-        if (rightDrawerAnchored) {
+        if (rightDrawerJourneyAnchored) {
             drawer.classList.add('anchored');
             drawer.classList.remove('open');
-            grid.classList.add('right-anchored');
-            header.classList.add('right-condensed');
             toggle.style.display = 'none';
-            rightDrawerOpen = false;
+            rightDrawerJourneyOpen = false;
 
-            if (leftDrawerAnchored) {
-                grid.classList.add('both-anchored');
-                header.classList.add('both-condensed');
+            // If Progress drawer is also anchored, we need both-right-anchored state
+            if (rightDrawerProgressAnchored) {
+                // Both right drawers are now anchored
+                grid.classList.add('both-right-anchored');
+                header.classList.add('both-right-condensed');
+                grid.classList.remove('right-anchored');
                 header.classList.remove('right-condensed');
+            } else {
+                // Only Journey drawer is anchored
+                grid.classList.add('right-anchored');
+                header.classList.add('right-condensed');
+
+                if (leftDrawerAnchored) {
+                    grid.classList.add('both-anchored');
+                    header.classList.add('both-condensed');
+                    header.classList.remove('right-condensed');
+                }
             }
         } else {
             drawer.classList.remove('anchored');
-            grid.classList.remove('right-anchored');
-            grid.classList.remove('both-anchored');
-            header.classList.remove('right-condensed');
-            header.classList.remove('both-condensed');
             toggle.style.display = 'block';
             toggle.classList.remove('hidden');
 
-            if (leftDrawerAnchored) {
-                header.classList.add('left-condensed');
+            // If Progress drawer is still anchored, maintain right-anchored state
+            if (rightDrawerProgressAnchored) {
+                grid.classList.remove('both-right-anchored');
+                header.classList.remove('both-right-condensed');
+                // Keep right-anchored for Progress drawer
+                grid.classList.add('right-anchored');
+                header.classList.add('right-condensed');
+            } else {
+                grid.classList.remove('right-anchored');
+                grid.classList.remove('both-anchored');
+                header.classList.remove('right-condensed');
+                header.classList.remove('both-condensed');
+
+                if (leftDrawerAnchored) {
+                    header.classList.add('left-condensed');
+                }
             }
         }
 
         // Save to localStorage
-        localStorage.setItem('rightDrawerAnchored', rightDrawerAnchored);
-        localStorage.setItem('rightDrawerOpen', rightDrawerOpen);
+        localStorage.setItem('rightDrawerJourneyAnchored', rightDrawerJourneyAnchored);
+        localStorage.setItem('rightDrawerJourneyOpen', rightDrawerJourneyOpen);
+    }
+
+    function toggleRightDrawerProgressAnchor() {
+        rightDrawerProgressAnchored = !rightDrawerProgressAnchored;
+        const drawer = document.getElementById('rightDrawerProgress');
+        const toggle = document.getElementById('rightDrawerProgressToggle');
+        const grid = document.getElementById('gameGrid');
+        const header = document.querySelector('.game-header');
+
+        if (rightDrawerProgressAnchored) {
+            drawer.classList.add('anchored');
+            drawer.classList.remove('open');
+            toggle.style.display = 'none';
+            rightDrawerProgressOpen = false;
+
+            // If Journey drawer is also anchored, we need both-right-anchored state
+            if (rightDrawerJourneyAnchored) {
+                // Both right drawers are now anchored
+                grid.classList.add('both-right-anchored');
+                header.classList.add('both-right-condensed');
+                grid.classList.remove('right-anchored');
+                header.classList.remove('right-condensed');
+            } else {
+                // Only Progress drawer is anchored
+                grid.classList.add('right-anchored');
+                header.classList.add('right-condensed');
+
+                if (leftDrawerAnchored) {
+                    grid.classList.add('both-anchored');
+                    header.classList.add('both-condensed');
+                    header.classList.remove('right-condensed');
+                }
+            }
+        } else {
+            drawer.classList.remove('anchored');
+            toggle.style.display = 'block';
+            toggle.classList.remove('hidden');
+
+            // If Journey drawer is still anchored, maintain right-anchored state
+            if (rightDrawerJourneyAnchored) {
+                grid.classList.remove('both-right-anchored');
+                header.classList.remove('both-right-condensed');
+                // Keep right-anchored for Journey drawer
+                grid.classList.add('right-anchored');
+                header.classList.add('right-condensed');
+            } else {
+                grid.classList.remove('right-anchored');
+                grid.classList.remove('both-anchored');
+                header.classList.remove('right-condensed');
+                header.classList.remove('both-condensed');
+
+                if (leftDrawerAnchored) {
+                    header.classList.add('left-condensed');
+                }
+            }
+        }
+
+        // Save to localStorage
+        localStorage.setItem('rightDrawerProgressAnchored', rightDrawerProgressAnchored);
+        localStorage.setItem('rightDrawerProgressOpen', rightDrawerProgressOpen);
     }
 
     // Restore drawer state from localStorage
@@ -3167,16 +3440,18 @@
         const grid = document.getElementById('gameGrid');
         const header = document.querySelector('.game-header');
         const leftToggle = document.getElementById('leftDrawerToggle');
-        const rightDrawer = document.getElementById('rightDrawer');
-        const rightToggle = document.getElementById('rightDrawerToggle');
+        const rightDrawerJourney = document.getElementById('rightDrawer');
+        const rightToggleJourney = document.getElementById('rightDrawerJourneyToggle');
+        const rightDrawerProgress = document.getElementById('rightDrawerProgress');
+        const rightToggleProgress = document.getElementById('rightDrawerProgressToggle');
 
-        // If no saved state exists, default to both drawers anchored (first time)
+        // If no saved state exists, default to Journey drawer anchored (first time)
         const hasStoredState = localStorage.getItem('leftDrawerAnchored') !== null;
 
         if (!hasStoredState) {
-            // First time visit - pin both drawers by default
+            // First time visit - pin left and journey drawers by default
             toggleLeftDrawerAnchor();
-            toggleRightDrawerAnchor();
+            toggleRightDrawerJourneyAnchor();
             return;
         }
 
@@ -3191,22 +3466,52 @@
             leftToggle.classList.add('hidden');
         }
 
-        // Restore right drawer state
-        if (rightDrawerAnchored) {
-            rightDrawer.classList.add('anchored');
-            grid.classList.add('right-anchored');
-            header.classList.add('right-condensed');
-            rightToggle.style.display = 'none';
-        } else if (rightDrawerOpen) {
-            rightDrawer.classList.add('open');
-            rightToggle.classList.add('hidden');
+        // Restore right drawer journey state
+        if (rightDrawerJourneyAnchored) {
+            rightDrawerJourney.classList.add('anchored');
+            rightToggleJourney.style.display = 'none';
+        } else if (rightDrawerJourneyOpen) {
+            rightDrawerJourney.classList.add('open');
+            rightToggleJourney.classList.add('hidden');
         }
 
-        // If both are anchored, apply both-anchored class
-        if (leftDrawerAnchored && rightDrawerAnchored) {
-            grid.classList.add('both-anchored');
-            header.classList.add('both-condensed');
-            header.classList.remove('left-condensed', 'right-condensed');
+        // Restore right drawer progress state
+        if (rightDrawerProgressAnchored) {
+            rightDrawerProgress.classList.add('anchored');
+            rightToggleProgress.style.display = 'none';
+        } else if (rightDrawerProgressOpen) {
+            rightDrawerProgress.classList.add('open');
+            rightToggleProgress.classList.add('hidden');
+        }
+
+        // Apply grid and header classes based on which drawers are anchored
+        // Handle all combinations of anchored drawers
+        if (rightDrawerJourneyAnchored && rightDrawerProgressAnchored) {
+            // Both right drawers anchored
+            grid.classList.add('both-right-anchored');
+            header.classList.add('both-right-condensed');
+        } else if (rightDrawerJourneyAnchored || rightDrawerProgressAnchored) {
+            // Only one right drawer anchored
+            grid.classList.add('right-anchored');
+            header.classList.add('right-condensed');
+        }
+
+        // If left drawer is also anchored, update classes accordingly
+        if (leftDrawerAnchored) {
+            if (rightDrawerJourneyAnchored && !rightDrawerProgressAnchored) {
+                // Left + Journey only
+                grid.classList.add('both-anchored');
+                header.classList.add('both-condensed');
+                header.classList.remove('left-condensed', 'right-condensed');
+            } else if (rightDrawerProgressAnchored && !rightDrawerJourneyAnchored) {
+                // Left + Progress only
+                grid.classList.add('both-anchored');
+                header.classList.add('both-condensed');
+                header.classList.remove('left-condensed', 'right-condensed');
+            } else if (rightDrawerJourneyAnchored && rightDrawerProgressAnchored) {
+                // All three drawers anchored - keep left-condensed and both-right-condensed
+                header.classList.remove('both-condensed');
+            }
         }
     }
 
@@ -4908,33 +5213,58 @@
                 // Load persisted knowledge and items
                 if (state.player_knowledge && state.players && state.players.length > 0) {
                     const playerId = state.players[0].player_id;
-                    const playerKnowledgeDict = state.player_knowledge[playerId] || {};
+                    const playerKnowledgeData = state.player_knowledge[playerId];
 
-                    // player_knowledge is a dictionary: {knowledge_id: level}
-                    // We need to iterate over the keys (knowledge IDs)
-                    const knowledgeIds = Object.keys(playerKnowledgeDict);
+                    if (playerKnowledgeData) {
+                        // Handle two possible formats:
+                        // 1. Array of full knowledge objects (new format from game-engine)
+                        // 2. Dictionary of {knowledge_id: level} (old format)
 
-                    // For each knowledge ID, we should have received a knowledge_gained event
-                    // that already added it to knowledgeAcquired. But if we're loading from
-                    // persisted state on page load/refresh, we won't have those objects.
-                    // For now, just create placeholder objects from the IDs.
-                    knowledgeIds.forEach(knowledgeId => {
-                        // Check if already in knowledgeAcquired
-                        if (!knowledgeAcquired.some(k => k.id === knowledgeId)) {
-                            // Create a placeholder - the real data should come from knowledge_gained events
-                            const knowledgeObj = {
-                                id: knowledgeId,
-                                name: knowledgeId.replace(/_/g, ' ').replace(/knowledge /gi, ''),
-                                description: 'Previously acquired knowledge',
-                                source: 'From previous session'
-                            };
-                            knowledgeAcquired.push(knowledgeObj);
+                        if (Array.isArray(playerKnowledgeData)) {
+                            // New format: Array of full knowledge objects
+                            playerKnowledgeData.forEach(knowledgeObj => {
+                                // Check if already in knowledgeAcquired
+                                const knowledgeId = knowledgeObj.knowledge_id || knowledgeObj.id;
+                                if (!knowledgeAcquired.some(k => k.id === knowledgeId)) {
+                                    knowledgeAcquired.push({
+                                        id: knowledgeId,
+                                        name: knowledgeObj.name || 'Unknown Knowledge',
+                                        description: knowledgeObj.description || 'Knowledge acquired',
+                                        type: knowledgeObj.knowledge_type || 'general',
+                                        source: 'From MongoDB'
+                                    });
+                                }
+                            });
+                        } else {
+                            // Old format: Dictionary {knowledge_id: level}
+                            const knowledgeIds = Object.keys(playerKnowledgeData);
+
+                            knowledgeIds.forEach(knowledgeId => {
+                                // Check if already in knowledgeAcquired
+                                if (!knowledgeAcquired.some(k => k.id === knowledgeId)) {
+                                    // Create a placeholder - ideally this shouldn't happen with new backend
+                                    let displayName = knowledgeId.replace(/_/g, ' ').replace(/knowledge /gi, '');
+
+                                    // If the name is just a number or too short, provide a better default
+                                    if (!displayName || displayName.trim().length === 0 || /^\d+$/.test(displayName)) {
+                                        displayName = 'Acquired Knowledge';
+                                    }
+
+                                    const knowledgeObj = {
+                                        id: knowledgeId,
+                                        name: displayName,
+                                        description: 'Previously acquired knowledge from a past session',
+                                        source: 'From previous session (placeholder)'
+                                    };
+                                    knowledgeAcquired.push(knowledgeObj);
+                                }
+                            });
                         }
-                    });
 
-                    // Update knowledge list UI
-                    if (knowledgeAcquired.length > 0) {
-                        updateKnowledgeList();
+                        // Update knowledge list UI
+                        if (knowledgeAcquired.length > 0) {
+                            updateKnowledgeList();
+                        }
                     }
                 }
 
