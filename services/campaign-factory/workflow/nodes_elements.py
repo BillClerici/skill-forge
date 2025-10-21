@@ -33,6 +33,275 @@ anthropic_client = ChatAnthropic(
 npc_subgraph = create_npc_subgraph()
 
 
+async def auto_assign_orphans_to_scenes(
+    state: CampaignWorkflowState,
+    orphan_knowledge: List[KnowledgeData],
+    orphan_items: List[ItemData],
+    all_discoveries: List[DiscoveryData],
+    all_challenges: List[ChallengeData]
+) -> None:
+    """
+    Auto-assign orphan knowledge and items to scenes to ensure 100% coverage.
+
+    Strategy:
+    1. Group orphans by the objectives they support
+    2. Find scenes that support those objectives
+    3. Create discoveries for knowledge orphans
+    4. Create challenges for item orphans
+    5. Add acquisition methods to orphan entities
+
+    Args:
+        state: Campaign workflow state
+        orphan_knowledge: Knowledge entities with no acquisition methods
+        orphan_items: Item entities with no acquisition methods
+        all_discoveries: List of existing discoveries (will be appended to)
+        all_challenges: List of existing challenges (will be appended to)
+    """
+    try:
+        logger.info(f"AUTO-ASSIGNING {len(orphan_knowledge)} orphan knowledge and {len(orphan_items)} orphan items to scenes")
+
+        # Build a map of objective_id -> scene_id for targeted assignment
+        objective_to_scenes = {}
+        for assignment in state.get("scene_objective_assignments", []):
+            for obj_id in assignment.get("advances_quest_objectives", []):
+                if obj_id not in objective_to_scenes:
+                    objective_to_scenes[obj_id] = []
+                objective_to_scenes[obj_id].append({
+                    "scene_id": assignment["scene_id"],
+                    "scene_name": assignment.get("scene_name", "Unknown Scene")
+                })
+
+        # If no objective mappings exist, fall back to distributing across all scenes
+        if not objective_to_scenes:
+            logger.warning("No scene-objective assignments found - distributing orphans evenly across scenes")
+            all_scene_ids = [scene.get("scene_id") for scene in state.get("scenes", [])]
+
+        # Process orphan knowledge
+        for kg_idx, kg in enumerate(orphan_knowledge):
+            kg_id = kg.get("knowledge_id")
+            kg_name = kg.get("name", "Unknown Knowledge")
+
+            # Find which objectives need this knowledge
+            target_objectives = []
+            for obj_progress in state.get("objective_progress", []):
+                for kg_spec in obj_progress.get("_knowledge_specs", []):
+                    if kg_spec.get("knowledge_id") == kg_id:
+                        target_objectives.append(obj_progress["objective_id"])
+
+            # Find scenes that support these objectives
+            target_scenes = []
+            for obj_id in target_objectives:
+                if obj_id in objective_to_scenes:
+                    target_scenes.extend(objective_to_scenes[obj_id])
+
+            # Fallback: if no scenes found, use first available scene
+            if not target_scenes:
+                if state.get("scenes"):
+                    first_scene = state["scenes"][0]
+                    target_scenes = [{
+                        "scene_id": first_scene.get("scene_id"),
+                        "scene_name": first_scene.get("name", "Default Scene")
+                    }]
+                else:
+                    logger.error(f"Cannot assign orphan knowledge {kg_name} - no scenes available!")
+                    continue
+
+            # Create 2 discoveries for redundancy (or 1 if only 1 scene available)
+            num_discoveries = min(2, len(target_scenes))
+            for i in range(num_discoveries):
+                scene_info = target_scenes[i % len(target_scenes)]
+                scene = next((s for s in state["scenes"] if s.get("scene_id") == scene_info["scene_id"]), None)
+
+                if not scene:
+                    logger.warning(f"Scene {scene_info['scene_id']} not found in state - skipping")
+                    continue
+
+                # Create a discovery for this knowledge
+                discovery_id = f"discovery_{uuid.uuid4().hex[:16]}"
+                rubric_id = f"rubric_discovery_{uuid.uuid4().hex[:8]}"
+
+                discovery: DiscoveryData = {
+                    "discovery_id": discovery_id,
+                    "name": f"{kg_name} Documentation",
+                    "description": f"A source of information about {kg_name.lower()}. Study this to gain understanding.",
+                    "knowledge_type": kg.get("knowledge_type", "information"),
+                    "blooms_level": state["campaign_core"]["target_blooms_level"],
+                    "unlocks_scenes": [],
+                    "provides_knowledge_ids": [kg_id],
+                    "provides_item_ids": [],
+                    "rubric_id": rubric_id,
+                    "scene_id": scene.get("scene_id")
+                }
+
+                # Add to discoveries list
+                all_discoveries.append(discovery)
+
+                # Add to scene's discovery IDs
+                if "discovery_ids" not in scene:
+                    scene["discovery_ids"] = []
+                scene["discovery_ids"].append(discovery_id)
+
+                # Add acquisition method to knowledge entity
+                acquisition_method = {
+                    "type": "environmental_discovery",
+                    "entity_id": discovery_id,
+                    "difficulty": "Medium",
+                    "max_level_obtainable": 4,
+                    "rubric_id": rubric_id,
+                    "conditions": {}
+                }
+
+                if "acquisition_methods" not in kg:
+                    kg["acquisition_methods"] = []
+                kg["acquisition_methods"].append(acquisition_method)
+
+                logger.info(f"AUTO-ASSIGNED knowledge '{kg_name}' to scene '{scene_info['scene_name']}' via discovery '{discovery['name']}'")
+
+                # Generate rubric for this discovery
+                try:
+                    rubric = get_template_for_interaction(
+                        "environmental_discovery",
+                        kg.get("knowledge_type", "information"),
+                        {"id": discovery_id, "name": discovery["name"], "discovery_type": kg.get("knowledge_type", "information")}
+                    )
+
+                    if rubric is not None:
+                        if "rubrics" not in state:
+                            state["rubrics"] = []
+
+                        dedup_key = f"{rubric.get('rubric_type')}:{rubric.get('interaction_name')}"
+                        existing_keys = [
+                            f"{r.get('rubric_type')}:{r.get('interaction_name')}"
+                            for r in state["rubrics"]
+                        ]
+
+                        if dedup_key not in existing_keys:
+                            state["rubrics"].append(rubric)
+                except Exception as e:
+                    logger.error(f"Error generating rubric for auto-assigned discovery: {str(e)}")
+
+        # Process orphan items
+        for item_idx, item in enumerate(orphan_items):
+            item_id = item.get("item_id")
+            item_name = item.get("name", "Unknown Item")
+
+            # Find which objectives need this item
+            target_objectives = []
+            for obj_progress in state.get("objective_progress", []):
+                for item_spec in obj_progress.get("_item_specs", []):
+                    if item_spec.get("item_id") == item_id:
+                        target_objectives.append(obj_progress["objective_id"])
+
+            # Find scenes that support these objectives
+            target_scenes = []
+            for obj_id in target_objectives:
+                if obj_id in objective_to_scenes:
+                    target_scenes.extend(objective_to_scenes[obj_id])
+
+            # Fallback: if no scenes found, use first available scene
+            if not target_scenes:
+                if state.get("scenes"):
+                    first_scene = state["scenes"][0]
+                    target_scenes = [{
+                        "scene_id": first_scene.get("scene_id"),
+                        "scene_name": first_scene.get("name", "Default Scene")
+                    }]
+                else:
+                    logger.error(f"Cannot assign orphan item {item_name} - no scenes available!")
+                    continue
+
+            # Create 2 challenges for redundancy (or 1 if only 1 scene available)
+            num_challenges = min(2, len(target_scenes))
+            for i in range(num_challenges):
+                scene_info = target_scenes[i % len(target_scenes)]
+                scene = next((s for s in state["scenes"] if s.get("scene_id") == scene_info["scene_id"]), None)
+
+                if not scene:
+                    logger.warning(f"Scene {scene_info['scene_id']} not found in state - skipping")
+                    continue
+
+                # Create a challenge that rewards this item
+                challenge_id = f"challenge_{uuid.uuid4().hex[:16]}"
+                rubric_id = f"rubric_challenge_{uuid.uuid4().hex[:8]}"
+
+                challenge: ChallengeData = {
+                    "challenge_id": challenge_id,
+                    "name": f"Obtain {item_name}",
+                    "description": f"Successfully acquire the {item_name.lower()} through skillful effort.",
+                    "challenge_type": "skill_check",
+                    "challenge_category": "general",
+                    "primary_dimension": item.get("primary_dimension", "intellectual"),
+                    "secondary_dimensions": [],
+                    "difficulty": state["quest_difficulty"],
+                    "blooms_level": state["campaign_core"]["target_blooms_level"],
+                    "required_knowledge": [],
+                    "required_items": [],
+                    "provides_knowledge_ids": [],
+                    "provides_item_ids": [item_id],
+                    "rubric_id": rubric_id,
+                    "success_rewards": {"item": item_name},
+                    "failure_consequences": {},
+                    "scene_id": scene.get("scene_id")
+                }
+
+                # Add to challenges list
+                all_challenges.append(challenge)
+
+                # Add to scene's challenge IDs
+                if "challenge_ids" not in scene:
+                    scene["challenge_ids"] = []
+                scene["challenge_ids"].append(challenge_id)
+
+                # Add acquisition method to item entity
+                acquisition_method = {
+                    "type": "challenge",
+                    "entity_id": challenge_id,
+                    "difficulty": state["quest_difficulty"],
+                    "max_level_obtainable": 1,  # Binary for items
+                    "rubric_id": rubric_id,
+                    "conditions": {}
+                }
+
+                if "acquisition_methods" not in item:
+                    item["acquisition_methods"] = []
+                item["acquisition_methods"].append(acquisition_method)
+
+                logger.info(f"AUTO-ASSIGNED item '{item_name}' to scene '{scene_info['scene_name']}' via challenge '{challenge['name']}'")
+
+                # Generate rubric for this challenge
+                try:
+                    rubric = get_template_for_interaction(
+                        "challenge",
+                        "skill_check",
+                        {"id": challenge_id, "name": challenge["name"], "difficulty": challenge["difficulty"]}
+                    )
+
+                    if rubric is not None:
+                        if "rubrics" not in state:
+                            state["rubrics"] = []
+
+                        dedup_key = f"{rubric.get('rubric_type')}:{rubric.get('interaction_name')}"
+                        existing_keys = [
+                            f"{r.get('rubric_type')}:{r.get('interaction_name')}"
+                            for r in state["rubrics"]
+                        ]
+
+                        if dedup_key not in existing_keys:
+                            state["rubrics"].append(rubric)
+                except Exception as e:
+                    logger.error(f"Error generating rubric for auto-assigned challenge: {str(e)}")
+
+        # Update state with new elements
+        state["discoveries"] = all_discoveries
+        state["challenges"] = all_challenges
+
+        logger.info(f"✓ AUTO-ASSIGNMENT COMPLETE: Created {len(orphan_knowledge) * 2} discoveries and {len(orphan_items) * 2} challenges")
+
+    except Exception as e:
+        logger.error(f"Error in auto_assign_orphans_to_scenes: {str(e)}")
+        # Non-critical - log but don't raise
+
+
 async def generate_scene_elements_node(state: CampaignWorkflowState) -> CampaignWorkflowState:
     """
     Generate all scene elements: NPCs, discoveries, events, challenges
@@ -313,6 +582,38 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                    f"{len(all_events)} events, {len(all_challenges)} challenges")
         logger.info(f"Merged acquisition methods: {knowledge_with_methods}/{len(state['knowledge_entities'])} knowledge, "
                    f"{items_with_methods}/{len(state['item_entities'])} items have acquisition methods")
+
+        # ORPHAN DETECTION & AUTO-ASSIGNMENT
+        # Check for knowledge/items with no acquisition methods
+        orphan_knowledge = [
+            kg for kg in state["knowledge_entities"]
+            if len(kg.get("acquisition_methods", [])) == 0
+        ]
+        orphan_items = [
+            item for item in state["item_entities"]
+            if len(item.get("acquisition_methods", [])) == 0
+        ]
+
+        if orphan_knowledge or orphan_items:
+            logger.warning(f"ORPHAN RESOURCES DETECTED: {len(orphan_knowledge)} knowledge, {len(orphan_items)} items with NO acquisition methods")
+            logger.warning(f"Orphan knowledge IDs: {[kg.get('knowledge_id') for kg in orphan_knowledge]}")
+            logger.warning(f"Orphan item IDs: {[item.get('item_id') for item in orphan_items]}")
+
+            # Auto-assign orphans to scenes
+            await auto_assign_orphans_to_scenes(
+                state,
+                orphan_knowledge,
+                orphan_items,
+                all_discoveries,
+                all_challenges
+            )
+
+            # Re-count after auto-assignment
+            knowledge_with_methods_final = sum(1 for kg in state["knowledge_entities"] if len(kg.get("acquisition_methods", [])) > 0)
+            items_with_methods_final = sum(1 for item in state["item_entities"] if len(item.get("acquisition_methods", [])) > 0)
+
+            logger.info(f"AFTER AUTO-ASSIGNMENT: {knowledge_with_methods_final}/{len(state['knowledge_entities'])} knowledge, "
+                       f"{items_with_methods_final}/{len(state['item_entities'])} items have acquisition methods")
 
         # Reset step progress for next phase
         state["step_progress"] = 0

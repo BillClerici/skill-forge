@@ -474,7 +474,8 @@ class CampaignDetailView(View):
                     knowledge_ids = [id for id in knowledge_ids if id is not None and id != '']
                     knowledge = []
                     if knowledge_ids:
-                        knowledge_raw = list(db.knowledge.find({'_id': {'$in': knowledge_ids}}))
+                        # Query by knowledge_id field (not MongoDB _id) since Scene stores Neo4j IDs
+                        knowledge_raw = list(db.knowledge.find({'knowledge_id': {'$in': knowledge_ids}}))
                         for kg in knowledge_raw:
                             # Format acquisition methods with entity names
                             # Group methods by type to avoid duplicates
@@ -583,7 +584,8 @@ class CampaignDetailView(View):
                     item_ids = [id for id in item_ids if id is not None and id != '']
                     items = []
                     if item_ids:
-                        items_raw = list(db.items.find({'_id': {'$in': item_ids}}))
+                        # Query by item_id field (not MongoDB _id) since Scene stores Neo4j IDs
+                        items_raw = list(db.items.find({'item_id': {'$in': item_ids}}))
                         for item in items_raw:
                             # Format acquisition methods with entity names
                             # Group methods by type to avoid duplicates

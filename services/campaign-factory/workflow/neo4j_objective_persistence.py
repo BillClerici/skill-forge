@@ -255,14 +255,15 @@ async def persist_dimensional_objectives_to_neo4j(state: Dict[str, Any], driver:
         ]
 
         with driver.session() as session:
-            # 1. Create Dimension nodes
+            # 1. Create Dimension nodes with campaign_id for proper cleanup
             for dim in dimensions:
                 session.run("""
-                    MERGE (d:Dimension {name: $name})
+                    MERGE (d:Dimension {name: $name, campaign_id: $campaign_id})
                     SET d.description = $description
                 """, {
                     "name": dim["name"],
-                    "description": dim["description"]
+                    "description": dim["description"],
+                    "campaign_id": campaign_id
                 })
 
             logger.info(f"✓ Created {len(dimensions)} dimension nodes")
@@ -275,12 +276,13 @@ async def persist_dimensional_objectives_to_neo4j(state: Dict[str, Any], driver:
                 if kg_id and primary_dim:
                     session.run("""
                         MATCH (k:Knowledge {id: $kg_id})
-                        MATCH (d:Dimension {name: $dim_name})
+                        MATCH (d:Dimension {name: $dim_name, campaign_id: $campaign_id})
                         MERGE (k)-[:DEVELOPS {primary: true, bloom_target: $bloom_target}]->(d)
                     """, {
                         "kg_id": kg_id,
                         "dim_name": primary_dim.capitalize(),
-                        "bloom_target": knowledge.get("bloom_level_target", 3)
+                        "bloom_target": knowledge.get("bloom_level_target", 3),
+                        "campaign_id": campaign_id
                     })
 
             # 3. Link Challenges to dimensions
@@ -293,22 +295,24 @@ async def persist_dimensional_objectives_to_neo4j(state: Dict[str, Any], driver:
                     # Primary dimension
                     session.run("""
                         MATCH (c:Challenge {id: $challenge_id})
-                        MATCH (d:Dimension {name: $dim_name})
+                        MATCH (d:Dimension {name: $dim_name, campaign_id: $campaign_id})
                         MERGE (c)-[:DEVELOPS {primary: true}]->(d)
                     """, {
                         "challenge_id": challenge_id,
-                        "dim_name": primary_dim.capitalize()
+                        "dim_name": primary_dim.capitalize(),
+                        "campaign_id": campaign_id
                     })
 
                     # Secondary dimensions
                     for sec_dim in secondary_dims:
                         session.run("""
                             MATCH (c:Challenge {id: $challenge_id})
-                            MATCH (d:Dimension {name: $dim_name})
+                            MATCH (d:Dimension {name: $dim_name, campaign_id: $campaign_id})
                             MERGE (c)-[:DEVELOPS {secondary: true}]->(d)
                         """, {
                             "challenge_id": challenge_id,
-                            "dim_name": sec_dim.capitalize()
+                            "dim_name": sec_dim.capitalize(),
+                            "campaign_id": campaign_id
                         })
 
         logger.info("✓ Dimensional development links created")

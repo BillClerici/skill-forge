@@ -172,15 +172,28 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
                 # Get scene ID for filtering
                 scene_internal_id = scene.get("scene_id", "")
 
-                # Collect knowledge IDs for this scene
-                for kg in state.get("knowledge_entities", []):
-                    if kg.get("scene_id") == scene_internal_id:
-                        knowledge_ids.append(kg.get("knowledge_id", ""))
+                # Collect knowledge IDs for this scene from discoveries, challenges, NPCs
+                # (Knowledge/Items are linked via elements, not directly to scenes)
+                for discovery in state.get("discoveries", []):
+                    if discovery.get("scene_id") == scene_internal_id:
+                        knowledge_ids.extend(discovery.get("provides_knowledge_ids", []))
+                        item_ids.extend(discovery.get("provides_item_ids", []))
 
-                # Collect item IDs for this scene
-                for item in state.get("item_entities", []):
-                    if item.get("scene_id") == scene_internal_id:
-                        item_ids.append(item.get("item_id", ""))
+                for challenge in state.get("challenges", []):
+                    if challenge.get("scene_id") == scene_internal_id:
+                        knowledge_ids.extend(challenge.get("provides_knowledge_ids", []))
+                        item_ids.extend(challenge.get("provides_item_ids", []))
+
+                for npc_id in scene.get("npc_ids", []):
+                    # Find NPC in state
+                    npc = next((n for n in state.get("npcs", []) if n.get("npc_id") == npc_id), None)
+                    if npc:
+                        knowledge_ids.extend(npc.get("provides_knowledge_ids", []))
+                        item_ids.extend(npc.get("provides_item_ids", []))
+
+                # Remove duplicates
+                knowledge_ids = list(set(knowledge_ids))
+                item_ids = list(set(item_ids))
 
                 # Collect rubric IDs for this scene
                 for rubric in state.get("rubrics", []):
@@ -672,7 +685,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         MERGE (sc:Scene {id: $scene_id})
                         SET sc.name = $scene_name,
                             sc.campaign_id = $campaign_id,
-                            sc.order_sequence = $order_sequence
+                            sc.order_sequence = $order_sequence,
+                            sc.mongodb_id = $mongodb_id
                         MERGE (p)-[:CONTAINS]->(sc)
 
                         // MERGE Level 3 Location by name + world to avoid duplicates
@@ -691,6 +705,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                         world_id=state["world_id"],
                         campaign_id=campaign_id,
                         scene_id=scene_id,
+                        mongodb_id=scene_id,  # MongoDB _id is same as scene_id
                         scene_name=scene["name"],
                         order_sequence=scene.get("order_sequence", 0),
                         location_id=scene["level_3_location_id"],
@@ -728,11 +743,13 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                                         npc.description = $description,
                                         npc.species_id = $species_id,
                                         npc.species_name = $species_name,
-                                        npc.campaign_id = $campaign_id
+                                        npc.campaign_id = $campaign_id,
+                                        npc.mongodb_id = $mongodb_id
                                     MERGE (sc)-[:FEATURES]->(npc)
                                     """,
                                     scene_id=scene_id,
                                     npc_id=npc_id,
+                                    mongodb_id=npc_id,  # MongoDB _id is same as npc_id
                                     npc_name=npc_data.get("name", "Unknown NPC"),
                                     role=role_str,
                                     description=npc_data.get("backstory", f"A {npc_data.get('species_name', 'character')} in this location."),
@@ -749,11 +766,13 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                                     MERGE (npc:NPC {id: $npc_id})
                                     SET npc.name = 'Unknown NPC',
                                         npc.role = 'unknown',
-                                        npc.description = 'An NPC whose details are yet to be discovered.'
+                                        npc.description = 'An NPC whose details are yet to be discovered.',
+                                        npc.mongodb_id = $mongodb_id
                                     MERGE (sc)-[:FEATURES]->(npc)
                                     """,
                                     scene_id=scene_id,
-                                    npc_id=npc_id
+                                    npc_id=npc_id,
+                                    mongodb_id=npc_id  # MongoDB _id is same as npc_id
                                 )
                             relationships_created += 1
 
@@ -791,7 +810,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     npc.description = $description,
                     npc.species_id = $species_id,
                     npc.species_name = $species_name,
-                    npc.campaign_id = $campaign_id
+                    npc.campaign_id = $campaign_id,
+                    npc.mongodb_id = $mongodb_id
 
                 // MERGE Species by name to avoid duplicates
                 MERGE (s:Species {name: $species_name, world_id: $world_id})
@@ -810,6 +830,7 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 """,
                 world_id=state["world_id"],
                 npc_id=npc_id,
+                mongodb_id=npc_id,  # MongoDB _id is same as npc_id
                 npc_name=npc["name"],
                 role=role_str,
                 description=backstory,
@@ -852,10 +873,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     k.primary_dimension = $primary_dimension,
                     k.bloom_level_target = $bloom_level_target,
                     k.description = $description,
-                    k.campaign_id = $campaign_id
+                    k.campaign_id = $campaign_id,
+                    k.mongodb_id = $mongodb_id
                 """,
                 knowledge_id=knowledge_id,
                 campaign_id=campaign_id,
+                mongodb_id=knowledge_id,  # MongoDB _id is same as knowledge_id
                 name=knowledge.get("name", "Unknown Knowledge"),
                 knowledge_type=knowledge.get("knowledge_type", "skill"),
                 primary_dimension=knowledge.get("primary_dimension", "intellectual"),
@@ -925,10 +948,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     i.item_type = $item_type,
                     i.is_quest_critical = $is_quest_critical,
                     i.description = $description,
-                    i.campaign_id = $campaign_id
+                    i.campaign_id = $campaign_id,
+                    i.mongodb_id = $mongodb_id
                 """,
                 item_id=item_id,
                 campaign_id=campaign_id,
+                mongodb_id=item_id,  # MongoDB _id is same as item_id
                 name=item.get("name", "Unknown Item"),
                 item_type=item.get("item_type", "tool"),
                 is_quest_critical=item.get("is_quest_critical", False),
@@ -986,10 +1011,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     ch.difficulty = $difficulty,
                     ch.blooms_level = $blooms_level,
                     ch.description = $description,
-                    ch.campaign_id = $campaign_id
+                    ch.campaign_id = $campaign_id,
+                    ch.mongodb_id = $mongodb_id
                 """,
                 challenge_id=challenge_id,
                 campaign_id=campaign_id,
+                mongodb_id=challenge_id,  # MongoDB _id is same as challenge_id
                 name=challenge.get("name", "Unknown Challenge"),
                 challenge_type=challenge.get("challenge_type", "combat"),
                 difficulty=challenge.get("difficulty", "Medium"),
@@ -1026,10 +1053,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     d.knowledge_type = $knowledge_type,
                     d.blooms_level = $blooms_level,
                     d.description = $description,
-                    d.campaign_id = $campaign_id
+                    d.campaign_id = $campaign_id,
+                    d.mongodb_id = $mongodb_id
                 """,
                 discovery_id=discovery_id,
                 campaign_id=campaign_id,
+                mongodb_id=discovery_id,  # MongoDB _id is same as discovery_id
                 name=discovery.get("name", "Unknown Discovery"),
                 knowledge_type=discovery.get("knowledge_type", "lore"),
                 blooms_level=discovery.get("blooms_level", 2),
@@ -1064,10 +1093,12 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 SET e.name = $name,
                     e.event_type = $event_type,
                     e.description = $description,
-                    e.campaign_id = $campaign_id
+                    e.campaign_id = $campaign_id,
+                    e.mongodb_id = $mongodb_id
                 """,
                 event_id=event_id,
                 campaign_id=campaign_id,
+                mongodb_id=event_id,  # MongoDB _id is same as event_id
                 name=event.get("name", "Unknown Event"),
                 event_type=event.get("event_type", "story"),
                 description=event.get("description", "")[:500]
@@ -1219,6 +1250,15 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             logger.error(f"Failed to persist acquisition paths: {str(e)}")
             # Non-critical, continue
 
+        # NEW: Persist element-to-resource relationships (discoveries/challenges -> knowledge/items)
+        logger.info("Persisting element-to-resource relationships to Neo4j...")
+        try:
+            await persist_element_resource_relationships(state, neo4j_driver)
+            logger.info("✓ Element-resource relationships persisted")
+        except Exception as e:
+            logger.error(f"Failed to persist element-resource relationships: {str(e)}")
+            # Non-critical, continue
+
         # NEW: Analyze and persist redundancy information
         logger.info("Analyzing redundancy in Neo4j...")
         try:
@@ -1229,6 +1269,207 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
             # Non-critical, continue
 
     return relationships_created
+
+
+async def persist_element_resource_relationships(state: CampaignWorkflowState, neo4j_driver) -> None:
+    """
+    Persist relationships between scene elements (discoveries/challenges) and resources (knowledge/items).
+
+    This handles the provides_knowledge_ids and provides_item_ids fields on discoveries and challenges,
+    creating the appropriate REVEALS, REWARDS, etc. relationships in Neo4j.
+
+    Args:
+        state: Campaign workflow state
+        neo4j_driver: Neo4j driver instance
+    """
+    try:
+        campaign_id = state.get("final_campaign_id")
+        if not campaign_id:
+            logger.warning("No campaign_id found - skipping element-resource relationship persistence")
+            return
+
+        with neo4j_driver.session() as session:
+            relationships_created = 0
+
+            # Process discoveries
+            for discovery in state.get("discoveries", []):
+                discovery_id = discovery.get("discovery_id")
+                if not discovery_id:
+                    continue
+
+                # Create Discovery -> Knowledge relationships (REVEALS)
+                for kg_id in discovery.get("provides_knowledge_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (d:Discovery {id: $discovery_id})
+                            MATCH (k:Knowledge {id: $kg_id})
+                            MERGE (d)-[:REVEALS {
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(k)
+                        """, {
+                            "discovery_id": discovery_id,
+                            "kg_id": kg_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create Discovery->Knowledge relationship: {discovery_id} -> {kg_id}: {str(e)}")
+
+                # Create Discovery -> Item relationships (CONTAINS)
+                for item_id in discovery.get("provides_item_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (d:Discovery {id: $discovery_id})
+                            MATCH (i:Item {id: $item_id})
+                            MERGE (d)-[:CONTAINS {
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(i)
+                        """, {
+                            "discovery_id": discovery_id,
+                            "item_id": item_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create Discovery->Item relationship: {discovery_id} -> {item_id}: {str(e)}")
+
+            # Process challenges
+            for challenge in state.get("challenges", []):
+                challenge_id = challenge.get("challenge_id")
+                if not challenge_id:
+                    continue
+
+                # Create Challenge -> Knowledge relationships (REWARDS)
+                for kg_id in challenge.get("provides_knowledge_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (c:Challenge {id: $challenge_id})
+                            MATCH (k:Knowledge {id: $kg_id})
+                            MERGE (c)-[:REWARDS {
+                                on_success: true,
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(k)
+                        """, {
+                            "challenge_id": challenge_id,
+                            "kg_id": kg_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create Challenge->Knowledge relationship: {challenge_id} -> {kg_id}: {str(e)}")
+
+                # Create Challenge -> Item relationships (REWARDS)
+                for item_id in challenge.get("provides_item_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (c:Challenge {id: $challenge_id})
+                            MATCH (i:Item {id: $item_id})
+                            MERGE (c)-[:REWARDS {
+                                on_success: true,
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(i)
+                        """, {
+                            "challenge_id": challenge_id,
+                            "item_id": item_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create Challenge->Item relationship: {challenge_id} -> {item_id}: {str(e)}")
+
+            # Process NPCs (they also have provides_knowledge_ids and provides_item_ids)
+            for npc in state.get("npcs", []):
+                npc_id = npc.get("npc_id")
+                if not npc_id:
+                    continue
+
+                # Create NPC -> Knowledge relationships (TEACHES)
+                for kg_id in npc.get("provides_knowledge_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (n:NPC {id: $npc_id})
+                            MATCH (k:Knowledge {id: $kg_id})
+                            MERGE (n)-[:TEACHES {
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(k)
+                        """, {
+                            "npc_id": npc_id,
+                            "kg_id": kg_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create NPC->Knowledge relationship: {npc_id} -> {kg_id}: {str(e)}")
+
+                # Create NPC -> Item relationships (GIVES)
+                for item_id in npc.get("provides_item_ids", []):
+                    try:
+                        session.run("""
+                            MATCH (n:NPC {id: $npc_id})
+                            MATCH (i:Item {id: $item_id})
+                            MERGE (n)-[:GIVES {
+                                created_at: datetime(),
+                                source: 'element_generation'
+                            }]->(i)
+                        """, {
+                            "npc_id": npc_id,
+                            "item_id": item_id
+                        })
+                        relationships_created += 1
+                    except Exception as e:
+                        logger.error(f"Failed to create NPC->Item relationship: {npc_id} -> {item_id}: {str(e)}")
+
+            logger.info(f"Created {relationships_created} element-resource relationships in Neo4j")
+
+            # Update Scene nodes with knowledge_ids and item_ids arrays for UI display
+            logger.info("Updating Scene nodes with knowledge_ids and item_ids arrays...")
+            for scene in state.get("scenes", []):
+                scene_id = scene.get("scene_id")
+                if not scene_id:
+                    continue
+
+                # Collect all knowledge IDs provided by this scene's elements
+                knowledge_ids = set()
+                item_ids = set()
+
+                # From discoveries
+                for discovery in state.get("discoveries", []):
+                    if discovery.get("scene_id") == scene_id:
+                        knowledge_ids.update(discovery.get("provides_knowledge_ids", []))
+                        item_ids.update(discovery.get("provides_item_ids", []))
+
+                # From challenges
+                for challenge in state.get("challenges", []):
+                    if challenge.get("scene_id") == scene_id:
+                        knowledge_ids.update(challenge.get("provides_knowledge_ids", []))
+                        item_ids.update(challenge.get("provides_item_ids", []))
+
+                # From NPCs
+                for npc in state.get("npcs", []):
+                    if npc.get("npc_id") in scene.get("npc_ids", []):
+                        knowledge_ids.update(npc.get("provides_knowledge_ids", []))
+                        item_ids.update(npc.get("provides_item_ids", []))
+
+                # Update Scene node with these arrays
+                try:
+                    session.run("""
+                        MATCH (s:Scene {id: $scene_id})
+                        SET s.knowledge_ids = $knowledge_ids,
+                            s.item_ids = $item_ids
+                    """, {
+                        "scene_id": scene_id,
+                        "knowledge_ids": list(knowledge_ids),
+                        "item_ids": list(item_ids)
+                    })
+                    logger.debug(f"Scene {scene_id}: {len(knowledge_ids)} knowledge, {len(item_ids)} items")
+                except Exception as e:
+                    logger.error(f"Failed to update Scene {scene_id} with resource IDs: {str(e)}")
+
+            logger.info("✓ Scene nodes updated with knowledge_ids and item_ids")
+
+    except Exception as e:
+        logger.error(f"Error persisting element-resource relationships: {str(e)}")
+        raise
 
 
 async def update_postgres_analytics(state: CampaignWorkflowState, campaign_id: str) -> int:

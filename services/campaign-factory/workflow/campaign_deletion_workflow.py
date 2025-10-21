@@ -442,7 +442,18 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
             total_deleted += quest_obj_count
             logger.info(f"Deleted {quest_obj_count} QuestObjective nodes from Neo4j")
 
-            # 13. Finally, delete the Campaign node itself
+            # 13. Delete Dimension nodes
+            result = session.run("""
+                MATCH (d:Dimension)
+                WHERE d.campaign_id = $campaign_id
+                DETACH DELETE d
+                RETURN count(d) as deleted_count
+            """, campaign_id=campaign_id)
+            dimension_count = result.single()['deleted_count']
+            total_deleted += dimension_count
+            logger.info(f"Deleted {dimension_count} Dimension nodes from Neo4j")
+
+            # 14. Finally, delete the Campaign node itself
             result = session.run("""
                 MATCH (c:Campaign {id: $campaign_id})
                 DETACH DELETE c
@@ -473,6 +484,7 @@ async def delete_neo4j_entities_node(state: CampaignDeletionState) -> CampaignDe
                 'rubrics': rubric_count,
                 'campaign_objectives': campaign_obj_count,
                 'quest_objectives': quest_obj_count,
+                'dimensions': dimension_count,
                 'campaign': campaign_count
             }
         }]
