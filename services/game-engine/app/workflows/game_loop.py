@@ -662,6 +662,8 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
         state["chat_messages"] = state.get("chat_messages", [])
         state["completed_quest_ids"] = state.get("completed_quest_ids", [])
         state["completed_scene_ids"] = state.get("completed_scene_ids", [])
+        state["completed_discoveries"] = state.get("completed_discoveries", [])
+        state["completed_challenges"] = state.get("completed_challenges", [])
 
         # Set game time
         state["time_of_day"] = "morning"
@@ -1452,6 +1454,17 @@ What would you like to do?"""
                                     }
                                 )
 
+                                # Check objective cascade after item acquisition from NPC
+                                try:
+                                    from ..managers.quest_tracker import quest_tracker
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade after NPC item: {e}")
+
                 outcome = npc_response
                 requires_assessment = bool(npc_response.get("rubric_id"))
 
@@ -1811,6 +1824,17 @@ Would you like to look around for items, or try something else?"""
                     }
                 )
 
+                # Check objective cascade after item acquisition
+                try:
+                    from ..managers.quest_tracker import quest_tracker
+                    await quest_tracker.check_objective_cascade(
+                        state["session_id"],
+                        player_id,
+                        state
+                    )
+                except Exception as e:
+                    logger.error(f"Error checking objective cascade after take_item: {e}")
+
                 # Define streaming callback to broadcast chunks via WebSocket
                 async def stream_action_chunk(chunk: str):
                     """Callback to broadcast streaming action outcome chunks"""
@@ -2078,6 +2102,21 @@ What would you like to do?"""
                                     }
                                 )
 
+                                # Check objective cascade after item acquisition from discovery
+                                try:
+                                    from ..managers.quest_tracker import quest_tracker
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade after discovery item: {e}")
+
+                # Mark discovery as completed
+                if discovery_id not in state.get("completed_discoveries", []):
+                    state["completed_discoveries"].append(discovery_id)
+
                 outcome = {"discovery_investigated": discovery_id, "success": True}
 
             else:
@@ -2205,6 +2244,17 @@ Try examining your surroundings or asking what you can investigate."""
                                     }
                                 )
 
+                                # Check objective cascade after knowledge acquisition from challenge
+                                try:
+                                    from ..managers.quest_tracker import quest_tracker
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade after challenge knowledge: {e}")
+
                 # Award items from challenge completion
                 item_ids = challenge.get("items_rewarded", [])
                 if item_ids:
@@ -2253,6 +2303,32 @@ Try examining your surroundings or asking what you can investigate."""
                                         }
                                     }
                                 )
+
+                                # Check objective cascade after item acquisition from challenge
+                                try:
+                                    from ..managers.quest_tracker import quest_tracker
+                                    await quest_tracker.check_objective_cascade(
+                                        state["session_id"],
+                                        player_id,
+                                        state
+                                    )
+                                except Exception as e:
+                                    logger.error(f"Error checking objective cascade after challenge item: {e}")
+
+                # Mark challenge as completed
+                if challenge_id not in state.get("completed_challenges", []):
+                    state["completed_challenges"].append(challenge_id)
+
+                # Check objective cascade after challenge completion
+                try:
+                    from ..managers.quest_tracker import quest_tracker
+                    await quest_tracker.check_objective_cascade(
+                        state["session_id"],
+                        player_id,
+                        state
+                    )
+                except Exception as e:
+                    logger.error(f"Error checking objective cascade after challenge completion: {e}")
 
             else:
                 # Challenge doesn't exist - provide guidance
