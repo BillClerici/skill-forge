@@ -2312,13 +2312,16 @@
                     <h4 style="margin: 0; color: #d4af37; font-size: 1.1rem;">{{ campaign.title }}</h4>
                 </div>
 
-                <!-- Quest Status Section -->
-                <h3>⚔️ Quest Status</h3>
+                <!-- Current Quest Objectives Section -->
+                <h3>⚔️ Current Quest</h3>
                 <div style="padding: 1rem; background: rgba(212, 175, 55, 0.1); border-radius: 8px; border-left: 3px solid #d4af37; margin-bottom: 1.5rem;">
                     <div id="drawerQuestInfo">
                         <p style="color: #b8b8d1;">Loading quest information...</p>
                     </div>
-                    <h4 style="margin-top: 1rem;">Objectives</h4>
+                    <h4 style="margin-top: 1rem; color: #a8a8c0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="material-icons tiny" style="font-size: 16px;">assignment</i>
+                        <span>Quest Objectives (What to do now)</span>
+                    </h4>
                     <div id="drawerQuestObjectives" class="quest-tracker">
                         <!-- Objectives will be populated -->
                     </div>
@@ -2445,7 +2448,7 @@
         <!-- Right Drawer (Campaign Progress) -->
         <div class="drawer drawer-right-progress" id="rightDrawerProgress">
             <div class="drawer-header">
-                <h3>Campaign Progress</h3>
+                <h3>🎯 Campaign Goals</h3>
                 <div class="drawer-controls">
                     <button class="drawer-btn" onclick="toggleRightDrawerProgressAnchor()" title="Anchor drawer">
                         📌
@@ -2456,11 +2459,18 @@
                 </div>
             </div>
             <div class="drawer-content">
-                <!-- Campaign Objectives -->
+                <!-- Campaign Title -->
+                <div style="padding: 0.75rem; background: rgba(212, 175, 55, 0.15); border-radius: 6px; border-left: 3px solid #d4af37; margin-bottom: 1.25rem;">
+                    <div style="font-size: 0.75rem; color: #a8a8c0; margin-bottom: 0.25rem;">Campaign</div>
+                    <div style="color: #d4af37; font-size: 1rem; font-weight: 600;">{{ campaign.title }}</div>
+                </div>
+
+                <!-- Strategic Campaign Objectives -->
                 <div id="campaign-objectives-container">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <h6 style="color: #C0C0C0; margin: 0; font-size: 0.9rem;">
-                            Overall Progress
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h6 style="color: #d4af37; margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <i class="material-icons tiny" style="font-size: 16px;">military_tech</i>
+                            <span>Strategic Objectives</span>
                         </h6>
                         <span id="overall-progress-badge" style="
                             background: rgba(106, 90, 205, 0.3);

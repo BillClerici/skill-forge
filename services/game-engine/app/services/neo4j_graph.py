@@ -994,15 +994,23 @@ class Neo4jGraphService:
                 // Campaign objectives
                 OPTIONAL MATCH (s)-[:ADVANCES]->(co:CampaignObjective)
 
-                // Knowledge provisions - get encounter methods
-                OPTIONAL MATCH (s)-[:CONTAINS]->(ek)
-                OPTIONAL MATCH (ek)-[rk]->(k:Knowledge)
-                WHERE type(rk) IN ['TEACHES', 'REVEALS', 'REWARDS', 'GRANTS']
+                // Knowledge provisions - get from encounters (Discoveries, Challenges, NPCs)
+                OPTIONAL MATCH (s)-[:CONTAINS_DISCOVERY]->(d:Discovery)-[rd:REVEALS]->(kd:Knowledge)
+                OPTIONAL MATCH (s)-[:CONTAINS_CHALLENGE]->(c:Challenge)-[rc:REWARDS]->(kc:Knowledge)
+                OPTIONAL MATCH (s)-[:FEATURES]->(n:NPC)-[rn:TEACHES]->(kn:Knowledge)
+                WITH s, qo, co,
+                     collect(DISTINCT {id: kd.id, name: kd.name, max_level: kd.bloom_level_target, description: kd.description, method: 'REVEALS'}) +
+                     collect(DISTINCT {id: kc.id, name: kc.name, max_level: kc.bloom_level_target, description: kc.description, method: 'REWARDS'}) +
+                     collect(DISTINCT {id: kn.id, name: kn.name, max_level: kn.bloom_level_target, description: kn.description, method: 'TEACHES'}) as all_knowledge
 
-                // Item provisions - get encounter methods
-                OPTIONAL MATCH (s)-[:CONTAINS]->(ei)
-                OPTIONAL MATCH (ei)-[ri]->(i:Item)
-                WHERE type(ri) IN ['GIVES', 'CONTAINS', 'REWARDS', 'GRANTS']
+                // Item provisions - get from encounters
+                OPTIONAL MATCH (s)-[:CONTAINS_DISCOVERY]->(d2:Discovery)-[rid:CONTAINS]->(id:Item)
+                OPTIONAL MATCH (s)-[:CONTAINS_CHALLENGE]->(c2:Challenge)-[ric:REWARDS]->(ic:Item)
+                OPTIONAL MATCH (s)-[:FEATURES]->(n2:NPC)-[rin:GIVES]->(iin:Item)
+                WITH s, qo, co, all_knowledge,
+                     collect(DISTINCT {id: id.id, name: id.name, category: id.item_type, description: id.description, method: 'CONTAINS'}) +
+                     collect(DISTINCT {id: ic.id, name: ic.name, category: ic.item_type, description: ic.description, method: 'REWARDS'}) +
+                     collect(DISTINCT {id: iin.id, name: iin.name, category: iin.item_type, description: iin.description, method: 'GIVES'}) as all_items
 
                 RETURN s.id as scene_id,
                        s.name as scene_name,
@@ -1015,20 +1023,8 @@ class Neo4jGraphService:
                            id: co.id,
                            description: co.description
                        }) as campaign_objectives,
-                       collect(DISTINCT {
-                           id: k.id,
-                           name: k.name,
-                           max_level: k.max_level,
-                           description: k.description,
-                           method: type(rk)
-                       }) as knowledge_items,
-                       collect(DISTINCT {
-                           id: i.id,
-                           name: i.name,
-                           category: i.category,
-                           description: i.description,
-                           method: type(ri)
-                       }) as item_items
+                       all_knowledge as knowledge_items,
+                       all_items as item_items
                 """
 
                 result = await session.run(query, scene_id=scene_id)

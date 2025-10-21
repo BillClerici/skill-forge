@@ -232,7 +232,10 @@ async def get_quest_progress_for_acquisition(
 
 async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
     """
-    Calculate progress for ALL objectives in the current quest
+    Calculate progress for ALL objectives in the current quest using Neo4j.
+
+    This function now delegates to the Neo4j-based objective tracking system
+    for consistent, graph-based objective progress.
 
     Args:
         state: Current game session state
@@ -241,80 +244,112 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
         dict with quest progress data for all objectives
     """
     try:
+        from ..managers.quest_tracker import quest_tracker
         from ..services.mongo_persistence import mongo_persistence
+        from ..services.neo4j_graph import neo4j_graph
 
         current_quest_id = state.get("current_quest_id")
-        logger.info("calculate_complete_quest_progress_start", current_quest_id=current_quest_id)
-        if not current_quest_id:
-            logger.info("no_current_quest_id_returning_empty")
-            return {}
-
-        # Load quest data
-        quest_data = await mongo_persistence.get_quest(current_quest_id)
-        logger.info("quest_data_loaded", has_data=bool(quest_data))
-        if not quest_data:
-            logger.info("no_quest_data_returning_empty")
-            return {}
-
-        # Get player data
+        campaign_id = state.get("campaign_id")
         player_id = state.get("players", [{}])[0].get("player_id") if state.get("players") else None
-        if not player_id:
+
+        logger.info("calculate_complete_quest_progress_start", current_quest_id=current_quest_id)
+
+        if not current_quest_id or not player_id or not campaign_id:
+            logger.info("missing_required_ids", quest=current_quest_id, player=player_id, campaign=campaign_id)
             return {}
 
+        # Get quest name from MongoDB for display
+        quest_data = await mongo_persistence.get_quest(current_quest_id)
+        quest_name = quest_data.get("name", "Current Quest") if quest_data else "Current Quest"
+
+        # Get Neo4j objective progress (this is the source of truth)
+        progress_data = await neo4j_graph.get_player_objective_progress(player_id, campaign_id)
+
+        if not progress_data or not progress_data.get("campaign_objectives"):
+            logger.info("no_neo4j_objectives_found")
+            return {
+                "quest_id": current_quest_id,
+                "quest_name": quest_name,
+                "overall_progress": 0,
+                "objectives": []
+            }
+
+        # Get quest number from Neo4j
+        async with neo4j_graph.driver.session() as session:
+            result = await session.run("""
+                MATCH (q:Quest {id: $quest_id})
+                RETURN q.order_sequence as quest_number
+            """, quest_id=current_quest_id)
+            record = await result.single()
+            current_quest_number = record["quest_number"] if record else 1
+
+        # Get player's acquired knowledge and items from state
         player_knowledge = state.get("player_knowledge", {}).get(player_id, {})
         player_inventory = state.get("player_inventories", {}).get(player_id, [])
-
-        # PERFORMANCE OPTIMIZATION: Convert to sets for O(1) lookups instead of O(n)
         player_knowledge_ids = set(player_knowledge.keys())
         player_item_ids = {item.get("item_id") for item in player_inventory if item.get("item_id")}
 
-        # Process each objective
-        objectives = quest_data.get("objectives", [])
-        objectives_progress = []
+        # Find quest objectives for the current quest
+        quest_objectives = []
         total_progress = 0
+        objective_count = 0
 
-        for objective in objectives:
-            objective_type = objective.get("type", "")
-            required_ids = objective.get("required_ids", [])
-            description = objective.get("description", "Quest Objective")
+        for campaign_obj in progress_data.get("campaign_objectives", []):
+            for quest_obj in campaign_obj.get("quest_objectives", []):
+                # Match objectives by quest number (order_sequence)
+                if quest_obj.get("quest_number") == current_quest_number:
+                    # Get required knowledge and items for this objective from Neo4j
+                    async with neo4j_graph.driver.session() as session:
+                        result = await session.run("""
+                            MATCH (qo:QuestObjective {id: $obj_id})
+                            OPTIONAL MATCH (qo)-[:REQUIRES_KNOWLEDGE]->(k:Knowledge)
+                            OPTIONAL MATCH (qo)-[:REQUIRES_ITEM]->(i:Item)
+                            RETURN collect(DISTINCT k.id) as required_knowledge,
+                                   collect(DISTINCT i.id) as required_items,
+                                   qo.success_criteria as criteria
+                        """, obj_id=quest_obj["id"])
+                        record = await result.single()
 
-            # Calculate progress based on objective type
-            acquired_count = 0
-            total_required = len(required_ids)
+                    if not record:
+                        continue
 
-            if objective_type in ["learn_knowledge", "acquire_knowledge"]:
-                # Set intersection - O(n) instead of O(n*m)
-                required_set = set(required_ids)
-                acquired_count = len(required_set & player_knowledge_ids)
-            elif objective_type in ["collect_item", "acquire_item"]:
-                # Set intersection - O(n) instead of O(n*m*p)
-                required_set = set(required_ids)
-                acquired_count = len(required_set & player_item_ids)
+                    required_knowledge = [k for k in record["required_knowledge"] if k]
+                    required_items = [i for i in record["required_items"] if i]
+                    criteria = record["criteria"] or []
 
-            # Calculate percentage
-            progress_percent = (acquired_count / total_required * 100) if total_required > 0 else 0
-            total_progress += progress_percent
+                    # Calculate progress based on knowledge/items acquired
+                    knowledge_acquired = len(set(required_knowledge) & player_knowledge_ids) if required_knowledge else 0
+                    items_acquired = len(set(required_items) & player_item_ids) if required_items else 0
 
-            # Build objective progress data
-            objectives_progress.append({
-                "description": description,
-                "type": objective_type,
-                "current": acquired_count,
-                "total": total_required,
-                "progress": f"{acquired_count}/{total_required}",
-                "percent": round(progress_percent),
-                "completed": total_required > 0 and acquired_count >= total_required  # Fix: Don't mark as completed if no tracking (total=0)
-            })
+                    total_required = len(required_knowledge) + len(required_items)
+                    total_acquired = knowledge_acquired + items_acquired
 
-        # Calculate overall quest progress
-        overall_progress = round(total_progress / len(objectives)) if objectives else 0
+                    # Calculate percentage
+                    percent = int((total_acquired / total_required * 100)) if total_required > 0 else 0
+
+                    quest_objectives.append({
+                        "description": quest_obj.get("description", "Quest Objective"),
+                        "type": "",  # Not used in UI, kept for compatibility
+                        "current": total_acquired,
+                        "total": total_required,
+                        "progress": f"{total_acquired}/{total_required}",
+                        "percent": percent,
+                        "completed": percent >= 100
+                    })
+
+                    total_progress += percent
+                    objective_count += 1
+
+        # Calculate overall progress
+        overall_progress = round(total_progress / objective_count) if objective_count > 0 else 0
 
         result = {
             "quest_id": current_quest_id,
-            "quest_name": quest_data.get("name", "Current Quest"),
+            "quest_name": quest_name,
             "overall_progress": overall_progress,
-            "objectives": objectives_progress
+            "objectives": quest_objectives
         }
+
         logger.info("calculate_complete_quest_progress_returning", result=result)
         return result
 

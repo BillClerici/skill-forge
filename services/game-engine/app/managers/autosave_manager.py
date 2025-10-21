@@ -2,7 +2,7 @@
 Auto-Save Manager
 Handles periodic game state saves and checkpoints
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import asyncio
 
