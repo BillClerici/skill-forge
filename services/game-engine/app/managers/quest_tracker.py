@@ -421,6 +421,9 @@ class QuestProgressionTracker:
         try:
             campaign_id = state.get("campaign_id")
 
+            # Initialize PROGRESS relationships if they don't exist (self-healing)
+            await neo4j_graph.initialize_player_progress(player_id, campaign_id)
+
             # Get current objective hierarchy progress from Neo4j
             progress = await neo4j_graph.get_player_objective_progress(
                 player_id,

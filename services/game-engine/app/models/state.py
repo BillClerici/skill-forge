@@ -249,6 +249,8 @@ class GameSessionState(TypedDict, total=False):
     location_name: Optional[str]  # Primary location name for display
     completed_quest_ids: List[str]
     completed_scene_ids: List[str]
+    completed_discoveries: List[str]  # IDs of completed discoveries
+    completed_challenges: List[str]  # IDs of completed challenges
 
     # Scene context
     scene_description: str

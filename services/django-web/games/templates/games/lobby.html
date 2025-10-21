@@ -1,0 +1,625 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Games Lobby - SkillForge{% endblock %}
+
+{% block extra_css %}
+<style>
+    .games-lobby {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .lobby-header {
+        margin-bottom: 2rem;
+    }
+
+    .lobby-header h1 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .lobby-section {
+        margin-bottom: 3rem;
+    }
+
+    .lobby-section h2 {
+        font-size: 1.8rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 0.5rem;
+    }
+
+    .campaign-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 2rem;
+    }
+
+    .campaign-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        background: white;
+    }
+
+    .campaign-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    .campaign-image {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+        background-size: cover;
+        background-position: center;
+        position: relative;
+    }
+
+    .campaign-image.has-image {
+        background: none;
+    }
+
+    .campaign-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .campaign-image-fallback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 4rem;
+        opacity: 0.3;
+    }
+
+    .campaign-content {
+        padding: 1.5rem;
+    }
+
+    .campaign-title {
+        font-size: 1.3rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .campaign-description {
+        color: #666;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .campaign-meta {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .difficulty-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .difficulty-easy { background: #d4edda; color: #155724; }
+    .difficulty-medium { background: #fff3cd; color: #856404; }
+    .difficulty-hard { background: #f8d7da; color: #721c24; }
+
+    .btn-start-game {
+        width: 100%;
+        padding: 0.75rem;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .btn-start-game:hover {
+        background: #0056b3;
+    }
+
+    .active-sessions-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .session-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.5rem;
+        background: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .session-info {
+        flex: 1;
+    }
+
+    .session-title {
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+
+    .session-meta {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .session-progress {
+        margin: 0.5rem 0;
+    }
+
+    .progress-bar {
+        width: 200px;
+        height: 8px;
+        background: #e0e0e0;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: #28a745;
+        transition: width 0.3s;
+    }
+
+    .btn-continue {
+        padding: 0.75rem 2rem;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+    }
+
+    .btn-continue:hover {
+        background: #218838;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+
+    .start-game-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: #ffffff;
+        padding: 2.5rem;
+        border-radius: 12px;
+        max-width: 550px;
+        width: 90%;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+
+    .modal-header {
+        font-size: 1.8rem;
+        margin-bottom: 2rem;
+        color: #1a1a1a;
+        font-weight: 600;
+        border-bottom: 3px solid #667eea;
+        padding-bottom: 0.75rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        font-size: 1rem;
+        color: #1a1a1a;
+    }
+
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 0.875rem;
+        border: 2px solid #ddd;
+        border-radius: 6px;
+        font-size: 1rem;
+        color: #1a1a1a;
+        background: #f8f9fa;
+        transition: all 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #667eea;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-group select {
+        background: #f8f9fa;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .form-group small {
+        color: #555 !important;
+        margin-top: 0.5rem;
+        display: block;
+        font-size: 0.9rem;
+        background: #f0f4ff !important;
+        padding: 0.75rem !important;
+        border-radius: 6px !important;
+        border-left: 3px solid #667eea;
+    }
+
+    .form-group small strong {
+        color: #1a1a1a;
+    }
+
+    .modal-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 2rem;
+    }
+
+    .btn-cancel {
+        padding: 0.875rem 2rem;
+        background: #e0e0e0;
+        color: #1a1a1a;
+        border: 2px solid #d0d0d0;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-cancel:hover {
+        background: #d0d0d0;
+        border-color: #c0c0c0;
+    }
+
+    .btn-submit {
+        padding: 0.875rem 2rem;
+        background: #667eea;
+        color: white;
+        border: 2px solid #667eea;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+
+    .btn-submit:hover {
+        background: #5568d3;
+        border-color: #5568d3;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Materialize dropdown styling improvements */
+    .dropdown-content {
+        background: #ffffff !important;
+        border: 2px solid #667eea !important;
+        border-radius: 6px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important;
+        margin-top: 4px !important;
+    }
+
+    .dropdown-content li {
+        min-height: 44px !important;
+    }
+
+    .dropdown-content li > a,
+    .dropdown-content li > span {
+        font-size: 1rem !important;
+        color: #1a1a1a !important;
+        padding: 12px 16px !important;
+        font-weight: 500 !important;
+    }
+
+    .dropdown-content li:hover,
+    .dropdown-content li.active {
+        background-color: #f0f4ff !important;
+    }
+
+    .dropdown-content li.selected {
+        background-color: #667eea !important;
+    }
+
+    .dropdown-content li.selected span {
+        color: #ffffff !important;
+    }
+
+    .select-wrapper input.select-dropdown {
+        border: 2px solid #ddd !important;
+        border-radius: 6px !important;
+        padding: 0.875rem !important;
+        font-size: 1rem !important;
+        color: #1a1a1a !important;
+        background: #f8f9fa !important;
+        font-weight: 500 !important;
+    }
+
+    .select-wrapper input.select-dropdown:focus {
+        border-color: #667eea !important;
+        background: #ffffff !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="games-lobby">
+    <div class="lobby-header">
+        <h1>🎮 Games Lobby</h1>
+        <p>Start a new adventure or continue your journey</p>
+        {% if characters %}
+        <div style="background: #d4edda; color: #155724; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem; font-size: 1rem; font-weight: 600; border: 1px solid #c3e6cb;">
+            ✓ {{ characters|length }} character{{ characters|length|pluralize }} available for play
+        </div>
+        {% else %}
+        <div style="background: #fff3cd; color: #856404; padding: 0.75rem; border-radius: 4px; margin-top: 0.5rem; font-size: 1rem; font-weight: 600; border: 1px solid #ffeeba;">
+            ⚠ No characters found. You'll create a new one when starting a game.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Active Sessions -->
+    <div class="lobby-section">
+        <h2>My Active Games</h2>
+        {% if active_sessions %}
+            <div class="active-sessions-list">
+                {% for session in active_sessions %}
+                <div class="session-card">
+                    <div class="session-info">
+                        <div class="session-title">{{ session.campaign_name|default:"Game Session" }}</div>
+                        <div class="session-meta">
+                            Last played: {{ session.updated_at|date:"M d, Y g:i A" }}
+                        </div>
+                        <div class="session-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ session.progress|default:0 }}%"></div>
+                            </div>
+                            <small>{{ session.progress|default:0 }}% Complete</small>
+                        </div>
+                    </div>
+                    <a href="{% url 'games:play' game_id=session.session_id %}" class="btn-continue">
+                        Continue Game →
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No active games. Start a new adventure below!</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Available Campaigns -->
+    <div class="lobby-section">
+        <h2>Start New Game</h2>
+        <div class="campaign-grid">
+            {% for campaign in available_campaigns %}
+            <div class="campaign-card">
+                <div class="campaign-image {% if campaign.image_url %}has-image{% endif %}">
+                    {% if campaign.image_url %}
+                        <img src="{{ campaign.image_url }}" alt="{{ campaign.name }}">
+                    {% else %}
+                        <div class="campaign-image-fallback">🏰</div>
+                    {% endif %}
+                </div>
+                <div class="campaign-content">
+                    <div class="campaign-title">{{ campaign.name }}</div>
+                    <div class="campaign-description">{{ campaign.description }}</div>
+                    <div class="campaign-meta">
+                        <div class="meta-item">
+                            <span class="difficulty-badge difficulty-{{ campaign.difficulty|lower }}">
+                                {{ campaign.difficulty }}
+                            </span>
+                        </div>
+                        <div class="meta-item">
+                            ⏱️ {{ campaign.estimated_duration }}
+                        </div>
+                    </div>
+                    <div class="campaign-meta" style="margin-top: 0.5rem; font-size: 0.85rem; color: #666;">
+                        <div class="meta-item">
+                            🌍 {{ campaign.world_name }}
+                        </div>
+                        <div class="meta-item">
+                            📜 {{ campaign.quest_count }} Quest{{ campaign.quest_count|pluralize }}
+                        </div>
+                    </div>
+                    <button class="btn-start-game" onclick="showStartGameModal('{{ campaign.id }}', '{{ campaign.name }}')">
+                        Start New Game
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Start Game Modal -->
+<div id="startGameModal" class="start-game-modal">
+    <div class="modal-content">
+        <div class="modal-header">Start New Game</div>
+        <form id="startGameForm" method="POST" action="{% url 'games:create' %}">
+            {% csrf_token %}
+            <input type="hidden" name="campaign_id" id="campaignId">
+
+            <div class="form-group">
+                <label for="characterSelect">
+                    Select Character ({{ characters|length }} available)
+                </label>
+                <select
+                    id="characterSelect"
+                    name="character_id"
+                    class="form-control"
+                    onchange="handleCharacterSelection()">
+                    <option value="">-- Select or Create New --</option>
+                    {% if characters %}
+                        {% for character in characters %}
+                        <option value="{{ character.character_id }}">{{ character.name }}</option>
+                        {% endfor %}
+                    {% endif %}
+                    <option value="new">+ Create New Character</option>
+                </select>
+                <small>
+                    {% if characters %}
+                        <strong>Available:</strong> {% for c in characters %}{{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% else %}
+                        <strong>Note:</strong> No characters loaded from database
+                    {% endif %}
+                </small>
+            </div>
+
+            <div class="form-group" id="characterNameGroup" style="display: none;">
+                <label for="characterName">New Character Name</label>
+                <input type="text" id="characterName" name="character_name" placeholder="Enter your character name" required>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="hideStartGameModal()">Cancel</button>
+                <button type="submit" class="btn-submit" id="startAdventureBtn">Start Adventure</button>
+            </div>
+        </form>
+        <div id="characterDebug" style="margin-top: 1rem; font-size: 0.85rem; color: #666;"></div>
+    </div>
+</div>
+
+<script>
+function showStartGameModal(campaignId, campaignName) {
+    document.getElementById('campaignId').value = campaignId;
+    document.getElementById('startGameModal').style.display = 'flex';
+
+    // Reset form
+    const characterSelect = document.getElementById('characterSelect');
+    if (characterSelect) {
+        characterSelect.value = '';
+    }
+    document.getElementById('characterName').value = '';
+
+    // Reinitialize Materialize select (needed when modal opens)
+    setTimeout(function() {
+        var elems = document.querySelectorAll('select');
+        M.FormSelect.init(elems);
+    }, 100);
+
+    handleCharacterSelection();
+}
+
+function hideStartGameModal() {
+    document.getElementById('startGameModal').style.display = 'none';
+}
+
+function handleCharacterSelection() {
+    const characterSelect = document.getElementById('characterSelect');
+    const characterNameGroup = document.getElementById('characterNameGroup');
+    const characterNameInput = document.getElementById('characterName');
+
+    if (!characterSelect) {
+        return;
+    }
+
+    const selectedValue = characterSelect.value;
+
+    console.log('Character selection changed:', selectedValue);
+
+    if (selectedValue === '' || selectedValue === 'new') {
+        // Show name input for new character
+        characterNameGroup.style.display = 'block';
+        characterNameInput.required = true;
+        setTimeout(() => characterNameInput.focus(), 100);
+    } else {
+        // Hide name input when selecting existing character
+        characterNameGroup.style.display = 'none';
+        characterNameInput.required = false;
+        characterNameInput.value = ''; // Clear the name field
+    }
+}
+
+// Form submission validation
+document.getElementById('startGameForm').addEventListener('submit', function(e) {
+    const characterSelect = document.getElementById('characterSelect');
+    const characterNameInput = document.getElementById('characterName');
+    const debug = document.getElementById('characterDebug');
+
+    const selectedCharacter = characterSelect.value;
+    const characterName = characterNameInput.value;
+
+    debug.innerHTML = `Selected: "${selectedCharacter}", Name: "${characterName}"`;
+
+    // Validate: must select a character OR provide a name
+    if (!selectedCharacter || selectedCharacter === '') {
+        // No character selected, need a name
+        if (!characterName || characterName.trim() === '') {
+            e.preventDefault();
+            alert('Please select a character or enter a character name');
+            return false;
+        }
+    } else if (selectedCharacter === 'new') {
+        // Creating new, need a name
+        if (!characterName || characterName.trim() === '') {
+            e.preventDefault();
+            alert('Please enter a name for your new character');
+            return false;
+        }
+    }
+
+    return true;
+});
+
+// Initialize Materialize select dropdown
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize select elements for Materialize
+    var elems = document.querySelectorAll('select');
+    var instances = M.FormSelect.init(elems);
+});
+
+// Close modal on outside click
+document.getElementById('startGameModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideStartGameModal();
+    }
+});
+</script>
+{% endblock %}

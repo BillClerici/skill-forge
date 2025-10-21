@@ -722,18 +722,21 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             scene_id=state["current_scene_id"]
         )
 
-        # Import connection manager for broadcasting chunks
-        from ..api.websocket_manager import connection_manager
-
-        # Define streaming callback to broadcast chunks via WebSocket
+        # Define streaming callback to publish chunks via RabbitMQ
         async def stream_chunk(chunk: str):
-            """Callback to broadcast streaming chunks"""
-            await connection_manager.broadcast_to_session(
-                state["session_id"],
-                {
-                    "event": "scene_chunk",
-                    "chunk": chunk,
-                    "is_complete": False
+            """Callback to publish streaming chunks to RabbitMQ"""
+            await rabbitmq_client.publish_event(
+                exchange="game.events",
+                routing_key=f"session.{state['session_id']}.scene_chunk",
+                message={
+                    "type": "event",
+                    "event_type": "scene_chunk",
+                    "session_id": state["session_id"],
+                    "payload": {
+                        "chunk": chunk,
+                        "is_complete": False,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
                 }
             )
 
@@ -744,13 +747,19 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
         )
         state["scene_description"] = scene_description
 
-        # Broadcast final completion chunk
-        await connection_manager.broadcast_to_session(
-            state["session_id"],
-            {
-                "event": "scene_chunk",
-                "chunk": "",
-                "is_complete": True
+        # Publish final completion chunk
+        await rabbitmq_client.publish_event(
+            exchange="game.events",
+            routing_key=f"session.{state['session_id']}.scene_chunk",
+            message={
+                "type": "event",
+                "event_type": "scene_chunk",
+                "session_id": state["session_id"],
+                "payload": {
+                    "chunk": "",
+                    "is_complete": True,
+                    "timestamp": datetime.utcnow().isoformat()
+                }
             }
         )
 

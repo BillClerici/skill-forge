@@ -330,7 +330,116 @@ services:
     restart: unless-stopped
 
   # ============================================
-  # Game Engine
+  # Infrastructure Initialization
+  # ============================================
+
+  rabbitmq-init:
+    build: ./infrastructure/rabbitmq
+    container_name: skillforge-rabbitmq-init
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=skillforge
+      - RABBITMQ_PASS=${RABBITMQ_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_started
+    networks:
+      - skillforge-network
+    restart: on-failure
+
+  mongodb-init:
+    build: ./infrastructure/mongodb
+    container_name: skillforge-mongodb-init
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=${MONGO_PASSWORD}
+      - MONGODB_DATABASE=skillforge
+    depends_on:
+      mongodb:
+        condition: service_started
+    networks:
+      - skillforge-network
+    restart: on-failure
+
+  # ============================================
+  # New Game Services (Event-Driven Architecture)
+  # ============================================
+
+  game-event-manager:
+    build: ./services/game-event-manager
+    container_name: skillforge-game-event-manager
+    ports:
+      - "9510:9510"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=skillforge
+      - RABBITMQ_PASS=${RABBITMQ_PASSWORD}
+      - PORT=9510
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - rabbitmq
+      - rabbitmq-init
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/game-event-manager:/app
+    restart: unless-stopped
+
+  game-persistence-service:
+    build: ./services/game-persistence-service
+    container_name: skillforge-game-persistence-service
+    ports:
+      - "9511:9511"
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=${MONGO_PASSWORD}
+      - MONGODB_DATABASE=skillforge
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=skillforge
+      - RABBITMQ_PASS=${RABBITMQ_PASSWORD}
+      - PORT=9511
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - mongodb-init
+      - rabbitmq-init
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/game-persistence-service:/app
+    restart: unless-stopped
+
+  game-ui-gateway:
+    build: ./services/game-ui-gateway
+    container_name: skillforge-game-ui-gateway
+    ports:
+      - "9600:9600"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=skillforge
+      - RABBITMQ_PASS=${RABBITMQ_PASSWORD}
+      - PORT=9600
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - rabbitmq
+      - rabbitmq-init
+    networks:
+      - skillforge-network
+    volumes:
+      - ./services/game-ui-gateway:/app
+    restart: unless-stopped
+
+  # ============================================
+  # Game Engine (Legacy - To be refactored)
   # ============================================
 
   game-engine:
@@ -338,7 +447,6 @@ services:
     container_name: skillforge-game-engine
     ports:
       - "9500:9500"   # REST API
-      - "9501:9501"   # WebSocket (if separate port needed)
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}

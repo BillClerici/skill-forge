@@ -442,7 +442,8 @@
         <li><a class="{% if 'universe' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'universe_list' %}"><i class="material-icons">public</i>Universes</a></li>
         <li><a class="{% if 'world' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'world_list' %}"><i class="material-icons">map</i>Worlds</a></li>
         <li><a class="{% if 'campaign' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'campaign_list' %}"><i class="material-icons">book</i>Campaigns</a></li>
-        <li><a class="{% if 'game_lobby' in request.resolver_match.url_name or 'game_session' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'game_lobby' %}"><i class="material-icons">sports_esports</i>Game Lobby</a></li>
+        <li><a class="{% if 'games' in request.path %}active{% endif %}" href="{% url 'games:lobby' %}"><i class="material-icons">gamepad</i>Games</a></li>
+        <li><a class="{% if 'game_lobby' in request.resolver_match.url_name or 'game_session' in request.resolver_match.url_name %}active{% endif %}" href="{% url 'game_lobby' %}"><i class="material-icons">sports_esports</i>Game Lobby (Old)</a></li>
         <li><div class="divider"></div></li>
         <li><a class="subheader">Services</a></li>
         <li><a href="http://localhost:4000/graphql" target="_blank"><i class="material-icons">cloud</i>API Gateway</a></li>

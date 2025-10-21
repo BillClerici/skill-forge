@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'worlds',
     'campaigns',
     'characters',
+    'games',  # New event-driven game UI
 ]
 
 MIDDLEWARE = [

@@ -206,9 +206,19 @@ class ConnectionManager:
             message: Message data
             exclude_websocket: Optional WebSocket to exclude from broadcast
         """
+        event_type = message.get("event", "unknown")
+
         if session_id not in self.active_connections:
+            logger.warning(
+                "broadcast_no_connections",
+                session_id=session_id,
+                event_type=event_type,
+                message="No active WebSocket connections for session"
+            )
             return
 
+        total_connections = len(self.active_connections[session_id])
+        sent_count = 0
         disconnected = []
 
         for websocket in self.active_connections[session_id]:
@@ -217,10 +227,12 @@ class ConnectionManager:
 
             try:
                 await websocket.send_json(message)
+                sent_count += 1
             except Exception as e:
                 logger.error(
                     "broadcast_failed",
                     session_id=session_id,
+                    event_type=event_type,
                     error=str(e)
                 )
                 disconnected.append(websocket)
@@ -228,6 +240,16 @@ class ConnectionManager:
         # Clean up disconnected WebSockets
         for websocket in disconnected:
             self.disconnect(websocket, session_id)
+
+        # Log successful broadcasts
+        if sent_count > 0:
+            logger.info(
+                "broadcast_sent",
+                session_id=session_id,
+                event_type=event_type,
+                recipients=sent_count,
+                total_connections=total_connections
+            )
 
     async def handle_typing_indicator(
         self,

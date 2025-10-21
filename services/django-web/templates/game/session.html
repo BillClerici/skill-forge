@@ -3690,6 +3690,15 @@
                     typeof window.GameSessionObjectives.handleObjectiveProgress === 'function') {
                     window.GameSessionObjectives.handleObjectiveProgress(data);
                 }
+                // Also reload full objectives data to update both drawers
+                if (typeof window.GameSessionObjectives !== 'undefined' &&
+                    typeof window.GameSessionObjectives.loadObjectiveProgress === 'function') {
+                    window.GameSessionObjectives.loadObjectiveProgress(SESSION_ID, PLAYER_ID);
+                }
+                // Also refresh legacy quest progress (left drawer)
+                if (typeof refreshQuestProgress === 'function') {
+                    refreshQuestProgress();
+                }
                 break;
 
             case 'campaign_objective_progress':
@@ -3697,6 +3706,15 @@
                 if (typeof window.GameSessionObjectives !== 'undefined' &&
                     typeof window.GameSessionObjectives.handleCampaignObjectiveProgress === 'function') {
                     window.GameSessionObjectives.handleCampaignObjectiveProgress(data);
+                }
+                // Also reload full objectives data to update both drawers
+                if (typeof window.GameSessionObjectives !== 'undefined' &&
+                    typeof window.GameSessionObjectives.loadObjectiveProgress === 'function') {
+                    window.GameSessionObjectives.loadObjectiveProgress(SESSION_ID, PLAYER_ID);
+                }
+                // Also refresh legacy quest progress (left drawer)
+                if (typeof refreshQuestProgress === 'function') {
+                    refreshQuestProgress();
                 }
                 break;
         }

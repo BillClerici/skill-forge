@@ -1,0 +1,1224 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Game Session - SkillForge{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Cache buster v2.7 - Changed max-width to width (like old session page) 2025-10-21-1350 */
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        overflow-x: hidden; /* Prevent horizontal scroll only */
+    }
+
+    .game-container {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #f5f5f5;
+        position: relative;
+    }
+
+    /* Header */
+    .game-header {
+        position: sticky;
+        top: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+
+    .game-title {
+        font-size: 1.3rem;
+        font-weight: bold;
+    }
+
+    .game-status {
+        display: flex;
+        gap: 2rem;
+        font-size: 0.9rem;
+    }
+
+    /* Main Content Area */
+    .game-content {
+        flex: 1;
+        display: flex;
+        position: relative;
+        overflow: hidden;
+        transition: margin-left 0.3s ease-in-out, margin-right 0.3s ease-in-out, width 0.3s ease-in-out;
+        box-sizing: border-box;
+        height: 100%;
+        min-height: 0;
+        padding: 0.75rem; /* Match old session page gap */
+    }
+
+    /* Adjust entire game-content container when drawers are pinned - EXACT OLD SESSION PAGE PATTERN */
+    .game-content.left-pinned {
+        margin-left: 320px;
+        width: calc(100% - 320px);
+    }
+
+    .game-content.right-pinned {
+        margin-right: 320px;
+        width: calc(100% - 320px);
+    }
+
+    .game-content.left-pinned.right-pinned {
+        margin-left: 320px;
+        margin-right: 320px;
+        width: calc(100% - 640px);
+    }
+
+    /* Main Scene Area */
+    .main-content {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Drawer Styles - RPG Fantasy Theme */
+    .drawer {
+        position: fixed;
+        top: 70px;
+        bottom: 0;
+        width: 320px;
+        background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
+        color: #e0e0e0;
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5);
+        transition: transform 0.3s ease-in-out;
+        z-index: 110;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .drawer-left {
+        left: 0;
+        transform: translateX(-100%);
+        border-right: 2px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .drawer-left.open {
+        transform: translateX(0);
+    }
+
+    .drawer-left.anchored {
+        transform: translateX(0);
+        box-shadow: -4px 0 12px rgba(0, 0, 0, 0.5); /* Flip shadow to go left when anchored */
+        border-right: none; /* Remove border when anchored to prevent overlap */
+    }
+
+    .drawer-right {
+        right: 0;
+        transform: translateX(100%);
+        border-left: 2px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .drawer-right.open {
+        transform: translateX(0);
+    }
+
+    .drawer-right.anchored {
+        transform: translateX(0);
+        box-shadow: 4px 0 12px rgba(0, 0, 0, 0.5); /* Flip shadow to go right when anchored */
+        border-left: none; /* Remove border when anchored to prevent overlap */
+    }
+
+    .drawer-header {
+        background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
+        color: white;
+        padding: 0.6rem 0.8rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        border-bottom: 2px solid #d4af37;
+        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+    }
+
+    .drawer-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #d4af37;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
+    }
+
+    .drawer-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .drawer-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: all 0.2s;
+    }
+
+    .drawer-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .drawer-btn.active {
+        background: rgba(212, 175, 55, 0.4);
+        border-color: #d4af37;
+    }
+
+    .drawer-content {
+        flex: 1;
+        padding: 0.6rem;
+        overflow-y: auto;
+        background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
+    }
+
+    .drawer-content h3 {
+        color: #d4af37;
+        font-size: 1rem;
+        font-weight: bold;
+        margin: 0 0 0.6rem 0;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+    }
+
+    .drawer-content h4 {
+        color: #c0c0c0;
+        font-size: 0.85rem;
+        font-weight: bold;
+        margin: 0.6rem 0 0.3rem 0;
+        letter-spacing: 0.3px;
+    }
+
+    .drawer-content p {
+        color: #d0d0e0;
+    }
+
+    /* RPG-themed scrollbar */
+    .drawer-content::-webkit-scrollbar {
+        width: 12px;
+    }
+
+    .drawer-content::-webkit-scrollbar-track {
+        background: #0f0f1e;
+    }
+
+    .drawer-content::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #d4af37 0%, #cd7f32 100%);
+        border-radius: 6px;
+        border: 2px solid #0f0f1e;
+    }
+
+    .drawer-content::-webkit-scrollbar-thumb:hover {
+        background: #d4af37;
+    }
+
+    /* Toggle Buttons */
+    .drawer-toggle {
+        position: fixed;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 1rem 0.5rem;
+        cursor: pointer;
+        z-index: 85;
+        font-size: 1rem;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+        transition: all 0.2s;
+    }
+
+    .drawer-toggle:hover {
+        background: #5a67d8;
+        transform: translateY(-50%) scale(1.05);
+    }
+
+    .drawer-toggle-left {
+        left: 0;
+    }
+
+    .drawer-toggle-left.hidden {
+        left: 320px;
+    }
+
+    .drawer-toggle-right {
+        right: 0;
+        border-radius: 8px 0 0 8px;
+        box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+    }
+
+    .drawer-toggle-right.hidden {
+        right: 320px;
+    }
+
+    /* Quest Panel Content */
+    .objective-item {
+        padding: 0.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+        background: rgba(255, 255, 255, 0.05);
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .objective-item:last-child {
+        border-bottom: none;
+    }
+
+    /* Custom checkbox using div - no Materialize interference */
+    .objective-checkbox-wrapper {
+        flex-shrink: 0;
+    }
+
+    .custom-checkbox {
+        width: 28px;
+        height: 28px;
+        border: 3px solid #d4af37;
+        background-color: rgba(22, 33, 62, 0.5);
+        border-radius: 8px;
+        position: relative;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .custom-checkbox:hover {
+        transform: scale(1.05);
+        border-color: #e0c050;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(212, 175, 55, 0.3);
+    }
+
+    .custom-checkbox.checked {
+        background: linear-gradient(135deg, #d4af37 0%, #c9a030 100%);
+        border-color: #d4af37;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.5);
+        animation: checkBounce 0.4s ease;
+    }
+
+    @keyframes checkBounce {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+        100% { transform: scale(1); }
+    }
+
+    .custom-checkbox.checked::after {
+        content: '✓';
+        color: #0f0f1e;
+        font-size: 20px;
+        font-weight: 900;
+        line-height: 1;
+        animation: checkAppear 0.3s ease;
+    }
+
+    @keyframes checkAppear {
+        0% {
+            transform: scale(0);
+            opacity: 0;
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    .objective-item span {
+        color: #f0f0f0;
+        font-size: 0.95rem;
+    }
+
+    /* Remove any pseudo-elements from span */
+    .objective-item span::before,
+    .objective-item span::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    /* Party Panel Content */
+    .player-item {
+        padding: 1rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .player-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .player-name {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+        color: #d4af37;
+    }
+
+    .player-status {
+        font-size: 0.85rem;
+        color: #b8b8d1;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .status-online {
+        color: #4ade80;
+    }
+
+    .status-offline {
+        color: #94a3b8;
+    }
+
+    /* Scene Viewer */
+    .scene-viewer {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .scene-content {
+        width: 100%;
+        flex: 1;
+        padding: 0.75rem;
+        overflow-y: auto !important; /* Always show vertical scroll */
+        overflow-x: hidden;
+        background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
+        box-sizing: border-box;
+    }
+
+    .narrative-text {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: #333;
+        margin-bottom: 1.5rem;
+    }
+
+    .scene-action {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        border-radius: 4px;
+    }
+
+    .action-label {
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+
+    .action-result {
+        color: #666;
+    }
+
+    /* Action Input */
+    .action-input-area {
+        width: 100%;
+        padding: 0.75rem;
+        background: white;
+        border-top: 1px solid #ddd;
+        box-sizing: border-box;
+    }
+
+    .suggested-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .suggested-action {
+        padding: 0.5rem 1rem;
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 16px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    .suggested-action:hover {
+        background: #2196f3;
+        color: white;
+    }
+
+    .action-input-form {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .action-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+
+    .action-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .btn-submit-action {
+        padding: 0.75rem 2rem;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .btn-submit-action:hover {
+        background: #5568d3;
+    }
+
+    .btn-submit-action:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+
+    /* Chat Panel */
+    .chat-panel {
+        width: 100%;
+        background: white;
+        border-radius: 8px;
+        max-height: 200px;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+    }
+
+    .chat-tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .chat-tab {
+        padding: 0.75rem 1.5rem;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s;
+    }
+
+    .chat-tab.active {
+        border-bottom-color: #667eea;
+        color: #667eea;
+        font-weight: 600;
+    }
+
+    .chat-messages {
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+        max-height: 150px;
+    }
+
+    .chat-message {
+        margin-bottom: 0.75rem;
+        padding: 1rem;
+        border-radius: 6px;
+        background: #ffffff;
+        border: 1px solid #e0e0e0;
+        color: #1a1a1a;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .message-sender {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #1a1a1a;
+        font-size: 0.9rem;
+    }
+
+    .message-gm {
+        background: #f0f7ff;
+        border-left: 4px solid #2196f3;
+        border: 1px solid #bbdefb;
+    }
+
+    .message-gm .message-sender {
+        color: #1565c0;
+    }
+
+    .message-npc {
+        background: #fff8e1;
+        border-left: 4px solid #ff9800;
+        border: 1px solid #ffe0b2;
+    }
+
+    .message-npc .message-sender {
+        color: #e65100;
+    }
+
+    .message-system {
+        background: #fce4ec;
+        border-left: 4px solid #9c27b0;
+        border: 1px solid #f8bbd0;
+        font-style: italic;
+    }
+
+    .message-system .message-sender {
+        color: #6a1b9a;
+    }
+
+    .connection-status {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000;
+        display: none;
+    }
+
+    .connection-status.connected {
+        border-left: 4px solid #28a745;
+    }
+
+    .connection-status.disconnected {
+        border-left: 4px solid #dc3545;
+        display: block;
+    }
+
+    .connection-status.connecting {
+        border-left: 4px solid #ffc107;
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-container">
+    <!-- Header -->
+    <div class="game-header">
+        <div class="game-title">
+            🎮 {{ session_data.campaign_name|default:"Game Session" }}
+        </div>
+        <div class="game-status">
+            <div id="connectionStatus">● Connecting...</div>
+            <div><a href="{% url 'games:lobby' %}" style="color: white;">← Back to Lobby</a></div>
+        </div>
+    </div>
+
+    <!-- Left Drawer Toggle -->
+    <button class="drawer-toggle drawer-toggle-left" id="questToggle" title="Toggle Quest Panel">
+        📋
+    </button>
+
+    <!-- Right Drawer Toggle -->
+    <button class="drawer-toggle drawer-toggle-right" id="partyToggle" title="Toggle Party Panel">
+        👥
+    </button>
+
+    <!-- Left Drawer - Quest Panel -->
+    <div class="drawer drawer-left" id="questDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title">📋 Current Quest</div>
+            <div class="drawer-controls">
+                <button class="drawer-btn" id="questPin" title="Pin drawer">📌</button>
+                <button class="drawer-btn" id="questClose" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="drawer-content" id="questObjectives">
+            <p style="color: #b8b8d1;">Waiting for quest data...</p>
+        </div>
+    </div>
+
+    <!-- Right Drawer - Party Panel -->
+    <div class="drawer drawer-right" id="partyDrawer">
+        <div class="drawer-header">
+            <div class="drawer-title">👥 Party</div>
+            <div class="drawer-controls">
+                <button class="drawer-btn" id="partyPin" title="Pin drawer">📌</button>
+                <button class="drawer-btn" id="partyClose" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="drawer-content" id="partyList">
+            <div class="player-item">
+                <div class="player-name">You</div>
+                <div class="player-status status-online">● Online</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="game-content" id="gameContent">
+        <div class="main-content">
+            <!-- Scene Viewer -->
+            <div class="scene-viewer">
+                <div class="scene-content" id="sceneContent">
+                    <div class="narrative-text">
+                        <p>🎬 Initializing game session...</p>
+                        <p>Connecting to game server...</p>
+                    </div>
+                </div>
+                <div class="action-input-area">
+                    <div class="suggested-actions" id="suggestedActions">
+                        <!-- Suggested actions will be populated here -->
+                    </div>
+                    <form class="action-input-form" id="actionForm">
+                        <input
+                            type="text"
+                            class="action-input"
+                            id="actionInput"
+                            placeholder="What do you want to do?"
+                            autocomplete="off"
+                            disabled
+                        >
+                        <button type="submit" class="btn-submit-action" id="submitAction" disabled>
+                            Send →
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="chat-panel">
+                <div class="chat-tabs">
+                    <div class="chat-tab active" data-tab="gm">GM Narrative</div>
+                    <div class="chat-tab" data-tab="team">Team Chat</div>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-message message-system">
+                        <div class="message-sender">System</div>
+                        <div>Game session starting...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connectionStatusBox" class="connection-status connecting">
+        <strong>Connection Status:</strong> <span id="statusText">Connecting...</span>
+    </div>
+</div>
+
+<script>
+// Configuration
+const SESSION_ID = '{{ session_id }}';
+const PLAYER_ID = '{{ player_id }}';
+const WS_URL = '{{ ws_gateway_url|default:"ws://localhost:9600" }}';
+
+// Game Client
+class GameClient {
+    constructor() {
+        this.ws = null;
+        this.isConnected = false;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+    }
+
+    connect() {
+        const wsPath = `${WS_URL}/ws/game/${SESSION_ID}/player/${PLAYER_ID}`;
+        console.log('Connecting to:', wsPath);
+
+        this.updateConnectionStatus('connecting', 'Connecting...');
+
+        this.ws = new WebSocket(wsPath);
+
+        this.ws.onopen = () => {
+            console.log('WebSocket connected');
+            this.isConnected = true;
+            this.reconnectAttempts = 0;
+            this.updateConnectionStatus('connected', 'Connected');
+            document.getElementById('actionInput').disabled = false;
+            document.getElementById('submitAction').disabled = false;
+        };
+
+        this.ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                this.handleMessage(data);
+            } catch (e) {
+                console.error('Error parsing message:', e);
+            }
+        };
+
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        this.ws.onclose = () => {
+            console.log('WebSocket closed');
+            this.isConnected = false;
+            this.updateConnectionStatus('disconnected', 'Disconnected');
+            document.getElementById('actionInput').disabled = true;
+            document.getElementById('submitAction').disabled = true;
+            this.attemptReconnect();
+        };
+    }
+
+    handleMessage(data) {
+        console.log('Received message:', data);
+
+        switch(data.type) {
+            case 'connection':
+                console.log('Connection confirmed');
+                break;
+            case 'event':
+                this.handleEvent(data);
+                break;
+            case 'ack':
+                console.log('Action acknowledged');
+                break;
+            case 'pong':
+                console.log('Pong received');
+                break;
+            default:
+                console.log('Unknown message type:', data.type);
+        }
+    }
+
+    handleEvent(data) {
+        const eventType = data.event_type;
+
+        switch(eventType) {
+            case 'scene_update':
+                this.updateScene(data.payload);
+                break;
+            case 'scene_chunk':
+                this.handleSceneChunk(data.payload);
+                break;
+            case 'quest_progress':
+                this.updateQuestProgress(data.payload);
+                break;
+            case 'chat_message':
+                this.addChatMessage(data.payload);
+                break;
+            case 'notification':
+                this.showNotification(data.payload);
+                break;
+            case 'player_status':
+                this.updatePlayerStatus(data.payload);
+                break;
+            default:
+                console.log('Unhandled event type:', eventType);
+        }
+    }
+
+    sendPlayerAction(action) {
+        if (!this.isConnected) {
+            console.error('Not connected to server');
+            return;
+        }
+
+        const message = {
+            type: 'command',
+            command_type: 'player_action',
+            payload: {
+                action: action
+            },
+            request_id: this.generateRequestId()
+        };
+
+        this.ws.send(JSON.stringify(message));
+
+        // Add to scene
+        this.addActionToScene(action);
+    }
+
+    addActionToScene(action) {
+        const sceneContent = document.getElementById('sceneContent');
+        const actionDiv = document.createElement('div');
+        actionDiv.className = 'scene-action';
+        actionDiv.innerHTML = `
+            <div class="action-label">You:</div>
+            <div class="action-result">${action}</div>
+        `;
+        sceneContent.appendChild(actionDiv);
+        sceneContent.scrollTop = sceneContent.scrollHeight;
+    }
+
+    handleSceneChunk(chunkData) {
+        const sceneContent = document.getElementById('sceneContent');
+
+        // If this is the first chunk, create a new streaming narrative div
+        if (!this.currentStreamingDiv) {
+            this.currentStreamingDiv = document.createElement('div');
+            this.currentStreamingDiv.className = 'narrative-text streaming';
+            this.currentStreamingDiv.innerHTML = '<p></p>';
+            sceneContent.appendChild(this.currentStreamingDiv);
+        }
+
+        if (chunkData.is_complete) {
+            // Streaming is complete, clean up
+            if (this.currentStreamingDiv) {
+                this.currentStreamingDiv.classList.remove('streaming');
+                this.currentStreamingDiv = null;
+            }
+        } else {
+            // Append the chunk
+            const paragraph = this.currentStreamingDiv.querySelector('p');
+            // Convert markdown to HTML (basic conversion)
+            const htmlChunk = chunkData.chunk
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
+                .replace(/^## (.*?)$/gm, '<h2>$1</h2>')             // Headers
+                .replace(/^- (.*?)$/gm, '<li>$1</li>')              // List items
+                .replace(/\n\n/g, '</p><p>')                        // Paragraphs
+                .replace(/\n/g, '<br>');                            // Line breaks
+
+            paragraph.innerHTML += htmlChunk;
+            sceneContent.scrollTop = sceneContent.scrollHeight;
+        }
+    }
+
+    updateScene(sceneData) {
+        const sceneContent = document.getElementById('sceneContent');
+
+        const narrativeDiv = document.createElement('div');
+        narrativeDiv.className = 'narrative-text';
+        narrativeDiv.innerHTML = `<p>${sceneData.scene_description || sceneData.description}</p>`;
+        sceneContent.appendChild(narrativeDiv);
+
+        sceneContent.scrollTop = sceneContent.scrollHeight;
+
+        // Update suggested actions
+        if (sceneData.available_actions) {
+            this.updateSuggestedActions(sceneData.available_actions);
+        }
+    }
+
+    updateSuggestedActions(actions) {
+        const container = document.getElementById('suggestedActions');
+        container.innerHTML = '';
+
+        actions.slice(0, 4).forEach(action => {
+            const btn = document.createElement('button');
+            btn.className = 'suggested-action';
+            btn.textContent = action;
+            btn.onclick = () => {
+                document.getElementById('actionInput').value = action;
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    updateQuestProgress(questData) {
+        const container = document.getElementById('questObjectives');
+        container.innerHTML = '';
+
+        if (questData.objectives && questData.objectives.length > 0) {
+            questData.objectives.forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'objective-item';
+
+                // Create checkbox wrapper to avoid Materialize interference
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'objective-checkbox-wrapper';
+                checkboxWrapper.innerHTML = `<div class="custom-checkbox ${obj.completed ? 'checked' : ''}"></div>`;
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = obj.description;
+
+                div.appendChild(checkboxWrapper);
+                div.appendChild(textSpan);
+                container.appendChild(div);
+            });
+        } else {
+            container.innerHTML = '<p style="color: #b8b8d1;">No active quests</p>';
+        }
+    }
+
+    addChatMessage(messageData) {
+        const container = document.getElementById('chatMessages');
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message message-${messageData.message_type || 'gm'}`;
+        messageDiv.innerHTML = `
+            <div class="message-sender">${messageData.sender || 'Game Master'}</div>
+            <div>${messageData.content || messageData.text}</div>
+        `;
+
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    showNotification(notificationData) {
+        alert(notificationData.message);
+    }
+
+    updatePlayerStatus(statusData) {
+        console.log('Player status updated:', statusData);
+    }
+
+    updateConnectionStatus(status, text) {
+        const statusBox = document.getElementById('connectionStatusBox');
+        const statusText = document.getElementById('statusText');
+        const headerStatus = document.getElementById('connectionStatus');
+
+        statusBox.className = `connection-status ${status}`;
+        statusText.textContent = text;
+
+        if (status === 'connected') {
+            headerStatus.innerHTML = '● Connected';
+            headerStatus.style.color = '#28a745';
+            setTimeout(() => {
+                statusBox.style.display = 'none';
+            }, 3000);
+        } else {
+            headerStatus.innerHTML = `● ${text}`;
+            headerStatus.style.color = status === 'connecting' ? '#ffc107' : '#dc3545';
+        }
+    }
+
+    attemptReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Reconnecting (attempt ${this.reconnectAttempts})...`);
+            setTimeout(() => this.connect(), 2000 * this.reconnectAttempts);
+        } else {
+            console.error('Max reconnect attempts reached');
+            this.updateConnectionStatus('disconnected', 'Connection failed. Please refresh.');
+        }
+    }
+
+    generateRequestId() {
+        return Math.random().toString(36).substring(7);
+    }
+}
+
+// Initialize game client
+const gameClient = new GameClient();
+
+// Drawer Management
+class DrawerManager {
+    constructor() {
+        this.questOpen = false;
+        this.questAnchored = false;
+        this.partyOpen = false;
+        this.partyAnchored = false;
+
+        // Load saved states from localStorage
+        this.loadState();
+    }
+
+    loadState() {
+        try {
+            const savedState = localStorage.getItem('gameDrawerState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+
+                // Restore quest drawer
+                if (state.questAnchored) {
+                    this.questAnchored = true;
+                    this.questOpen = true;
+                    const drawer = document.getElementById('questDrawer');
+                    const content = document.getElementById('gameContent');
+                    const toggle = document.getElementById('questToggle');
+                    const pinBtn = document.getElementById('questPin');
+
+                    drawer.classList.add('open', 'anchored');
+                    content.classList.add('left-pinned');
+                    toggle.classList.add('hidden');
+                    pinBtn.classList.add('active');
+                }
+
+                // Restore party drawer
+                if (state.partyAnchored) {
+                    this.partyAnchored = true;
+                    this.partyOpen = true;
+                    const drawer = document.getElementById('partyDrawer');
+                    const content = document.getElementById('gameContent');
+                    const toggle = document.getElementById('partyToggle');
+                    const pinBtn = document.getElementById('partyPin');
+
+                    drawer.classList.add('open', 'anchored');
+                    content.classList.add('right-pinned');
+                    toggle.classList.add('hidden');
+                    pinBtn.classList.add('active');
+                }
+            }
+        } catch (e) {
+            console.error('Error loading drawer state:', e);
+        }
+    }
+
+    saveState() {
+        try {
+            const state = {
+                questAnchored: this.questAnchored,
+                partyAnchored: this.partyAnchored
+            };
+            localStorage.setItem('gameDrawerState', JSON.stringify(state));
+        } catch (e) {
+            console.error('Error saving drawer state:', e);
+        }
+    }
+
+    toggleQuest() {
+        this.questOpen = !this.questOpen;
+        const drawer = document.getElementById('questDrawer');
+        const toggle = document.getElementById('questToggle');
+        const content = document.getElementById('gameContent');
+
+        if (this.questOpen) {
+            drawer.classList.add('open');
+        } else {
+            drawer.classList.remove('open');
+            if (this.questAnchored) {
+                this.questAnchored = false;
+                drawer.classList.remove('anchored');
+                document.getElementById('questPin').classList.remove('active');
+                content.classList.remove('left-pinned');
+                toggle.classList.remove('hidden');
+            }
+        }
+    }
+
+    toggleParty() {
+        this.partyOpen = !this.partyOpen;
+        const drawer = document.getElementById('partyDrawer');
+        const toggle = document.getElementById('partyToggle');
+        const content = document.getElementById('gameContent');
+
+        if (this.partyOpen) {
+            drawer.classList.add('open');
+        } else {
+            drawer.classList.remove('open');
+            if (this.partyAnchored) {
+                this.partyAnchored = false;
+                drawer.classList.remove('anchored');
+                document.getElementById('partyPin').classList.remove('active');
+                content.classList.remove('right-pinned');
+                toggle.classList.remove('hidden');
+            }
+        }
+    }
+
+    pinQuest() {
+        if (!this.questOpen) return;
+
+        this.questAnchored = !this.questAnchored;
+        const drawer = document.getElementById('questDrawer');
+        const content = document.getElementById('gameContent');
+        const toggle = document.getElementById('questToggle');
+        const pinBtn = document.getElementById('questPin');
+
+        if (this.questAnchored) {
+            drawer.classList.add('anchored');
+            content.classList.add('left-pinned');
+            toggle.classList.add('hidden');
+            pinBtn.classList.add('active');
+        } else {
+            drawer.classList.remove('anchored');
+            content.classList.remove('left-pinned');
+            toggle.classList.remove('hidden');
+            pinBtn.classList.remove('active');
+        }
+
+        this.saveState();
+    }
+
+    pinParty() {
+        if (!this.partyOpen) return;
+
+        this.partyAnchored = !this.partyAnchored;
+        const drawer = document.getElementById('partyDrawer');
+        const content = document.getElementById('gameContent');
+        const toggle = document.getElementById('partyToggle');
+        const pinBtn = document.getElementById('partyPin');
+
+        if (this.partyAnchored) {
+            drawer.classList.add('anchored');
+            content.classList.add('right-pinned');
+            toggle.classList.add('hidden');
+            pinBtn.classList.add('active');
+        } else {
+            drawer.classList.remove('anchored');
+            content.classList.remove('right-pinned');
+            toggle.classList.remove('hidden');
+            pinBtn.classList.remove('active');
+        }
+
+        this.saveState();
+    }
+}
+
+const drawerManager = new DrawerManager();
+
+// Connect on page load
+document.addEventListener('DOMContentLoaded', () => {
+    gameClient.connect();
+
+    // Drawer controls
+    document.getElementById('questToggle').addEventListener('click', () => {
+        drawerManager.toggleQuest();
+    });
+
+    document.getElementById('questClose').addEventListener('click', () => {
+        drawerManager.toggleQuest();
+    });
+
+    document.getElementById('questPin').addEventListener('click', () => {
+        drawerManager.pinQuest();
+    });
+
+    document.getElementById('partyToggle').addEventListener('click', () => {
+        drawerManager.toggleParty();
+    });
+
+    document.getElementById('partyClose').addEventListener('click', () => {
+        drawerManager.toggleParty();
+    });
+
+    document.getElementById('partyPin').addEventListener('click', () => {
+        drawerManager.pinParty();
+    });
+
+    // Handle action form submission
+    document.getElementById('actionForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('actionInput');
+        const action = input.value.trim();
+
+        if (action) {
+            gameClient.sendPlayerAction(action);
+            input.value = '';
+        }
+    });
+
+    // Chat tabs
+    document.querySelectorAll('.chat-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}

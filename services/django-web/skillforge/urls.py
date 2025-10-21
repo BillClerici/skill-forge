@@ -67,6 +67,8 @@ from characters.views import (
     CharacterTextToSpeechView
 )
 
+from django.urls import include
+
 urlpatterns = [
     path('', dashboard, name='dashboard'),
     path('admin/', admin.site.urls),
@@ -233,6 +235,9 @@ urlpatterns = [
     path('characters/<uuid:character_id>/delete-image/', CharacterDeleteImageView.as_view(), name='character_delete_image'),
     path('characters/<uuid:character_id>/set-primary-image/', CharacterSetPrimaryImageView.as_view(), name='character_set_primary_image'),
     path('characters/<uuid:character_id>/tts-backstory/', CharacterTextToSpeechView.as_view(), name='character_tts_backstory'),
+
+    # Games (New Event-Driven UI)
+    path('games/', include('games.urls')),
 ]
 
 # Serve media files in development

@@ -1215,6 +1215,67 @@ class Neo4jGraphService:
             logger.error("dimensional_progress_retrieval_failed", error=str(e))
             return {"dimensions": []}
 
+    async def initialize_player_progress(
+        self,
+        player_id: str,
+        campaign_id: str
+    ) -> bool:
+        """
+        Initialize PROGRESS relationships for a player in a campaign.
+        Creates Player node if it doesn't exist, then creates PROGRESS
+        relationships with 0% for all campaign and quest objectives.
+
+        This is a self-healing function that ensures the graph structure
+        exists before attempting to track progress.
+
+        Args:
+            player_id: Player ID
+            campaign_id: Campaign ID
+
+        Returns:
+            Success status
+        """
+        try:
+            async with self.driver.session() as session:
+                # First, ensure Player node exists
+                await session.run("""
+                    MERGE (p:Player {player_id: $player_id})
+                    SET p.last_active = $timestamp
+                """, player_id=player_id, timestamp=datetime.utcnow().isoformat())
+
+                # Initialize PROGRESS relationships for all campaign objectives
+                await session.run("""
+                    MATCH (camp:Campaign {id: $campaign_id})-[:HAS_OBJECTIVE]->(co:CampaignObjective)
+                    MATCH (p:Player {player_id: $player_id})
+                    MERGE (p)-[prog:PROGRESS]->(co)
+                    ON CREATE SET prog.percentage = 0,
+                                  prog.status = 'not_started',
+                                  prog.updated_at = $timestamp
+                """, player_id=player_id, campaign_id=campaign_id, timestamp=datetime.utcnow().isoformat())
+
+                # Initialize PROGRESS relationships for all quest objectives
+                await session.run("""
+                    MATCH (camp:Campaign {id: $campaign_id})-[:HAS_OBJECTIVE]->(co:CampaignObjective)
+                    MATCH (co)-[:DECOMPOSES_TO]->(qo:QuestObjective)
+                    MATCH (p:Player {player_id: $player_id})
+                    MERGE (p)-[prog:PROGRESS]->(qo)
+                    ON CREATE SET prog.percentage = 0,
+                                  prog.status = 'not_started',
+                                  prog.updated_at = $timestamp
+                """, player_id=player_id, campaign_id=campaign_id, timestamp=datetime.utcnow().isoformat())
+
+                logger.info(
+                    "player_progress_initialized",
+                    player_id=player_id,
+                    campaign_id=campaign_id
+                )
+
+                return True
+
+        except Exception as e:
+            logger.error("player_progress_initialization_failed", error=str(e))
+            return False
+
     async def record_objective_progress(
         self,
         player_id: str,

@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from datetime import datetime
+from uuid import uuid4
 import json
 import io
 
@@ -170,8 +171,8 @@ async def start_solo_session(
             player_id=request.player_id
         )
 
-        # Generate session ID
-        session_id = f"session_{datetime.utcnow().timestamp()}_{request.player_id}"
+        # Generate session ID as UUID
+        session_id = str(uuid4())
 
         # Get character directly from PostgreSQL
         character = db.query(Character).filter(
@@ -302,8 +303,8 @@ async def create_party_session(
             max_players=request.max_players
         )
 
-        # Generate session ID
-        session_id = f"party_{datetime.utcnow().timestamp()}_{request.host_player_id}"
+        # Generate session ID as UUID
+        session_id = str(uuid4())
 
         # Get host character from PostgreSQL
         character = db.query(Character).filter(
@@ -586,6 +587,37 @@ async def resume_session(session_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error("resume_session_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to resume session")
+
+
+@router.post("/session/{session_id}/trigger-workflow")
+async def trigger_workflow(session_id: str) -> Dict[str, Any]:
+    """
+    Manually trigger game loop workflow for a stuck session
+    Useful for recovery when initialization failed
+    """
+    try:
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        logger.info("manual_workflow_trigger", session_id=session_id, current_node=state.get("current_node"))
+
+        # Trigger workflow initialization in background
+        import asyncio
+        asyncio.create_task(_execute_workflow_initialization(session_id, state))
+
+        return {
+            "session_id": session_id,
+            "status": "triggered",
+            "message": "Workflow execution triggered in background"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("trigger_workflow_failed", session_id=session_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to trigger workflow")
 
 
 @router.get("/session/{session_id}/state")

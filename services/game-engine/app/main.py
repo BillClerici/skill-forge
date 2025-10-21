@@ -11,6 +11,7 @@ from .core.config import settings
 from .core.logging import setup_logging, get_logger
 from .services.redis_manager import redis_manager
 from .services.rabbitmq_client import rabbitmq_client
+from .services.rabbitmq_consumer import rabbitmq_consumer
 from .services.mongo_persistence import mongo_persistence
 from .services.neo4j_graph import neo4j_graph
 from .api.routes import router
@@ -50,6 +51,15 @@ async def lifespan(app: FastAPI):
         await neo4j_graph.connect()
         logger.info("neo4j_connected")
 
+        # Connect RabbitMQ consumer and start consuming
+        await rabbitmq_consumer.connect()
+        logger.info("rabbitmq_consumer_connected")
+
+        # Start consuming player actions in background
+        import asyncio
+        asyncio.create_task(rabbitmq_consumer.start_consuming())
+        logger.info("rabbitmq_consumer_started")
+
         logger.info("game_engine_started_successfully")
 
     except Exception as e:
@@ -66,7 +76,11 @@ async def lifespan(app: FastAPI):
         await redis_manager.disconnect()
         logger.info("redis_disconnected")
 
-        # Disconnect from RabbitMQ
+        # Disconnect from RabbitMQ consumer
+        await rabbitmq_consumer.disconnect()
+        logger.info("rabbitmq_consumer_disconnected")
+
+        # Disconnect from RabbitMQ publisher
         await rabbitmq_client.disconnect()
         logger.info("rabbitmq_disconnected")
 
