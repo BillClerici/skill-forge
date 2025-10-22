@@ -877,7 +877,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                     k.bloom_level_target = $bloom_level_target,
                     k.description = $description,
                     k.campaign_id = $campaign_id,
-                    k.mongodb_id = $mongodb_id
+                    k.mongodb_id = $mongodb_id,
+                    k.supports_objectives = $supports_objectives
                 """,
                 knowledge_id=knowledge_id,
                 campaign_id=campaign_id,
@@ -886,7 +887,8 @@ async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: 
                 knowledge_type=knowledge.get("knowledge_type", "skill"),
                 primary_dimension=knowledge.get("primary_dimension", "intellectual"),
                 bloom_level_target=knowledge.get("bloom_level_target", 3),
-                description=knowledge.get("description", "")[:500]  # Truncate for Neo4j
+                description=knowledge.get("description", "")[:500],  # Truncate for Neo4j
+                supports_objectives=knowledge.get("supports_objectives", [])  # Required for objective linking
             )
 
             # Link Knowledge to Scene using scene_id_map
