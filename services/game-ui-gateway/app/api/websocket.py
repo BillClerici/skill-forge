@@ -77,13 +77,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID, player_id: 
                 command_type = message.get('command_type', '')
 
                 if command_type == 'player_action':
+                    action = message['payload'].get('action', '')
+                    logger.info(f"Player action received - Session: {session_id}, Player: {player_id}, Action: {action}")
+
                     # Publish player action
                     await command_publisher.publish_player_action(
                         session_id,
                         player_id,
-                        message['payload'].get('action', ''),
+                        action,
                         message['payload'].get('metadata')
                     )
+
+                    logger.info(f"Player action published to RabbitMQ - Action: {action}")
 
                     # Send acknowledgment
                     await websocket.send_json({

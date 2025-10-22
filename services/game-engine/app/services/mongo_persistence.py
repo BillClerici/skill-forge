@@ -224,6 +224,29 @@ class MongoPersistence:
             logger.error("get_player_sessions_failed", error=str(e))
             return []
 
+    async def delete_session(self, session_id: str) -> bool:
+        """Delete a game session and all related data"""
+        try:
+            # Delete session document
+            result = await self.db.game_sessions.delete_one({"session_id": session_id})
+
+            # Delete related chat messages
+            await self.db.chat_messages.delete_many({"session_id": session_id})
+
+            # Delete related conversation history
+            await self.db.conversations.delete_many({"session_id": session_id})
+
+            # Delete related player state
+            await self.db.player_state.delete_one({"session_id": session_id})
+
+            logger.info("session_deleted", session_id=session_id, deleted_count=result.deleted_count)
+
+            return result.deleted_count > 0
+
+        except Exception as e:
+            logger.error("delete_session_failed", session_id=session_id, error=str(e))
+            return False
+
     # ============================================
     # Chat Message Persistence
     # ============================================
@@ -476,6 +499,36 @@ class MongoPersistence:
     # ============================================
     # Campaign and Quest Data
     # ============================================
+
+    async def get_all_campaigns(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get all available campaigns from MongoDB
+
+        Args:
+            limit: Maximum number of campaigns to return
+
+        Returns:
+            List of campaign data
+        """
+        try:
+            # Get campaigns that have quests (are playable)
+            cursor = self.db.campaigns.find(
+                {'quest_ids': {'$exists': True, '$ne': []}}
+            ).sort("created_at", -1).limit(limit)
+
+            campaigns = []
+            async for campaign in cursor:
+                campaign_id = str(campaign.get('_id'))
+                campaign.pop("_id", None)
+                campaign["campaign_id"] = campaign_id
+                campaigns.append(campaign)
+
+            logger.info("campaigns_loaded", count=len(campaigns))
+            return campaigns
+
+        except Exception as e:
+            logger.error("campaigns_load_failed", error=str(e))
+            return []
 
     async def get_campaign(self, campaign_id: str) -> Optional[Dict[str, Any]]:
         """

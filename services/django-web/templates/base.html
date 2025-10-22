@@ -32,6 +32,7 @@
             background-attachment: fixed;
             font-family: 'Roboto', sans-serif;
             color: #e0e0e0;
+            padding-top: 64px;
         }
 
         body::before {
@@ -59,6 +60,11 @@
 
         /* Navigation Bar - Fantasy themed */
         nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
             background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%);
             box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
             border-bottom: 2px solid var(--rpg-gold);
@@ -453,7 +459,7 @@
 
     <!-- Main Content -->
     <main>
-        <div class="container" style="padding: 24px;">
+        <div class="container" style="max-width: 98%; width: 98%; padding: 24px; margin: 0 auto;">
             {% block content %}{% endblock %}
         </div>
     </main>

@@ -2,10 +2,11 @@
 Game Session State Models
 Defines the complete state structure for game sessions
 """
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Annotated
 from typing_extensions import TypedDict
 from datetime import datetime
 from enum import Enum
+from operator import add
 
 
 class SessionStatus(str, Enum):

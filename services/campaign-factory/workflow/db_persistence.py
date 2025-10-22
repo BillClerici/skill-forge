@@ -75,6 +75,7 @@ async def persist_campaign_to_mongodb(state: CampaignWorkflowState) -> str:
         # Create campaign document
         campaign_doc = {
             "_id": campaign_id,
+            "campaign_id": campaign_id,  # Add campaign_id field for unique index
             "name": state["campaign_core"]["name"],
             "plot": state["campaign_core"]["plot"],
             "storyline": state["campaign_core"]["storyline"],
@@ -259,6 +260,7 @@ async def persist_quests(state: CampaignWorkflowState, campaign_id: str) -> List
         # Create quest document
         quest_doc = {
             "_id": quest_id,
+            "quest_id": quest_id,  # Add quest_id field for unique index
             "name": quest["name"],
             "description": quest["description"],
             "objectives": quest["objectives"],
@@ -300,6 +302,7 @@ async def persist_npcs(state: CampaignWorkflowState):
 
         npc_doc = {
             "_id": npc_id,
+            "npc_id": npc_id,  # Add npc_id field for unique index
             "name": npc["name"],
             "species_id": npc["species_id"],
             "species_name": npc["species_name"],

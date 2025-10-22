@@ -5,7 +5,7 @@
 
 {% block extra_css %}
 <style>
-    /* Cache buster v2.7 - Changed max-width to width (like old session page) 2025-10-21-1350 */
+    /* Cache buster v2.9 - Full width layout with base template at 98% 2025-10-21-1802 */
     * {
         box-sizing: border-box;
     }
@@ -13,6 +13,12 @@
     body {
         margin: 0;
         overflow-x: hidden; /* Prevent horizontal scroll only */
+    }
+
+    /* Remove container padding for game page to use full width */
+    main .container {
+        padding: 0 !important;
+        max-width: 100% !important;
     }
 
     .game-container {
@@ -23,17 +29,44 @@
         position: relative;
     }
 
+    /* Game Session Wrapper - container for header + content */
+    .game-session-wrapper {
+        position: absolute;
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        bottom: 6px;
+        display: flex;
+        flex-direction: column;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        overflow: hidden;
+        transition: left 0.3s ease-in-out, right 0.3s ease-in-out;
+        z-index: 50;
+    }
+
+    .game-session-wrapper.left-pinned {
+        left: calc(320px + 6px);
+    }
+
+    .game-session-wrapper.right-pinned {
+        right: calc(320px + 6px);
+    }
+
+    .game-session-wrapper.left-pinned.right-pinned {
+        left: calc(320px + 6px);
+        right: calc(320px + 6px);
+    }
+
     /* Header */
     .game-header {
-        position: sticky;
-        top: 0;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1rem 2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        flex-shrink: 0;
         z-index: 100;
     }
 
@@ -48,51 +81,38 @@
         font-size: 0.9rem;
     }
 
+    #connectionStatus {
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+    }
+
     /* Main Content Area */
     .game-content {
         flex: 1;
         display: flex;
-        position: relative;
         overflow: hidden;
-        transition: margin-left 0.3s ease-in-out, margin-right 0.3s ease-in-out, width 0.3s ease-in-out;
         box-sizing: border-box;
-        height: 100%;
-        min-height: 0;
-        padding: 0.75rem; /* Match old session page gap */
-    }
-
-    /* Adjust entire game-content container when drawers are pinned - EXACT OLD SESSION PAGE PATTERN */
-    .game-content.left-pinned {
-        margin-left: 320px;
-        width: calc(100% - 320px);
-    }
-
-    .game-content.right-pinned {
-        margin-right: 320px;
-        width: calc(100% - 320px);
-    }
-
-    .game-content.left-pinned.right-pinned {
-        margin-left: 320px;
-        margin-right: 320px;
-        width: calc(100% - 640px);
+        padding: 0;
+        background: white;
     }
 
     /* Main Scene Area */
     .main-content {
         width: 100%;
+        max-width: 100%;
         height: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
+        display: grid;
+        grid-template-rows: 60% 40%;
+        gap: 0;
         overflow: hidden;
         box-sizing: border-box;
+        flex: 1;
+        min-width: 0; /* Allow flexbox to shrink */
     }
 
     /* Drawer Styles - RPG Fantasy Theme */
     .drawer {
         position: fixed;
-        top: 70px;
+        top: 64px;
         bottom: 0;
         width: 320px;
         background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
@@ -393,20 +413,20 @@
     /* Scene Viewer */
     .scene-viewer {
         width: 100%;
-        height: 100%;
         display: flex;
         flex-direction: column;
         background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 0;
+        box-shadow: none;
         overflow: hidden;
         box-sizing: border-box;
+        border-bottom: 1px solid #e2e8f0;
     }
 
     .scene-content {
         width: 100%;
         flex: 1;
-        padding: 0.75rem;
+        padding: 1rem 2rem;
         overflow-y: auto !important; /* Always show vertical scroll */
         overflow-x: hidden;
         background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
@@ -414,10 +434,51 @@
     }
 
     .narrative-text {
-        font-size: 1.1rem;
-        line-height: 1.8;
+        font-size: 0.95rem;
+        line-height: 1.6;
         color: #333;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .narrative-text h1 {
+        font-size: 1.5rem;
+        margin: 1rem 0 0.5rem 0;
+        color: #2d3748;
+    }
+
+    .narrative-text h2 {
+        font-size: 1.25rem;
+        margin: 1rem 0 0.5rem 0;
+        color: #2d3748;
+    }
+
+    .narrative-text h3 {
+        font-size: 1.1rem;
+        margin: 0.75rem 0 0.5rem 0;
+        color: #4a5568;
+    }
+
+    .narrative-text p {
+        margin: 0.25rem 0;
+    }
+
+    .narrative-text ul, .narrative-text ol {
+        margin: 0.5rem 0;
+        padding-left: 2rem;
+    }
+
+    .narrative-text li {
+        margin: 0.25rem 0;
+    }
+
+    .narrative-text strong {
+        font-weight: 600;
+        color: #1a202c;
+    }
+
+    .narrative-text em {
+        font-style: italic;
+        color: #4a5568;
     }
 
     .scene-action {
@@ -441,7 +502,7 @@
     /* Action Input */
     .action-input-area {
         width: 100%;
-        padding: 0.75rem;
+        padding: 1rem 2rem;
         background: white;
         border-top: 1px solid #ddd;
         box-sizing: border-box;
@@ -623,8 +684,10 @@
 
 {% block content %}
 <div class="game-container">
-    <!-- Header -->
-    <div class="game-header">
+    <!-- Game Session Wrapper -->
+    <div class="game-session-wrapper">
+        <!-- Header -->
+        <div class="game-header">
         <div class="game-title">
             🎮 {{ session_data.campaign_name|default:"Game Session" }}
         </div>
@@ -721,6 +784,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- Close game-session-wrapper -->
 
     <!-- Connection Status -->
     <div id="connectionStatusBox" class="connection-status connecting">
@@ -897,12 +961,43 @@ class GameClient {
         }
     }
 
+    parseMarkdown(text) {
+        if (!text) return '';
+
+        // Convert markdown to HTML
+        let html = text
+            // Headers
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Bold
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Italic
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            // Lists
+            .replace(/^\- (.*$)/gim, '<li>$1</li>')
+            // Paragraphs
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+
+        // Wrap in paragraph if not already wrapped
+        if (!html.startsWith('<h') && !html.startsWith('<li')) {
+            html = '<p>' + html + '</p>';
+        }
+
+        // Wrap list items in ul
+        html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>');
+
+        return html;
+    }
+
     updateScene(sceneData) {
         const sceneContent = document.getElementById('sceneContent');
 
         const narrativeDiv = document.createElement('div');
         narrativeDiv.className = 'narrative-text';
-        narrativeDiv.innerHTML = `<p>${sceneData.scene_description || sceneData.description}</p>`;
+        const rawText = sceneData.scene_description || sceneData.description;
+        narrativeDiv.innerHTML = this.parseMarkdown(rawText);
         sceneContent.appendChild(narrativeDiv);
 
         sceneContent.scrollTop = sceneContent.scrollHeight;
@@ -986,13 +1081,13 @@ class GameClient {
 
         if (status === 'connected') {
             headerStatus.innerHTML = '● Connected';
-            headerStatus.style.color = '#28a745';
+            headerStatus.style.color = '#4ade80'; // Bright green
             setTimeout(() => {
                 statusBox.style.display = 'none';
             }, 3000);
         } else {
             headerStatus.innerHTML = `● ${text}`;
-            headerStatus.style.color = status === 'connecting' ? '#ffc107' : '#dc3545';
+            headerStatus.style.color = status === 'connecting' ? '#fbbf24' : '#f87171'; // Bright yellow/red
         }
     }
 
@@ -1043,7 +1138,7 @@ class DrawerManager {
                     const pinBtn = document.getElementById('questPin');
 
                     drawer.classList.add('open', 'anchored');
-                    content.classList.add('left-pinned');
+                    document.querySelector('.game-session-wrapper').classList.add('left-pinned');
                     toggle.classList.add('hidden');
                     pinBtn.classList.add('active');
                 }
@@ -1058,7 +1153,7 @@ class DrawerManager {
                     const pinBtn = document.getElementById('partyPin');
 
                     drawer.classList.add('open', 'anchored');
-                    content.classList.add('right-pinned');
+                    document.querySelector('.game-session-wrapper').classList.add('right-pinned');
                     toggle.classList.add('hidden');
                     pinBtn.classList.add('active');
                 }
@@ -1131,12 +1226,12 @@ class DrawerManager {
 
         if (this.questAnchored) {
             drawer.classList.add('anchored');
-            content.classList.add('left-pinned');
+            document.querySelector('.game-session-wrapper').classList.add('left-pinned');
             toggle.classList.add('hidden');
             pinBtn.classList.add('active');
         } else {
             drawer.classList.remove('anchored');
-            content.classList.remove('left-pinned');
+            document.querySelector('.game-session-wrapper').classList.remove('left-pinned');
             toggle.classList.remove('hidden');
             pinBtn.classList.remove('active');
         }
@@ -1155,12 +1250,12 @@ class DrawerManager {
 
         if (this.partyAnchored) {
             drawer.classList.add('anchored');
-            content.classList.add('right-pinned');
+            document.querySelector('.game-session-wrapper').classList.add('right-pinned');
             toggle.classList.add('hidden');
             pinBtn.classList.add('active');
         } else {
             drawer.classList.remove('anchored');
-            content.classList.remove('right-pinned');
+            document.querySelector('.game-session-wrapper').classList.remove('right-pinned');
             toggle.classList.remove('hidden');
             pinBtn.classList.remove('active');
         }
@@ -1171,8 +1266,145 @@ class DrawerManager {
 
 const drawerManager = new DrawerManager();
 
+// Load initial scene from saved state
+async function loadInitialScene() {
+    try {
+        const sessionId = '{{ session_data.session_id }}';
+        const response = await fetch(`http://localhost:9500/api/v1/session/${sessionId}/state`);
+
+        if (response.ok) {
+            const state = await response.json();
+
+            // Load scene description
+            if (state.scene_description) {
+                const sceneContent = document.getElementById('sceneContent');
+                sceneContent.innerHTML = ''; // Clear loading message
+
+                const narrativeDiv = document.createElement('div');
+                narrativeDiv.className = 'narrative-text';
+                narrativeDiv.innerHTML = gameClient.parseMarkdown(state.scene_description);
+                sceneContent.appendChild(narrativeDiv);
+
+                // Update suggested actions if available
+                if (state.available_actions && state.available_actions.length > 0) {
+                    gameClient.updateSuggestedActions(state.available_actions);
+                }
+
+                // Enable action input
+                const actionInput = document.getElementById('actionInput');
+                const submitBtn = document.getElementById('submitAction');
+                actionInput.disabled = false;
+                submitBtn.disabled = false;
+            }
+
+            // Load quest progress
+            if (state.quest_progress) {
+                gameClient.updateQuestProgress(state.quest_progress);
+            }
+
+            // Load campaign info (for display in quest drawer)
+            if (state.campaign_name) {
+                loadCampaignInfo(state);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading initial scene:', error);
+    }
+}
+
+// Load campaign and quest information
+function loadCampaignInfo(state) {
+    const container = document.getElementById('questObjectives');
+    let html = '';
+
+    // Campaign header
+    if (state.campaign_name) {
+        html += `
+            <div style="margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid rgba(212, 175, 55, 0.3);">
+                <h3 style="color: #d4af37; margin: 0 0 0.5rem 0; font-size: 1.1rem;">📜 ${state.campaign_name}</h3>
+                ${state.campaign_plot ? `<p style="font-size: 0.85rem; color: #b8b8d1; margin: 0;">${state.campaign_plot}</p>` : ''}
+            </div>
+        `;
+    }
+
+    // Current quest
+    if (state.quest_progress) {
+        const quest = state.quest_progress;
+        html += `
+            <div style="margin-bottom: 1rem;">
+                <h4 style="color: #d4af37; margin: 0 0 0.5rem 0; font-size: 1rem;">⚔️ ${quest.quest_name || 'Current Quest'}</h4>
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.5rem;">
+                    Progress: ${quest.overall_progress || 0}%
+                </div>
+            </div>
+        `;
+
+        // Objectives
+        if (quest.objectives && quest.objectives.length > 0) {
+            html += '<div style="margin-top: 1rem;">';
+            html += '<div style="font-size: 0.9rem; color: #d4af37; margin-bottom: 0.5rem; font-weight: 600;">Objectives:</div>';
+
+            quest.objectives.forEach((obj, index) => {
+                const completed = obj.completed || obj.percent === 100;
+                const progress = obj.percent || 0;
+
+                html += `
+                    <div class="objective-item" style="margin-bottom: 0.75rem; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                        <div style="display: flex; align-items: start; gap: 0.5rem;">
+                            <div style="flex-shrink: 0; margin-top: 2px;">
+                                ${completed ? '✅' : '⬜'}
+                            </div>
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.85rem; color: ${completed ? '#4ade80' : '#e0e0e0'}; margin-bottom: 0.25rem;">
+                                    ${obj.description}
+                                </div>
+                                ${progress > 0 ? `
+                                    <div style="background: rgba(0,0,0,0.3); height: 6px; border-radius: 3px; overflow: hidden;">
+                                        <div style="width: ${progress}%; height: 100%; background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%); transition: width 0.3s;"></div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+    }
+
+    // Player achievements section
+    const knowledge = state.player_knowledge_full || state.player_knowledge || {};
+    const inventory = state.player_inventories_full || state.player_inventories || {};
+
+    const knowledgeCount = Object.keys(knowledge).length;
+    const itemCount = Object.keys(inventory).length;
+
+    if (knowledgeCount > 0 || itemCount > 0) {
+        html += `
+            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid rgba(212, 175, 55, 0.3);">
+                <h4 style="color: #d4af37; margin: 0 0 0.75rem 0; font-size: 0.95rem;">📊 Progress</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
+                    <div style="padding: 0.5rem; background: rgba(74, 222, 128, 0.1); border-radius: 4px; text-align: center;">
+                        <div style="color: #4ade80; font-size: 1.2rem; font-weight: 600;">${knowledgeCount}</div>
+                        <div style="color: #94a3b8;">Knowledge</div>
+                    </div>
+                    <div style="padding: 0.5rem; background: rgba(147, 197, 253, 0.1); border-radius: 4px; text-align: center;">
+                        <div style="color: #93c5fd; font-size: 1.2rem; font-weight: 600;">${itemCount}</div>
+                        <div style="color: #94a3b8;">Items</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html || '<p style="color: #b8b8d1;">No active quests</p>';
+}
+
 // Connect on page load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load initial scene from state
+    await loadInitialScene();
+
     gameClient.connect();
 
     // Drawer controls

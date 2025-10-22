@@ -76,10 +76,10 @@ class CommandPublisher:
             message = {
                 'message_id': str(uuid4()),
                 'timestamp': datetime.utcnow().isoformat(),
-                'routing_key': 'game.player.action',
+                'routing_key': f'game.player_action.{session_id}',
                 'session_id': str(session_id),
                 'campaign_id': '',  # Will be filled by orchestrator
-                'event_type': 'player.action',
+                'event_type': 'player_action',
                 'payload': {
                     'player_id': str(player_id),
                     'action': action,
@@ -100,7 +100,7 @@ class CommandPublisher:
 
             await self.events_exchange.publish(
                 aio_message,
-                routing_key='game.player.action'
+                routing_key=f'game.player_action.{session_id}'
             )
 
             logger.debug(f"Published player action: {action}")

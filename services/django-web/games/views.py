@@ -8,16 +8,13 @@ import requests
 import os
 import logging
 from uuid import uuid4
-from pymongo import MongoClient
 from characters.models import Character
 from members.models import Player
 
 logger = logging.getLogger(__name__)
 
-# MongoDB connection
-MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:admin@mongodb:27017')
-mongo_client = MongoClient(MONGODB_URL)
-db = mongo_client['skillforge']
+# Game Engine API URL (use services instead of direct database access)
+GAME_ENGINE_URL = os.getenv('GAME_ENGINE_URL', 'http://game-engine:9500')
 
 
 class GamesLobbyView(View):
@@ -35,10 +32,8 @@ class GamesLobbyView(View):
                     request.session['temp_player_id'] = str(uuid4())
                 player_id = request.session['temp_player_id']
 
-            # NOTE: Active sessions are NOT shown in lobby currently
-            # Sessions are managed entirely by the game engine (Redis + MongoDB)
-            # If we need to show active sessions, we'll add an endpoint to game engine
-            active_sessions = []
+            # Fetch active sessions from game engine
+            active_sessions = self._get_active_sessions(player_id)
 
             # Fetch real campaigns from MongoDB
             available_campaigns = self._get_available_campaigns()
@@ -69,25 +64,45 @@ class GamesLobbyView(View):
             logger.error(f"Error loading games lobby: {e}")
             return HttpResponse(f"Error loading games lobby: {e}", status=500)
 
-    def _get_available_campaigns(self):
-        """Get available campaigns from MongoDB"""
+    def _get_active_sessions(self, player_id):
+        """Get active sessions for player from game engine"""
         try:
-            # Get all campaigns from MongoDB that have quests (are playable)
-            campaigns = list(db.campaigns.find({'quest_ids': {'$exists': True, '$ne': []}}))
+            game_engine_url = os.getenv('GAME_ENGINE_URL', 'http://game-engine:9500')
+            response = requests.get(
+                f'{game_engine_url}/api/v1/sessions/player/{player_id}',
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('sessions', [])
+            else:
+                logger.error(f"Error fetching sessions: {response.status_code}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error fetching active sessions from game engine: {e}")
+            return []
+
+    def _get_available_campaigns(self):
+        """Get available campaigns from game engine API"""
+        try:
+            response = requests.get(
+                f'{GAME_ENGINE_URL}/api/v1/campaigns',
+                timeout=5
+            )
+
+            if response.status_code != 200:
+                logger.error(f"Error fetching campaigns: {response.status_code}")
+                return []
+
+            data = response.json()
+            campaigns = data.get('campaigns', [])
 
             # Process campaigns for display
             processed_campaigns = []
             for campaign in campaigns:
-                # Get campaign ID
-                campaign_id = str(campaign['_id'])
-
-                # Get world data for display
-                world_name = 'Unknown World'
-                world_id = campaign.get('world_id')
-                if world_id:
-                    world = db.world_definitions.find_one({'_id': world_id})
-                    if world:
-                        world_name = world.get('name', 'Unknown World')
+                campaign_id = campaign.get('campaign_id', campaign.get('_id'))
 
                 # Get quest count
                 quest_ids = campaign.get('quest_ids', [])
@@ -125,15 +140,14 @@ class GamesLobbyView(View):
                     'difficulty': difficulty,
                     'estimated_duration': duration,
                     'image_url': primary_image,
-                    'world_name': world_name,
+                    'world_name': campaign.get('world_name', 'Unknown World'),
                     'quest_count': quest_count
                 })
 
             return processed_campaigns
 
         except Exception as e:
-            logger.error(f"Error fetching campaigns from MongoDB: {e}")
-            # Return empty list on error
+            logger.error(f"Error fetching campaigns from game engine: {e}")
             return []
 
 

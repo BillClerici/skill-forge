@@ -26,6 +26,7 @@ from ..services.mcp_client import mcp_client
 from ..services.tts_service import tts_service
 from ..services.stt_service import stt_service
 from ..services.mongo_persistence import mongo_persistence
+from ..managers.autosave_manager import autosave_manager
 from ..workflows.game_loop import game_loop
 from ..core.logging import get_logger
 from .websocket_manager import connection_manager
@@ -252,6 +253,13 @@ async def start_solo_session(
         # Save initial state to Redis
         await redis_manager.save_state(session_id, initial_state)
 
+        # Save initial state to MongoDB
+        await mongo_persistence.save_session(initial_state)
+        logger.info("session_persisted_to_mongodb", session_id=session_id)
+
+        # Start autosave for this session
+        await autosave_manager.start_autosave(session_id)
+
         # Start workflow execution in background
         import asyncio
         asyncio.create_task(_execute_workflow_initialization(session_id, initial_state))
@@ -384,6 +392,13 @@ async def create_party_session(
 
         # Save to Redis
         await redis_manager.save_state(session_id, initial_state)
+
+        # Save initial state to MongoDB
+        await mongo_persistence.save_session(initial_state)
+        logger.info("session_persisted_to_mongodb", session_id=session_id)
+
+        # Start autosave for this session
+        await autosave_manager.start_autosave(session_id)
 
         logger.info(
             "party_session_created",
@@ -670,7 +685,11 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
             "session_id": state.get("session_id"),
             "status": state.get("status"),
             "campaign_id": state.get("campaign_id"),
+            "campaign_name": state.get("campaign_name"),
+            "campaign_plot": state.get("campaign_plot"),
             "current_quest_id": state.get("current_quest_id"),
+            "quest_name": state.get("quest_name"),
+            "quest_progress": state.get("quest_progress"),
             "current_scene_id": state.get("current_scene_id"),
             "scene_name": state.get("scene_name"),
             "place_name": state.get("place_name"),
@@ -681,8 +700,8 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
             "available_npcs": state.get("available_npcs", []),
             "time_of_day": state.get("time_of_day"),
             "awaiting_player_input": state.get("awaiting_player_input", False),
-            "player_knowledge": player_knowledge_full,
-            "player_inventories": player_inventories_full,
+            "player_knowledge_full": player_knowledge_full,
+            "player_inventories_full": player_inventories_full,
             "conversation_history": state.get("conversation_history", []),
             "event_log": state.get("event_log", []),
             "action_history": state.get("action_history", [])
@@ -693,6 +712,137 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
     except Exception as e:
         logger.error("get_session_state_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail="Failed to get session state")
+
+
+@router.get("/sessions/player/{player_id}")
+async def list_player_sessions(player_id: str) -> Dict[str, Any]:
+    """List all sessions for a player (from Redis and MongoDB)"""
+    try:
+        # Get all session keys from Redis
+        all_session_keys = await redis_manager.redis.keys("session:state:*")
+
+        player_sessions = []
+
+        # Check each session to see if player is in it
+        for key in all_session_keys:
+            # Redis configured with decode_responses=True, so keys are already strings
+            session_id = key.replace("session:state:", "")
+            state = await redis_manager.load_state(session_id)
+
+            if state:
+                # Check if player is in this session
+                players = state.get("players", [])
+                player_in_session = any(p.get("player_id") == player_id for p in players)
+
+                if player_in_session:
+                    # Get campaign name from MongoDB
+                    campaign_id = state.get("campaign_id")
+                    campaign_name = "Unknown Campaign"
+                    if campaign_id:
+                        campaign = await mongo_persistence.get_campaign(campaign_id)
+                        if campaign:
+                            campaign_name = campaign.get("name", "Unknown Campaign")
+
+                    # Get character name
+                    character_name = None
+                    for p in players:
+                        if p.get("player_id") == player_id:
+                            character_name = p.get("character_name")
+                            break
+
+                    player_sessions.append({
+                        "session_id": session_id,
+                        "campaign_id": campaign_id,
+                        "campaign_name": campaign_name,
+                        "character_name": character_name,
+                        "status": state.get("status"),
+                        "current_quest_id": state.get("current_quest_id"),
+                        "quest_name": state.get("quest_name"),
+                        "scene_name": state.get("scene_name"),
+                        "started_at": state.get("started_at"),
+                        "last_updated": state.get("last_updated")
+                    })
+
+        # Sort by most recent first
+        player_sessions.sort(key=lambda x: x.get("started_at", ""), reverse=True)
+
+        return {
+            "player_id": player_id,
+            "sessions": player_sessions,
+            "total": len(player_sessions)
+        }
+
+    except Exception as e:
+        logger.error("list_player_sessions_failed", player_id=player_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to list player sessions")
+
+
+@router.get("/campaigns")
+async def list_campaigns() -> Dict[str, Any]:
+    """List all available campaigns"""
+    try:
+        campaigns = await mongo_persistence.get_all_campaigns()
+
+        return {
+            "campaigns": campaigns,
+            "total": len(campaigns)
+        }
+
+    except Exception as e:
+        logger.error("list_campaigns_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to list campaigns")
+
+
+@router.get("/campaign/{campaign_id}")
+async def get_campaign(campaign_id: str) -> Dict[str, Any]:
+    """Get campaign details"""
+    try:
+        campaign = await mongo_persistence.get_campaign(campaign_id)
+
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+
+        return campaign
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_campaign_failed", campaign_id=campaign_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get campaign")
+
+
+@router.delete("/session/{session_id}")
+async def delete_session(session_id: str) -> Dict[str, Any]:
+    """Delete a game session from Redis and MongoDB"""
+    try:
+        # Check if session exists
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Delete from Redis
+        await redis_manager.delete_state(session_id)
+
+        # Delete from MongoDB (if it exists there)
+        try:
+            await mongo_persistence.delete_session(session_id)
+        except Exception as e:
+            logger.warning(f"Could not delete session from MongoDB: {e}")
+
+        logger.info("session_deleted", session_id=session_id)
+
+        return {
+            "session_id": session_id,
+            "status": "deleted",
+            "message": "Session deleted successfully"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("delete_session_failed", session_id=session_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to delete session")
 
 
 @router.get("/session/{session_id}/chat-history")

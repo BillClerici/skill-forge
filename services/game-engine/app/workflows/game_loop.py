@@ -531,6 +531,29 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
     Load campaign, set starting location, initialize player states
     """
     try:
+        # If there's a pending action, this is a resume - load full state from Redis
+        if state.get("pending_action"):
+            from ..services.redis_manager import redis_manager
+            logger.info(
+                "loading_session_state_from_redis",
+                session_id=state["session_id"]
+            )
+            full_state = await redis_manager.load_state(state["session_id"])
+            if full_state:
+                # Sanitize state - convert None values to empty lists for list fields
+                if full_state.get("completed_discoveries") is None:
+                    full_state["completed_discoveries"] = []
+                if full_state.get("completed_challenges") is None:
+                    full_state["completed_challenges"] = []
+
+                # Merge pending action into loaded state
+                full_state["pending_action"] = state["pending_action"]
+                full_state["awaiting_player_input"] = False
+                full_state["current_node"] = "interpret_action"
+
+                # Return as plain dict to avoid TypedDict validation issues
+                return dict(full_state)
+
         # Check if session is already initialized (has scene_description)
         # If so, skip initialization and go directly to the current node
         if state.get("scene_description") and state.get("current_node") and state.get("current_node") != "generate_scene":
@@ -546,7 +569,7 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
         logger.info(
             "initializing_session",
             session_id=state["session_id"],
-            campaign_id=state["campaign_id"]
+            campaign_id=state.get("campaign_id", "unknown")
         )
 
         # Load campaign data directly from MongoDB
@@ -2804,7 +2827,8 @@ def build_game_loop_workflow() -> StateGraph:
     """
 
     # Create workflow graph
-    workflow = StateGraph(GameSessionState)
+    # Use Dict instead of GameSessionState to avoid validation issues with total=False
+    workflow = StateGraph(dict)
 
     # Add all nodes
     workflow.add_node("initialize_session", initialize_session_node)

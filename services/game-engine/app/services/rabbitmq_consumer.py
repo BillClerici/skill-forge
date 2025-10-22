@@ -123,30 +123,30 @@ class RabbitMQConsumer:
                     )
                     return
 
-                # Add player action to state
-                state["pending_action"] = {
+                # Prepare action data
+                pending_action = {
                     "player_id": player_id,
                     "action": action,
                     "timestamp": datetime.utcnow().isoformat(),
                     "metadata": metadata
                 }
-                state["awaiting_player_input"] = False
-                state["current_node"] = "process_player_action"
-                state["last_updated"] = datetime.utcnow().isoformat()
-
-                # Save updated state
-                await redis_manager.save_state(session_id, state)
 
                 # Process through game loop
                 logger.info(
                     "processing_action_through_game_loop",
-                    session_id=session_id,
-                    current_node=state.get("current_node")
+                    session_id=session_id
                 )
 
-                # Execute game loop with the action
+                # Execute game loop with minimal input
+                # The workflow will load full state from Redis in initialize_session node
+                workflow_input = {
+                    "session_id": session_id,
+                    "pending_action": pending_action,
+                    "awaiting_player_input": False
+                }
+
                 result = await game_loop.ainvoke(
-                    state,
+                    workflow_input,
                     {"recursion_limit": 50}
                 )
 
