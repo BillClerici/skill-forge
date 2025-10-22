@@ -781,6 +781,73 @@ class Neo4jGraphService:
     # Objective Cascade System (Campaign Design Integration)
     # ============================================
 
+    async def initialize_player_objective_progress(
+        self,
+        player_id: str,
+        campaign_id: str
+    ) -> int:
+        """
+        Initialize PROGRESS relationships for all quest objectives in a campaign.
+
+        Creates Player->PROGRESS->QuestObjective relationships with:
+        - percentage: 0
+        - status: 'not_started'
+        - updated_at: current datetime
+
+        This ensures the objective tracker can link acquisitions to objectives.
+
+        Args:
+            player_id: Player ID
+            campaign_id: Campaign ID
+
+        Returns:
+            Number of PROGRESS relationships created
+        """
+        try:
+            async with self.driver.session() as session:
+                query = """
+                // Get all quest objectives for this campaign
+                MATCH (qo:QuestObjective {campaign_id: $campaign_id})
+
+                // Ensure Player node exists
+                MERGE (p:Player {player_id: $player_id})
+
+                // Create PROGRESS relationships for all objectives
+                MERGE (p)-[prog:PROGRESS]->(qo)
+                ON CREATE SET prog.percentage = 0,
+                              prog.status = 'not_started',
+                              prog.updated_at = datetime()
+
+                RETURN count(prog) as relationships_created
+                """
+
+                result = await session.run(
+                    query,
+                    player_id=player_id,
+                    campaign_id=campaign_id
+                )
+
+                record = await result.single()
+                count = record["relationships_created"] if record else 0
+
+                logger.info(
+                    "player_progress_relationships_initialized",
+                    player_id=player_id,
+                    campaign_id=campaign_id,
+                    count=count
+                )
+
+                return count
+
+        except Exception as e:
+            logger.error(
+                "initialize_player_objective_progress_failed",
+                player_id=player_id,
+                campaign_id=campaign_id,
+                error=str(e)
+            )
+            return 0
+
     async def get_player_objective_progress(
         self,
         player_id: str,

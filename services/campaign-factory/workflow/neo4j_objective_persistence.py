@@ -170,15 +170,38 @@ async def persist_objective_hierarchy_to_neo4j(state: Dict[str, Any], driver: Dr
                                 }
                                 logger.debug(f"Linking knowledge domain '{kg_domain}' to QuestObjective {qobj_id}")
 
-                                tx.run("""
+                                result = tx.run("""
                                     MATCH (qo:QuestObjective {id: $obj_id})
                                     MATCH (k:Knowledge)
                                     WHERE k.campaign_id = $campaign_id
-                                      AND (k.knowledge_type CONTAINS $domain
-                                           OR k.name CONTAINS $domain
-                                           OR k.primary_dimension CONTAINS $domain)
-                                    MERGE (qo)-[:REQUIRES_KNOWLEDGE {domain: $domain}]->(k)
+                                      AND (
+                                          // Direct property matching
+                                          k.knowledge_type CONTAINS $domain
+                                          OR k.name CONTAINS $domain
+                                          OR k.description CONTAINS $domain
+                                          OR k.primary_dimension CONTAINS $domain
+
+                                          // Supports_objectives field matching
+                                          OR ANY(obj IN k.supports_objectives WHERE toLower(obj) CONTAINS $domain)
+
+                                          // Dimension matching via DEVELOPS relationship
+                                          OR EXISTS {
+                                              MATCH (k)-[:DEVELOPS]->(d:Dimension)
+                                              WHERE toLower(d.name) CONTAINS $domain
+                                          }
+                                      )
+                                    MERGE (qo)-[:REQUIRES_KNOWLEDGE {domain: $domain, created_at: datetime()}]->(k)
+                                    RETURN k.id as knowledge_id, k.name as knowledge_name
                                 """, params)
+
+                                # Log matched knowledge
+                                matched_count = 0
+                                for record in result:
+                                    matched_count += 1
+                                    logger.info(f"  ✓ Linked knowledge: {record['knowledge_name']} ({record['knowledge_id']})")
+
+                                if matched_count == 0:
+                                    logger.warning(f"  ⚠ No knowledge matched domain '{kg_domain}' for objective {qobj_id}")
                             except Exception as e:
                                 logger.error(f"Failed to link knowledge domain '{kg_domain}' to QuestObjective {qobj_id}: {str(e)}")
                                 logger.error(f"Parameters: {params}")
@@ -194,14 +217,32 @@ async def persist_objective_hierarchy_to_neo4j(state: Dict[str, Any], driver: Dr
                                 }
                                 logger.debug(f"Linking item category '{item_category}' to QuestObjective {qobj_id}")
 
-                                tx.run("""
+                                result = tx.run("""
                                     MATCH (qo:QuestObjective {id: $obj_id})
                                     MATCH (i:Item)
                                     WHERE i.campaign_id = $campaign_id
-                                      AND (i.item_type CONTAINS $category
-                                           OR i.name CONTAINS $category)
-                                    MERGE (qo)-[:REQUIRES_ITEM {category: $category}]->(i)
+                                      AND (
+                                          // Direct property matching
+                                          i.item_type CONTAINS $category
+                                          OR i.name CONTAINS $category
+                                          OR i.description CONTAINS $category
+
+                                          // Category/purpose field matching
+                                          OR i.category CONTAINS $category
+                                          OR i.purpose CONTAINS $category
+                                      )
+                                    MERGE (qo)-[:REQUIRES_ITEM {category: $category, created_at: datetime()}]->(i)
+                                    RETURN i.id as item_id, i.name as item_name
                                 """, params)
+
+                                # Log matched items
+                                matched_count = 0
+                                for record in result:
+                                    matched_count += 1
+                                    logger.info(f"  ✓ Linked item: {record['item_name']} ({record['item_id']})")
+
+                                if matched_count == 0:
+                                    logger.warning(f"  ⚠ No items matched category '{item_category}' for objective {qobj_id}")
                             except Exception as e:
                                 logger.error(f"Failed to link item category '{item_category}' to QuestObjective {qobj_id}: {str(e)}")
                                 logger.error(f"Parameters: {params}")

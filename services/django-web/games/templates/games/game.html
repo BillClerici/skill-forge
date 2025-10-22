@@ -749,6 +749,132 @@
         color: #a5b4fc;
     }
 
+    /* Toast Notifications */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+    }
+
+    .toast {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: start;
+        gap: 0.75rem;
+        animation: slideIn 0.3s ease-out;
+        min-width: 300px;
+    }
+
+    .toast.acquisition {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .toast.objective-progress {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+
+    .toast.objective-complete {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .toast-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .toast-content {
+        flex: 1;
+    }
+
+    .toast-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .toast-message {
+        font-size: 0.85rem;
+        opacity: 0.95;
+        line-height: 1.4;
+    }
+
+    .toast-objectives {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        opacity: 0.9;
+        padding-left: 0.5rem;
+        border-left: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .toast-objective-item {
+        margin-top: 0.25rem;
+    }
+
+    .toast-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .toast-close:hover {
+        opacity: 1;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+
+    .toast.removing {
+        animation: slideOut 0.3s ease-out;
+    }
+
+    /* Progress pulse animation */
+    @keyframes progressPulse {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+        }
+        50% {
+            box-shadow: 0 0 0 10px rgba(74, 222, 128, 0);
+        }
+    }
+
+    .progress-bar-fill.animating {
+        animation: progressPulse 0.6s ease-out;
+    }
+
     /* Toggle Buttons */
     .drawer-toggle {
         position: fixed;
@@ -1335,6 +1461,9 @@
         👥
     </button>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <!-- Left Drawer - Quest Panel -->
     <div class="drawer drawer-left" id="questDrawer">
         <div class="drawer-header">
@@ -1476,6 +1605,143 @@ const SESSION_ID = '{{ session_id }}';
 const PLAYER_ID = '{{ player_id }}';
 const WS_URL = '{{ ws_gateway_url|default:"ws://localhost:9600" }}';
 
+// Toast Notification Manager
+class ToastManager {
+    constructor() {
+        this.container = document.getElementById('toastContainer');
+        this.toasts = [];
+    }
+
+    showAcquisition(acquisition, affectedObjectives = []) {
+        const icon = this.getAcquisitionIcon(acquisition.type);
+        const title = `${icon} Acquired ${acquisition.type}!`;
+        const message = acquisition.name || acquisition.data?.name || 'Unknown';
+
+        let objectivesHtml = '';
+        if (affectedObjectives && affectedObjectives.length > 0) {
+            objectivesHtml = '<div class="toast-objectives">';
+            objectivesHtml += '<div>Contributes to:</div>';
+            affectedObjectives.forEach(obj => {
+                const progress = obj.new_progress || obj.current_progress || 0;
+                objectivesHtml += `<div class="toast-objective-item">• ${obj.objective_description} (${progress}%)</div>`;
+            });
+            objectivesHtml += '</div>';
+        }
+
+        this.show({
+            type: 'acquisition',
+            icon,
+            title,
+            message,
+            extraHtml: objectivesHtml,
+            duration: 6000
+        });
+    }
+
+    showObjectiveProgress(objective, oldProgress, newProgress) {
+        const icon = '📊';
+        const title = 'Objective Progress';
+        const increase = newProgress - oldProgress;
+        const message = `${objective.objective_description}`;
+        const extraHtml = `<div class="toast-objectives"><div>Progress: ${oldProgress}% → ${newProgress}% (+${increase}%)</div></div>`;
+
+        this.show({
+            type: 'objective-progress',
+            icon,
+            title,
+            message,
+            extraHtml,
+            duration: 5000
+        });
+
+        // Animate progress bar in UI if visible
+        this.animateProgressBar(objective.objective_id, newProgress);
+    }
+
+    showObjectiveComplete(objective) {
+        const icon = '✅';
+        const title = 'Objective Complete!';
+        const message = objective.objective_description;
+
+        this.show({
+            type: 'objective-complete',
+            icon,
+            title,
+            message,
+            duration: 7000
+        });
+    }
+
+    show({ type, icon, title, message, extraHtml = '', duration = 5000 }) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        toast.innerHTML = `
+            <div class="toast-icon">${icon}</div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+                ${extraHtml}
+            </div>
+            <button class="toast-close" onclick="toastManager.remove(this.parentElement)">×</button>
+        `;
+
+        this.container.appendChild(toast);
+        this.toasts.push(toast);
+
+        // Auto-remove after duration
+        setTimeout(() => {
+            this.remove(toast);
+        }, duration);
+    }
+
+    remove(toast) {
+        if (!toast) return;
+
+        toast.classList.add('removing');
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.parentElement.removeChild(toast);
+            }
+            const index = this.toasts.indexOf(toast);
+            if (index > -1) {
+                this.toasts.splice(index, 1);
+            }
+        }, 300);
+    }
+
+    getAcquisitionIcon(type) {
+        const icons = {
+            'knowledge': '📚',
+            'item': '🎒',
+            'event': '🎭',
+            'challenge': '⚔️'
+        };
+        return icons[type] || '✨';
+    }
+
+    animateProgressBar(objectiveId, newProgress) {
+        // Find progress bar in UI and animate it
+        const objectiveElements = document.querySelectorAll('.objective-item');
+        objectiveElements.forEach(el => {
+            const objId = el.getAttribute('data-objective-id');
+            if (objId === objectiveId) {
+                const progressBar = el.querySelector('.progress-bar-fill');
+                if (progressBar) {
+                    progressBar.style.width = `${newProgress}%`;
+                    progressBar.classList.add('animating');
+                    setTimeout(() => {
+                        progressBar.classList.remove('animating');
+                    }, 600);
+                }
+            }
+        });
+    }
+}
+
+// Global toast manager instance
+const toastManager = new ToastManager();
+
 // Game Client
 class GameClient {
     constructor() {
@@ -1579,9 +1845,27 @@ class GameClient {
             case 'item_acquired':
             case 'event_completed':
             case 'challenge_completed':
-                // Individual acquisition events - trigger a full refresh
+                // Individual acquisition events - show toast and update UI
                 console.log('Acquisition event:', eventType, data.payload);
-                // TODO: Request full acquisitions update from server
+
+                // Extract acquisition type from event type
+                const acqType = eventType.replace('_acquired', '').replace('_completed', '');
+
+                // Show toast with affected objectives
+                toastManager.showAcquisition({
+                    type: acqType,
+                    name: data.payload.acquisition?.name,
+                    data: data.payload.acquisition
+                }, data.payload.affected_objectives || []);
+
+                // Update quest progress to reflect new percentages
+                if (data.payload.affected_objectives && data.payload.affected_objectives.length > 0) {
+                    // Trigger quest progress refresh
+                    this.refreshQuestProgress();
+                }
+
+                // Refresh acquisitions display
+                this.refreshAcquisitions();
                 break;
             default:
                 console.log('Unhandled event type:', eventType);
@@ -2025,6 +2309,39 @@ class GameClient {
         if (hours > 0) return `${hours}h ago`;
         if (minutes > 0) return `${minutes}m ago`;
         return 'Just now';
+    }
+
+    async refreshQuestProgress() {
+        try {
+            const response = await fetch(`http://localhost:9500/api/v1/session/${SESSION_ID}/quest-progress`);
+            if (response.ok) {
+                const questProgress = await response.json();
+                this.updateQuestProgress(questProgress);
+            }
+        } catch (error) {
+            console.error('Error refreshing quest progress:', error);
+        }
+    }
+
+    async refreshAcquisitions() {
+        try {
+            const response = await fetch(`http://localhost:9500/api/v1/session/${SESSION_ID}/state`);
+            if (response.ok) {
+                const state = await response.json();
+                const playerId = state.players && state.players[0] ? state.players[0].player_id : null;
+                if (playerId) {
+                    const acquisitionsData = {
+                        knowledge: state.player_knowledge_full?.[playerId] || [],
+                        items: state.player_inventories_full?.[playerId] || [],
+                        events: state.completed_events || [],
+                        challenges: state.completed_challenges || []
+                    };
+                    this.updateAcquisitions(acquisitionsData);
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing acquisitions:', error);
+        }
     }
 
     updateAcquisitions(acquisitionsData) {

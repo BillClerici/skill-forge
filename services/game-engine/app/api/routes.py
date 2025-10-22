@@ -1420,6 +1420,116 @@ async def get_quest_progress(session_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Failed to get quest progress")
 
 
+@router.post("/session/{session_id}/test-acquisition")
+async def test_acquisition(
+    session_id: str,
+    acquisition_type: str = Query(..., description="Type: knowledge, item, event, or challenge"),
+    acquisition_id: str = Query(..., description="ID of the thing being acquired")
+) -> Dict[str, Any]:
+    """
+    TEST ENDPOINT: Manually trigger an acquisition to test the objective tracking system.
+
+    This adds a pending acquisition to the session state and triggers the next player action
+    to process it through the objective tracker.
+
+    Args:
+        session_id: Session ID
+        acquisition_type: Type of acquisition (knowledge, item, event, challenge)
+        acquisition_id: ID of the acquired entity
+
+    Returns:
+        Status and details
+    """
+    try:
+        # Load session state
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get or create pending_acquisitions
+        pending = state.get("pending_acquisitions", {
+            "knowledge": [],
+            "items": [],
+            "events": [],
+            "challenges": []
+        })
+
+        # Add the acquisition based on type
+        if acquisition_type == "knowledge":
+            pending["knowledge"].append({"id": acquisition_id})
+        elif acquisition_type == "item":
+            pending["items"].append({"id": acquisition_id})
+        elif acquisition_type == "event":
+            pending["events"].append({"id": acquisition_id})
+        elif acquisition_type == "challenge":
+            pending["challenges"].append({"id": acquisition_id})
+        else:
+            raise HTTPException(status_code=400, detail="Invalid acquisition type")
+
+        # Save pending acquisitions to state
+        state["pending_acquisitions"] = pending
+
+        # Also add to player's actual knowledge/inventory for persistence
+        players = state.get("players", [])
+        if players:
+            player_id = players[0].get("player_id")
+
+            if acquisition_type == "knowledge":
+                player_knowledge = state.get("player_knowledge", {})
+                if player_id not in player_knowledge:
+                    player_knowledge[player_id] = {}
+                player_knowledge[player_id][acquisition_id] = {
+                    "acquired_at": datetime.utcnow().isoformat()
+                }
+                state["player_knowledge"] = player_knowledge
+
+            elif acquisition_type == "item":
+                player_inventories = state.get("player_inventories", {})
+                if player_id not in player_inventories:
+                    player_inventories[player_id] = []
+
+                # Fetch item details from MongoDB
+                from ..services.mongo_persistence import mongo_persistence
+                item_data = await mongo_persistence.get_item(acquisition_id)
+
+                if item_data:
+                    player_inventories[player_id].append({
+                        "item_id": acquisition_id,
+                        "name": item_data.get("name", "Unknown Item"),
+                        "description": item_data.get("description", ""),
+                        "acquired_at": datetime.utcnow().isoformat()
+                    })
+                    state["player_inventories"] = player_inventories
+
+        # Save state
+        await redis_manager.save_state(session_id, state)
+
+        logger.info(
+            "test_acquisition_added",
+            session_id=session_id,
+            acquisition_type=acquisition_type,
+            acquisition_id=acquisition_id
+        )
+
+        return {
+            "status": "success",
+            "message": f"Added {acquisition_type} acquisition to pending queue",
+            "acquisition_id": acquisition_id,
+            "note": "Trigger a player action to process through objective tracker"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "test_acquisition_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to add test acquisition")
+
+
 @router.get("/session/{session_id}/knowledge/{knowledge_id}/paths")
 async def get_knowledge_acquisition_paths(
     session_id: str,

@@ -151,6 +151,63 @@ class RabbitMQConsumer:
                     {"recursion_limit": 50}
                 )
 
+                # Process any pending acquisitions through objective tracker
+                from ..workflows.objective_tracker import process_acquisitions
+
+                pending_acquisitions = result.get("pending_acquisitions", {
+                    "knowledge": [],
+                    "items": [],
+                    "events": [],
+                    "challenges": []
+                })
+
+                logger.info(
+                    "checking_pending_acquisitions",
+                    session_id=session_id,
+                    pending=pending_acquisitions,
+                    has_any=any(pending_acquisitions.values())
+                )
+
+                if any(pending_acquisitions.values()):
+                    players = result.get("players", [])
+                    if players and result.get("campaign_id"):
+                        player_id = players[0].get("player_id")
+                        campaign_id = result["campaign_id"]
+
+                        logger.info(
+                            "processing_acquisitions_in_consumer",
+                            session_id=session_id,
+                            knowledge_count=len(pending_acquisitions.get("knowledge", [])),
+                            items_count=len(pending_acquisitions.get("items", []))
+                        )
+
+                        # Process acquisitions through objective tracker
+                        acquisition_results = await process_acquisitions(
+                            session_id,
+                            player_id,
+                            campaign_id,
+                            pending_acquisitions
+                        )
+
+                        logger.info(
+                            "acquisitions_processed_in_consumer",
+                            session_id=session_id,
+                            total=len(acquisition_results.get("acquisitions", [])),
+                            objectives_affected=len(acquisition_results.get("affected_objectives", []))
+                        )
+
+                        # Clear pending acquisitions
+                        result["pending_acquisitions"] = {
+                            "knowledge": [],
+                            "items": [],
+                            "events": [],
+                            "challenges": []
+                        }
+
+                        # Save updated state
+                        await redis_manager.load_state(session_id)  # Reload to get latest
+                        await redis_manager.save_state(session_id, result)
+
                 # Publish results back to RabbitMQ for UI Gateway
                 await self._publish_game_response(session_id, result)
 

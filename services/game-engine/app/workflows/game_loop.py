@@ -21,6 +21,7 @@ from ..services.mcp_client import mcp_client
 from ..services.redis_manager import redis_manager
 from ..services.rabbitmq_client import rabbitmq_client
 from ..core.logging import get_logger
+from .objective_tracker import process_acquisitions
 
 logger = get_logger(__name__)
 
@@ -707,6 +708,24 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
                 )
                 state["player_inventories"][player_id] = []
 
+            # Initialize PROGRESS relationships in Neo4j for all quest objectives
+            try:
+                await neo4j_graph.initialize_player_objective_progress(
+                    player_id=player_id,
+                    campaign_id=state["campaign_id"]
+                )
+                logger.info(
+                    "player_objective_progress_initialized",
+                    player_id=player_id,
+                    campaign_id=state["campaign_id"]
+                )
+            except Exception as e:
+                logger.error(
+                    "player_objective_progress_init_failed",
+                    player_id=player_id,
+                    error=str(e)
+                )
+
         # Initialize lists
         state["conversation_history"] = state.get("conversation_history", [])
         state["action_history"] = state.get("action_history", [])
@@ -1039,6 +1058,62 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
 
             # Save quest progress to state for persistence on page refresh
             state["quest_progress"] = complete_progress
+
+        # Process acquisitions and update objectives
+        # Check for pending acquisitions (set by GM agent or manual testing)
+        pending_acquisitions = state.get("pending_acquisitions", {
+            "knowledge": [],
+            "items": [],
+            "events": [],
+            "challenges": []
+        })
+
+        logger.info(
+            "checking_pending_acquisitions",
+            session_id=state["session_id"],
+            pending_acquisitions=pending_acquisitions,
+            has_acquisitions=any(pending_acquisitions.values())
+        )
+
+        # If there are any acquisitions to process
+        if any(pending_acquisitions.values()):
+            logger.info(
+                "processing_acquisitions",
+                session_id=state["session_id"],
+                knowledge_count=len(pending_acquisitions.get("knowledge", [])),
+                items_count=len(pending_acquisitions.get("items", [])),
+                events_count=len(pending_acquisitions.get("events", [])),
+                challenges_count=len(pending_acquisitions.get("challenges", []))
+            )
+
+            # Get player and campaign info
+            players = state.get("players", [])
+            if players and state.get("campaign_id"):
+                player_id = players[0].get("player_id")
+                campaign_id = state["campaign_id"]
+
+                # Process acquisitions through objective tracker
+                acquisition_results = await process_acquisitions(
+                    state["session_id"],
+                    player_id,
+                    campaign_id,
+                    pending_acquisitions
+                )
+
+                logger.info(
+                    "acquisitions_processed",
+                    session_id=state["session_id"],
+                    total_acquisitions=len(acquisition_results.get("acquisitions", [])),
+                    objectives_affected=len(acquisition_results.get("affected_objectives", []))
+                )
+
+                # Clear pending acquisitions after processing
+                state["pending_acquisitions"] = {
+                    "knowledge": [],
+                    "items": [],
+                    "events": [],
+                    "challenges": []
+                }
 
         # Update workflow state
         state["current_node"] = "await_player_input"
