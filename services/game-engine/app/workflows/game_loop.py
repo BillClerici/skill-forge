@@ -289,6 +289,27 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
         player_knowledge_ids = set(player_knowledge.keys())
         player_item_ids = {item.get("item_id") for item in player_inventory if item.get("item_id")}
 
+        # Collect campaign objectives for display
+        campaign_objectives = []
+        campaign_total_progress = 0
+        campaign_obj_count = 0
+
+        for campaign_obj in progress_data.get("campaign_objectives", []):
+            # Calculate campaign objective progress
+            campaign_progress = campaign_obj.get("completion_percentage", 0)
+            campaign_objectives.append({
+                "description": campaign_obj.get("description", "Campaign Objective"),
+                "completion_percentage": campaign_progress,
+                "percent": campaign_progress,
+                "completed": campaign_obj.get("status") == "completed",
+                "status": campaign_obj.get("status", "not_started")
+            })
+            campaign_total_progress += campaign_progress
+            campaign_obj_count += 1
+
+        # Calculate overall campaign progress
+        campaign_overall_progress = round(campaign_total_progress / campaign_obj_count) if campaign_obj_count > 0 else 0
+
         # Find quest objectives for the current quest
         quest_objectives = []
         total_progress = 0
@@ -347,7 +368,9 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
             "quest_id": current_quest_id,
             "quest_name": quest_name,
             "overall_progress": overall_progress,
-            "objectives": quest_objectives
+            "objectives": quest_objectives,
+            "campaign_objectives": campaign_objectives,
+            "campaign_overall_progress": campaign_overall_progress
         }
 
         logger.info("calculate_complete_quest_progress_returning", result=result)
@@ -574,8 +597,14 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
 
         # Load campaign data directly from MongoDB
         from ..services.mongo_persistence import mongo_persistence
+        from ..services.neo4j_graph import neo4j_graph
 
         campaign = await mongo_persistence.get_campaign(state["campaign_id"])
+
+        # Populate campaign metadata
+        if campaign:
+            state["campaign_name"] = campaign.get("name")
+            state["campaign_plot"] = campaign.get("plot_summary")
 
         if campaign and campaign.get("quest_ids") and len(campaign["quest_ids"]) > 0:
             # Get ALL quests to sort by order_sequence (BATCH QUERY - Performance optimization)
@@ -698,6 +727,16 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
             logger.info("session_paused_during_init", session_id=state["session_id"])
             state["status"] = "paused"
             return state
+
+        # Load quest progress for display
+        if state.get("players") and len(state["players"]) > 0:
+            try:
+                # Use the complete quest progress calculation for consistency
+                complete_progress = await calculate_complete_quest_progress(state)
+                if complete_progress:
+                    state["quest_progress"] = complete_progress
+            except Exception as e:
+                logger.warning("quest_progress_load_failed_init", error=str(e))
 
         # Update status
         state["status"] = SessionStatus.ACTIVE
@@ -978,15 +1017,28 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
         complete_progress = await calculate_complete_quest_progress(state)
         logger.info("quest_progress_calculated", session_id=state["session_id"], has_progress=bool(complete_progress), progress_data=complete_progress)
         if complete_progress:
-            logger.info("broadcasting_quest_progress_update", session_id=state["session_id"])
-            await connection_manager.broadcast_to_session(
-                state["session_id"],
-                {
-                    "event": "quest_progress_update",
-                    "quest_progress": complete_progress
+            logger.info("publishing_quest_progress_update", session_id=state["session_id"])
+            await rabbitmq_client.publish_event(
+                exchange="game.events",
+                routing_key=f"session.{state['session_id']}.quest_progress",
+                message={
+                    "type": "event",
+                    "event_type": "quest_progress",
+                    "session_id": state["session_id"],
+                    "payload": {
+                        "objectives": complete_progress.get("objectives", []),
+                        "quest_name": complete_progress.get("quest_name"),
+                        "overall_progress": complete_progress.get("overall_progress", 0),
+                        "campaign_objectives": complete_progress.get("campaign_objectives", []),
+                        "campaign_overall_progress": complete_progress.get("campaign_overall_progress", 0),
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
                 }
             )
-            logger.info("quest_progress_broadcast_complete", session_id=state["session_id"])
+            logger.info("quest_progress_published", session_id=state["session_id"])
+
+            # Save quest progress to state for persistence on page refresh
+            state["quest_progress"] = complete_progress
 
         # Update workflow state
         state["current_node"] = "await_player_input"
@@ -1592,15 +1644,21 @@ What would you like to do?"""
             # Import connection manager for streaming
             from ..api.websocket_manager import connection_manager
 
-            # Define streaming callback to broadcast chunks via WebSocket
+            # Define streaming callback to broadcast chunks via RabbitMQ
             async def stream_action_chunk(chunk: str):
                 """Callback to broadcast streaming action outcome chunks"""
-                await connection_manager.broadcast_to_session(
-                    state["session_id"],
-                    {
-                        "event": "action_outcome_chunk",
-                        "chunk": chunk,
-                        "is_complete": False
+                await rabbitmq_client.publish_event(
+                    exchange="game.events",
+                    routing_key=f"session.{state['session_id']}.scene_chunk",
+                    message={
+                        "type": "event",
+                        "event_type": "scene_chunk",
+                        "session_id": state["session_id"],
+                        "payload": {
+                            "chunk": chunk,
+                            "is_complete": False,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
                     }
                 )
 
@@ -1611,13 +1669,19 @@ What would you like to do?"""
                 stream_callback=stream_action_chunk
             )
 
-            # Broadcast final completion chunk
-            await connection_manager.broadcast_to_session(
-                state["session_id"],
-                {
-                    "event": "action_outcome_chunk",
-                    "chunk": "",
-                    "is_complete": True
+            # Publish final completion chunk via RabbitMQ
+            await rabbitmq_client.publish_event(
+                exchange="game.events",
+                routing_key=f"session.{state['session_id']}.scene_chunk",
+                message={
+                    "type": "event",
+                    "event_type": "scene_chunk",
+                    "session_id": state["session_id"],
+                    "payload": {
+                        "chunk": "",
+                        "is_complete": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
                 }
             )
 
@@ -1657,15 +1721,21 @@ What would you like to do?"""
             # Import connection manager for streaming
             from ..api.websocket_manager import connection_manager
 
-            # Define streaming callback to broadcast chunks via WebSocket
+            # Define streaming callback to broadcast chunks via RabbitMQ
             async def stream_action_chunk(chunk: str):
                 """Callback to broadcast streaming action outcome chunks"""
-                await connection_manager.broadcast_to_session(
-                    state["session_id"],
-                    {
-                        "event": "action_outcome_chunk",
-                        "chunk": chunk,
-                        "is_complete": False
+                await rabbitmq_client.publish_event(
+                    exchange="game.events",
+                    routing_key=f"session.{state['session_id']}.scene_chunk",
+                    message={
+                        "type": "event",
+                        "event_type": "scene_chunk",
+                        "session_id": state["session_id"],
+                        "payload": {
+                            "chunk": chunk,
+                            "is_complete": False,
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
                     }
                 )
 
@@ -1676,13 +1746,19 @@ What would you like to do?"""
                 stream_callback=stream_action_chunk
             )
 
-            # Broadcast final completion chunk
-            await connection_manager.broadcast_to_session(
-                state["session_id"],
-                {
-                    "event": "action_outcome_chunk",
-                    "chunk": "",
-                    "is_complete": True
+            # Publish final completion chunk via RabbitMQ
+            await rabbitmq_client.publish_event(
+                exchange="game.events",
+                routing_key=f"session.{state['session_id']}.scene_chunk",
+                message={
+                    "type": "event",
+                    "event_type": "scene_chunk",
+                    "session_id": state["session_id"],
+                    "payload": {
+                        "chunk": "",
+                        "is_complete": True,
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
                 }
             )
 

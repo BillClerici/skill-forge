@@ -130,6 +130,7 @@ class MongoPersistence:
                 "completed_quest_ids": state.get("completed_quest_ids", []),
                 "completed_scene_ids": state.get("completed_scene_ids", []),
                 "action_history": state.get("action_history", []),
+                "conversation_history": state.get("conversation_history", []),
                 "event_log": state.get("event_log", []),
                 "world_changes": state.get("world_changes", []),
                 "elapsed_game_time": state.get("elapsed_game_time", 0),
@@ -138,7 +139,8 @@ class MongoPersistence:
                 "metadata": {
                     "action_count": len(state.get("action_history", [])),
                     "quest_count": len(state.get("completed_quest_ids", [])),
-                    "total_chat_messages": len(state.get("chat_messages", []))
+                    "total_chat_messages": len(state.get("chat_messages", [])),
+                    "conversation_turns": len(state.get("conversation_history", []))
                 }
             }
 

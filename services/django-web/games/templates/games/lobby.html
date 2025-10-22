@@ -663,7 +663,6 @@ async function deleteSession(sessionId, campaignName) {
         });
 
         if (response.ok) {
-            alert('Game session deleted successfully');
             window.location.reload(); // Refresh the lobby
         } else {
             const error = await response.json();

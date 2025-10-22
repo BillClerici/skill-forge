@@ -28,42 +28,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: UUID, player_id: 
             "player_id": str(player_id)
         })
 
-        # Send initial scene (temporary - until game engine integration)
-        await websocket.send_json({
-            "type": "event",
-            "event_type": "scene_update",
-            "payload": {
-                "scene_description": "🎮 <strong>Welcome to SkillForge!</strong><br><br>Your adventure begins here. The game engine is initializing your campaign and will start sending you narrative content soon.<br><br>For now, you can test the interface by typing actions in the input box below.",
-                "available_actions": [
-                    "Look around",
-                    "Check inventory",
-                    "Talk to NPC",
-                    "Explore the area"
-                ]
-            }
-        })
-
-        # Send initial quest data
-        await websocket.send_json({
-            "type": "event",
-            "event_type": "quest_progress",
-            "payload": {
-                "objectives": [
-                    {
-                        "description": "Connect to the game server",
-                        "completed": True
-                    },
-                    {
-                        "description": "Await first quest from Game Master",
-                        "completed": False
-                    },
-                    {
-                        "description": "Begin your adventure",
-                        "completed": False
-                    }
-                ]
-            }
-        })
+        # Initial messages removed - game state is loaded from session data via REST API
+        # WebSocket is only used for real-time updates after initial load
 
         # Main message loop
         while True:

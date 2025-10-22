@@ -102,9 +102,10 @@ class RabbitMQConsumer:
                 data = json.loads(message.body.decode())
 
                 session_id = data.get('session_id')
-                player_id = data.get('player_id')
-                action = data.get('action')
-                metadata = data.get('metadata', {})
+                payload = data.get('payload', {})
+                player_id = payload.get('player_id')
+                action = payload.get('action')
+                metadata = payload.get('metadata', {})
 
                 logger.info(
                     "player_action_received",
@@ -126,7 +127,7 @@ class RabbitMQConsumer:
                 # Prepare action data
                 pending_action = {
                     "player_id": player_id,
-                    "action": action,
+                    "player_input": action,  # Changed from "action" to "player_input" to match workflow expectation
                     "timestamp": datetime.utcnow().isoformat(),
                     "metadata": metadata
                 }
@@ -226,7 +227,7 @@ class RabbitMQConsumer:
                             for qo in co.get("quest_objectives", []):
                                 if qo.get("status") in ["not_started", "in_progress"]:
                                     objectives.append({
-                                        "description": qo.get("name", "Unknown objective"),
+                                        "description": qo.get("description", "Unknown objective"),
                                         "completed": qo.get("status") == "completed"
                                     })
 
@@ -287,6 +288,71 @@ class RabbitMQConsumer:
                                 }
                                 for p in players
                             ],
+                            "timestamp": datetime.utcnow().isoformat()
+                        }
+                    }
+                )
+
+            # Publish acquisitions updates (knowledge, items, events, challenges)
+            players = state.get("players", [])
+            if players:
+                player_id = players[0].get("player_id")
+
+                # Gather player acquisitions
+                # Note: player_knowledge and player_inventories are stored as dicts of knowledge_id -> metadata in Redis
+                player_knowledge = state.get("player_knowledge", {})
+                player_inventories = state.get("player_inventories", {})
+
+                knowledge_list = []
+                if player_id in player_knowledge:
+                    # Get knowledge IDs for this player
+                    player_knowledge_dict = player_knowledge[player_id]
+                    if isinstance(player_knowledge_dict, dict):
+                        # Fetch full knowledge objects from MongoDB
+                        from ..services.mongo_persistence import mongo_persistence
+                        knowledge_ids = list(player_knowledge_dict.keys())
+                        if knowledge_ids:
+                            knowledge_objects = await mongo_persistence.get_knowledge_by_ids(knowledge_ids)
+                            for k in knowledge_objects:
+                                knowledge_list.append({
+                                    "id": k.get("knowledge_id", ""),
+                                    "name": k.get("name", "Unknown Knowledge"),
+                                    "description": k.get("description", ""),
+                                    "purpose": k.get("purpose", ""),
+                                    "source": k.get("source", ""),
+                                    "acquired_at": player_knowledge_dict.get(k.get("knowledge_id", ""), {}).get("acquired_at", "")
+                                })
+
+                items_list = []
+                if player_id in player_inventories:
+                    # Items are already full objects in state
+                    for item in player_inventories[player_id]:
+                        items_list.append({
+                            "id": item.get("item_id", ""),
+                            "name": item.get("name", "Unknown Item"),
+                            "description": item.get("description", ""),
+                            "purpose": item.get("purpose", ""),
+                            "source": item.get("source", ""),
+                            "quantity": item.get("quantity", 1),
+                            "acquired_at": item.get("acquired_at", "")
+                        })
+
+                events_list = state.get("completed_events", [])
+                challenges_list = state.get("completed_challenges", [])
+
+                # Publish acquisitions update
+                await rabbitmq_client.publish_event(
+                    exchange="game.events",
+                    routing_key=f"session.{session_id}.acquisitions_update",
+                    message={
+                        "type": "event",
+                        "event_type": "acquisitions_update",
+                        "session_id": session_id,
+                        "payload": {
+                            "knowledge": knowledge_list,
+                            "items": items_list,
+                            "events": events_list,
+                            "challenges": challenges_list,
                             "timestamp": datetime.utcnow().isoformat()
                         }
                     }

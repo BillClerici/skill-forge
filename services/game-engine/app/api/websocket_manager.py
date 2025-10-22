@@ -356,13 +356,24 @@ class ConnectionManager:
                     "timestamp": datetime.utcnow().isoformat()
                 }
 
+                # Add player action to conversation history
+                if "conversation_history" not in state:
+                    state["conversation_history"] = []
+
+                state["conversation_history"].append({
+                    "type": "player",
+                    "role": "player",
+                    "player_id": player_id,
+                    "message": action_content,
+                    "content": action_content,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+
                 state["awaiting_player_input"] = False
                 state["current_node"] = "interpret_action"
 
-                # Clear scene_just_generated flag if it's set
-                # This prevents the scene from being rebroadcast after actions like questions
-                if state.get("scene_just_generated"):
-                    state["scene_just_generated"] = False
+                # Note: Don't clear scene_just_generated here - let the workflow handle it
+                # The workflow will set it to True when a new scene is generated
 
                 # Save updated state
                 await redis_manager.save_state(session_id, state)
@@ -478,6 +489,31 @@ class ConnectionManager:
             # Scene updates should only be sent after generate_scene node
             # DON'T send scene_update for questions, acknowledgments, or other non-scene-changing actions
             if state.get("scene_description") and state.get("scene_just_generated", False):
+                # Add GM response to conversation history
+                if "conversation_history" not in state:
+                    state["conversation_history"] = []
+
+                # Only add if this is a new response (check if last entry is different)
+                should_add = True
+                if state["conversation_history"]:
+                    last_entry = state["conversation_history"][-1]
+                    if (last_entry.get("type") == "gm" and
+                        last_entry.get("message") == state["scene_description"]):
+                        should_add = False
+
+                if should_add:
+                    state["conversation_history"].append({
+                        "type": "gm",
+                        "role": "assistant",
+                        "message": state["scene_description"],
+                        "content": state["scene_description"],
+                        "response": state["scene_description"],
+                        "timestamp": datetime.utcnow().isoformat()
+                    })
+
+                    # Save state with updated conversation history
+                    await redis_manager.save_state(session_id, state)
+
                 await self.broadcast_to_session(
                     session_id,
                     {

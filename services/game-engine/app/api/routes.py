@@ -1350,6 +1350,76 @@ async def get_session_objectives(
         raise HTTPException(status_code=500, detail="Failed to get session objectives")
 
 
+@router.get("/session/{session_id}/quest-progress")
+async def get_quest_progress(session_id: str) -> Dict[str, Any]:
+    """
+    Get formatted quest progress for UI display.
+
+    Returns campaign objectives, quest objectives, and overall progress
+    in the format expected by the frontend.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        Formatted quest progress data
+    """
+    try:
+        # Load session state
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Import here to avoid circular imports
+        from ..workflows.game_loop import calculate_complete_quest_progress
+
+        # Calculate complete quest progress
+        quest_progress = await calculate_complete_quest_progress(state)
+
+        if not quest_progress:
+            quest_progress = {
+                "quest_id": state.get("current_quest_id"),
+                "quest_name": state.get("quest_name", "Current Quest"),
+                "overall_progress": 0,
+                "objectives": [],
+                "campaign_objectives": [],
+                "campaign_overall_progress": 0
+            }
+
+        # Add campaign info and progress summary
+        quest_progress["campaign_name"] = state.get("campaign_name", "")
+        quest_progress["campaign_plot"] = state.get("campaign_plot", "")
+
+        # Count knowledge and items for progress badges
+        players = state.get("players", [])
+        if players:
+            player_id = players[0].get("player_id")
+            player_knowledge = state.get("player_knowledge", {})
+            player_inventories = state.get("player_inventories", {})
+
+            knowledge_count = len(player_knowledge.get(player_id, {})) if isinstance(player_knowledge.get(player_id), dict) else 0
+            items_count = len(player_inventories.get(player_id, [])) if isinstance(player_inventories.get(player_id), list) else 0
+
+            quest_progress["knowledge_count"] = knowledge_count
+            quest_progress["items_count"] = items_count
+        else:
+            quest_progress["knowledge_count"] = 0
+            quest_progress["items_count"] = 0
+
+        return quest_progress
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "get_quest_progress_failed",
+            session_id=session_id,
+            error=str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to get quest progress")
+
+
 @router.get("/session/{session_id}/knowledge/{knowledge_id}/paths")
 async def get_knowledge_acquisition_paths(
     session_id: str,

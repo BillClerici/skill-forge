@@ -10,12 +10,13 @@ urlpatterns = [
     # Lobby
     path('', views.GamesLobbyView.as_view(), name='lobby'),
 
-    # Game Play
-    path('<uuid:game_id>/', views.GamePlayView.as_view(), name='play'),
-
-    # Create Game
+    # Create Game (must come before play pattern to avoid being caught by <str:game_id>)
     path('create/', views.CreateGameView.as_view(), name='create'),
 
     # API
     path('api/sessions/', views.GameSessionsAPIView.as_view(), name='sessions_api'),
+
+    # Game Play (accepts full session ID format: session_<timestamp>_<uuid>)
+    # This must be last since it matches any string
+    path('<str:game_id>/', views.GamePlayView.as_view(), name='play'),
 ]
