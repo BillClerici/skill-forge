@@ -23,7 +23,8 @@ class SessionStatus(str, Enum):
 class ChatMessageType(str, Enum):
     """Types of messages in game chat"""
     DM_NARRATIVE = "dm_narrative"
-    DM_NPC_DIALOGUE = "dm_npc_dialogue"
+    DM_NPC_DIALOGUE = "dm_npc_dialogue"  # Deprecated - use NPC_DIRECT
+    NPC_DIRECT = "npc_direct"  # Direct NPC dialogue (appears as separate chatter)
     DM_SYSTEM = "dm_system"
     DM_ASSESSMENT = "dm_assessment"
     PLAYER_ACTION = "player_action"
@@ -298,6 +299,11 @@ class GameSessionState(TypedDict, total=False):
     assessment_context: Optional[Dict[str, Any]]
     last_updated: str
     scene_just_generated: bool  # Flag to track if scene was just generated for broadcasting
+
+    # Conversation state
+    active_conversation_npc_id: Optional[str]  # NPC currently in conversation with
+    active_conversation_npc_name: Optional[str]  # Name for display
+    conversation_turn_count: int  # Number of turns in current conversation
 
     # Assessment
     last_assessment: Optional[Dict[str, Any]]

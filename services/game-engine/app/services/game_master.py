@@ -461,14 +461,38 @@ What action is the player attempting?""")
                 player["character_id"] if player else ""
             )
 
-            if not npc_context:
-                logger.error("npc_context_not_found", npc_id=npc_id)
-                return {
-                    "dialogue": "I'm not sure what to say...",
-                    "affinity_change": 0,
-                    "knowledge_revealed": [],
-                    "rubric_id": "",
-                    "performance_indicators": {}
+            # Fallback to MongoDB data if MCP doesn't have the NPC
+            if not npc_context or not isinstance(npc_context, dict):
+                logger.warning(
+                    "npc_context_not_found_using_fallback",
+                    npc_id=npc_id,
+                    session_id=state["session_id"]
+                )
+
+                # Try to find NPC in available_npcs from MongoDB
+                npc_data = None
+                for npc in state.get("available_npcs", []):
+                    if npc.get("npc_id") == npc_id or npc.get("_id") == npc_id:
+                        npc_data = npc
+                        break
+
+                if not npc_data:
+                    logger.error("npc_not_found_in_state", npc_id=npc_id)
+                    return {
+                        "dialogue": "I'm not sure what to say...",
+                        "affinity_change": 0,
+                        "knowledge_revealed": [],
+                        "rubric_id": "",
+                        "performance_indicators": {}
+                    }
+
+                # Use MongoDB data as fallback
+                npc_context = {
+                    "npc": npc_data,
+                    "relationship": {
+                        "total_affinity": 50,  # Default neutral affinity
+                        "interaction_count": 0
+                    }
                 }
 
             npc = npc_context.get("npc", {})
@@ -505,21 +529,92 @@ Respond to the player IN CHARACTER. Generate a JSON response:
 Respond as {npc_name}.""")
             ])
 
+            # Handle dialogue_style - can be either a dict or a string
+            dialogue_style = npc.get("dialogue_style", {})
+            if isinstance(dialogue_style, str):
+                # MongoDB stores it as a string
+                formality = "neutral"
+                verbosity = dialogue_style  # Use the string directly
+            else:
+                # MCP returns it as a dict
+                formality = dialogue_style.get("formality", "neutral")
+                verbosity = dialogue_style.get("verbosity", "moderate")
+
+            # Build personality description from traits if backstory not available
+            personality_desc = npc.get("backstory", "")
+            if not personality_desc:
+                traits = npc.get("personality_traits", [])
+                if traits:
+                    personality_desc = f"A character who is {', '.join(traits)}"
+
+            # Handle quest_context - can be either a dict or a string (quest ID)
+            quest_data = context.get("quest", {})
+            if isinstance(quest_data, str):
+                # It's a quest ID, not a quest object
+                quest_context = f"Quest ID: {quest_data}"
+            elif isinstance(quest_data, dict):
+                quest_context = quest_data.get("description", "")[:200]
+            else:
+                quest_context = ""
+
             chain = prompt | self.llm
             response = await chain.ainvoke({
                 "npc_name": npc.get("name", "Unknown"),
-                "personality_description": npc.get("backstory", "")[:200],
-                "formality": npc.get("dialogue_style", {}).get("formality", "neutral"),
-                "verbosity": npc.get("dialogue_style", {}).get("verbosity", "moderate"),
+                "personality_description": personality_desc[:200],
+                "formality": formality,
+                "verbosity": verbosity,
                 "current_mood": npc.get("current_mood", "neutral"),
                 "affinity": relationship.get("total_affinity", 0),
                 "interaction_count": relationship.get("interaction_count", 0),
-                "quest_context": context.get("quest", {}).get("description", "")[:200],
+                "quest_context": quest_context,
                 "player_statement": player_statement
             })
 
             # Parse response
-            npc_response_data = json.loads(response.content.strip())
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            logger.debug(
+                "npc_dialogue_raw_response",
+                npc_id=npc_id,
+                response_type=type(response).__name__,
+                response_content=response_text[:500] if response_text else "EMPTY"
+            )
+
+            if not response_text or not response_text.strip():
+                logger.error("npc_dialogue_empty_response", npc_id=npc_id)
+                return {
+                    "dialogue": "I'm not quite sure what to say right now...",
+                    "affinity_change": 0,
+                    "knowledge_revealed": [],
+                    "rubric_id": "",
+                    "performance_indicators": {}
+                }
+
+            # Remove markdown code blocks if present
+            response_text = response_text.strip()
+            if response_text.startswith("```"):
+                # Extract JSON from code block
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1]) if len(lines) > 2 else response_text
+                response_text = response_text.replace("```json", "").replace("```", "").strip()
+
+            try:
+                npc_response_data = json.loads(response_text)
+            except json.JSONDecodeError as e:
+                logger.error(
+                    "npc_dialogue_json_parse_failed",
+                    npc_id=npc_id,
+                    error=str(e),
+                    response_text_preview=response_text[:1000],  # First 1000 chars for debugging
+                    response_length=len(response_text)
+                )
+                # Return fallback response
+                return {
+                    "dialogue": "I'm having trouble finding the right words...",
+                    "affinity_change": 0,
+                    "knowledge_revealed": [],
+                    "rubric_id": npc.get("rubric_id", ""),
+                    "performance_indicators": {}
+                }
 
             npc_response: NPCDialogueResponse = {
                 "dialogue": npc_response_data.get("dialogue", "..."),
@@ -539,10 +634,12 @@ Respond as {npc_name}.""")
             return npc_response
 
         except Exception as e:
+            import traceback
             logger.error(
                 "npc_dialogue_generation_failed",
                 npc_id=npc_id,
-                error=str(e)
+                error=str(e),
+                traceback=traceback.format_exc()
             )
             return {
                 "dialogue": "...",

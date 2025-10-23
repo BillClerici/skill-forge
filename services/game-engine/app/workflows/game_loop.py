@@ -570,6 +570,22 @@ async def initialize_session_node(state: GameSessionState) -> GameSessionState:
                 if full_state.get("completed_challenges") is None:
                     full_state["completed_challenges"] = []
 
+                # Load chat history from MongoDB if missing from Redis
+                if not full_state.get("chat_messages") or len(full_state.get("chat_messages", [])) == 0:
+                    from ..services.mongo_persistence import mongo_persistence
+                    logger.info(
+                        "loading_chat_history_from_mongodb",
+                        session_id=state["session_id"]
+                    )
+                    chat_history = await mongo_persistence.get_chat_history(state["session_id"])
+                    if chat_history:
+                        full_state["chat_messages"] = chat_history
+                        logger.info(
+                            "chat_history_loaded_from_mongodb",
+                            session_id=state["session_id"],
+                            message_count=len(chat_history)
+                        )
+
                 # Merge pending action into loaded state
                 full_state["pending_action"] = state["pending_action"]
                 full_state["awaiting_player_input"] = False
@@ -880,6 +896,10 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
             required_knowledge_ids = scene_data.get("required_knowledge", [])
             required_item_ids = scene_data.get("required_items", [])
 
+            # Get the scene's level_3_location_id for NPC lookup
+            # NPCs are stored with level_3_location_id, not the scene's MongoDB _id
+            scene_location_id = scene_data.get("level_3_location_id", state["current_scene_id"])
+
             # Load all content in parallel (7 queries at once instead of sequential)
             (
                 npcs_at_location,
@@ -890,7 +910,7 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
                 required_knowledge,
                 required_items
             ) = await asyncio.gather(
-                mongo_persistence.get_npcs_at_location(state["current_scene_id"]),
+                mongo_persistence.get_npcs_at_location(scene_location_id),
                 mongo_persistence.get_discoveries_by_ids(discovery_ids) if discovery_ids else asyncio.sleep(0, result=[]),
                 mongo_persistence.get_events_by_ids(event_ids) if event_ids else asyncio.sleep(0, result=[]),
                 mongo_persistence.get_challenges_by_ids(challenge_ids) if challenge_ids else asyncio.sleep(0, result=[]),
@@ -1233,12 +1253,63 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
             state["current_node"] = "await_player_input"
             return state
 
-        # Use Game Master agent to interpret action
-        action_interpretation = await gm_agent.interpret_player_action(
-            player_input,
-            state,
-            player
+        # Check if player is in an active conversation with an NPC
+        # If so, route directly to the NPC unless they're explicitly ending the conversation
+        active_npc_id = state.get("active_conversation_npc_id")
+        active_npc_name = state.get("active_conversation_npc_name")
+
+        logger.info(
+            "interpret_action_conversation_state_check",
+            session_id=state["session_id"],
+            player_input=player_input[:100],
+            active_conversation_npc_id=active_npc_id,
+            active_conversation_npc_name=active_npc_name,
+            conversation_turn_count=state.get("conversation_turn_count", 0)
         )
+
+        # Keywords that indicate ending a conversation
+        end_conversation_keywords = ["goodbye", "bye", "leave", "stop talking", "end conversation",
+                                      "that's all", "nevermind", "move on", "go", "walk away"]
+
+        # Check if ending conversation
+        is_ending_conversation = active_npc_id and any(keyword in player_input.lower() for keyword in end_conversation_keywords)
+
+        if active_npc_id and not is_ending_conversation:
+            # Player is in active conversation - route directly to talk_to_npc
+            # Do NOT call GM interpreter to avoid it misclassifying the message
+            logger.info(
+                "routing_to_active_conversation",
+                session_id=state["session_id"],
+                npc_id=active_npc_id,
+                npc_name=active_npc_name,
+                player_input=player_input[:100]
+            )
+
+            action_interpretation = {
+                "action_type": "talk_to_npc",
+                "target_id": active_npc_id,
+                "parameters": {"statement": player_input},
+                "success_probability": 1.0,
+                "player_input": player_input
+            }
+        else:
+            # Use Game Master agent to interpret action
+            action_interpretation = await gm_agent.interpret_player_action(
+                player_input,
+                state,
+                player
+            )
+
+            # If player ended conversation, clear the active conversation state
+            if is_ending_conversation:
+                logger.info(
+                    "ending_active_conversation",
+                    session_id=state["session_id"],
+                    npc_id=active_npc_id
+                )
+                state["active_conversation_npc_id"] = None
+                state["active_conversation_npc_name"] = None
+                state["conversation_turn_count"] = 0
 
         # Store interpreted action for execution
         state["pending_action"]["interpretation"] = action_interpretation
@@ -1436,8 +1507,16 @@ What would you like to do?"""
                 # NPCs available - proceed with normal dialogue
                 player_statement = parameters.get("statement", pending_action.get("player_input", ""))
 
+                # Resolve NPC name to NPC ID
+                # target_id might be the NPC's name or the actual npc_id
+                actual_npc_id = target_id
+                for npc in state.get("available_npcs", []):
+                    if npc.get("name") == target_id or npc.get("npc_id") == target_id or npc.get("_id") == target_id:
+                        actual_npc_id = npc.get("npc_id") or npc.get("_id")
+                        break
+
                 npc_response = await gm_agent.generate_npc_dialogue(
-                    target_id,
+                    actual_npc_id,
                     {"quest": state.get("current_quest_id")},
                     player_statement,
                     state
@@ -1446,28 +1525,52 @@ What would you like to do?"""
                 # Add NPC response to chat
                 npc_name = "Unknown NPC"
                 for npc in state.get("available_npcs", []):
-                    if npc.get("npc_id") == target_id:
+                    if npc.get("npc_id") == actual_npc_id:
                         npc_name = npc.get("name", "Unknown NPC")
+                        break
+
+                # Get NPC details for rich message
+                npc_details = None
+                for npc in state.get("available_npcs", []):
+                    if npc.get("npc_id") == actual_npc_id or npc.get("_id") == actual_npc_id:
+                        npc_details = npc
                         break
 
                 chat_message = {
                     "message_id": f"msg_{datetime.utcnow().timestamp()}",
                     "session_id": state["session_id"],
                     "timestamp": datetime.utcnow().isoformat(),
-                    "message_type": "DM_NPC_DIALOGUE",
-                    "sender_id": target_id,
+                    "message_type": "NPC_DIRECT",  # Direct NPC dialogue
+                    "sender_id": actual_npc_id,
                     "sender_name": npc_name,
+                    "sender_role": npc_details.get("role", "Character") if npc_details else "Character",
+                    "sender_avatar": npc_details.get("avatar", "") if npc_details else "",
                     "content": npc_response["dialogue"],
                     "metadata": {
                         "affinity_change": npc_response["affinity_change"],
-                        "knowledge_revealed": npc_response["knowledge_revealed"]
+                        "knowledge_revealed": npc_response["knowledge_revealed"],
+                        "emotional_state": npc_response.get("metadata", {}).get("emotional_state", "neutral")
                     }
                 }
                 state["chat_messages"].append(chat_message)
 
+                # Set active conversation state to keep player engaged with this NPC
+                state["active_conversation_npc_id"] = actual_npc_id
+                state["active_conversation_npc_name"] = npc_name
+                state["conversation_turn_count"] = state.get("conversation_turn_count", 0) + 1
+
+                logger.info(
+                    "active_conversation_set",
+                    session_id=state["session_id"],
+                    npc_id=actual_npc_id,
+                    npc_name=npc_name,
+                    turn_count=state["conversation_turn_count"],
+                    state_keys=list(state.keys())  # Log all state keys to verify conversation fields are present
+                )
+
                 # Record interaction
                 await mcp_client.record_npc_interaction({
-                    "npc_id": target_id,
+                    "npc_id": actual_npc_id,
                     "player_id": player_id,
                     "session_id": state["session_id"],
                     "interaction_type": "dialogue",
@@ -1485,7 +1588,7 @@ What would you like to do?"""
                 from ..api.websocket_manager import connection_manager
                 npc_data = None
                 for npc in state.get("available_npcs", []):
-                    if npc.get("npc_id") == target_id or npc.get("_id") == target_id:
+                    if npc.get("npc_id") == actual_npc_id or npc.get("_id") == actual_npc_id:
                         npc_data = npc
                         break
 
@@ -1521,7 +1624,27 @@ What would you like to do?"""
                                 state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
+                                # Store as dict with metadata for compatibility with rabbitmq_consumer
+                                state["player_knowledge"][player_id][knowledge_id] = {
+                                    "level": 1,
+                                    "acquired_at": datetime.utcnow().isoformat()
+                                }
+
+                                # Persist knowledge acquisition to MongoDB and Neo4j
+                                await persist_knowledge_acquisition(
+                                    session_id=state["session_id"],
+                                    player_id=player_id,
+                                    knowledge_id=knowledge_id,
+                                    knowledge_data=knowledge_data,
+                                    source_type="npc",
+                                    source_id=npc_id,
+                                    metadata={
+                                        "session_id": state["session_id"],
+                                        "quest_id": state.get("active_quest", {}).get("quest_id"),
+                                        "scene_id": state.get("current_scene", {}).get("scene_id"),
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
@@ -1594,6 +1717,22 @@ What would you like to do?"""
                                     "source_npc": target_id
                                 }
                                 state["player_inventories"][player_id].append(inventory_item)
+
+                                # Persist item acquisition to MongoDB and Neo4j
+                                await persist_item_acquisition(
+                                    session_id=state["session_id"],
+                                    player_id=player_id,
+                                    item_id=item_id,
+                                    item_data=item_data,
+                                    source_type="npc",
+                                    source_id=target_id,
+                                    metadata={
+                                        "session_id": state["session_id"],
+                                        "quest_id": state.get("active_quest", {}).get("quest_id"),
+                                        "scene_id": state.get("current_scene", {}).get("scene_id"),
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
 
                                 # Get quest progress for this item
                                 quest_info = await get_quest_progress_for_acquisition(state, "item", item_id)
@@ -1772,6 +1911,27 @@ What would you like to do?"""
             }
             state["chat_messages"].append(chat_message)
 
+            # Extract acquisitions from the narrative
+            from .objective_tracker import detect_acquisitions_from_narrative
+            extracted_acquisitions = await detect_acquisitions_from_narrative(
+                narrative=examination_text,
+                player_action=f"look around and examine {query}" if query else "look around",
+                scene_context=state.get("current_scene", {})
+            )
+
+            # Add extracted acquisitions to pending
+            if "pending_acquisitions" not in state:
+                state["pending_acquisitions"] = {"knowledge": [], "items": [], "events": [], "challenges": []}
+
+            for k in extracted_acquisitions.get("knowledge", []):
+                state["pending_acquisitions"]["knowledge"].append(k)
+            for i in extracted_acquisitions.get("items", []):
+                state["pending_acquisitions"]["items"].append(i)
+            for e in extracted_acquisitions.get("events", []):
+                state["pending_acquisitions"]["events"].append(e)
+            for c in extracted_acquisitions.get("challenges", []):
+                state["pending_acquisitions"]["challenges"].append(c)
+
             # Detect opportunities in examination
             opportunities = await detect_acquirable_opportunities(examination_text, state)
 
@@ -1848,6 +2008,27 @@ What would you like to do?"""
                 "metadata": {"action_type": "generic_action"}
             }
             state["chat_messages"].append(chat_message)
+
+            # Extract acquisitions from the narrative
+            from .objective_tracker import detect_acquisitions_from_narrative
+            extracted_acquisitions = await detect_acquisitions_from_narrative(
+                narrative=outcome_text,
+                player_action=action_description,
+                scene_context=state.get("current_scene", {})
+            )
+
+            # Add extracted acquisitions to pending
+            if "pending_acquisitions" not in state:
+                state["pending_acquisitions"] = {"knowledge": [], "items": [], "events": [], "challenges": []}
+
+            for k in extracted_acquisitions.get("knowledge", []):
+                state["pending_acquisitions"]["knowledge"].append(k)
+            for i in extracted_acquisitions.get("items", []):
+                state["pending_acquisitions"]["items"].append(i)
+            for e in extracted_acquisitions.get("events", []):
+                state["pending_acquisitions"]["events"].append(e)
+            for c in extracted_acquisitions.get("challenges", []):
+                state["pending_acquisitions"]["challenges"].append(c)
 
             # Detect opportunities in action outcome
             opportunities = await detect_acquirable_opportunities(outcome_text, state)
@@ -2143,6 +2324,29 @@ What would you like to do?"""
                     }
                 )
 
+                # Extract acquisitions from the narrative (for AI-generated campaigns without pre-defined knowledge)
+                from .objective_tracker import detect_acquisitions_from_narrative
+                extracted_acquisitions = await detect_acquisitions_from_narrative(
+                    narrative=investigation_text,
+                    player_action=f"investigate {discovery.get('name', discovery_name)}",
+                    scene_context=state.get("current_scene", {})
+                )
+
+                # Add extracted acquisitions to pending
+                if "pending_acquisitions" not in state:
+                    state["pending_acquisitions"] = {
+                        "knowledge": [],
+                        "items": [],
+                        "events": [],
+                        "challenges": []
+                    }
+
+                for k in extracted_acquisitions.get("knowledge", []):
+                    state["pending_acquisitions"]["knowledge"].append(k)
+
+                for i in extracted_acquisitions.get("items", []):
+                    state["pending_acquisitions"]["items"].append(i)
+
                 # Create chat message
                 chat_message = {
                     "message_id": f"msg_{datetime.utcnow().timestamp()}",
@@ -2189,7 +2393,27 @@ What would you like to do?"""
                                 state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
+                                # Store as dict with metadata for compatibility with rabbitmq_consumer
+                                state["player_knowledge"][player_id][knowledge_id] = {
+                                    "level": 1,
+                                    "acquired_at": datetime.utcnow().isoformat()
+                                }
+
+                                # Persist knowledge acquisition to MongoDB and Neo4j
+                                await persist_knowledge_acquisition(
+                                    session_id=state["session_id"],
+                                    player_id=player_id,
+                                    knowledge_id=knowledge_id,
+                                    knowledge_data=knowledge_data,
+                                    source_type="discovery",
+                                    source_id=discovery_id,
+                                    metadata={
+                                        "session_id": state["session_id"],
+                                        "quest_id": state.get("active_quest", {}).get("quest_id"),
+                                        "scene_id": state.get("current_scene", {}).get("scene_id"),
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)
@@ -2404,7 +2628,27 @@ Try examining your surroundings or asking what you can investigate."""
                                 state["player_knowledge"][player_id] = {}
 
                             if knowledge_id not in state["player_knowledge"][player_id]:
-                                state["player_knowledge"][player_id][knowledge_id] = 1  # Level 1 (basic knowledge)
+                                # Store as dict with metadata for compatibility with rabbitmq_consumer
+                                state["player_knowledge"][player_id][knowledge_id] = {
+                                    "level": 1,
+                                    "acquired_at": datetime.utcnow().isoformat()
+                                }
+
+                                # Persist knowledge acquisition to MongoDB and Neo4j
+                                await persist_knowledge_acquisition(
+                                    session_id=state["session_id"],
+                                    player_id=player_id,
+                                    knowledge_id=knowledge_id,
+                                    knowledge_data=knowledge_data,
+                                    source_type="challenge",
+                                    source_id=challenge_id,
+                                    metadata={
+                                        "session_id": state["session_id"],
+                                        "quest_id": state.get("active_quest", {}).get("quest_id"),
+                                        "scene_id": state.get("current_scene", {}).get("scene_id"),
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                )
 
                                 # Get quest progress for this knowledge
                                 quest_info = await get_quest_progress_for_acquisition(state, "knowledge", knowledge_id)

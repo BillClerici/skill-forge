@@ -523,6 +523,33 @@ class MongoPersistence:
                 campaign_id = str(campaign.get('_id'))
                 campaign.pop("_id", None)
                 campaign["campaign_id"] = campaign_id
+
+                # Enhance with world name and image
+                world_id = campaign.get('world_id')
+                if world_id:
+                    try:
+                        world = await self.db['world_definitions'].find_one({"_id": world_id})
+                        if world:
+                            # Add world name
+                            world_name = world.get('world_name')
+                            if world_name:
+                                campaign['world_name'] = world_name
+
+                            # Add world primary image as fallback
+                            world_images = world.get('images', [])
+                            world_primary_image = None
+                            for img in world_images:
+                                if img.get('is_primary'):
+                                    world_primary_image = img.get('url')
+                                    break
+                            if not world_primary_image and world_images:
+                                world_primary_image = world_images[0].get('url')
+
+                            if world_primary_image:
+                                campaign['world_primary_image'] = world_primary_image
+                    except Exception as e:
+                        logger.warning("world_data_load_failed", world_id=world_id, error=str(e))
+
                 campaigns.append(campaign)
 
             logger.info("campaigns_loaded", count=len(campaigns))

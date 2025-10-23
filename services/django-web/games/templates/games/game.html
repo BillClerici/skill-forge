@@ -1243,6 +1243,208 @@
         color: #4a5568;
     }
 
+    /* NPC Direct Messages - RPG themed */
+    .npc-message {
+        padding: 0.85rem 1rem;
+        background: linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%);
+        border-left: 4px solid #d4af37;
+        border-radius: 6px;
+        color: #2d3748;
+        line-height: 1.5;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 4px rgba(212, 175, 55, 0.1);
+        margin-bottom: 0.75rem;
+        margin-left: 2rem;
+        margin-right: 2rem;
+    }
+
+    /* Indentation for player messages in NPC conversation */
+    .conversation-message:has(.npc-message) + .conversation-message .player-message {
+        margin-left: 2rem;
+        margin-right: 2rem;
+    }
+
+    .npc-message-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .npc-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #d4af37 0%, #cd7f32 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+
+    .npc-identity {
+        flex: 1;
+    }
+
+    .npc-name {
+        font-weight: 700;
+        color: #d4af37;
+        font-size: 0.9rem;
+        text-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+    }
+
+    .npc-role {
+        font-size: 0.75rem;
+        color: #8b7355;
+        font-style: italic;
+    }
+
+    .npc-dialogue {
+        color: #3d3d3d;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+
+    .npc-emotional-indicator {
+        display: inline-block;
+        font-size: 0.7rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        background: rgba(212, 175, 55, 0.2);
+        color: #8b7355;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+
+    /* NPC Panel */
+    .npc-panel {
+        background: linear-gradient(135deg, #fff8e1 0%, #ffe5b4 100%);
+        border-top: 3px solid #d4af37;
+        padding: 1rem;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    }
+
+    .npc-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+    }
+
+    .npc-panel-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: #8b7355;
+    }
+
+    .npc-panel-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: #8b7355;
+        padding: 0.25rem 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .npc-panel-close:hover {
+        color: #d4af37;
+        transform: scale(1.1);
+    }
+
+    .npc-list {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+
+    .npc-card {
+        background: white;
+        border: 2px solid #d4af37;
+        border-radius: 8px;
+        padding: 0.75rem;
+        min-width: 150px;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(212, 175, 55, 0.2);
+    }
+
+    .npc-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(212, 175, 55, 0.4);
+        border-color: #cd7f32;
+    }
+
+    .npc-card-avatar {
+        font-size: 2rem;
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .npc-card-name {
+        font-weight: 700;
+        color: #d4af37;
+        font-size: 0.9rem;
+        text-align: center;
+        margin-bottom: 0.25rem;
+    }
+
+    .npc-card-role {
+        font-size: 0.75rem;
+        color: #8b7355;
+        text-align: center;
+        font-style: italic;
+    }
+
+    /* Active Conversation Banner */
+    .active-conversation-banner {
+        background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
+        color: white;
+        padding: 0.75rem 2rem;
+        border-bottom: 2px solid #2a5a8d;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        animation: slideDown 0.3s ease;
+    }
+
+    .conversation-banner-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.95rem;
+    }
+
+    .conversation-icon {
+        font-size: 1.25rem;
+    }
+
+    .conversation-text {
+        flex: 1;
+    }
+
+    .conversation-hint {
+        font-size: 0.85rem;
+        opacity: 0.9;
+        font-style: italic;
+    }
+
+    @keyframes slideDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
     /* Action Input */
     .action-input-area {
         width: 100%;
@@ -1529,7 +1731,7 @@
         <div class="objective-modal-content">
             <div class="objective-modal-header">
                 <h2 id="modalObjectiveTitle"></h2>
-                <button class="objective-modal-close">&times;</button>
+                <button class="objective-modal-close" onclick="document.getElementById('objectiveModal').style.display='none'">&times;</button>
             </div>
             <div class="objective-modal-body">
                 <div class="objective-progress-summary">
@@ -1570,6 +1772,29 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- NPC Panel -->
+                <div class="npc-panel" id="npcPanel" style="display: none;">
+                    <div class="npc-panel-header">
+                        <span class="npc-panel-title">👥 Available NPCs</span>
+                        <button class="npc-panel-close" id="npcPanelClose">✕</button>
+                    </div>
+                    <div class="npc-list" id="npcList">
+                        <!-- NPCs will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Active Conversation Banner -->
+                <div class="active-conversation-banner" id="conversationBanner" style="display: none;">
+                    <div class="conversation-banner-content">
+                        <span class="conversation-icon">💬</span>
+                        <span class="conversation-text">
+                            Talking with <strong id="conversationNpcName"></strong>
+                        </span>
+                        <span class="conversation-hint">(Say "goodbye" to end conversation)</span>
+                    </div>
+                </div>
+
                 <div class="action-input-area">
                     <div class="suggested-actions" id="suggestedActions">
                         <!-- Suggested actions will be populated here -->
@@ -1749,6 +1974,8 @@ class GameClient {
         this.isConnected = false;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
+        this.activeConversationNpcId = null;
+        this.activeConversationNpcName = null;
     }
 
     connect() {
@@ -1907,10 +2134,18 @@ class GameClient {
 
         messageContainer.appendChild(playerMsg);
 
-        // Add loading indicator
+        // Add loading indicator - customize based on conversation state
         const loadingMsg = document.createElement('div');
         loadingMsg.className = 'gm-response gm-loading';
-        loadingMsg.innerHTML = '<em>🎲 GM is thinking...</em>';
+
+        if (this.activeConversationNpcId && this.activeConversationNpcName) {
+            // In NPC conversation - show NPC is responding
+            loadingMsg.innerHTML = `<em>💬 ${this.activeConversationNpcName} is responding...</em>`;
+        } else {
+            // Normal GM thinking
+            loadingMsg.innerHTML = '<em>🎲 GM is thinking...</em>';
+        }
+
         loadingMsg.id = 'gm-loading-indicator';
         messageContainer.appendChild(loadingMsg);
 
@@ -2059,6 +2294,35 @@ class GameClient {
         if (sceneData.available_actions) {
             this.updateSuggestedActions(sceneData.available_actions);
         }
+
+        // Update available NPCs
+        if (sceneData.available_npcs) {
+            this.updateNPCPanel(sceneData.available_npcs);
+        }
+
+        // Update conversation banner
+        this.updateConversationBanner(
+            sceneData.active_conversation_npc_id,
+            sceneData.active_conversation_npc_name
+        );
+    }
+
+    updateConversationBanner(npcId, npcName) {
+        const banner = document.getElementById('conversationBanner');
+        const nameElement = document.getElementById('conversationNpcName');
+
+        // Track conversation state
+        this.activeConversationNpcId = npcId;
+        this.activeConversationNpcName = npcName;
+
+        if (npcId && npcName) {
+            // Show conversation banner
+            nameElement.textContent = npcName;
+            banner.style.display = 'block';
+        } else {
+            // Hide conversation banner
+            banner.style.display = 'none';
+        }
     }
 
     updateSuggestedActions(actions) {
@@ -2074,6 +2338,47 @@ class GameClient {
             };
             container.appendChild(btn);
         });
+    }
+
+    updateNPCPanel(npcs) {
+        const panel = document.getElementById('npcPanel');
+        const npcList = document.getElementById('npcList');
+
+        if (!npcs || npcs.length === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        // Show panel and populate NPCs
+        panel.style.display = 'block';
+        npcList.innerHTML = '';
+
+        npcs.forEach(npc => {
+            const npcCard = document.createElement('div');
+            npcCard.className = 'npc-card';
+            npcCard.onclick = () => this.talkToNPC(npc);
+
+            // Get avatar - use emoji if available, otherwise use role-based default
+            const avatar = npc.avatar || this.getNPCAvatar(npc.name);
+
+            npcCard.innerHTML = `
+                <div class="npc-card-avatar">${avatar}</div>
+                <div class="npc-card-name">${npc.name}</div>
+                <div class="npc-card-role">${npc.role || 'Character'}</div>
+            `;
+
+            npcList.appendChild(npcCard);
+        });
+    }
+
+    talkToNPC(npc) {
+        // Auto-fill the action input with "Talk to [NPC Name]"
+        const actionInput = document.getElementById('actionInput');
+        actionInput.value = `Talk to ${npc.name}`;
+        actionInput.focus();
+
+        // Optionally auto-submit
+        // document.getElementById('actionForm').dispatchEvent(new Event('submit'));
     }
 
     updateQuestProgress(questData) {
@@ -2505,9 +2810,21 @@ class GameClient {
     }
 
     addChatMessage(messageData) {
+        const sceneContent = document.getElementById('sceneContent');
+
         // Display GM narrative messages as conversation responses
         if (messageData.message_type === 'DM_NARRATIVE' || messageData.sender === 'Game Master') {
-            const sceneContent = document.getElementById('sceneContent');
+            // Skip GM narrative messages during active NPC conversations
+            // BUT always show Bloom's feedback and system messages
+            const isBloomFeedback = messageData.message_type === 'DM_BLOOM_FEEDBACK' ||
+                                   (messageData.content && messageData.content.includes("Bloom's Taxonomy"));
+            const isSystemMessage = messageData.message_type === 'DM_SYSTEM';
+
+            if (this.activeConversationNpcId && !isBloomFeedback && !isSystemMessage) {
+                // In active conversation - hide GM narrative to avoid confusion
+                console.log('Hiding GM narrative during NPC conversation');
+                return;
+            }
 
             // Remove loading indicator if present
             const loadingIndicator = document.getElementById('gm-loading-indicator');
@@ -2539,9 +2856,87 @@ class GameClient {
                     behavior: 'smooth'
                 });
             }, 100);
+        } else if (messageData.message_type === 'NPC_DIRECT') {
+            // Handle direct NPC messages (NPC as separate chatter)
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'conversation-message';
+
+            const npcMessage = document.createElement('div');
+            npcMessage.className = 'npc-message';
+
+            // Create NPC header with avatar and identity
+            const npcHeader = document.createElement('div');
+            npcHeader.className = 'npc-message-header';
+
+            const npcAvatar = document.createElement('div');
+            npcAvatar.className = 'npc-avatar';
+            npcAvatar.textContent = messageData.sender_avatar || this.getNPCAvatar(messageData.sender || messageData.sender_name);
+
+            const npcIdentity = document.createElement('div');
+            npcIdentity.className = 'npc-identity';
+
+            const npcName = document.createElement('div');
+            npcName.className = 'npc-name';
+            npcName.textContent = messageData.sender || messageData.sender_name || 'Unknown NPC';
+
+            const npcRole = document.createElement('div');
+            npcRole.className = 'npc-role';
+            npcRole.textContent = messageData.sender_role || 'Character';
+
+            // Add emotional indicator if available
+            if (messageData.metadata && messageData.metadata.emotional_state && messageData.metadata.emotional_state !== 'neutral') {
+                const emotionalIndicator = document.createElement('span');
+                emotionalIndicator.className = 'npc-emotional-indicator';
+                emotionalIndicator.textContent = messageData.metadata.emotional_state;
+                npcName.appendChild(emotionalIndicator);
+            }
+
+            npcIdentity.appendChild(npcName);
+            npcIdentity.appendChild(npcRole);
+            npcHeader.appendChild(npcAvatar);
+            npcHeader.appendChild(npcIdentity);
+
+            // Create dialogue content
+            const npcDialogue = document.createElement('div');
+            npcDialogue.className = 'npc-dialogue';
+            npcDialogue.innerHTML = this.parseMarkdown(messageData.content);
+
+            npcMessage.appendChild(npcHeader);
+            npcMessage.appendChild(npcDialogue);
+            messageContainer.appendChild(npcMessage);
+            sceneContent.appendChild(messageContainer);
+
+            // Smooth scroll to bottom
+            setTimeout(() => {
+                sceneContent.scrollTo({
+                    top: sceneContent.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }, 100);
         } else {
             console.log('Chat message received:', messageData);
         }
+    }
+
+    getNPCAvatar(npcName) {
+        // Generate a simple emoji avatar based on NPC name
+        // You can customize this to use actual avatars from the backend
+        const avatarMap = {
+            'elder': '🧙',
+            'guard': '🛡️',
+            'merchant': '💰',
+            'scholar': '📚',
+            'whisperwind': '🌬️'
+        };
+
+        const lowerName = (npcName || '').toLowerCase();
+        for (const [key, emoji] of Object.entries(avatarMap)) {
+            if (lowerName.includes(key)) {
+                return emoji;
+            }
+        }
+
+        return '👤'; // Default avatar
     }
 
     showNotification(notificationData) {
@@ -2774,6 +3169,51 @@ async function loadInitialScene() {
                         gmMsg.className = 'gm-response';
                         gmMsg.innerHTML = gameClient.parseMarkdown(msg.content);
                         messageContainer.appendChild(gmMsg);
+                    } else if (msg.message_type === 'NPC_DIRECT') {
+                        // Handle direct NPC messages
+                        const npcMessage = document.createElement('div');
+                        npcMessage.className = 'npc-message';
+
+                        // Create NPC header
+                        const npcHeader = document.createElement('div');
+                        npcHeader.className = 'npc-message-header';
+
+                        const npcAvatar = document.createElement('div');
+                        npcAvatar.className = 'npc-avatar';
+                        npcAvatar.textContent = msg.sender_avatar || gameClient.getNPCAvatar(msg.sender_name || msg.sender);
+
+                        const npcIdentity = document.createElement('div');
+                        npcIdentity.className = 'npc-identity';
+
+                        const npcName = document.createElement('div');
+                        npcName.className = 'npc-name';
+                        npcName.textContent = msg.sender_name || msg.sender || 'Unknown NPC';
+
+                        const npcRole = document.createElement('div');
+                        npcRole.className = 'npc-role';
+                        npcRole.textContent = msg.sender_role || 'Character';
+
+                        // Add emotional indicator if available
+                        if (msg.metadata && msg.metadata.emotional_state && msg.metadata.emotional_state !== 'neutral') {
+                            const emotionalIndicator = document.createElement('span');
+                            emotionalIndicator.className = 'npc-emotional-indicator';
+                            emotionalIndicator.textContent = msg.metadata.emotional_state;
+                            npcName.appendChild(emotionalIndicator);
+                        }
+
+                        npcIdentity.appendChild(npcName);
+                        npcIdentity.appendChild(npcRole);
+                        npcHeader.appendChild(npcAvatar);
+                        npcHeader.appendChild(npcIdentity);
+
+                        // Create dialogue content
+                        const npcDialogue = document.createElement('div');
+                        npcDialogue.className = 'npc-dialogue';
+                        npcDialogue.innerHTML = gameClient.parseMarkdown(msg.content);
+
+                        npcMessage.appendChild(npcHeader);
+                        npcMessage.appendChild(npcDialogue);
+                        messageContainer.appendChild(npcMessage);
                     }
 
                     sceneContent.appendChild(messageContainer);
@@ -2796,6 +3236,19 @@ async function loadInitialScene() {
             // Update suggested actions if available
             if (state.available_actions && state.available_actions.length > 0) {
                 gameClient.updateSuggestedActions(state.available_actions);
+            }
+
+            // Update NPC panel if available
+            if (state.available_npcs && state.available_npcs.length > 0) {
+                gameClient.updateNPCPanel(state.available_npcs);
+            }
+
+            // Update conversation banner if in active conversation
+            if (state.active_conversation_npc_id && state.active_conversation_npc_name) {
+                gameClient.updateConversationBanner(
+                    state.active_conversation_npc_id,
+                    state.active_conversation_npc_name
+                );
             }
 
             // Enable action input
@@ -2952,6 +3405,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('questPin').addEventListener('click', () => {
         drawerManager.pinQuest();
+    });
+
+    // NPC Panel Controls
+    document.getElementById('npcPanelClose').addEventListener('click', () => {
+        document.getElementById('npcPanel').style.display = 'none';
     });
 
     // Objective Modal Handlers

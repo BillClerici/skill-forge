@@ -151,6 +151,14 @@ class RabbitMQConsumer:
                     {"recursion_limit": 50}
                 )
 
+                logger.info(
+                    "workflow_result_conversation_state",
+                    session_id=session_id,
+                    active_conversation_npc_id=result.get("active_conversation_npc_id"),
+                    active_conversation_npc_name=result.get("active_conversation_npc_name"),
+                    conversation_turn_count=result.get("conversation_turn_count", 0)
+                )
+
                 # Process any pending acquisitions through objective tracker
                 from ..workflows.objective_tracker import process_acquisitions
 
@@ -196,6 +204,27 @@ class RabbitMQConsumer:
                             objectives_affected=len(acquisition_results.get("affected_objectives", []))
                         )
 
+                        # Add acquired knowledge to game state
+                        if "player_knowledge" not in result:
+                            result["player_knowledge"] = {}
+                        if player_id not in result["player_knowledge"]:
+                            result["player_knowledge"][player_id] = {}
+
+                        for acq in acquisition_results.get("acquisitions", []):
+                            if acq.get("type") == "knowledge":
+                                knowledge_id = acq.get("data", {}).get("id")
+                                if knowledge_id and knowledge_id not in result["player_knowledge"][player_id]:
+                                    # Store as dict with metadata for compatibility with _publish_game_response
+                                    result["player_knowledge"][player_id][knowledge_id] = {
+                                        "level": 1,
+                                        "acquired_at": acq.get("data", {}).get("acquired_at", datetime.utcnow().isoformat())
+                                    }
+                                    logger.info(
+                                        "knowledge_added_to_state",
+                                        player_id=player_id,
+                                        knowledge_id=knowledge_id
+                                    )
+
                         # Clear pending acquisitions
                         result["pending_acquisitions"] = {
                             "knowledge": [],
@@ -208,6 +237,23 @@ class RabbitMQConsumer:
                         await redis_manager.load_state(session_id)  # Reload to get latest
                         await redis_manager.save_state(session_id, result)
 
+                # Persist chat messages to MongoDB for permanent storage
+                from ..services.mongo_persistence import mongo_persistence
+                chat_messages = result.get("chat_messages", [])
+                if chat_messages:
+                    # Save the latest chat message to MongoDB
+                    latest_message = chat_messages[-1]
+                    await mongo_persistence.save_chat_message(session_id, latest_message)
+
+                # Log conversation state before publishing
+                logger.info(
+                    "before_publish_conversation_state",
+                    session_id=session_id,
+                    active_conversation_npc_id=result.get("active_conversation_npc_id"),
+                    active_conversation_npc_name=result.get("active_conversation_npc_name"),
+                    conversation_turn_count=result.get("conversation_turn_count", 0)
+                )
+
                 # Publish results back to RabbitMQ for UI Gateway
                 await self._publish_game_response(session_id, result)
 
@@ -215,7 +261,8 @@ class RabbitMQConsumer:
                     "player_action_processed",
                     session_id=session_id,
                     new_node=result.get("current_node"),
-                    awaiting_input=result.get("awaiting_player_input")
+                    awaiting_input=result.get("awaiting_player_input"),
+                    active_conversation_npc_id=result.get("active_conversation_npc_id")
                 )
 
             except json.JSONDecodeError as e:
@@ -254,6 +301,9 @@ class RabbitMQConsumer:
                             "available_actions": state.get("available_actions", []),
                             "available_npcs": state.get("available_npcs", []),
                             "time_of_day": state.get("time_of_day", ""),
+                            "active_conversation_npc_id": state.get("active_conversation_npc_id"),
+                            "active_conversation_npc_name": state.get("active_conversation_npc_name"),
+                            "conversation_turn_count": state.get("conversation_turn_count", 0),
                             "timestamp": datetime.utcnow().isoformat()
                         }
                     }
@@ -278,17 +328,35 @@ class RabbitMQConsumer:
                             campaign_id
                         )
 
-                        # Extract current quest objectives
+                        # Extract quest objectives with progress
                         objectives = []
+                        campaign_objectives = []
+
                         for co in progress.get("campaign_objectives", []):
+                            # Add campaign objective with full details
+                            campaign_objectives.append({
+                                "description": co.get("description", "Unknown objective"),
+                                "completion_percentage": co.get("completion_percentage", 0),
+                                "percent": co.get("completion_percentage", 0),
+                                "completed": co.get("status") == "completed",
+                                "status": co.get("status", "not_started")
+                            })
+
+                            # Add quest objectives under this campaign objective
                             for qo in co.get("quest_objectives", []):
-                                if qo.get("status") in ["not_started", "in_progress"]:
+                                if qo.get("status") in ["not_started", "in_progress", "completed"]:
                                     objectives.append({
                                         "description": qo.get("description", "Unknown objective"),
+                                        "progress": qo.get("progress", 0),
+                                        "percent": qo.get("progress", 0),
                                         "completed": qo.get("status") == "completed"
                                     })
 
-                        if objectives:
+                        if objectives or campaign_objectives:
+                            # Get knowledge and items counts
+                            player_knowledge_count = len(state.get("player_knowledge", {}).get(player_id, {}))
+                            player_items_count = len(state.get("player_inventories", {}).get(player_id, []))
+
                             await rabbitmq_client.publish_event(
                                 exchange="game.events",
                                 routing_key=f"session.{session_id}.quest_progress",
@@ -297,7 +365,12 @@ class RabbitMQConsumer:
                                     "event_type": "quest_progress",
                                     "session_id": session_id,
                                     "payload": {
+                                        "quest_name": state.get("quest_name", ""),
                                         "objectives": objectives,
+                                        "campaign_objectives": campaign_objectives,
+                                        "campaign_overall_progress": progress.get("campaign_overall_progress", 0),
+                                        "knowledge_count": player_knowledge_count,
+                                        "items_count": player_items_count,
                                         "timestamp": datetime.utcnow().isoformat()
                                     }
                                 }
@@ -318,7 +391,9 @@ class RabbitMQConsumer:
                         "event_type": "chat_message",
                         "session_id": session_id,
                         "payload": {
-                            "sender": latest_message.get("sender", "Game Master"),
+                            "sender": latest_message.get("sender_name", latest_message.get("sender", "Game Master")),
+                            "sender_role": latest_message.get("sender_role", ""),
+                            "sender_avatar": latest_message.get("sender_avatar", ""),
                             "content": latest_message.get("content", ""),
                             "message_type": latest_message.get("message_type", "gm"),
                             "timestamp": latest_message.get("timestamp", datetime.utcnow().isoformat())
@@ -371,13 +446,22 @@ class RabbitMQConsumer:
                         if knowledge_ids:
                             knowledge_objects = await mongo_persistence.get_knowledge_by_ids(knowledge_ids)
                             for k in knowledge_objects:
+                                knowledge_id = k.get("knowledge_id", "")
+                                # Handle both dict format (new) and int format (old state)
+                                knowledge_metadata = player_knowledge_dict.get(knowledge_id, {})
+                                if isinstance(knowledge_metadata, dict):
+                                    acquired_at = knowledge_metadata.get("acquired_at", "")
+                                else:
+                                    # Old format was just integer 1
+                                    acquired_at = ""
+
                                 knowledge_list.append({
-                                    "id": k.get("knowledge_id", ""),
+                                    "id": knowledge_id,
                                     "name": k.get("name", "Unknown Knowledge"),
                                     "description": k.get("description", ""),
                                     "purpose": k.get("purpose", ""),
                                     "source": k.get("source", ""),
-                                    "acquired_at": player_knowledge_dict.get(k.get("knowledge_id", ""), {}).get("acquired_at", "")
+                                    "acquired_at": acquired_at
                                 })
 
                 items_list = []

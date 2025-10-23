@@ -680,6 +680,20 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
                 # Items are already full objects, just return them
                 player_inventories_full[player_id] = inventory_items
 
+        # Load chat messages from MongoDB if missing from Redis
+        chat_messages = state.get("chat_messages", [])
+        if not chat_messages or len(chat_messages) == 0:
+            logger.info(
+                "loading_chat_messages_from_mongodb_for_api",
+                session_id=session_id
+            )
+            chat_messages = await mongo_persistence.get_chat_history(session_id)
+            logger.info(
+                "chat_messages_loaded_from_mongodb_for_api",
+                session_id=session_id,
+                count=len(chat_messages)
+            )
+
         # Return safe subset of state (not full internal state)
         return {
             "session_id": state.get("session_id"),
@@ -702,9 +716,13 @@ async def get_session_state(session_id: str) -> Dict[str, Any]:
             "awaiting_player_input": state.get("awaiting_player_input", False),
             "player_knowledge_full": player_knowledge_full,
             "player_inventories_full": player_inventories_full,
+            "chat_messages": chat_messages,
             "conversation_history": state.get("conversation_history", []),
             "event_log": state.get("event_log", []),
-            "action_history": state.get("action_history", [])
+            "action_history": state.get("action_history", []),
+            "active_conversation_npc_id": state.get("active_conversation_npc_id"),
+            "active_conversation_npc_name": state.get("active_conversation_npc_name"),
+            "conversation_turn_count": state.get("conversation_turn_count", 0)
         }
 
     except HTTPException:

@@ -123,15 +123,28 @@ class GamesLobbyView(View):
                 else:
                     duration = f"{int(estimated_hours)}-{int(estimated_hours) + 1} hours"
 
-                # Get primary image
-                images = campaign.get('images', [])
-                primary_image = None
-                for img in images:
-                    if img.get('is_primary'):
-                        primary_image = img.get('url')
-                        break
-                if not primary_image and images:
-                    primary_image = images[0].get('url')
+                # Get primary image from campaign
+                primary_image = campaign.get('primary_image_url')
+
+                # Fallback to campaign_images if primary_image_url not set
+                if not primary_image:
+                    campaign_images = campaign.get('campaign_images', [])
+                    if campaign_images:
+                        primary_image = campaign_images[0].get('url')
+
+                # Fallback to images array (legacy)
+                if not primary_image:
+                    images = campaign.get('images', [])
+                    for img in images:
+                        if img.get('is_primary'):
+                            primary_image = img.get('url')
+                            break
+                    if not primary_image and images:
+                        primary_image = images[0].get('url')
+
+                # If campaign has no image, use world's primary image
+                if not primary_image:
+                    primary_image = campaign.get('world_primary_image')
 
                 processed_campaigns.append({
                     'id': campaign_id,

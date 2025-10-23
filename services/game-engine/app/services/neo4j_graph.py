@@ -515,7 +515,7 @@ class Neo4jGraphService:
 
                 query = f"""
                 MATCH (p:Player {{player_id: $player_id}})
-                MERGE (k:Knowledge {{knowledge_id: $knowledge_id}})
+                MERGE (k:Knowledge {{id: $knowledge_id}})
                 ON CREATE SET k.name = $knowledge_name
                 MERGE (s:{source_label} {{encounter_id: $source_id}})
                 MERGE (p)-[r:ACQUIRED_KNOWLEDGE]->(k)
@@ -1412,6 +1412,94 @@ class Neo4jGraphService:
 
         except Exception as e:
             logger.error("objective_progress_recording_failed", error=str(e))
+            return False
+
+    async def update_campaign_objective_progress(
+        self,
+        player_id: str,
+        campaign_objective_id: str
+    ) -> bool:
+        """
+        Calculate and update campaign objective progress based on its child quest objectives.
+
+        A campaign objective's progress is the average of all its quest objectives' progress.
+
+        Args:
+            player_id: Player ID
+            campaign_objective_id: Campaign Objective ID
+
+        Returns:
+            Success status
+        """
+        try:
+            async with self.driver.session() as session:
+                # Calculate average progress from quest objectives
+                query = """
+                MATCH (co:CampaignObjective {id: $campaign_objective_id})
+                MATCH (co)-[:DECOMPOSES_TO]->(qo:QuestObjective)
+                MATCH (p:Player {player_id: $player_id})
+                OPTIONAL MATCH (p)-[qo_prog:PROGRESS]->(qo)
+
+                WITH co, p,
+                     count(DISTINCT qo) as total_quest_objectives,
+                     sum(COALESCE(qo_prog.percentage, 0)) as total_progress
+
+                WITH co, p,
+                     CASE
+                         WHEN total_quest_objectives = 0 THEN 0
+                         ELSE toInteger(total_progress / total_quest_objectives)
+                     END as campaign_percentage
+
+                MERGE (p)-[co_prog:PROGRESS]->(co)
+                SET co_prog.percentage = campaign_percentage,
+                    co_prog.updated_at = $timestamp,
+                    co_prog.status = CASE
+                        WHEN campaign_percentage >= 100 THEN 'completed'
+                        WHEN campaign_percentage > 0 THEN 'in_progress'
+                        ELSE 'not_started'
+                    END
+                SET co.status = co_prog.status
+
+                // If completed, set completion timestamp
+                FOREACH (_ IN CASE WHEN campaign_percentage >= 100 THEN [1] ELSE [] END |
+                    SET co_prog.completed_at = $timestamp
+                )
+
+                RETURN campaign_percentage, co_prog.status as status
+                """
+
+                result = await session.run(
+                    query,
+                    campaign_objective_id=campaign_objective_id,
+                    player_id=player_id,
+                    timestamp=datetime.utcnow().isoformat()
+                )
+
+                record = await result.single()
+                if record:
+                    logger.info(
+                        "campaign_objective_progress_updated",
+                        player_id=player_id,
+                        campaign_objective_id=campaign_objective_id,
+                        percentage=record["campaign_percentage"],
+                        status=record["status"]
+                    )
+                    return True
+                else:
+                    logger.warning(
+                        "campaign_objective_progress_update_no_record",
+                        player_id=player_id,
+                        campaign_objective_id=campaign_objective_id
+                    )
+                    return False
+
+        except Exception as e:
+            logger.error(
+                "campaign_objective_progress_update_failed",
+                player_id=player_id,
+                campaign_objective_id=campaign_objective_id,
+                error=str(e)
+            )
             return False
 
 

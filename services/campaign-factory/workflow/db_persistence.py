@@ -300,6 +300,8 @@ async def persist_npcs(state: CampaignWorkflowState):
             npc_id = f"npc_{state['request_id']}_{npc['name'].replace(' ', '_').lower()}"
             logger.warning(f"NPC missing ID, generated: {npc_id}")
 
+        campaign_id = f"campaign_{state['request_id']}"
+
         npc_doc = {
             "_id": npc_id,
             "npc_id": npc_id,  # Add npc_id field for unique index
@@ -311,11 +313,12 @@ async def persist_npcs(state: CampaignWorkflowState):
             "dialogue_style": npc["dialogue_style"],
             "backstory": npc["backstory"],
             "world_id": state["world_id"],
+            "campaign_id": campaign_id,  # Add campaign_id for easy querying
             "level_3_location_id": npc["level_3_location_id"],
             "is_world_permanent": npc.get("is_world_permanent", True),
             "knowledge_revealed": npc.get("provides_knowledge_ids", []),  # Knowledge NPC can teach
             "items_revealed": npc.get("provides_item_ids", []),  # Items NPC can give/sell
-            "origin_campaign_id": f"campaign_{state['request_id']}",
+            "origin_campaign_id": campaign_id,
             "created_at": datetime.utcnow().isoformat()
         }
 

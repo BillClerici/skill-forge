@@ -262,3 +262,45 @@ async def create_location_via_game_master(
     except Exception as e:
         logger.error(f"Error creating location via MCP: {e}")
         return None
+
+
+async def register_npc(npc_data: Dict[str, Any]) -> bool:
+    """
+    Register an NPC with the MCP NPC Personality service
+
+    Args:
+        npc_data: NPC data including npc_id, name, personality, etc.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{MCP_NPC_PERSONALITY_URL}/mcp/register-npc",
+                json={
+                    "npc_id": npc_data.get("npc_id"),
+                    "name": npc_data.get("name"),
+                    "species_id": npc_data.get("species_id"),
+                    "species_name": npc_data.get("species_name"),
+                    "personality_traits": npc_data.get("personality_traits", []),
+                    "role": npc_data.get("role"),
+                    "dialogue_style": npc_data.get("dialogue_style", ""),
+                    "backstory": npc_data.get("backstory", ""),
+                    "world_id": npc_data.get("world_id"),
+                    "location_id": npc_data.get("level_3_location_id"),
+                    "campaign_id": npc_data.get("campaign_id")
+                },
+                headers={"Authorization": f"Bearer {MCP_AUTH_TOKEN}"}
+            )
+
+            if response.status_code in [200, 201]:
+                logger.info(f"Successfully registered NPC {npc_data.get('npc_id')} with MCP")
+                return True
+            else:
+                logger.warning(f"Failed to register NPC {npc_data.get('npc_id')}: {response.status_code} - {response.text}")
+                return False
+
+    except Exception as e:
+        logger.error(f"Error registering NPC {npc_data.get('npc_id')} with MCP: {e}")
+        return False
