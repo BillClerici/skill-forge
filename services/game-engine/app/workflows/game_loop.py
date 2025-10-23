@@ -311,15 +311,25 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
         # Calculate overall campaign progress
         campaign_overall_progress = round(campaign_total_progress / campaign_obj_count) if campaign_obj_count > 0 else 0
 
-        # Find quest objectives for the current quest
-        quest_objectives = []
-        total_progress = 0
-        objective_count = 0
+        # Group quest objectives by quest for ALL quests (not just current)
+        quests_map = {}  # quest_number -> {quest_name, objectives, progress}
 
         for campaign_obj in progress_data.get("campaign_objectives", []):
             for quest_obj in campaign_obj.get("quest_objectives", []):
-                # Match objectives by quest number (order_sequence)
-                if quest_obj.get("quest_number") == current_quest_number:
+                quest_number = quest_obj.get("quest_number")
+                quest_name_from_obj = quest_obj.get("quest_name", f"Quest {quest_number}")
+
+                if quest_number not in quests_map:
+                    quests_map[quest_number] = {
+                        "quest_number": quest_number,
+                        "quest_name": quest_name_from_obj,
+                        "objectives": [],
+                        "total_progress": 0,
+                        "objective_count": 0
+                    }
+
+                # Process this objective
+                if True:  # Changed from quest number filter - now processes ALL quests
                     # Get required knowledge and items for this objective from Neo4j
                     async with neo4j_graph.driver.session() as session:
                         result = await session.run("""
@@ -346,10 +356,12 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
                     total_required = len(required_knowledge) + len(required_items)
                     total_acquired = knowledge_acquired + items_acquired
 
-                    # Calculate percentage
-                    percent = int((total_acquired / total_required * 100)) if total_required > 0 else 0
+                    # Use percentage from Neo4j PROGRESS relationship (maintained by objective tracker)
+                    # Don't recalculate - the objective tracker sets this based on acquisition logic
+                    percent = quest_obj.get("progress", 0)
 
-                    quest_objectives.append({
+                    # Add objective to its quest
+                    quests_map[quest_number]["objectives"].append({
                         "description": quest_obj.get("description", "Quest Objective"),
                         "type": "",  # Not used in UI, kept for compatibility
                         "current": total_acquired,
@@ -359,17 +371,26 @@ async def calculate_complete_quest_progress(state: GameSessionState) -> dict:
                         "completed": percent >= 100
                     })
 
-                    total_progress += percent
-                    objective_count += 1
+                    quests_map[quest_number]["total_progress"] += percent
+                    quests_map[quest_number]["objective_count"] += 1
 
-        # Calculate overall progress
-        overall_progress = round(total_progress / objective_count) if objective_count > 0 else 0
+        # Convert quests_map to a sorted list
+        quests_list = []
+        for quest_num in sorted(quests_map.keys()):
+            quest_data = quests_map[quest_num]
+            quest_progress = round(quest_data["total_progress"] / quest_data["objective_count"]) if quest_data["objective_count"] > 0 else 0
+            quests_list.append({
+                "quest_number": quest_num,
+                "quest_name": quest_data["quest_name"],
+                "quest_progress": quest_progress,
+                "objectives": quest_data["objectives"],
+                "is_current": quest_num == current_quest_number
+            })
 
         result = {
             "quest_id": current_quest_id,
             "quest_name": quest_name,
-            "overall_progress": overall_progress,
-            "objectives": quest_objectives,
+            "quests": quests_list,  # NEW: List of all quests with objectives
             "campaign_objectives": campaign_objectives,
             "campaign_overall_progress": campaign_overall_progress
         }
@@ -1271,8 +1292,16 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
         end_conversation_keywords = ["goodbye", "bye", "leave", "stop talking", "end conversation",
                                       "that's all", "nevermind", "move on", "go", "walk away"]
 
-        # Check if ending conversation
-        is_ending_conversation = active_npc_id and any(keyword in player_input.lower() for keyword in end_conversation_keywords)
+        # Check if ending conversation (using word boundaries to avoid false matches like "going" matching "go")
+        import re
+        is_ending_conversation = False
+        if active_npc_id:
+            for keyword in end_conversation_keywords:
+                # Use word boundary matching to ensure we match whole words only
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+                if re.search(pattern, player_input.lower()):
+                    is_ending_conversation = True
+                    break
 
         if active_npc_id and not is_ending_conversation:
             # Player is in active conversation - route directly to talk_to_npc

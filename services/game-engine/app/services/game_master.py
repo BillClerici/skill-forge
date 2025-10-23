@@ -517,6 +517,13 @@ Relationship with Player:
 Quest Context:
 {quest_context}
 
+IMPORTANT: You are a CHARACTER in the game, NOT the Game Master.
+- Respond ONLY as this character would respond
+- DO NOT add meta-game prompts like "What would you like to do?" at the end
+- DO NOT ask what the player wants to do next
+- The Game Master handles those prompts, not you
+- Your dialogue should END with your character's response, nothing more
+
 Respond to the player IN CHARACTER. Generate a JSON response:
 {{
     "dialogue": "Your spoken response (in quotes if dialogue)",

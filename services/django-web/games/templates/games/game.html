@@ -369,15 +369,6 @@
         font-weight: 500;
     }
 
-    .objective-click-hint {
-        opacity: 0;
-        transition: opacity 0.2s;
-    }
-
-    .objective-item:hover .objective-click-hint {
-        opacity: 1;
-    }
-
     /* Campaign Overview Styles */
     .campaign-header {
         padding: 0.75rem;
@@ -1428,10 +1419,27 @@
         flex: 1;
     }
 
-    .conversation-hint {
+    .end-conversation-btn {
+        margin-left: auto;
+        padding: 0.4rem 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        cursor: pointer;
         font-size: 0.85rem;
-        opacity: 0.9;
-        font-style: italic;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .end-conversation-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-1px);
+    }
+
+    .end-conversation-btn:active {
+        transform: translateY(0);
     }
 
     @keyframes slideDown {
@@ -1791,7 +1799,9 @@
                         <span class="conversation-text">
                             Talking with <strong id="conversationNpcName"></strong>
                         </span>
-                        <span class="conversation-hint">(Say "goodbye" to end conversation)</span>
+                        <button class="end-conversation-btn" id="endConversationBtn" onclick="gameClient.endConversation()">
+                            End Conversation
+                        </button>
                     </div>
                 </div>
 
@@ -2050,6 +2060,8 @@ class GameClient {
                 this.handleSceneChunk(data.payload);
                 break;
             case 'quest_progress':
+                console.log('quest_progress event received:', data.payload);
+                console.log('Knowledge count:', data.payload.knowledge_count);
                 this.updateQuestProgress(data.payload);
                 break;
             case 'chat_message':
@@ -2074,6 +2086,7 @@ class GameClient {
             case 'challenge_completed':
                 // Individual acquisition events - show toast and update UI
                 console.log('Acquisition event:', eventType, data.payload);
+                console.log('Affected objectives:', data.payload.affected_objectives);
 
                 // Extract acquisition type from event type
                 const acqType = eventType.replace('_acquired', '').replace('_completed', '');
@@ -2085,13 +2098,10 @@ class GameClient {
                     data: data.payload.acquisition
                 }, data.payload.affected_objectives || []);
 
-                // Update quest progress to reflect new percentages
-                if (data.payload.affected_objectives && data.payload.affected_objectives.length > 0) {
-                    // Trigger quest progress refresh
-                    this.refreshQuestProgress();
-                }
-
-                // Refresh acquisitions display
+                // Always refresh quest progress and acquisitions, even if affected_objectives is empty
+                // The backend will send a quest_progress event separately with updated counts
+                console.log('Refreshing quest progress and acquisitions...');
+                this.refreshQuestProgress();
                 this.refreshAcquisitions();
                 break;
             default:
@@ -2335,21 +2345,34 @@ class GameClient {
             btn.textContent = action;
             btn.onclick = () => {
                 document.getElementById('actionInput').value = action;
+                // Auto-submit the form
+                const form = document.getElementById('actionForm');
+                if (form) {
+                    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                }
             };
             container.appendChild(btn);
         });
     }
 
     updateNPCPanel(npcs) {
+        console.log('updateNPCPanel called with:', npcs ? npcs.length : 0, 'NPCs');
         const panel = document.getElementById('npcPanel');
         const npcList = document.getElementById('npcList');
 
+        if (!panel) {
+            console.error('NPC panel element not found!');
+            return;
+        }
+
         if (!npcs || npcs.length === 0) {
+            console.log('No NPCs to display, hiding panel');
             panel.style.display = 'none';
             return;
         }
 
         // Show panel and populate NPCs
+        console.log('Showing NPC panel with', npcs.length, 'NPCs');
         panel.style.display = 'block';
         npcList.innerHTML = '';
 
@@ -2375,19 +2398,37 @@ class GameClient {
         // Auto-fill the action input with "Talk to [NPC Name]"
         const actionInput = document.getElementById('actionInput');
         actionInput.value = `Talk to ${npc.name}`;
-        actionInput.focus();
 
-        // Optionally auto-submit
-        // document.getElementById('actionForm').dispatchEvent(new Event('submit'));
+        // Auto-submit the form
+        const form = document.getElementById('actionForm');
+        if (form) {
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+    }
+
+    endConversation() {
+        // Send a message to explicitly end the conversation
+        const actionInput = document.getElementById('actionInput');
+        actionInput.value = 'goodbye';
+
+        // Submit the form to send the goodbye message
+        const form = document.getElementById('actionForm');
+        if (form) {
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
     }
 
     updateQuestProgress(questData) {
+        console.log('updateQuestProgress called with:', questData);
+        console.log('Knowledge count from quest data:', questData?.knowledge_count);
+
         const container = document.getElementById('questObjectives');
 
         // Store quest data for modal access
         this.currentQuestData = questData;
 
         if (!questData) {
+            console.warn('No quest data provided to updateQuestProgress');
             container.innerHTML = '<p style="color: #b8b8d1;">Waiting for quest data...</p>';
             return;
         }
@@ -2455,7 +2496,6 @@ class GameClient {
                         </div>
                         <div class="objective-meta">
                             <span class="objective-progress-text">${Math.round(progress)}%</span>
-                            <span class="objective-click-hint">📋 Click for details</span>
                         </div>
                         <div class="progress-bar-container">
                             <div class="progress-bar-fill" style="width: ${progress}%"></div>
@@ -2470,57 +2510,61 @@ class GameClient {
             `;
         }
 
-        // Quest Objectives Section
-        if (questData.objectives && questData.objectives.length > 0) {
-            const questProgress = questData.overall_progress || 0;
-            const toggleIcon = questCollapsed ? '▶' : '▼';
-
-            html += `
-                <div class="quest-section">
-                    <div class="quest-section-header" data-section="quest">
-                        <div class="quest-section-title">
-                            <span class="collapse-icon">${toggleIcon}</span>
-                            <span>⚔️ ${questData.quest_name || 'Current Quest'}</span>
-                        </div>
-                        <div class="quest-section-progress">${Math.round(questProgress)}%</div>
-                    </div>
-                    <div class="quest-section-body ${questCollapsed ? 'collapsed' : ''}">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${questProgress}%"></div>
-                        </div>
-            `;
-
-            questData.objectives.forEach((obj, index) => {
-                const progress = obj.percent || 0;
-                const completed = obj.completed || progress === 100;
-                const icon = completed ? '✅' : progress > 0 ? '🔄' : '⬜';
+        // All Quests Sections (one collapsible section per quest)
+        // Default: all collapsed, accordion-style (only one open at a time)
+        if (questData.quests && questData.quests.length > 0) {
+            questData.quests.forEach((quest, questIdx) => {
+                const questProgress = quest.quest_progress || 0;
+                const sectionKey = `quest_${quest.quest_number}`;
+                const isCollapsed = true;  // All quests collapsed by default
+                const toggleIcon = '▶';  // Always start collapsed
 
                 html += `
-                    <div class="objective-item ${completed ? 'completed' : ''}" data-objective-type="quest" data-objective-index="${index}">
-                        <div class="objective-header">
-                            <span class="objective-icon">${icon}</span>
-                            <span class="objective-text">${obj.description || 'Unknown objective'}</span>
+                    <div class="quest-section">
+                        <div class="quest-section-header" data-section="${sectionKey}" data-quest-section="true">
+                            <div class="quest-section-title">
+                                <span class="collapse-icon">${toggleIcon}</span>
+                                <span>⚔️ Quest: ${quest.quest_name || `Quest ${quest.quest_number}`}</span>
+                            </div>
+                            <div class="quest-section-progress">${Math.round(questProgress)}%</div>
                         </div>
-                        <div class="objective-meta">
-                            <span class="objective-progress-text">${Math.round(progress)}%</span>
-                            <span class="objective-click-hint">📋 Click for details</span>
+                        <div class="quest-section-body collapsed">
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: ${questProgress}%"></div>
+                            </div>
+                `;
+
+                quest.objectives.forEach((obj, index) => {
+                    const progress = obj.percent || 0;
+                    const completed = obj.completed || progress === 100;
+                    const icon = completed ? '✅' : progress > 0 ? '🔄' : '⬜';
+
+                    html += `
+                        <div class="objective-item ${completed ? 'completed' : ''}" data-objective-type="quest" data-objective-index="${index}">
+                            <div class="objective-header">
+                                <span class="objective-icon">${icon}</span>
+                                <span class="objective-text">${obj.description || 'Unknown objective'}</span>
+                            </div>
+                            <div class="objective-meta">
+                                <span class="objective-progress-text">${Math.round(progress)}%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" style="width: ${progress}%"></div>
+                            </div>
                         </div>
-                        <div class="progress-bar-container">
-                            <div class="progress-bar-fill" style="width: ${progress}%"></div>
+                    `;
+                });
+
+                html += `
                         </div>
                     </div>
                 `;
             });
-
-            html += `
-                    </div>
-                </div>
-            `;
         }
 
         // If no objectives at all
         if ((!questData.campaign_objectives || questData.campaign_objectives.length === 0) &&
-            (!questData.objectives || questData.objectives.length === 0)) {
+            (!questData.quests || questData.quests.length === 0)) {
             html = '<p style="color: #b8b8d1;">No objectives available</p>';
         }
 
@@ -2530,15 +2574,34 @@ class GameClient {
         container.querySelectorAll('.quest-section-header').forEach(header => {
             header.addEventListener('click', (e) => {
                 const section = e.currentTarget.getAttribute('data-section');
+                const isQuestSection = e.currentTarget.getAttribute('data-quest-section') === 'true';
                 const body = e.currentTarget.nextElementSibling;
                 const icon = e.currentTarget.querySelector('.collapse-icon');
 
+                const wasCollapsed = body.classList.contains('collapsed');
+
+                // Accordion behavior for quest sections: close all other quest sections
+                if (isQuestSection && wasCollapsed) {
+                    // Close all quest sections
+                    container.querySelectorAll('.quest-section-header[data-quest-section="true"]').forEach(otherHeader => {
+                        if (otherHeader !== e.currentTarget) {
+                            const otherBody = otherHeader.nextElementSibling;
+                            const otherIcon = otherHeader.querySelector('.collapse-icon');
+                            otherBody.classList.add('collapsed');
+                            otherIcon.textContent = '▶';
+                        }
+                    });
+                }
+
+                // Toggle the clicked section
                 body.classList.toggle('collapsed');
                 const isCollapsed = body.classList.contains('collapsed');
                 icon.textContent = isCollapsed ? '▶' : '▼';
 
-                // Save state to localStorage
-                localStorage.setItem(`${section}SectionCollapsed`, isCollapsed);
+                // Save state to localStorage only for campaign section
+                if (!isQuestSection) {
+                    localStorage.setItem(`${section}SectionCollapsed`, isCollapsed);
+                }
             });
         });
 
@@ -3240,7 +3303,42 @@ async function loadInitialScene() {
 
             // Update NPC panel if available
             if (state.available_npcs && state.available_npcs.length > 0) {
+                console.log('NPCs available on initial load:', state.available_npcs.length);
                 gameClient.updateNPCPanel(state.available_npcs);
+            } else {
+                // NPCs not loaded yet - poll for them with multiple retries
+                console.log('NPCs not available yet, will retry multiple times...');
+
+                const retryForNPCs = async (attempt = 1, maxAttempts = 5) => {
+                    if (attempt > maxAttempts) {
+                        console.warn('Max retry attempts reached, NPCs still not available');
+                        return;
+                    }
+
+                    const delay = attempt * 2000; // 2s, 4s, 6s, 8s, 10s
+                    console.log(`Retry attempt ${attempt}/${maxAttempts} in ${delay}ms...`);
+
+                    setTimeout(async () => {
+                        try {
+                            const retryResponse = await fetch(`http://localhost:9500/api/v1/session/${sessionId}/state`);
+                            if (retryResponse.ok) {
+                                const retryState = await retryResponse.json();
+                                if (retryState.available_npcs && retryState.available_npcs.length > 0) {
+                                    console.log(`NPCs loaded on attempt ${attempt}:`, retryState.available_npcs.length);
+                                    gameClient.updateNPCPanel(retryState.available_npcs);
+                                } else {
+                                    console.log(`Attempt ${attempt}: NPCs still not available, retrying...`);
+                                    retryForNPCs(attempt + 1, maxAttempts);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error fetching NPCs:', error);
+                            retryForNPCs(attempt + 1, maxAttempts);
+                        }
+                    }, delay);
+                };
+
+                retryForNPCs();
             }
 
             // Update conversation banner if in active conversation
@@ -3262,19 +3360,19 @@ async function loadInitialScene() {
                 sceneContent.scrollTop = sceneContent.scrollHeight;
             }, 100);
 
-            // Load quest progress
-            if (state.quest_progress) {
-                gameClient.updateQuestProgress(state.quest_progress);
-            } else {
-                // Fetch quest progress from API if not in state
-                try {
-                    const questResponse = await fetch(`http://localhost:9500/api/v1/session/${sessionId}/quest-progress`);
-                    if (questResponse.ok) {
-                        const questProgress = await questResponse.json();
-                        gameClient.updateQuestProgress(questProgress);
-                    }
-                } catch (error) {
-                    console.error('Error fetching quest progress:', error);
+            // Load quest progress - always fetch from API to get complete data including knowledge_count
+            try {
+                const questResponse = await fetch(`http://localhost:9500/api/v1/session/${sessionId}/quest-progress`);
+                if (questResponse.ok) {
+                    const questProgress = await questResponse.json();
+                    console.log('Initial quest progress loaded:', questProgress);
+                    gameClient.updateQuestProgress(questProgress);
+                }
+            } catch (error) {
+                console.error('Error fetching quest progress:', error);
+                // Fallback to state if API fails
+                if (state.quest_progress) {
+                    gameClient.updateQuestProgress(state.quest_progress);
                 }
             }
 
