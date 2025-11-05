@@ -59,12 +59,16 @@ class DiscoveryEnrichmentResponse(BaseModel):
     """Structured response for discovery enrichment"""
     name: str = Field(description="Discovery name (3-5 words)")
     full_description: str = Field(description="Enhanced description (2-3 sentences)")
+    importance_description: str = Field(description="Why this discovery is important (1-2 sentences)")
+    usage_description: str = Field(description="How this discovery can be used (1-2 sentences)")
 
 class EventEnrichmentResponse(BaseModel):
     """Structured response for event enrichment"""
     name: str = Field(description="Event name (3-5 words)")
     full_description: str = Field(description="Enhanced description (2-3 sentences)")
     outcomes: List[str] = Field(description="Possible outcomes")
+    importance_description: str = Field(description="Why this event is important (1-2 sentences)")
+    usage_description: str = Field(description="How this event can be used strategically (1-2 sentences)")
 
 class ChallengeEnrichmentResponse(BaseModel):
     """Structured response for challenge enrichment"""
@@ -72,6 +76,8 @@ class ChallengeEnrichmentResponse(BaseModel):
     full_description: str = Field(description="Enhanced description (2-3 sentences)")
     success_rewards: Dict[str, str] = Field(description="Success rewards")
     failure_consequences: Dict[str, str] = Field(description="Failure consequences")
+    importance_description: str = Field(description="Why this challenge is important (1-2 sentences)")
+    usage_description: str = Field(description="How this challenge tests the player (1-2 sentences)")
 
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
@@ -965,12 +971,14 @@ async def generate_discovery(spec: dict, scene: dict, state: CampaignWorkflowSta
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a master RPG designer creating discovery elements.
 
-Generate a compelling name and enriched description for a discovery.
+Generate a compelling name and enriched descriptions for a discovery.
 
 Return JSON:
 {{
   "name": "Discovery name (3-5 words)",
-  "full_description": "Enhanced description with sensory details and narrative context (2-3 sentences)"
+  "full_description": "Enhanced description with sensory details and narrative context (2-3 sentences)",
+  "importance_description": "Why this discovery is important to the story and gameplay (1-2 sentences)",
+  "usage_description": "How players can use or apply this discovery (1-2 sentences)"
 }}
 
 CRITICAL: Return ONLY the JSON object, no other text."""),
@@ -979,7 +987,7 @@ Scene Context: {scene_description}
 Discovery Type: {discovery_type}
 Discovery Base: {discovery_description}
 
-Create a compelling discovery element.""")
+Create a compelling discovery element with importance and usage information.""")
     ])
 
     # Use structured output for guaranteed valid JSON
@@ -1010,7 +1018,16 @@ Create a compelling discovery element.""")
         "provides_knowledge_ids": spec.get("provides_knowledge_ids", []),  # ID-based!
         "provides_item_ids": spec.get("provides_item_ids", []),  # ID-based!
         "rubric_id": rubric_id,
-        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
+        "scene_id": scene.get("scene_id"),  # Link to parent scene for persistence
+
+        # NEW: Expanded fields
+        "full_description": enriched.get("full_description", spec.get("description", "")),
+        "importance_description": enriched.get("importance_description", ""),
+        "usage_description": enriched.get("usage_description", ""),
+        "acquisition_when": None,  # Populated at runtime
+        "acquisition_where": scene.get("level_3_location_name", ""),
+        "acquisition_how": "Environmental discovery",
+        "acquisition_from_whom": None
     }
 
     # Generate rubric for this discovery
@@ -1053,13 +1070,15 @@ async def generate_event(spec: dict, scene: dict, state: CampaignWorkflowState) 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a master RPG designer creating dynamic event elements.
 
-Generate a compelling name and enriched description for an event.
+Generate a compelling name and enriched descriptions for an event.
 
 Return JSON:
 {{
   "name": "Event name (3-5 words)",
   "full_description": "Enhanced description with dramatic detail (2-3 sentences)",
-  "outcomes": ["outcome1", "outcome2"]
+  "outcomes": ["outcome1", "outcome2"],
+  "importance_description": "Why this event is important to the story and gameplay (1-2 sentences)",
+  "usage_description": "How players can respond to or use this event strategically (1-2 sentences)"
 }}
 
 CRITICAL: Return ONLY the JSON object, no other text."""),
@@ -1068,7 +1087,7 @@ Scene Context: {scene_description}
 Event Type: {event_type}
 Event Base: {event_description}
 
-Create a compelling event element.""")
+Create a compelling event element with importance and usage information.""")
     ])
 
     # Use structured output for guaranteed valid JSON
@@ -1099,7 +1118,16 @@ Create a compelling event element.""")
         "provides_knowledge_ids": spec.get("provides_knowledge_ids", []),  # ID-based!
         "provides_item_ids": spec.get("provides_item_ids", []),  # ID-based!
         "rubric_id": rubric_id,
-        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
+        "scene_id": scene.get("scene_id"),  # Link to parent scene for persistence
+
+        # NEW: Expanded fields
+        "full_description": enriched.get("full_description", spec.get("description", "")),
+        "importance_description": enriched.get("importance_description", ""),
+        "usage_description": enriched.get("usage_description", ""),
+        "completion_when": None,  # Populated at runtime
+        "completion_where": scene.get("level_3_location_name", ""),
+        "completion_how": "Dynamic event participation",
+        "completion_from_whom": None
     }
 
     # Generate rubric for this event
@@ -1149,14 +1177,16 @@ async def generate_challenge(spec: dict, scene: dict, state: CampaignWorkflowSta
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a master RPG designer creating challenge elements.
 
-Generate a compelling name and enriched description for a challenge.
+Generate a compelling name and enriched descriptions for a challenge.
 
 Return JSON:
 {{
   "name": "Challenge name (3-5 words)",
   "full_description": "Enhanced description with stakes and mechanics (2-3 sentences)",
   "success_rewards": {{"reward_type": "reward_description"}},
-  "failure_consequences": {{"consequence_type": "consequence_description"}}
+  "failure_consequences": {{"consequence_type": "consequence_description"}},
+  "importance_description": "Why this challenge is important to the story and gameplay (1-2 sentences)",
+  "usage_description": "How this challenge tests player skills and abilities (1-2 sentences)"
 }}
 
 CRITICAL: Return ONLY the JSON object, no other text."""),
@@ -1166,7 +1196,7 @@ Challenge Type: {challenge_type}
 Challenge Base: {challenge_description}
 Difficulty: {difficulty}
 
-Create a compelling challenge element.""")
+Create a compelling challenge element with importance and usage information.""")
     ])
 
     # Use structured output for guaranteed valid JSON
@@ -1220,7 +1250,16 @@ Create a compelling challenge element.""")
         "failure_consequences": enriched.get("failure_consequences", {}),
 
         # Scene linking
-        "scene_id": scene.get("scene_id")  # Link to parent scene for persistence
+        "scene_id": scene.get("scene_id"),  # Link to parent scene for persistence
+
+        # NEW: Expanded fields
+        "full_description": enriched.get("full_description", spec.get("description", "")),
+        "importance_description": enriched.get("importance_description", ""),
+        "usage_description": enriched.get("usage_description", ""),
+        "completion_when": None,  # Populated at runtime
+        "completion_where": scene.get("level_3_location_name", ""),
+        "completion_how": f"{challenge_type} challenge",
+        "completion_from_whom": None
     }
 
     # Generate rubric for this challenge

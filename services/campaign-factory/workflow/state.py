@@ -192,6 +192,16 @@ class DiscoveryData(TypedDict):
     provides_knowledge_ids: List[str]  # Knowledge IDs this discovery provides
     rubric_id: Optional[str]  # Link to evaluation rubric for environmental discovery
 
+    # NEW: Expanded fields for admin UI
+    full_description: str  # Full description of what it is
+    importance_description: str  # Why it is important
+    usage_description: str  # How it can be used
+    acquisition_when: Optional[str]  # When the player acquired/completed it
+    acquisition_where: Optional[str]  # Where the player acquired/completed it
+    acquisition_how: Optional[str]  # How the player acquired it
+    acquisition_from_whom: Optional[str]  # From whom the player acquired it
+    scene_id: Optional[str]  # Link to parent scene
+
 
 class EventData(TypedDict):
     """Event definition"""
@@ -205,6 +215,15 @@ class EventData(TypedDict):
     provides_item_ids: List[str]  # Item IDs this event can provide
     rubric_id: Optional[str]  # Link to evaluation rubric for dynamic event
     scene_id: Optional[str]  # Link to parent scene
+
+    # NEW: Expanded fields for admin UI
+    full_description: str  # Full description of what it is
+    importance_description: str  # Why it is important
+    usage_description: str  # How it can be used
+    completion_when: Optional[str]  # When the player completed it
+    completion_where: Optional[str]  # Where the player completed it
+    completion_how: Optional[str]  # How the player completed it
+    completion_from_whom: Optional[str]  # From whom the player completed it
 
 
 class ItemData(TypedDict):
@@ -224,6 +243,15 @@ class ItemData(TypedDict):
     # Metadata
     created_at: Optional[str]
     scene_id: Optional[str]
+
+    # NEW: Expanded fields for admin UI
+    full_description: str  # Full description of what it is
+    importance_description: str  # Why it is important
+    usage_description: str  # How it can be used
+    acquisition_when: Optional[str]  # When the player acquired it
+    acquisition_where: Optional[str]  # Where the player acquired it
+    acquisition_how: Optional[str]  # How the player acquired it
+    acquisition_from_whom: Optional[str]  # From whom the player acquired it
 
 
 class RubricCriterion(TypedDict):
@@ -289,6 +317,16 @@ class ChallengeData(TypedDict):
     # Legacy support
     success_rewards: Dict[str, Any]
     failure_consequences: Dict[str, Any]
+
+    # NEW: Expanded fields for admin UI
+    full_description: str  # Full description of what it is
+    importance_description: str  # Why it is important
+    usage_description: str  # How it can be used
+    completion_when: Optional[str]  # When the player completed it
+    completion_where: Optional[str]  # Where the player completed it
+    completion_how: Optional[str]  # How the player completed it
+    completion_from_whom: Optional[str]  # From whom the player completed it
+    scene_id: Optional[str]  # Link to parent scene
 
 
 """

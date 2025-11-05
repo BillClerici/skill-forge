@@ -58,6 +58,8 @@ from campaigns.views_gameplay import (
     PartyLobbyView, JoinSessionView, SessionControlView, CampaignImagesAPIView,
     DeleteSessionView
 )
+from campaigns import crud_views
+from campaigns import npc_image_views
 # V1 wizard views removed - using V2 only
 from campaigns import wizard_views_v2
 from characters.views import (
@@ -201,6 +203,21 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/reorder-quests/', CampaignReorderQuestsView.as_view(), name='campaign_reorder_quests'),
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/reorder-places/', QuestReorderPlacesView.as_view(), name='quest_reorder_places'),
     path('campaigns/<str:campaign_id>/places/<str:place_id>/reorder-scenes/', PlaceReorderScenesView.as_view(), name='place_reorder_scenes'),
+
+    # Entity CRUD API
+    path('api/campaigns/<str:campaign_id>/<str:entity_type>/create/', crud_views.CreateEntityAPIView.as_view(), name='entity_create'),
+    path('api/campaigns/<str:campaign_id>/<str:entity_type>/<str:entity_id>/', crud_views.GetEntityAPIView.as_view(), name='entity_get'),
+    path('api/campaigns/<str:campaign_id>/<str:entity_type>/<str:entity_id>/update/', crud_views.UpdateEntityAPIView.as_view(), name='entity_update'),
+    path('api/campaigns/<str:campaign_id>/<str:entity_type>/<str:entity_id>/delete/', crud_views.DeleteEntityAPIView.as_view(), name='entity_delete'),
+
+    # NPC Image Generation and AI Regeneration API
+    path('api/campaigns/<str:campaign_id>/npcs/<str:npc_id>/generate-image/', npc_image_views.NPCGenerateImageView.as_view(), name='npc_generate_image'),
+    path('api/campaigns/<str:campaign_id>/npcs/<str:npc_id>/save-image/', npc_image_views.NPCSaveImageView.as_view(), name='npc_save_image'),
+    path('api/campaigns/<str:campaign_id>/npcs/<str:npc_id>/delete-image/', npc_image_views.NPCDeleteImageView.as_view(), name='npc_delete_image'),
+    path('api/campaigns/<str:campaign_id>/npcs/<str:npc_id>/regenerate-fields/', npc_image_views.NPCRegenerateFieldsView.as_view(), name='npc_regenerate_fields'),
+
+    # World Species API
+    path('api/worlds/<str:world_id>/species/', crud_views.WorldSpeciesListView.as_view(), name='world_species_list'),
 
     # Campaign Wizard V2 - Main Entry Point
     path('campaigns/wizard/', wizard_views_v2.campaign_wizard_v2, name='campaign_wizard_v2'),

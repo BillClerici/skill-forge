@@ -346,7 +346,8 @@ class CampaignDetailView(View):
                 'target_blooms_level': campaign.get('target_blooms_level', ''),
                 'stats': campaign.get('stats', {}),
                 'primary_image_url': campaign_image_url,
-                'world_image_url': world_image_url
+                'world_image_url': world_image_url,
+                'world_id': campaign.get('world_id') or (campaign.get('world_ids', [])[0] if campaign.get('world_ids') else None)
             },
             'quests': []
         }
@@ -416,6 +417,7 @@ class CampaignDetailView(View):
                                     npc_role = npc_role.get('type', 'Character')
 
                             npcs.append({
+                                'npc_id': npc.get('npc_id', npc.get('_id', '')),
                                 'name': npc.get('name', 'Unknown'),
                                 'role': str(npc_role) if npc_role else 'Character',
                                 'species_name': npc.get('species_name', '')
@@ -430,10 +432,17 @@ class CampaignDetailView(View):
                         discoveries_raw = list(db.discoveries.find({'_id': {'$in': discovery_ids}}))
                         for discovery in discoveries_raw:
                             discoveries.append({
+                                'discovery_id': discovery.get('_id', ''),
                                 'name': discovery.get('name', 'Unknown Discovery'),
                                 'description': discovery.get('description', ''),
                                 'knowledge_type': discovery.get('knowledge_type', 'information'),
-                                'blooms_level': discovery.get('blooms_level', 0)
+                                'blooms_level': discovery.get('blooms_level', 0),
+                                # Expanded fields
+                                'full_description': discovery.get('full_description', ''),
+                                'importance_description': discovery.get('importance_description', ''),
+                                'usage_description': discovery.get('usage_description', ''),
+                                'acquisition_where': discovery.get('acquisition_where', ''),
+                                'acquisition_how': discovery.get('acquisition_how', '')
                             })
 
                     # Get Events for this scene
@@ -445,10 +454,17 @@ class CampaignDetailView(View):
                         events_raw = list(db.events.find({'_id': {'$in': event_ids}}))
                         for event in events_raw:
                             events.append({
+                                'event_id': event.get('_id', ''),
                                 'name': event.get('name', 'Unknown Event'),
                                 'description': event.get('description', ''),
                                 'event_type': event.get('event_type', 'scripted'),
-                                'outcomes': event.get('outcomes', [])
+                                'outcomes': event.get('outcomes', []),
+                                # Expanded fields
+                                'full_description': event.get('full_description', ''),
+                                'importance_description': event.get('importance_description', ''),
+                                'usage_description': event.get('usage_description', ''),
+                                'completion_where': event.get('completion_where', ''),
+                                'completion_how': event.get('completion_how', '')
                             })
 
                     # Get Challenges for this scene
@@ -460,12 +476,19 @@ class CampaignDetailView(View):
                         challenges_raw = list(db.challenges.find({'_id': {'$in': challenge_ids}}))
                         for challenge in challenges_raw:
                             challenges.append({
+                                'challenge_id': challenge.get('_id', ''),
                                 'name': challenge.get('name', 'Unknown Challenge'),
                                 'description': challenge.get('description', ''),
                                 'challenge_type': challenge.get('challenge_type', 'skill_check'),
                                 'difficulty': challenge.get('difficulty', 'Medium'),
                                 'success_rewards': challenge.get('success_rewards', {}),
-                                'failure_consequences': challenge.get('failure_consequences', {})
+                                'failure_consequences': challenge.get('failure_consequences', {}),
+                                # Expanded fields
+                                'full_description': challenge.get('full_description', ''),
+                                'importance_description': challenge.get('importance_description', ''),
+                                'usage_description': challenge.get('usage_description', ''),
+                                'completion_where': challenge.get('completion_where', ''),
+                                'completion_how': challenge.get('completion_how', '')
                             })
 
                     # Get Knowledge Entities for this scene
@@ -681,11 +704,18 @@ class CampaignDetailView(View):
                                         })
 
                             items.append({
+                                'item_id': item.get('item_id', ''),
                                 'name': item.get('name', 'Unknown Item'),
                                 'description': item.get('description', ''),
                                 'item_type': item.get('item_type', 'item'),
                                 'is_quest_critical': item.get('is_quest_critical', False),
-                                'acquisition_methods': acquisition_methods
+                                'acquisition_methods': acquisition_methods,
+                                # Expanded fields
+                                'full_description': item.get('full_description', ''),
+                                'importance_description': item.get('importance_description', ''),
+                                'usage_description': item.get('usage_description', ''),
+                                'acquisition_where': item.get('acquisition_where', ''),
+                                'acquisition_how': item.get('acquisition_how', '')
                             })
 
                     # Get Rubrics for this scene

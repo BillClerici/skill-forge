@@ -36,9 +36,13 @@ class SpeciesEvaluationResponse(BaseModel):
 class NPCDetailsResponse(BaseModel):
     """Structured response for NPC generation"""
     npc_name: str = Field(description="NPC name")
-    personality_traits: List[str] = Field(description="List of personality traits")
+    description: str = Field(description="Brief one-sentence description of the NPC")
+    purpose: str = Field(description="The NPC's function in the campaign narrative")
+    archetype: str = Field(description="Character archetype: mentor, trickster, guardian, herald, or shadow")
+    personality_traits: List[str] = Field(description="List of 5-7 personality traits")
     backstory: str = Field(description="NPC backstory (2-3 paragraphs)")
-    dialogue_style: str = Field(description="Description of dialogue style")
+    backstory_summary: str = Field(description="One-paragraph summary of the backstory")
+    dialogue_style: str = Field(description="Dialogue style: formal, casual, cryptic, warm, stern, or eloquent")
     quirks: List[str] = Field(default_factory=list, description="List of quirks")
 
 # Initialize Claude client
@@ -310,13 +314,19 @@ The NPC should:
 - Have a backstory that connects to the world and narrative
 - Have a distinct dialogue style
 - Be appropriate for their species
+- Have a clear archetype (mentor, trickster, guardian, herald, or shadow)
+- Have a clear purpose in the campaign narrative
 
-Return your response as JSON:
+Return your response as JSON with ALL these fields:
 {{
   "npc_name": "NPC name",
-  "personality_traits": ["trait1", "trait2", "trait3"],
-  "backstory": "NPC backstory (2-3 paragraphs)",
-  "dialogue_style": "Description of how this NPC speaks and interacts",
+  "description": "Brief one-sentence description",
+  "purpose": "Their function in the campaign narrative",
+  "archetype": "mentor|trickster|guardian|herald|shadow",
+  "personality_traits": ["trait1", "trait2", "trait3", "trait4", "trait5"],
+  "backstory": "Full NPC backstory (2-3 paragraphs)",
+  "backstory_summary": "One-paragraph summary of the backstory",
+  "dialogue_style": "formal|casual|cryptic|warm|stern|eloquent",
   "quirks": ["quirk1", "quirk2"]
 }}
 
@@ -327,7 +337,7 @@ Species: {species}
 Location: {location}
 Narrative Context: {context}
 
-Generate a complete NPC with personality and backstory.""")
+Generate a complete NPC with personality, backstory, purpose, archetype, and all required fields.""")
         ])
 
         # Generate NPC with structured output for guaranteed valid JSON
@@ -341,19 +351,32 @@ Generate a complete NPC with personality and backstory.""")
                 "context": state.get("narrative_context", "")
             })
             npc_data = npc_response.model_dump()
-            # Ensure backstory is always present
+            # Ensure required fields are always present
             if not npc_data.get("backstory") or npc_data.get("backstory").strip() == "":
                 logger.warning(f"NPC {npc_data.get('npc_name', 'unknown')} has no backstory, generating default")
                 npc_data["backstory"] = f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}."
+            if not npc_data.get("backstory_summary"):
+                npc_data["backstory_summary"] = npc_data.get("backstory", "")[:200] + "..."
+            if not npc_data.get("description"):
+                npc_data["description"] = f"A {state.get('species_name', 'character')} {state.get('npc_role', 'character')}."
+            if not npc_data.get("purpose"):
+                npc_data["purpose"] = f"Serves as a {state.get('npc_role', 'character')} in the narrative."
+            if not npc_data.get("archetype"):
+                npc_data["archetype"] = "neutral"
         except Exception as parse_err:
             logger.error(f"Structured output failed for NPC generation: {parse_err}")
             # Use fallback with minimal NPC data
             logger.warning("Using fallback: creating minimal NPC")
+            default_backstory = f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}."
             npc_data = {
                 "npc_name": f"{state.get('npc_role', 'Character').title()} NPC",
+                "description": f"A {state.get('species_name', 'character')} {state.get('npc_role', 'character')}.",
+                "purpose": f"Serves as a {state.get('npc_role', 'character')} in the narrative.",
+                "archetype": "neutral",
                 "personality_traits": ["mysterious", "reserved"],
-                "backstory": f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}.",
-                "dialogue_style": "Speaks with measured words.",
+                "backstory": default_backstory,
+                "backstory_summary": default_backstory,
+                "dialogue_style": "formal",
                 "quirks": []
             }
 
@@ -388,12 +411,23 @@ Generate a complete NPC with personality and backstory.""")
             "name": npc_name,
             "species_id": species_id,
             "species_name": species_name,
-            "personality_traits": npc_data.get("personality_traits", []),
+
+            # Core identity (NEW FIELDS)
             "role": state.get("npc_role", "neutral") if not isinstance(npc_role_data, dict) else npc_role_data.get("type", "neutral"),
+            "purpose": npc_data.get("purpose", ""),
+            "archetype": npc_data.get("archetype", "neutral"),
+
+            # Personality & backstory
+            "personality_traits": npc_data.get("personality_traits", []),
             "dialogue_style": npc_data.get("dialogue_style", ""),
             "backstory": npc_data.get("backstory", ""),
+            "backstory_summary": npc_data.get("backstory_summary", ""),
+
+            # Location
             "level_3_location_id": state.get("level_3_location_id", ""),
             "level_3_location_name": state.get("location_name", "Unknown Location"),
+
+            # World & items
             "is_world_permanent": True,  # All campaign NPCs are added to world
             "provides_knowledge_ids": provides_knowledge,  # Knowledge NPC can teach
             "provides_item_ids": provides_items,  # Items NPC can give/sell

@@ -298,14 +298,17 @@ Return JSON:
 {{
   "description": "Detailed description of the item (2-3 sentences)",
   "item_type": "tool, consumable, key_item, quest_item, equipment, or resource",
-  "is_quest_critical": true or false
+  "is_quest_critical": true or false,
+  "full_description": "Full description of what it is (2-3 sentences)",
+  "importance_description": "Why this item is important (1-2 sentences)",
+  "usage_description": "How this item can be used (1-2 sentences)"
 }}
 
 CRITICAL: Return ONLY the JSON object, no other text."""),
                 ("user", """Item Name: {item_name}
 Campaign Context: {campaign_plot}
 
-Generate detailed item information.""")
+Generate detailed item information including importance and usage.""")
             ])
 
             chain = prompt | anthropic_client
@@ -331,7 +334,16 @@ Generate detailed item information.""")
                 "is_consumable": enriched.get("item_type") == "consumable",
                 "is_quest_critical": enriched.get("is_quest_critical", False),
                 "created_at": datetime.utcnow().isoformat(),
-                "scene_id": scene_id
+                "scene_id": scene_id,
+
+                # NEW: Expanded fields
+                "full_description": enriched.get("full_description", enriched.get("description", f"A useful item: {display_name}")),
+                "importance_description": enriched.get("importance_description", ""),
+                "usage_description": enriched.get("usage_description", ""),
+                "acquisition_when": None,  # Populated at runtime
+                "acquisition_where": None,  # Populated at runtime from scene
+                "acquisition_how": None,  # Populated at runtime from acquisition method
+                "acquisition_from_whom": None  # Populated at runtime
             }
 
             item_entities.append(item)
