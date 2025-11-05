@@ -50,9 +50,9 @@
 </div>
 
 <!-- Wizard Layout with Left Sidebar -->
-<div class="row">
+<div class="row" style="margin-top: 20px;">
     <!-- Left Sidebar Navigation -->
-    <div class="col s12 m4 l3">
+    <div class="col s12 m4 l3 wizard-sidebar-column">
         <div class="wizard-sidebar" style="position: sticky; top: 20px;">
             <div class="card" style="background: rgba(27, 27, 46, 0.6);">
                 <div class="card-content" style="padding: 12px;">
@@ -60,7 +60,7 @@
                         <i class="material-icons tiny" style="vertical-align: middle;">list</i> Steps
                     </h6>
 
-                    <nav id="wizard-nav" style="min-height: 500px; max-height: calc(100vh - 180px); overflow-y: auto;">
+                    <div id="wizard-nav" style="min-height: 500px; max-height: calc(100vh - 180px); overflow-y: auto; overflow-x: hidden;">
                         <div class="nav-step active" data-step="1">
                             <div class="nav-step-number">1</div>
                             <div class="nav-step-label">Universe</div>
@@ -105,14 +105,14 @@
                             <div class="nav-step-number">11</div>
                             <div class="nav-step-label">Finalize</div>
                         </div>
-                    </nav>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Main Content Area -->
-    <div class="col s12 m8 l9">
+    <div class="col s12 m8 l9 wizard-content-column">
 <form id="wizard-form">
     {% csrf_token %}
 
@@ -740,6 +740,11 @@
 
 {% block extra_css %}
 <style>
+    /* Universal box-sizing */
+    * {
+        box-sizing: border-box;
+    }
+
     /* Progress Indicator */
     #progress-container {
         padding: 20px 0;
@@ -803,15 +808,69 @@
         min-width: 20px;
     }
 
+    /* Wizard Layout Row - Force proper column constraints */
+    .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin-left: auto;
+        margin-right: auto;
+        max-width: 100%;
+    }
+
+    /* Sidebar Column - Fixed width on desktop */
+    @media (min-width: 993px) {
+        .wizard-sidebar-column {
+            flex: 0 0 25% !important;
+            max-width: 25% !important;
+            min-width: 0;
+        }
+
+        .wizard-content-column {
+            flex: 0 0 75% !important;
+            max-width: 75% !important;
+            min-width: 0;
+        }
+    }
+
+    @media (min-width: 601px) and (max-width: 992px) {
+        .wizard-sidebar-column {
+            flex: 0 0 33.333% !important;
+            max-width: 33.333% !important;
+            min-width: 0;
+        }
+
+        .wizard-content-column {
+            flex: 0 0 66.667% !important;
+            max-width: 66.667% !important;
+            min-width: 0;
+        }
+    }
+
     /* Left Sidebar Navigation */
     .wizard-sidebar {
         margin-bottom: 20px;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .wizard-sidebar .card {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    .wizard-sidebar .card-content {
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     #wizard-nav {
         display: flex;
         flex-direction: column;
         gap: 5px;
+        box-sizing: border-box;
     }
 
     /* Custom scrollbar for sidebar */
@@ -842,6 +901,10 @@
         border-radius: 4px;
         cursor: pointer;
         transition: all 0.3s ease;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
     .nav-step:hover {
@@ -909,6 +972,8 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
     }
 
     .nav-step.active .nav-step-label {
@@ -921,9 +986,14 @@
     }
 
     /* Mobile: Hide sidebar, show horizontal instead */
-    @media (max-width: 768px) {
-        .wizard-sidebar {
+    @media (max-width: 600px) {
+        .wizard-sidebar-column {
             display: none;
+        }
+
+        .wizard-content-column {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
         }
     }
 

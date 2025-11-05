@@ -51,6 +51,13 @@ async def generate_scene_assignments_node(state: CampaignWorkflowState) -> Campa
             for qobj in decomp["quest_objectives"]:
                 quest_obj_to_campaign_obj[qobj["objective_id"]] = decomp["campaign_objective_id"]
 
+        # NEW: Handle child objectives assignment to scenes
+        child_objectives = state.get("child_objectives", [])
+        if child_objectives:
+            logger.info(f"Assigning {len(child_objectives)} child objectives to scenes")
+            state = await _assign_child_objectives_to_scenes(state)
+            logger.info("Child objectives assigned to scenes")
+
         # Build scene lookup from narrative blueprint
         scene_metadata_map = {}  # scene_id -> narrative scene data
         narrative_blueprint = state.get("narrative_blueprint", {})
@@ -214,3 +221,183 @@ async def generate_scene_assignments_node(state: CampaignWorkflowState) -> Campa
         )
 
     return state
+
+
+async def _assign_child_objectives_to_scenes(state: CampaignWorkflowState) -> CampaignWorkflowState:
+    """
+    Assign child objectives to specific scenes where they can be completed
+
+    - Discovery: scene-specific (where discovery is located)
+    - Challenge: scene-specific (where challenge is located)
+    - Event: scene-specific (where event occurs)
+    - Conversation: multi-scene (NPC can appear in multiple scenes)
+    """
+    child_objectives = state.get("child_objectives", [])
+    scenes = state.get("scenes", [])
+    npcs = state.get("npcs", [])
+    discoveries = state.get("discoveries", [])
+    challenges = state.get("challenges", [])
+    events = state.get("events", [])
+
+    # Track scene to child objectives mapping
+    scene_to_child_objs: Dict[str, List[str]] = defaultdict(list)
+
+    for child_obj in child_objectives:
+        obj_type = child_obj["objective_type"]
+        obj_id = child_obj["objective_id"]
+        quest_id = child_obj.get("quest_id")
+
+        assigned_scenes = []
+
+        if obj_type == "discovery":
+            # Discovery objectives are scene-specific
+            assigned_scenes = _find_discovery_scenes(child_obj, scenes, discoveries, quest_id)
+
+        elif obj_type == "challenge":
+            # Challenge objectives are scene-specific
+            assigned_scenes = _find_challenge_scenes(child_obj, scenes, challenges, quest_id)
+
+        elif obj_type == "event":
+            # Event objectives are scene-specific
+            assigned_scenes = _find_event_scenes(child_obj, scenes, events, quest_id)
+
+        elif obj_type == "conversation":
+            # Conversation objectives: NPC can appear in multiple scenes
+            assigned_scenes = _find_conversation_scenes(child_obj, scenes, npcs, quest_id)
+
+        # Update child objective with assigned scenes
+        child_obj["available_in_scenes"] = assigned_scenes
+        child_obj["primary_scene_id"] = assigned_scenes[0] if assigned_scenes else None
+
+        # Track for scene assignments
+        for scene_id in assigned_scenes:
+            scene_to_child_objs[scene_id].append(obj_id)
+
+        logger.info(f"Child objective '{child_obj['description'][:50]}...' assigned to {len(assigned_scenes)} scene(s)")
+
+    # Update existing scene assignments with child objectives
+    for assignment in state.get("scene_objective_assignments", []):
+        scene_id = assignment["scene_id"]
+        if scene_id in scene_to_child_objs:
+            assignment["child_objectives"] = scene_to_child_objs[scene_id]
+
+    # Store updated child objectives
+    state["child_objectives"] = child_objectives
+
+    return state
+
+
+def _find_discovery_scenes(
+    child_obj: Dict[str, Any],
+    scenes: List[Dict[str, Any]],
+    discoveries: List[Dict[str, Any]],
+    quest_id: str
+) -> List[str]:
+    """Find scene(s) where discovery objective can be completed"""
+
+    # Try to find the discovery entity
+    discovery_id = child_obj.get("discovery_entity_id")
+    if discovery_id:
+        discovery = next((d for d in discoveries if d.get("discovery_id") == discovery_id), None)
+        if discovery and discovery.get("scene_id"):
+            return [discovery["scene_id"]]
+
+    # Fallback: assign to a scene in the same quest
+    quest_scenes = [s for s in scenes if s.get("quest_id") == quest_id or quest_id in str(s.get("parent_place_id", ""))]
+
+    if quest_scenes:
+        # Pick first available scene
+        return [quest_scenes[0]["scene_id"]]
+
+    # Last resort: use first scene overall
+    if scenes:
+        return [scenes[0]["scene_id"]]
+
+    return []
+
+
+def _find_challenge_scenes(
+    child_obj: Dict[str, Any],
+    scenes: List[Dict[str, Any]],
+    challenges: List[Dict[str, Any]],
+    quest_id: str
+) -> List[str]:
+    """Find scene(s) where challenge objective can be completed"""
+
+    # Try to find the challenge entity
+    challenge_id = child_obj.get("challenge_entity_id")
+    if challenge_id:
+        challenge = next((c for c in challenges if c.get("challenge_id") == challenge_id), None)
+        if challenge and challenge.get("scene_id"):
+            return [challenge["scene_id"]]
+
+    # Fallback: assign to a scene in the same quest
+    quest_scenes = [s for s in scenes if s.get("quest_id") == quest_id or quest_id in str(s.get("parent_place_id", ""))]
+
+    if quest_scenes:
+        return [quest_scenes[0]["scene_id"]]
+
+    if scenes:
+        return [scenes[0]["scene_id"]]
+
+    return []
+
+
+def _find_event_scenes(
+    child_obj: Dict[str, Any],
+    scenes: List[Dict[str, Any]],
+    events: List[Dict[str, Any]],
+    quest_id: str
+) -> List[str]:
+    """Find scene(s) where event objective can be completed"""
+
+    # Try to find the event entity
+    event_id = child_obj.get("event_entity_id")
+    if event_id:
+        event = next((e for e in events if e.get("event_id") == event_id), None)
+        if event and event.get("scene_id"):
+            return [event["scene_id"]]
+
+    # Fallback: assign to a scene in the same quest
+    quest_scenes = [s for s in scenes if s.get("quest_id") == quest_id or quest_id in str(s.get("parent_place_id", ""))]
+
+    if quest_scenes:
+        return [quest_scenes[0]["scene_id"]]
+
+    if scenes:
+        return [scenes[0]["scene_id"]]
+
+    return []
+
+
+def _find_conversation_scenes(
+    child_obj: Dict[str, Any],
+    scenes: List[Dict[str, Any]],
+    npcs: List[Dict[str, Any]],
+    quest_id: str
+) -> List[str]:
+    """Find scene(s) where conversation objective can be completed (multi-scene support)"""
+
+    # Try to find the NPC
+    npc_id = child_obj.get("npc_id")
+    if npc_id:
+        npc = next((n for n in npcs if n.get("npc_id") == npc_id), None)
+        if npc:
+            # NPCs can appear in multiple scenes
+            if npc.get("appears_in_scenes"):
+                return npc["appears_in_scenes"]
+            elif npc.get("primary_scene_id"):
+                return [npc["primary_scene_id"]]
+
+    # Fallback: assign to 2-3 scenes in the same quest (conversation flexibility)
+    quest_scenes = [s for s in scenes if s.get("quest_id") == quest_id or quest_id in str(s.get("parent_place_id", ""))]
+
+    if quest_scenes:
+        # Return up to 3 scenes for conversation flexibility
+        return [s["scene_id"] for s in quest_scenes[:3]]
+
+    # Last resort: use first 3 scenes overall
+    if scenes:
+        return [s["scene_id"] for s in scenes[:3]]
+
+    return []

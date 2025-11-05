@@ -6,19 +6,37 @@ import os
 import logging
 import json
 import uuid
+from typing import List
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import CampaignWorkflowState, CampaignCore
 from .utils import add_audit_entry, publish_progress, create_checkpoint, get_blooms_level_description
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class PrimaryObjectiveResponse(BaseModel):
+    """Structured response for a primary campaign objective"""
+    description: str = Field(description="Clear, actionable objective description")
+    blooms_level: int = Field(description="Bloom's taxonomy level (1-6)", ge=1, le=6)
+    contribution: str = Field(description="How this objective advances the campaign")
+
+class CampaignCoreResponse(BaseModel):
+    """Structured response for campaign core generation"""
+    campaign_name: str = Field(description="Compelling, memorable campaign title")
+    plot: str = Field(description="3-4 paragraph overview of the main story arc")
+    storyline: str = Field(description="Detailed 5-7 paragraph narrative describing campaign progression")
+    primary_objectives: List[PrimaryObjectiveResponse] = Field(description="3-5 high-level campaign objectives", min_length=3, max_length=5)
+    estimated_duration_hours: int = Field(default=20, description="Estimated campaign duration in hours", ge=1)
+    difficulty_level: str = Field(default="Medium", description="Campaign difficulty level")
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     # API key read from ANTHROPIC_API_KEY env var
-    temperature=0.8,
+    temperature=0.3,  # Lower temperature for more consistent JSON output
     max_tokens=4096
 )
 
@@ -90,25 +108,7 @@ Bloom's Taxonomy Levels:
 3. Applying - Use information in new situations
 4. Analyzing - Draw connections among ideas
 5. Evaluating - Justify a decision or course of action
-6. Creating - Produce new or original work
-
-Return your response as JSON with this structure:
-{{
-  "campaign_name": "The campaign name",
-  "plot": "Multi-paragraph plot description",
-  "storyline": "Multi-paragraph storyline",
-  "primary_objectives": [
-    {{
-      "description": "Objective description",
-      "blooms_level": 3,
-      "contribution": "How this objective advances the campaign"
-    }}
-  ],
-  "estimated_duration_hours": 20,
-  "difficulty_level": "Medium"
-}}
-
-CRITICAL: Return ONLY the JSON object, no other text."""),
+6. Creating - Produce new or original work"""),
             ("user", """Story Idea Selected:
 Title: {title}
 Summary: {summary}
@@ -126,9 +126,12 @@ Target Bloom's Level: {blooms_level} ({blooms_desc})
 Generate a complete campaign based on this story idea.""")
         ])
 
-        # Generate campaign core
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
+        # Use structured output to guarantee valid responses
+        structured_llm = anthropic_client.with_structured_output(CampaignCoreResponse, include_raw=False)
+        chain = prompt | structured_llm
+
+        # Generate campaign core - response is already a Pydantic model
+        core_response: CampaignCoreResponse = await chain.ainvoke({
             "title": selected_story["title"],
             "summary": selected_story["summary"],
             "themes": ", ".join(selected_story["themes"]),
@@ -141,12 +144,12 @@ Generate a complete campaign based on this story idea.""")
             "blooms_desc": get_blooms_level_description(target_blooms_level)
         })
 
-        # Parse response
+        # Convert Pydantic model to dict for processing
         state["step_progress"] = 70
         state["status_message"] = "Parsing campaign details..."
         await publish_progress(state)
 
-        core_data = json.loads(response.content.strip())
+        core_data = core_response.model_dump()
 
         # Create CampaignCore
         state["step_progress"] = 85

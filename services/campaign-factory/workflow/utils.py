@@ -14,6 +14,62 @@ from .state import CampaignWorkflowState, AuditEntry
 
 logger = logging.getLogger(__name__)
 
+
+def extract_json_from_llm_response(response_text: str) -> str:
+    """
+    Extract and clean JSON from LLM response, handling markdown code blocks and common formatting issues.
+
+    Args:
+        response_text: Raw LLM response text
+
+    Returns:
+        Cleaned JSON string ready for parsing
+    """
+    import re
+
+    response_text = response_text.strip()
+
+    # Handle markdown code blocks with json marker
+    if "```json" in response_text:
+        json_start = response_text.find("```json") + 7
+        json_end = response_text.find("```", json_start)
+        response_text = response_text[json_start:json_end].strip()
+
+    # Handle generic markdown code blocks
+    elif "```" in response_text:
+        json_start = response_text.find("```") + 3
+        json_end = response_text.find("```", json_start)
+        response_text = response_text[json_start:json_end].strip()
+
+    # Extract JSON object
+    elif "{" in response_text:
+        json_start = response_text.find("{")
+        json_end = response_text.rfind("}") + 1
+        response_text = response_text[json_start:json_end]
+
+    # Extract JSON array
+    elif "[" in response_text:
+        json_start = response_text.find("[")
+        json_end = response_text.rfind("]") + 1
+        response_text = response_text[json_start:json_end]
+
+    # Clean common JSON formatting issues from LLM responses
+
+    # Remove trailing commas before closing brackets/braces
+    response_text = re.sub(r',(\s*[}\]])', r'\1', response_text)
+
+    # Remove comments (// style)
+    response_text = re.sub(r'//.*?$', '', response_text, flags=re.MULTILINE)
+
+    # Remove comments (/* */ style)
+    response_text = re.sub(r'/\*.*?\*/', '', response_text, flags=re.DOTALL)
+
+    # Fix unquoted keys (common LLM error) - find word: and replace with "word":
+    # But be careful not to replace URLs or values
+    response_text = re.sub(r'(\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', response_text)
+
+    return response_text.strip()
+
 # Database connections
 MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/')
 mongo_client = MongoClient(MONGODB_URI)

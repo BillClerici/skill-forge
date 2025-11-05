@@ -83,22 +83,64 @@ class SceneData(TypedDict):
     order_sequence: int
 
 
+class NPCBackstory(TypedDict):
+    """Elaborate NPC backstory structure"""
+    origin: str  # Where they came from
+    formative_experiences: List[str]  # Key life events that shaped them
+    current_situation: str  # Why they're here now
+    motivations: List[str]  # What drives them
+    secrets: List[str]  # Hidden information they possess
+    relationships: Dict[str, str]  # Connections to other NPCs (npc_id -> relationship description)
+
+
 class NPCData(TypedDict):
-    """NPC definition"""
+    """Enhanced NPC definition with depth and multi-scene presence"""
     npc_id: Optional[str]
-    name: str
+    name: str  # VALID, culture-appropriate name (NOT "Researcher_NPC")
     species_id: str
     species_name: str
-    personality_traits: List[str]
-    role: str  # quest_giver, merchant, enemy, ally, neutral
-    dialogue_style: str
-    backstory: str
-    level_3_location_id: str
-    level_3_location_name: str
+
+    # Core identity
+    role: str  # "elder" | "merchant" | "scholar" | "guide" | "antagonist" | "ally" | "neutral"
+    purpose: str  # Their function in the campaign narrative
+    archetype: str  # "mentor" | "trickster" | "guardian" | "herald" | "shadow"
+
+    # Elaborate backstory
+    backstory: NPCBackstory  # Structured backstory with depth
+    backstory_summary: str  # One-paragraph summary for quick reference
+
+    # Personality depth
+    personality_traits: List[str]  # 5-7 specific traits
+    dialogue_style: str  # "formal" | "casual" | "cryptic" | "warm" | "stern" | "eloquent"
+    speech_patterns: List[str]  # "uses metaphors" | "speaks slowly" | "interrupts often"
+    emotional_range: Dict[str, int]  # Default emotional states (e.g., {"curiosity": 8, "trust": 5})
+
+    # Knowledge & items
+    knowledge_domains: List[str]  # Areas of expertise (broad categories)
+    provides_knowledge_ids: List[str]  # Specific knowledge IDs with conditions
+    provides_item_ids: List[str]  # Item IDs they can give/sell
+
+    # Scene presence (MULTI-SCENE support)
+    primary_scene_id: str  # Where they're usually found (level_3_location_id)
+    primary_scene_name: str  # (level_3_location_name)
+    appears_in_scenes: List[str]  # All scene IDs where they can appear
+    appearance_conditions: Dict[str, Any]  # When/how they show up in each scene
+
+    # Quest involvement
+    involved_in_objectives: List[str]  # Conversation objective IDs
+    can_provide_hints_for: List[str]  # Other objective IDs they can help with
+
+    # Evaluation
+    conversation_rubric_ids: List[str]  # Multiple rubrics for different conversations
+
+    # World integration
     is_world_permanent: bool  # True if added to world's NPC pool
-    provides_knowledge_ids: List[str]  # Knowledge IDs this NPC can teach/provide
-    provides_item_ids: List[str]  # Item IDs this NPC can give/sell
-    rubric_id: Optional[str]  # Link to evaluation rubric for conversations
+    region_native: bool  # True if from this region
+
+    # Legacy fields (for backward compatibility)
+    level_3_location_id: str  # Same as primary_scene_id
+    level_3_location_name: str  # Same as primary_scene_name
+    rubric_id: Optional[str]  # Primary rubric (deprecated - use conversation_rubric_ids)
 
 
 class KnowledgePartialLevel(TypedDict):
@@ -304,13 +346,212 @@ class CharacterDevelopmentProfile(TypedDict):
     quest_progress: Dict[str, Dict[str, Any]]  # quest_id -> {status, objectives_completed, requirements_met}
 
 
-class QuestObjective(TypedDict):
-    """Quest objective with requirements"""
+class CampaignObjective(TypedDict):
+    """Top-level campaign objective"""
     objective_id: str
+    campaign_id: str
     description: str
+    bloom_level: int  # 1-6
+    status: str  # not_started, in_progress, completed
+
+    # Completion criteria
+    completion_type: str  # "all_quests" | "any_quests" | "threshold"
+    required_quest_count: Optional[int]  # If threshold type
+
+    # Metadata
+    narrative_significance: str
+    reward: Dict[str, Any]
+
+
+class QuestObjective(TypedDict):
+    """Quest objective with requirements (intermediate level)"""
+    objective_id: str
+    quest_id: str
+    quest_number: int
+    campaign_objective_ids: List[str]  # Which campaign objectives this supports
+    description: str
+    bloom_level: int
     required_knowledge: List[Dict[str, Any]]  # [{"knowledge_id": "kg_001", "min_level": 2}]
     required_items: List[Dict[str, Any]]  # [{"item_id": "item_001", "quantity": 1}]
+    completion_type: str  # "all" | "any" | "threshold"
+    required_threshold: Optional[float]  # If threshold type (e.g., 0.8 = 80%)
     status: str  # not_started, in_progress, completed
+
+
+class QuestChildObjective(TypedDict):
+    """Base child objective (granular, scene-specific)"""
+    objective_id: str
+    quest_id: str
+    quest_objective_id: str  # Parent quest objective
+    campaign_objective_ids: List[str]  # Which campaign objectives this ultimately supports
+
+    # Core properties
+    objective_type: str  # "discovery" | "challenge" | "event" | "conversation"
+    description: str  # Clear, concise, player-facing
+    bloom_level: int  # 1-6
+
+    # Scene availability
+    primary_scene_id: Optional[str]  # Main scene for this objective
+    available_in_scenes: List[str]  # All scenes where this can be completed
+    appearance_conditions: Dict[str, Any]  # When this objective becomes available
+
+    # Completion tracking
+    status: str  # not_started, in_progress, completed
+    is_required: bool  # Must complete to finish quest
+    is_hidden: bool  # Player doesn't see until discovered
+
+    # Rubric evaluation
+    rubric_ids: List[str]  # Evaluation rubrics
+    minimum_rubric_score: float  # Threshold for completion (e.g., 2.0/4.0)
+
+    # Requirements
+    required_knowledge: List[Dict[str, Any]]
+    required_items: List[Dict[str, Any]]
+    prerequisite_objectives: List[str]  # Other objectives that must be done first
+
+
+class DiscoveryObjective(TypedDict):
+    """Discovery-type child objective (environmental exploration)"""
+    objective_id: str
+    quest_id: str
+    quest_objective_id: str
+    campaign_objective_ids: List[str]
+    objective_type: str  # Always "discovery"
+    description: str
+    bloom_level: int
+
+    # Discovery specifics
+    discovery_entity_id: str  # Links to Discovery or Item document
+    discovery_subtype: str  # "observation" | "item_pickup" | "environmental_clue"
+    scene_location_hint: str  # "hidden alcove" | "under debris" | "in archives"
+
+    # Scene availability
+    primary_scene_id: Optional[str]
+    available_in_scenes: List[str]
+    appearance_conditions: Dict[str, Any]
+
+    # Completion
+    status: str
+    is_required: bool
+    is_hidden: bool
+    rubric_ids: List[str]
+    minimum_rubric_score: float
+
+    # Requirements
+    required_knowledge: List[Dict[str, Any]]
+    required_items: List[Dict[str, Any]]
+    prerequisite_objectives: List[str]
+
+
+class ChallengeObjective(TypedDict):
+    """Challenge-type child objective (puzzles, riddles)"""
+    objective_id: str
+    quest_id: str
+    quest_objective_id: str
+    campaign_objective_ids: List[str]
+    objective_type: str  # Always "challenge"
+    description: str
+    bloom_level: int
+
+    # Challenge specifics
+    challenge_entity_id: str  # Links to Challenge document
+    challenge_subtype: str  # "puzzle" | "riddle" | "logic" | "combat_strategy"
+    solution_paths: List[Dict[str, Any]]  # Multiple ways to solve
+    hints_available: List[str]  # Progressive hints
+
+    # Scene availability
+    primary_scene_id: Optional[str]
+    available_in_scenes: List[str]
+    appearance_conditions: Dict[str, Any]
+
+    # Completion
+    status: str
+    is_required: bool
+    is_hidden: bool
+    rubric_ids: List[str]
+    minimum_rubric_score: float
+
+    # Requirements
+    required_knowledge: List[Dict[str, Any]]
+    required_items: List[Dict[str, Any]]
+    prerequisite_objectives: List[str]
+
+
+class EventObjective(TypedDict):
+    """Event-type child objective (participation in events)"""
+    objective_id: str
+    quest_id: str
+    quest_objective_id: str
+    campaign_objective_ids: List[str]
+    objective_type: str  # Always "event"
+    description: str
+    bloom_level: int
+
+    # Event specifics
+    event_entity_id: str  # Links to Event document
+    event_subtype: str  # "ceremony" | "crisis" | "gathering" | "natural_phenomenon"
+    participation_type: str  # "attend" | "intervene" | "observe" | "lead"
+    trigger_conditions: Dict[str, Any]  # When event becomes available
+    is_time_limited: bool  # Player can trigger anytime if False
+
+    # Scene availability
+    primary_scene_id: Optional[str]
+    available_in_scenes: List[str]
+    appearance_conditions: Dict[str, Any]
+
+    # Completion
+    status: str
+    is_required: bool
+    is_hidden: bool
+    rubric_ids: List[str]
+    minimum_rubric_score: float
+
+    # Requirements
+    required_knowledge: List[Dict[str, Any]]
+    required_items: List[Dict[str, Any]]
+    prerequisite_objectives: List[str]
+
+
+class ConversationObjective(TypedDict):
+    """Conversation-type child objective (NPC interactions)"""
+    objective_id: str
+    quest_id: str
+    quest_objective_id: str
+    campaign_objective_ids: List[str]
+    objective_type: str  # Always "conversation"
+    description: str
+    bloom_level: int
+
+    # Conversation specifics
+    npc_id: str  # Which NPC to talk to
+    conversation_goal: str  # "gather_information" | "persuade" | "build_trust" | "negotiate"
+    required_topics: List[str]  # Topics that must be discussed
+    optional_topics: List[str]  # Bonus topics
+
+    # Knowledge/item transfer
+    provides_knowledge: List[Dict[str, Any]]  # What player learns
+    provides_items: List[Dict[str, Any]]  # What NPC gives
+
+    # Multi-scene support
+    can_continue_across_scenes: bool  # Conversation spans multiple scenes
+    previous_conversation_required: Optional[str]  # Prerequisite conversation ID
+
+    # Scene availability (NPCs can appear in multiple scenes)
+    primary_scene_id: Optional[str]
+    available_in_scenes: List[str]
+    appearance_conditions: Dict[str, Any]
+
+    # Completion
+    status: str
+    is_required: bool
+    is_hidden: bool
+    rubric_ids: List[str]
+    minimum_rubric_score: float
+
+    # Requirements
+    required_knowledge: List[Dict[str, Any]]
+    required_items: List[Dict[str, Any]]
+    prerequisite_objectives: List[str]
 
 
 class ObjectiveProgress(TypedDict):
@@ -485,7 +726,18 @@ class CampaignWorkflowState(TypedDict):
     # Character development
     character_profile: Optional[CharacterDevelopmentProfile]  # Player character's development
 
-    # NEW: Objective tracking and validation
+    # NEW: Hierarchical objective system
+    campaign_objectives: List[CampaignObjective]  # Top-level campaign objectives
+    quest_objectives: List[QuestObjective]  # Mid-level quest objectives
+    child_objectives: List[QuestChildObjective]  # Granular child objectives (all 4 types)
+
+    # Type-specific child objectives (for convenience - subsets of child_objectives)
+    discovery_objectives: List[DiscoveryObjective]
+    challenge_objectives: List[ChallengeObjective]
+    event_objectives: List[EventObjective]
+    conversation_objectives: List[ConversationObjective]
+
+    # Objective tracking and validation
     objective_progress: List[ObjectiveProgress]  # All objective progress tracking
     objective_decompositions: List[ObjectiveDecomposition]  # Campaign -> Quest objective mappings
     scene_objective_assignments: List[SceneObjectiveAssignment]  # Scene -> Objective mappings

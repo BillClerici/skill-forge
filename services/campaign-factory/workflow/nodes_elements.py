@@ -7,12 +7,13 @@ import logging
 import json
 import uuid
 from datetime import datetime
-from typing import List
+from typing import List, Dict, Any
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import CampaignWorkflowState, NPCData, DiscoveryData, EventData, ChallengeData, KnowledgeData, ItemData
-from .utils import add_audit_entry, publish_progress, create_checkpoint, get_blooms_level_description
+from .utils import extract_json_from_llm_response,  add_audit_entry, publish_progress, create_checkpoint, get_blooms_level_description
 from .subgraph_npc import create_npc_subgraph
 from .objective_system import map_knowledge_to_scenes, map_items_to_scenes
 from .rubric_engine import generate_rubric_for_interaction
@@ -21,9 +22,60 @@ from .nodes_elements_helpers import _track_knowledge_from_spec, _track_items_fro
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class DiscoverySpec(BaseModel):
+    """Discovery specification in scene elements"""
+    type: str = Field(description="Discovery type")
+    description: str = Field(description="Discovery description")
+    provides_knowledge_ids: List[str] = Field(default_factory=list, description="Knowledge IDs provided")
+    provides_item_ids: List[str] = Field(default_factory=list, description="Item IDs provided")
+    dimension: str = Field(description="Primary dimension")
+
+class EventSpec(BaseModel):
+    """Event specification in scene elements"""
+    type: str = Field(description="Event type")
+    description: str = Field(description="Event description")
+    provides_knowledge_ids: List[str] = Field(default_factory=list, description="Knowledge IDs provided")
+    provides_item_ids: List[str] = Field(default_factory=list, description="Item IDs provided")
+    dimension: str = Field(description="Primary dimension")
+
+class ChallengeSpec(BaseModel):
+    """Challenge specification in scene elements"""
+    type: str = Field(description="Challenge type")
+    description: str = Field(description="Challenge description")
+    provides_knowledge_ids: List[str] = Field(default_factory=list, description="Knowledge IDs provided")
+    provides_item_ids: List[str] = Field(default_factory=list, description="Item IDs provided")
+    dimension: str = Field(description="Primary dimension")
+    difficulty: str = Field(description="Difficulty level")
+
+class SceneElementsResponse(BaseModel):
+    """Structured response for scene elements"""
+    npcs: List[str] = Field(description="List of 2-4 NPC types", min_length=2, max_length=4)
+    discoveries: List[DiscoverySpec] = Field(description="List of discoveries (max 4 total elements)", max_length=4)
+    events: List[EventSpec] = Field(description="List of events (max 4 total elements)", max_length=4)
+    challenges: List[ChallengeSpec] = Field(description="List of challenges (max 4 total elements)", max_length=4)
+
+class DiscoveryEnrichmentResponse(BaseModel):
+    """Structured response for discovery enrichment"""
+    name: str = Field(description="Discovery name (3-5 words)")
+    full_description: str = Field(description="Enhanced description (2-3 sentences)")
+
+class EventEnrichmentResponse(BaseModel):
+    """Structured response for event enrichment"""
+    name: str = Field(description="Event name (3-5 words)")
+    full_description: str = Field(description="Enhanced description (2-3 sentences)")
+    outcomes: List[str] = Field(description="Possible outcomes")
+
+class ChallengeEnrichmentResponse(BaseModel):
+    """Structured response for challenge enrichment"""
+    name: str = Field(description="Challenge name (3-5 words)")
+    full_description: str = Field(description="Enhanced description (2-3 sentences)")
+    success_rewards: Dict[str, str] = Field(description="Success rewards")
+    failure_consequences: Dict[str, str] = Field(description="Failure consequences")
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     # API key read from ANTHROPIC_API_KEY env var
     temperature=0.8,
     max_tokens=4096
@@ -334,17 +386,24 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
         total_scenes = len(state['scenes'])
         logger.info(f"Generating elements for {total_scenes} scenes")
 
-        all_npcs: List[NPCData] = []
-        all_discoveries: List[DiscoveryData] = []
-        all_events: List[EventData] = []
-        all_challenges: List[ChallengeData] = []
+        # FIX: Resume from last scene if retrying after error
+        start_scene_idx = state.get("element_gen_start_scene", 0)
+
+        # FIX: Preserve previously generated elements when resuming
+        all_npcs: List[NPCData] = list(state.get("npcs", [])) if start_scene_idx > 0 else []
+        all_discoveries: List[DiscoveryData] = list(state.get("discoveries", [])) if start_scene_idx > 0 else []
+        all_events: List[EventData] = list(state.get("events", [])) if start_scene_idx > 0 else []
+        all_challenges: List[ChallengeData] = list(state.get("challenges", [])) if start_scene_idx > 0 else []
+
+        if start_scene_idx > 0:
+            logger.info(f"RESUMING element generation from scene {start_scene_idx + 1}/{total_scenes} (skipping {start_scene_idx} already completed scenes)")
 
         # NEW: Collect knowledge and items from all specs
         knowledge_tracker = {}  # knowledge_name -> {scenes, acquisition_methods, dimension}
         item_tracker = {}  # item_name -> {scenes, acquisition_methods}
 
-        # Generate elements for each scene
-        for scene_idx, scene in enumerate(state["scenes"]):
+        # Generate elements for each scene (starting from resume point)
+        for scene_idx, scene in enumerate(state["scenes"][start_scene_idx:], start=start_scene_idx):
             # Ensure scene has all required list fields initialized (defensive programming)
             if "npc_ids" not in scene or scene["npc_ids"] is None:
                 scene["npc_ids"] = []
@@ -354,6 +413,9 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                 scene["event_ids"] = []
             if "challenge_ids" not in scene or scene["challenge_ids"] is None:
                 scene["challenge_ids"] = []
+
+            # FIX: Save current scene index BEFORE processing (for resume on error)
+            state["element_gen_start_scene"] = scene_idx
 
             # Update progress for each scene (95% to 98% range)
             scene_progress = 95 + int((scene_idx / total_scenes) * 3)  # 95% to 98%
@@ -735,6 +797,14 @@ Your task is to determine what elements (NPCs, discoveries, events, challenges) 
 2. Target specific developmental dimensions for character growth
 3. Create multiple ways to acquire the same knowledge/items (REDUNDANCY)
 
+CRITICAL CONSTRAINTS (CHAT INTERFACE):
+- **NPCs**: 2-4 NPCs per scene (players interact through chat dialogue)
+- **Other Elements**: Max 4 TOTAL of discoveries/events/challenges combined
+  - Example: 2 discoveries + 0 events + 2 challenges = 4 total ✓
+  - Example: 1 discovery + 1 event + 2 challenges = 4 total ✓
+  - Example: 3 discoveries + 2 events + 1 challenge = 6 total ✗ (too many!)
+- Keep it SIMPLE - players experience this through a chat interface
+
 DEVELOPMENTAL DIMENSIONS:
 - Physical: Combat, endurance, precision, strength
 - Emotional: Empathy, stress management, self-awareness
@@ -873,8 +943,10 @@ Determine what elements this scene needs. Remember to create REDUNDANCY (2-3 way
     if not objectives_str:
         objectives_str = "General exploration and discovery"
 
-    chain = prompt | anthropic_client
-    response = await chain.ainvoke({
+    # Use structured output for guaranteed valid JSON
+    structured_llm = anthropic_client.with_structured_output(SceneElementsResponse, include_raw=False)
+    chain = prompt | structured_llm
+    response: SceneElementsResponse = await chain.ainvoke({
         "scene_name": scene["name"],
         "scene_description": scene["description"],
         "location": scene["level_3_location_name"],
@@ -885,7 +957,7 @@ Determine what elements this scene needs. Remember to create REDUNDANCY (2-3 way
         "blooms_level": state["campaign_core"]["target_blooms_level"]
     })
 
-    return json.loads(response.content.strip())
+    return response.model_dump()
 
 
 async def generate_discovery(spec: dict, scene: dict, state: CampaignWorkflowState) -> DiscoveryData:
@@ -910,15 +982,17 @@ Discovery Base: {discovery_description}
 Create a compelling discovery element.""")
     ])
 
-    chain = prompt | anthropic_client
-    response = await chain.ainvoke({
+    # Use structured output for guaranteed valid JSON
+    structured_llm = anthropic_client.with_structured_output(DiscoveryEnrichmentResponse, include_raw=False)
+    chain = prompt | structured_llm
+    enriched_response: DiscoveryEnrichmentResponse = await chain.ainvoke({
         "scene_name": scene["name"],
         "scene_description": scene["description"],
         "discovery_type": spec.get("type", "information"),
         "discovery_description": spec.get("description", "A piece of information")
     })
 
-    enriched = json.loads(response.content.strip())
+    enriched = enriched_response.model_dump()
 
     # Generate discovery ID immediately
     discovery_id = f"discovery_{uuid.uuid4().hex[:16]}"
@@ -997,15 +1071,17 @@ Event Base: {event_description}
 Create a compelling event element.""")
     ])
 
-    chain = prompt | anthropic_client
-    response = await chain.ainvoke({
+    # Use structured output for guaranteed valid JSON
+    structured_llm = anthropic_client.with_structured_output(EventEnrichmentResponse, include_raw=False)
+    chain = prompt | structured_llm
+    enriched_response: EventEnrichmentResponse = await chain.ainvoke({
         "scene_name": scene["name"],
         "scene_description": scene["description"],
         "event_type": spec.get("type", "scripted"),
         "event_description": spec.get("description", "An event occurs")
     })
 
-    enriched = json.loads(response.content.strip())
+    enriched = enriched_response.model_dump()
 
     # Generate event ID immediately
     event_id = f"event_{uuid.uuid4().hex[:16]}"
@@ -1093,8 +1169,10 @@ Difficulty: {difficulty}
 Create a compelling challenge element.""")
     ])
 
-    chain = prompt | anthropic_client
-    response = await chain.ainvoke({
+    # Use structured output for guaranteed valid JSON
+    structured_llm = anthropic_client.with_structured_output(ChallengeEnrichmentResponse, include_raw=False)
+    chain = prompt | structured_llm
+    enriched_response: ChallengeEnrichmentResponse = await chain.ainvoke({
         "scene_name": scene["name"],
         "scene_description": scene["description"],
         "challenge_type": spec.get("type", "skill_check"),
@@ -1102,7 +1180,7 @@ Create a compelling challenge element.""")
         "difficulty": state["quest_difficulty"]
     })
 
-    enriched = json.loads(response.content.strip())
+    enriched = enriched_response.model_dump()
 
     # Map challenge type to category and dimension
     challenge_type = spec.get("type", "skill_check")

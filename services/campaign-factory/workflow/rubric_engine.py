@@ -6,9 +6,10 @@ Phase 3: Rubric-based evaluation system
 """
 import logging
 import json
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import (
     RubricData,
@@ -20,9 +21,42 @@ from .state import (
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class PerformanceLevel(BaseModel):
+    """Performance level within a criterion"""
+    level: int = Field(description="Level number (1-4)", ge=1, le=4)
+    description: str = Field(description="Description of this performance level")
+
+class EvaluationCriterion(BaseModel):
+    """Evaluation criterion for rubric"""
+    criterion: str = Field(description="Name of the criterion")
+    weight: float = Field(description="Weight of this criterion (0-1)", ge=0, le=1)
+    bloom_level_target: int = Field(description="Target Bloom's taxonomy level (1-6)", ge=1, le=6)
+    levels: List[PerformanceLevel] = Field(description="4 performance levels", min_length=4, max_length=4)
+
+class DimensionalReward(BaseModel):
+    """Dimensional reward structure"""
+    bloom_target: int = Field(description="Target Bloom's level", ge=1, le=6)
+    experience_by_score: Dict[str, int] = Field(description="XP by performance level")
+
+class ConsequenceDetails(BaseModel):
+    """Consequence details for a performance level"""
+    type: str = Field(description="Type of consequence")
+    details: str = Field(description="Details of consequence")
+
+class RubricResponse(BaseModel):
+    """Structured response for rubric generation"""
+    primary_dimension: str = Field(description="Primary developmental dimension")
+    secondary_dimensions: List[str] = Field(default_factory=list, description="Secondary dimensions")
+    evaluation_criteria: List[EvaluationCriterion] = Field(description="Evaluation criteria", min_length=3, max_length=5)
+    knowledge_level_mapping: Dict[str, int] = Field(description="Score range to level mapping")
+    rewards_by_performance: Dict[str, Dict[str, List[str]]] = Field(description="Rewards by performance level")
+    dimensional_rewards: Dict[str, DimensionalReward] = Field(description="Dimensional XP rewards")
+    consequences_by_performance: Optional[Dict[str, ConsequenceDetails]] = Field(default=None, description="Consequences by level")
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     temperature=0.7,
     max_tokens=4096
 )
@@ -162,9 +196,10 @@ Generate a customized rubric that evaluates player performance in this interacti
             for item in context.get("available_items", [])[:5]  # Limit to 5 for brevity
         ])
 
-        # Generate rubric
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
+        # Generate rubric with structured output
+        structured_llm = anthropic_client.with_structured_output(RubricResponse, include_raw=False)
+        chain = prompt | structured_llm
+        rubric_response: RubricResponse = await chain.ainvoke({
             "interaction_type": interaction_type,
             "entity_name": entity_name,
             "entity_description": entity_description,
@@ -177,8 +212,8 @@ Generate a customized rubric that evaluates player performance in this interacti
             "available_items": available_items_str
         })
 
-        # Parse response
-        rubric_raw = json.loads(response.content.strip())
+        # Convert Pydantic model to dict
+        rubric_raw = rubric_response.model_dump()
 
         # Create RubricData
         rubric: RubricData = {
@@ -690,3 +725,471 @@ def validate_rubric(rubric: RubricData) -> Tuple[bool, str]:
 
     except Exception as e:
         return False, f"Validation error: {str(e)}"
+
+
+# ==============================================================================
+# WORKFLOW NODE FOR CHILD OBJECTIVES RUBRIC ASSIGNMENT
+# ==============================================================================
+
+async def assign_objective_rubrics_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Workflow node: Create rubrics for all child objectives
+
+    This node:
+    1. For each child objective, generates a customized rubric
+    2. Uses templates for each objective type (discovery, challenge, event, conversation)
+    3. Links rubrics to objectives
+    4. Validates all rubrics
+    5. Returns updated state with rubrics
+
+    Args:
+        state: Campaign workflow state
+
+    Returns:
+        Updated state with rubrics list
+    """
+    from .utils import add_audit_entry, publish_progress
+    import uuid
+
+    print("\n📊 Creating Rubrics for Child Objectives...")
+
+    try:
+        child_objectives = state.get("child_objectives", [])
+        if not child_objectives:
+            print("  ⚠️  No child objectives found")
+            return {"warnings": ["No child objectives to create rubrics for"]}
+
+        rubrics = []
+        rubric_mapping = {}  # child_obj_id -> rubric_id
+
+        total_objectives = len(child_objectives)
+        for idx, child_obj in enumerate(child_objectives):
+            obj_type = child_obj["objective_type"]
+            obj_id = child_obj["objective_id"]
+
+            print(f"  Creating rubric {idx + 1}/{total_objectives}: {obj_type} - {child_obj['description'][:50]}...")
+
+            # Create rubric based on type
+            if obj_type == "discovery":
+                rubric = _create_discovery_rubric(child_obj, state)
+            elif obj_type == "challenge":
+                rubric = _create_challenge_rubric(child_obj, state)
+            elif obj_type == "event":
+                rubric = _create_event_rubric(child_obj, state)
+            elif obj_type == "conversation":
+                rubric = _create_conversation_rubric(child_obj, state)
+            else:
+                print(f"    ⚠️  Unknown objective type: {obj_type}, using fallback")
+                rubric = _create_fallback_rubric(obj_type, child_obj)
+
+            # Validate rubric
+            is_valid, error_msg = validate_rubric(rubric)
+            if not is_valid:
+                print(f"    ⚠️  Rubric validation failed: {error_msg}, adjusting...")
+                rubric = _fix_rubric(rubric)
+
+            rubrics.append(rubric)
+            rubric_mapping[obj_id] = rubric["rubric_id"]
+
+            # Update child objective with rubric ID
+            child_obj["rubric_ids"] = [rubric["rubric_id"]]
+
+            print(f"    ✅ Rubric created: {rubric['rubric_id']}")
+
+        print(f"\n✅ Rubrics Created: {len(rubrics)} total")
+        print(f"   - Discovery: {sum(1 for r in rubrics if r['rubric_type'] == 'environmental_discovery')}")
+        print(f"   - Challenge: {sum(1 for r in rubrics if r['rubric_type'] == 'challenge')}")
+        print(f"   - Event: {sum(1 for r in rubrics if r['rubric_type'] == 'dynamic_event')}")
+        print(f"   - Conversation: {sum(1 for r in rubrics if r['rubric_type'] == 'npc_conversation')}")
+
+        # Log audit
+        add_audit_entry(
+            state,
+            "assign_objective_rubrics",
+            f"Created {len(rubrics)} rubrics for child objectives",
+            status="success"
+        )
+
+        # Update progress
+        state["progress_percentage"] = 40
+        state["status_message"] = "Objective rubrics assigned"
+
+        # Publish progress
+        await publish_progress(state, "Objective rubrics assigned")
+
+        return {
+            "rubrics": rubrics,
+            "child_objectives": child_objectives,  # Updated with rubric IDs
+            "progress_percentage": 40,
+            "current_node": "assign_objective_rubrics"
+        }
+
+    except Exception as e:
+        print(f"\n❌ Error creating rubrics: {e}")
+        return {
+            "errors": [f"Rubric creation failed: {str(e)}"],
+            "retry_count": state.get("retry_count", 0) + 1
+        }
+
+
+def _create_discovery_rubric(child_obj: Dict[str, Any], state: Dict[str, Any]) -> RubricData:
+    """Create rubric for discovery-type child objective"""
+    import uuid
+
+    rubric: RubricData = {
+        "rubric_id": f"rubric_{uuid.uuid4().hex[:8]}",
+        "rubric_type": "environmental_discovery",
+        "interaction_name": child_obj["description"],
+        "entity_id": child_obj.get("discovery_entity_id", child_obj["objective_id"]),
+        "primary_dimension": "environmental",
+        "secondary_dimensions": ["intellectual"],
+        "evaluation_criteria": [
+            {
+                "criterion": "Thoroughness of Exploration",
+                "weight": 0.3,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Superficial search, missed key details"},
+                    {"level": 2, "description": "Basic search, found some elements"},
+                    {"level": 3, "description": "Methodical search, thorough exploration"},
+                    {"level": 4, "description": "Exhaustive search, expert attention to detail"}
+                ]
+            },
+            {
+                "criterion": "Understanding of Discovery",
+                "weight": 0.4,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Minimal understanding, missed significance"},
+                    {"level": 2, "description": "Basic understanding, grasped main points"},
+                    {"level": 3, "description": "Good understanding, connected to context"},
+                    {"level": 4, "description": "Deep understanding, synthesized with prior knowledge"}
+                ]
+            },
+            {
+                "criterion": "Environmental Awareness",
+                "weight": 0.3,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Ignored environmental cues"},
+                    {"level": 2, "description": "Noticed some environmental details"},
+                    {"level": 3, "description": "Good awareness of surroundings"},
+                    {"level": 4, "description": "Exceptional environmental awareness and pattern recognition"}
+                ]
+            }
+        ],
+        "knowledge_level_mapping": {
+            "1.0-1.75": 1,
+            "1.76-2.5": 2,
+            "2.51-3.25": 3,
+            "3.26-4.0": 4
+        },
+        "rewards_by_performance": {
+            "knowledge": {
+                "1": ["discovery_basic:level_1"],
+                "2": ["discovery_basic:level_2"],
+                "3": ["discovery_basic:level_3", "contextual_knowledge:level_1"],
+                "4": ["discovery_basic:level_4", "contextual_knowledge:level_2"]
+            },
+            "items": {
+                "3": ["discovered_item"],
+                "4": ["discovered_item", "bonus_item"]
+            }
+        },
+        "dimensional_rewards": {
+            "environmental": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 5, "2": 15, "3": 30, "4": 60}
+            },
+            "intellectual": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 3, "2": 8, "3": 15, "4": 30}
+            }
+        },
+        "consequences_by_performance": None
+    }
+
+    return rubric
+
+
+def _create_challenge_rubric(child_obj: Dict[str, Any], state: Dict[str, Any]) -> RubricData:
+    """Create rubric for challenge-type child objective"""
+    import uuid
+
+    rubric: RubricData = {
+        "rubric_id": f"rubric_{uuid.uuid4().hex[:8]}",
+        "rubric_type": "challenge",
+        "interaction_name": child_obj["description"],
+        "entity_id": child_obj.get("challenge_entity_id", child_obj["objective_id"]),
+        "primary_dimension": "intellectual",
+        "secondary_dimensions": ["vocational"],
+        "evaluation_criteria": [
+            {
+                "criterion": "Problem-Solving Approach",
+                "weight": 0.35,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Trial-and-error, no clear strategy"},
+                    {"level": 2, "description": "Basic strategy, some logical steps"},
+                    {"level": 3, "description": "Methodical approach, clear reasoning"},
+                    {"level": 4, "description": "Strategic approach, optimal solution path"}
+                ]
+            },
+            {
+                "criterion": "Use of Available Knowledge",
+                "weight": 0.35,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Ignored relevant knowledge"},
+                    {"level": 2, "description": "Applied some relevant knowledge"},
+                    {"level": 3, "description": "Effectively applied knowledge"},
+                    {"level": 4, "description": "Synthesized multiple knowledge domains"}
+                ]
+            },
+            {
+                "criterion": "Creativity and Innovation",
+                "weight": 0.3,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Rigid thinking, no alternatives"},
+                    {"level": 2, "description": "Considered some alternatives"},
+                    {"level": 3, "description": "Creative thinking, multiple approaches"},
+                    {"level": 4, "description": "Innovative solution, exceptional creativity"}
+                ]
+            }
+        ],
+        "knowledge_level_mapping": {
+            "1.0-1.75": 1,
+            "1.76-2.5": 2,
+            "2.51-3.25": 3,
+            "3.26-4.0": 4
+        },
+        "rewards_by_performance": {
+            "knowledge": {
+                "1": ["problem_solving_basic:level_1"],
+                "2": ["problem_solving_basic:level_2"],
+                "3": ["problem_solving_basic:level_3", "strategic_thinking:level_1"],
+                "4": ["problem_solving_basic:level_4", "strategic_thinking:level_2"]
+            },
+            "items": {
+                "3": ["puzzle_reward"],
+                "4": ["puzzle_reward", "mastery_token"]
+            }
+        },
+        "dimensional_rewards": {
+            "intellectual": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 10, "2": 25, "3": 50, "4": 100}
+            },
+            "vocational": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 5, "2": 12, "3": 25, "4": 50}
+            }
+        },
+        "consequences_by_performance": None
+    }
+
+    return rubric
+
+
+def _create_event_rubric(child_obj: Dict[str, Any], state: Dict[str, Any]) -> RubricData:
+    """Create rubric for event-type child objective"""
+    import uuid
+
+    rubric: RubricData = {
+        "rubric_id": f"rubric_{uuid.uuid4().hex[:8]}",
+        "rubric_type": "dynamic_event",
+        "interaction_name": child_obj["description"],
+        "entity_id": child_obj.get("event_entity_id", child_obj["objective_id"]),
+        "primary_dimension": "social",
+        "secondary_dimensions": ["emotional"],
+        "evaluation_criteria": [
+            {
+                "criterion": "Level of Engagement",
+                "weight": 0.35,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Passive observation, minimal participation"},
+                    {"level": 2, "description": "Basic participation, followed instructions"},
+                    {"level": 3, "description": "Active participation, contributed meaningfully"},
+                    {"level": 4, "description": "Led or significantly influenced the event"}
+                ]
+            },
+            {
+                "criterion": "Appropriateness of Actions",
+                "weight": 0.35,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Inappropriate actions, disrupted event"},
+                    {"level": 2, "description": "Generally appropriate, minor missteps"},
+                    {"level": 3, "description": "Appropriate and respectful actions"},
+                    {"level": 4, "description": "Exemplary conduct, enhanced the event"}
+                ]
+            },
+            {
+                "criterion": "Impact on Outcome",
+                "weight": 0.3,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "No positive impact"},
+                    {"level": 2, "description": "Small positive impact"},
+                    {"level": 3, "description": "Significant positive impact"},
+                    {"level": 4, "description": "Transformative impact on event outcome"}
+                ]
+            }
+        ],
+        "knowledge_level_mapping": {
+            "1.0-1.75": 1,
+            "1.76-2.5": 2,
+            "2.51-3.25": 3,
+            "3.26-4.0": 4
+        },
+        "rewards_by_performance": {
+            "knowledge": {
+                "1": ["event_experience:level_1"],
+                "2": ["event_experience:level_2"],
+                "3": ["event_experience:level_3", "social_dynamics:level_1"],
+                "4": ["event_experience:level_4", "social_dynamics:level_2"]
+            },
+            "items": {
+                "3": ["event_memento"],
+                "4": ["event_memento", "special_recognition"]
+            }
+        },
+        "dimensional_rewards": {
+            "social": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 8, "2": 20, "3": 40, "4": 80}
+            },
+            "emotional": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 5, "2": 12, "3": 25, "4": 50}
+            }
+        },
+        "consequences_by_performance": None
+    }
+
+    return rubric
+
+
+def _create_conversation_rubric(child_obj: Dict[str, Any], state: Dict[str, Any]) -> RubricData:
+    """Create rubric for conversation-type child objective"""
+    import uuid
+
+    rubric: RubricData = {
+        "rubric_id": f"rubric_{uuid.uuid4().hex[:8]}",
+        "rubric_type": "npc_conversation",
+        "interaction_name": child_obj["description"],
+        "entity_id": child_obj.get("npc_id", child_obj["objective_id"]),
+        "primary_dimension": "social",
+        "secondary_dimensions": ["emotional", "intellectual"],
+        "evaluation_criteria": [
+            {
+                "criterion": "Active Listening",
+                "weight": 0.25,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Ignored NPC's information"},
+                    {"level": 2, "description": "Listened but missed nuances"},
+                    {"level": 3, "description": "Actively engaged with NPC's points"},
+                    {"level": 4, "description": "Deep engagement, insightful responses"}
+                ]
+            },
+            {
+                "criterion": "Question Quality",
+                "weight": 0.3,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "No relevant questions asked"},
+                    {"level": 2, "description": "Basic questions, missed opportunities"},
+                    {"level": 3, "description": "Relevant, well-timed questions"},
+                    {"level": 4, "description": "Insightful, probing questions that deepen understanding"}
+                ]
+            },
+            {
+                "criterion": "Rapport Building",
+                "weight": 0.25,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Antagonistic or dismissive"},
+                    {"level": 2, "description": "Neutral, transactional interaction"},
+                    {"level": 3, "description": "Built positive rapport"},
+                    {"level": 4, "description": "Established strong connection and trust"}
+                ]
+            },
+            {
+                "criterion": "Achievement of Conversation Goal",
+                "weight": 0.2,
+                "bloom_level_target": child_obj["bloom_level"],
+                "levels": [
+                    {"level": 1, "description": "Goal not achieved"},
+                    {"level": 2, "description": "Partial achievement of goal"},
+                    {"level": 3, "description": "Goal achieved effectively"},
+                    {"level": 4, "description": "Goal exceeded, gained additional insights"}
+                ]
+            }
+        ],
+        "knowledge_level_mapping": {
+            "1.0-1.75": 1,
+            "1.76-2.5": 2,
+            "2.51-3.25": 3,
+            "3.26-4.0": 4
+        },
+        "rewards_by_performance": {
+            "knowledge": {
+                "1": ["basic_info:level_1"],
+                "2": ["basic_info:level_2"],
+                "3": ["basic_info:level_3", "deeper_knowledge:level_1"],
+                "4": ["basic_info:level_4", "deeper_knowledge:level_2", "secret_knowledge:level_1"]
+            },
+            "items": {
+                "3": ["npc_gift"],
+                "4": ["npc_gift", "special_item"]
+            }
+        },
+        "dimensional_rewards": {
+            "social": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 10, "2": 25, "3": 50, "4": 100}
+            },
+            "emotional": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 5, "2": 12, "3": 25, "4": 50}
+            },
+            "intellectual": {
+                "bloom_target": child_obj["bloom_level"],
+                "experience_by_score": {"1": 5, "2": 12, "3": 25, "4": 50}
+            }
+        },
+        "consequences_by_performance": None
+    }
+
+    return rubric
+
+
+def _fix_rubric(rubric: RubricData) -> RubricData:
+    """Fix common rubric validation issues"""
+
+    # Fix weights if they don't sum to 1.0
+    criteria = rubric["evaluation_criteria"]
+    total_weight = sum(c["weight"] for c in criteria)
+    if abs(total_weight - 1.0) > 0.01:
+        # Normalize weights
+        for criterion in criteria:
+            criterion["weight"] = criterion["weight"] / total_weight
+
+    # Ensure all criteria have exactly 4 levels
+    for criterion in criteria:
+        if len(criterion["levels"]) < 4:
+            # Add missing levels
+            while len(criterion["levels"]) < 4:
+                level_num = len(criterion["levels"]) + 1
+                criterion["levels"].append({
+                    "level": level_num,
+                    "description": f"Level {level_num} performance"
+                })
+        elif len(criterion["levels"]) > 4:
+            # Trim to 4 levels
+            criterion["levels"] = criterion["levels"][:4]
+
+    return rubric

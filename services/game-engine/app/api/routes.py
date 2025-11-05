@@ -1258,7 +1258,8 @@ async def transcribe_player_action(
 @router.get("/session/{session_id}/objectives")
 async def get_session_objectives(
     session_id: str,
-    player_id: str = Query(..., description="Player ID")
+    player_id: str = Query(..., description="Player ID"),
+    child_objectives: bool = Query(False, description="Include child objectives (discovery, challenge, event, conversation)")
 ) -> Dict[str, Any]:
     """
     Get all objective progress for a player in a session.
@@ -1266,6 +1267,7 @@ async def get_session_objectives(
     Returns:
     - Campaign objectives with progress
     - Current quest objectives
+    - Child objectives (optional, includes 4 types: discovery, challenge, event, conversation)
     - Scene objectives (what can be done in current scene)
     - Knowledge/items available in scene
     - Dimensional development progress
@@ -1273,6 +1275,7 @@ async def get_session_objectives(
     Args:
         session_id: Session ID
         player_id: Player ID
+        child_objectives: Include hierarchical child objectives
 
     Returns:
         Comprehensive objective progress data
@@ -1334,28 +1337,125 @@ async def get_session_objectives(
                 "redundancy_level": paths[0]["redundancy_level"] if paths else "low"
             })
 
+        # NEW: Get child objectives if requested
+        quest_objectives_with_children = []
+        if child_objectives:
+            # Query Neo4j for child objectives grouped by quest objective
+            child_objectives_query = """
+            MATCH (qo:QuestObjective)
+            WHERE qo.campaign_id = $campaign_id
+
+            OPTIONAL MATCH (co:QuestChildObjective)-[:SUPPORTS]->(qo)
+            OPTIONAL MATCH (p:Player {player_id: $player_id})-[prog:PROGRESS]->(co)
+
+            WITH qo, co, prog
+            ORDER BY co.objective_type, co.description
+
+            RETURN qo.id as quest_objective_id,
+                   collect(DISTINCT {
+                       objective_id: co.id,
+                       objective_type: co.objective_type,
+                       description: co.description,
+                       is_required: co.is_required,
+                       bloom_level: co.bloom_level,
+                       minimum_rubric_score: co.minimum_rubric_score,
+                       status: COALESCE(prog.status, 'not_started'),
+                       rubric_score: prog.rubric_score,
+                       completion_quality: prog.completion_quality,
+                       scene_location_hint: co.scene_location_hint,
+                       difficulty_hint: co.difficulty_hint,
+                       npc_name_hint: co.npc_name_hint,
+                       participation_type: co.participation_type,
+                       available_in_scenes: co.available_in_scenes,
+                       primary_scene_id: co.primary_scene_id
+                   }) as child_objectives
+            """
+
+            child_obj_results = await neo4j_graph.run_query(child_objectives_query, {
+                "campaign_id": campaign_id,
+                "player_id": player_id
+            })
+
+            # Create a map of quest_objective_id -> child_objectives
+            child_obj_map = {}
+            for record in child_obj_results:
+                quest_obj_id = record.get("quest_objective_id")
+                children = [c for c in record.get("child_objectives", []) if c.get("objective_id")]
+                if quest_obj_id and children:
+                    child_obj_map[quest_obj_id] = children
+
+            # Enrich quest objectives with child objectives
+            for co in progress.get("campaign_objectives", []):
+                for qo in co.get("quest_objectives", []):
+                    qo_id = qo.get("id")
+                    if qo_id in child_obj_map:
+                        qo["child_objectives"] = child_obj_map[qo_id]
+                        quest_objectives_with_children.append(qo)
+
+        # Progressive disclosure: Only show 1-3 most relevant objectives
+        all_quest_objectives = [
+            qo for co in progress["campaign_objectives"]
+            for qo in co["quest_objectives"]
+            if qo["status"] in ["not_started", "in_progress"]
+        ]
+
+        # Filter to active objectives (in current scene or immediate next steps)
+        active_objectives = []
+        scene_obj_ids = [obj.get("id") for obj in scene_data.get("advances_quest_objectives", [])]
+
+        # Priority 1: Objectives in current scene
+        for qo in all_quest_objectives:
+            if qo.get("id") in scene_obj_ids and qo["status"] == "in_progress":
+                active_objectives.append({**qo, "priority": "current_scene", "hint": f"Complete this in your current location"})
+
+        # Priority 2: Objectives that just started (if not already in active)
+        if len(active_objectives) < 3:
+            for qo in all_quest_objectives:
+                if qo["status"] == "in_progress" and qo.get("id") not in [a.get("id") for a in active_objectives]:
+                    active_objectives.append({**qo, "priority": "in_progress", "hint": None})
+                    if len(active_objectives) >= 3:
+                        break
+
+        # Priority 3: First not_started objective (if room)
+        if len(active_objectives) < 3:
+            for qo in all_quest_objectives:
+                if qo["status"] == "not_started" and qo.get("id") not in [a.get("id") for a in active_objectives]:
+                    active_objectives.append({**qo, "priority": "next", "hint": "This will unlock after current objectives"})
+                    break
+
+        # Limit to max 3
+        active_objectives = active_objectives[:3]
+
         logger.info(
             "session_objectives_retrieved",
             session_id=session_id,
             player_id=player_id,
             campaign_objectives=len(progress.get("campaign_objectives", [])),
             scene_knowledge=len(scene_knowledge),
-            scene_items=len(scene_items)
+            scene_items=len(scene_items),
+            child_objectives_included=child_objectives,
+            quest_objectives_with_children=len(quest_objectives_with_children),
+            active_objectives_count=len(active_objectives),
+            total_quest_objectives=len(all_quest_objectives)
         )
 
-        return {
+        response = {
             "campaign_objectives": progress["campaign_objectives"],
-            "current_quest_objectives": [
-                qo for co in progress["campaign_objectives"]
-                for qo in co["quest_objectives"]
-                if qo["status"] in ["not_started", "in_progress"]
-            ],
+            "active_objectives": active_objectives,  # NEW: Progressive disclosure (1-3 only)
+            "all_quest_objectives": all_quest_objectives,  # Full list for quest log
+            "current_quest_objectives": all_quest_objectives,  # Backward compatibility
             "scene_objectives": scene_data.get("advances_quest_objectives", []),
             "scene_knowledge": scene_knowledge,
             "scene_items": scene_items,
             "dimensions": dimensions["dimensions"],
             "overall_progress": progress["overall_progress"]
         }
+
+        # Add child objectives flag for UI
+        if child_objectives:
+            response["hierarchical_objectives_enabled"] = True
+
+        return response
 
     except HTTPException:
         raise
@@ -1366,6 +1466,127 @@ async def get_session_objectives(
             error=str(e)
         )
         raise HTTPException(status_code=500, detail="Failed to get session objectives")
+
+
+@router.get("/session/{session_id}/hints")
+async def get_contextual_hints(
+    session_id: str,
+    player_id: str = Query(..., description="Player ID")
+) -> Dict[str, Any]:
+    """
+    Get contextual hints for the player based on current scene and objectives.
+
+    Returns progressive hints:
+    - Level 1: Subtle hint about what to explore
+    - Level 2: Direct hint about specific action
+    - Level 3: Explicit instructions
+
+    Args:
+        session_id: Session ID
+        player_id: Player ID
+
+    Returns:
+        Contextual hints and suggested actions
+    """
+    try:
+        # Load session state
+        state = await redis_manager.load_state(session_id)
+
+        if not state:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        campaign_id = state.get("campaign_id")
+        current_scene_id = state.get("current_scene_id")
+
+        from ..services.neo4j_graph import neo4j_graph
+
+        # Get current objectives
+        progress = await neo4j_graph.get_player_objective_progress(player_id, campaign_id)
+
+        # Get active objectives (in progress)
+        active_objs = [
+            qo for co in progress.get("campaign_objectives", [])
+            for qo in co.get("quest_objectives", [])
+            if qo.get("status") == "in_progress"
+        ]
+
+        # Get scene data
+        scene_data = {}
+        if current_scene_id:
+            scene_data = await neo4j_graph.get_scene_objectives(current_scene_id)
+
+        hints = []
+
+        # Hint 1: What's available in current scene
+        if scene_data:
+            npcs = scene_data.get("npcs", [])
+            discoveries = scene_data.get("discoveries", [])
+            events = scene_data.get("events", [])
+
+            if npcs:
+                npc_names = [npc.get("name", "someone") for npc in npcs[:2]]
+                hints.append({
+                    "level": 1,
+                    "type": "exploration",
+                    "hint": f"There are people here you could talk to: {', '.join(npc_names)}",
+                    "action": f"Try: 'I talk to {npc_names[0]}'"
+                })
+
+            if discoveries:
+                disc = discoveries[0]
+                hints.append({
+                    "level": 1,
+                    "type": "discovery",
+                    "hint": f"Something interesting might be found here...",
+                    "action": f"Try: 'I examine the area' or 'I search for clues'"
+                })
+
+            if events:
+                hints.append({
+                    "level": 1,
+                    "type": "event",
+                    "hint": "Something important might happen if you wait or look around",
+                    "action": "Try: 'I wait and observe'"
+                })
+
+        # Hint 2: Current objectives
+        if active_objs:
+            obj = active_objs[0]
+            hints.append({
+                "level": 2,
+                "type": "objective",
+                "hint": f"Your current goal: {obj.get('description', 'Unknown')}",
+                "action": "Focus on completing this objective"
+            })
+
+        # Hint 3: Navigation (if no other hints)
+        if len(hints) == 0:
+            hints.append({
+                "level": 3,
+                "type": "navigation",
+                "hint": "You might want to explore a different location",
+                "action": "Try: 'Where can I go?' or 'Show me available locations'"
+            })
+
+        # Add meta hint about help
+        hints.append({
+            "level": 1,
+            "type": "help",
+            "hint": "You can always ask: 'What should I do?' or 'Show me my objectives'",
+            "action": None
+        })
+
+        return {
+            "hints": hints[:3],  # Limit to 3 hints
+            "current_scene": scene_data.get("name", "Unknown location"),
+            "active_objectives_count": len(active_objs)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_hints_failed", session_id=session_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get hints")
 
 
 @router.get("/session/{session_id}/quest-progress")

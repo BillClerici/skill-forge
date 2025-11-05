@@ -678,7 +678,7 @@ IMPORTANT: Return ONLY the JSON array, no other text, no markdown formatting, no
 
     try:
         llm = ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             temperature=0.8,
             max_tokens=2000,
             api_key=ANTHROPIC_API_KEY
@@ -838,7 +838,7 @@ IMPORTANT: Return ONLY the JSON array, no other text, no markdown formatting, no
 
     try:
         llm = ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             temperature=0.9,
             max_tokens=4000,
             api_key=ANTHROPIC_API_KEY

@@ -501,8 +501,128 @@ async def persist_scene_elements(state: CampaignWorkflowState):
             upsert=True
         )
 
+    # Child Objectives - NEW: Persist all child objectives
+    campaign_objectives = state.get("campaign_objectives", [])
+    quest_objectives = state.get("quest_objectives", [])
+    child_objectives_all = state.get("child_objectives", [])
+
+    # Persist campaign objectives
+    for campaign_obj in campaign_objectives:
+        campaign_obj_id = campaign_obj.get("objective_id")
+        if not campaign_obj_id:
+            continue
+
+        campaign_obj_doc = {
+            "_id": campaign_obj_id,
+            "objective_id": campaign_obj_id,
+            "campaign_id": campaign_id,
+            "description": campaign_obj.get("description", ""),
+            "bloom_level": campaign_obj.get("bloom_level", 3),
+            "completion_type": campaign_obj.get("completion_type", "threshold"),
+            "required_quest_count": campaign_obj.get("required_quest_count"),
+            "narrative_significance": campaign_obj.get("narrative_significance", ""),
+            "reward": campaign_obj.get("reward", {}),
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        mongo_db.campaign_objectives.replace_one(
+            {"_id": campaign_obj_id},
+            campaign_obj_doc,
+            upsert=True
+        )
+
+    # Persist quest objectives
+    for quest_obj in quest_objectives:
+        quest_obj_id = quest_obj.get("objective_id")
+        if not quest_obj_id:
+            continue
+
+        quest_obj_doc = {
+            "_id": quest_obj_id,
+            "objective_id": quest_obj_id,
+            "quest_id": quest_obj.get("quest_id", ""),
+            "quest_number": quest_obj.get("quest_number", 0),
+            "campaign_objective_ids": quest_obj.get("campaign_objective_ids", []),
+            "description": quest_obj.get("description", ""),
+            "bloom_level": quest_obj.get("bloom_level", 3),
+            "completion_type": quest_obj.get("completion_type", "all"),
+            "required_threshold": quest_obj.get("required_threshold"),
+            "reward": quest_obj.get("reward", {}),
+            "campaign_id": campaign_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        mongo_db.quest_objectives.replace_one(
+            {"_id": quest_obj_id},
+            quest_obj_doc,
+            upsert=True
+        )
+
+    # Persist child objectives
+    for child_obj in child_objectives_all:
+        child_obj_id = child_obj.get("objective_id")
+        if not child_obj_id:
+            continue
+
+        child_obj_doc = {
+            "_id": child_obj_id,
+            "objective_id": child_obj_id,
+            "objective_type": child_obj.get("objective_type", ""),
+            "quest_objective_id": child_obj.get("quest_objective_id", ""),
+            "campaign_objective_ids": child_obj.get("campaign_objective_ids", []),
+            "description": child_obj.get("description", ""),
+            "is_required": child_obj.get("is_required", True),
+            "bloom_level": child_obj.get("bloom_level", 2),
+            "available_in_scenes": child_obj.get("available_in_scenes", []),
+            "primary_scene_id": child_obj.get("primary_scene_id"),
+            "rubric_ids": child_obj.get("rubric_ids", []),
+            "minimum_rubric_score": child_obj.get("minimum_rubric_score", 2.5),
+            "reward": child_obj.get("reward", {}),
+            "campaign_id": campaign_id,
+            "created_at": datetime.utcnow().isoformat()
+        }
+
+        # Add type-specific fields
+        obj_type = child_obj.get("objective_type", "")
+        if obj_type == "discovery":
+            child_obj_doc.update({
+                "discovery_entity_id": child_obj.get("discovery_entity_id"),
+                "discovery_subtype": child_obj.get("discovery_subtype", "observation"),
+                "scene_location_hint": child_obj.get("scene_location_hint", "")
+            })
+        elif obj_type == "challenge":
+            child_obj_doc.update({
+                "challenge_entity_id": child_obj.get("challenge_entity_id"),
+                "challenge_subtype": child_obj.get("challenge_subtype", "puzzle"),
+                "difficulty_hint": child_obj.get("difficulty_hint", ""),
+                "solution_paths": child_obj.get("solution_paths", []),
+                "hints": child_obj.get("hints", [])
+            })
+        elif obj_type == "event":
+            child_obj_doc.update({
+                "event_entity_id": child_obj.get("event_entity_id"),
+                "event_subtype": child_obj.get("event_subtype", "scripted"),
+                "participation_type": child_obj.get("participation_type", "observe"),
+                "trigger_conditions": child_obj.get("trigger_conditions", {})
+            })
+        elif obj_type == "conversation":
+            child_obj_doc.update({
+                "npc_id": child_obj.get("npc_id"),
+                "npc_name_hint": child_obj.get("npc_name_hint", ""),
+                "conversation_goal": child_obj.get("conversation_goal", "gather_information"),
+                "required_topics": child_obj.get("required_topics", []),
+                "provides_knowledge": child_obj.get("provides_knowledge", [])
+            })
+
+        mongo_db.child_objectives.replace_one(
+            {"_id": child_obj_id},
+            child_obj_doc,
+            upsert=True
+        )
+
     logger.info(f"Persisted {len(state['discoveries'])} discoveries, {len(state['events'])} events, {len(state['challenges'])} challenges")
     logger.info(f"Persisted {len(state.get('knowledge_entities', []))} knowledge entities, {len(state.get('item_entities', []))} items, {len(state.get('rubrics', []))} rubrics")
+    logger.info(f"Persisted {len(campaign_objectives)} campaign objectives, {len(quest_objectives)} quest objectives, {len(child_objectives_all)} child objectives")
 
 
 async def create_neo4j_relationships(state: CampaignWorkflowState, campaign_id: str) -> int:

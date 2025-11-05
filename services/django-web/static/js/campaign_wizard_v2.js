@@ -1277,7 +1277,8 @@ document.addEventListener('DOMContentLoaded', function() {
             progressBar.style.width = progressPercentage + '%';
         } else if (progressBar) {
             // Fallback: Calculate based on phase if no percentage provided
-            const phases = ['story', 'core', 'quests', 'places', 'scenes', 'finalize'];
+            // NEW: Added objective hierarchy steps (decompose, design, assign_rubrics, plan_narrative)
+            const phases = ['story', 'core', 'decompose_objectives', 'design_child_objectives', 'assign_rubrics', 'plan_narrative', 'quests', 'places', 'scenes', 'finalize'];
             const currentIndex = phases.indexOf(phase);
             const calculatedPercentage = ((currentIndex + 1) / phases.length) * 100;
             progressBar.style.width = calculatedPercentage + '%';
@@ -1304,18 +1305,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Mark completed phases
-        const phases = ['story', 'core', 'quests', 'places', 'scenes', 'finalize'];
+        // NEW: Added objective hierarchy steps
+        const phases = ['story', 'core', 'decompose_objectives', 'design_child_objectives', 'assign_rubrics', 'plan_narrative', 'quests', 'places', 'scenes', 'finalize'];
         const currentIndex = phases.indexOf(phase);
         phases.forEach((p, idx) => {
             const stepEl = document.querySelector(`.phase-step[data-phase="${p}"]`);
-            if (idx < currentIndex) {
-                stepEl.classList.add('completed');
-                stepEl.classList.remove('active');
-            } else if (idx === currentIndex) {
-                stepEl.classList.add('active');
-                stepEl.classList.remove('completed');
+            if (stepEl) {
+                if (idx < currentIndex) {
+                    stepEl.classList.add('completed');
+                    stepEl.classList.remove('active');
+                } else if (idx === currentIndex) {
+                    stepEl.classList.add('active');
+                    stepEl.classList.remove('completed');
+                }
             }
         });
+
+        // Update status message with user-friendly labels for new phases
+        const phaseLabels = {
+            'story': 'Generating Story Ideas',
+            'core': 'Generating Campaign Core',
+            'decompose_objectives': '🎯 Decomposing Objectives',
+            'design_child_objectives': '🔍 Designing Child Objectives',
+            'assign_rubrics': '📊 Assigning Rubrics',
+            'plan_narrative': '📖 Planning Narrative',
+            'quests': 'Generating Quests',
+            'places': 'Generating Places',
+            'scenes': 'Generating Scenes',
+            'finalize': 'Finalizing Campaign'
+        };
+
+        // If the status message contains a phase label, update it
+        if (phaseLabels[phase] && !statusMessage.includes('%')) {
+            document.getElementById('loading-status-message').textContent = phaseLabels[phase];
+        }
     }
 
     function hideLoadingOverlay() {

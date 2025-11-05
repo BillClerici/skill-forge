@@ -6,20 +6,44 @@ import os
 import logging
 import json
 import uuid
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from langgraph.graph import StateGraph, END
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import CampaignWorkflowState, NPCData
-from .utils import add_audit_entry, publish_entity_event, db
+from .utils import add_audit_entry, publish_entity_event, db, extract_json_from_llm_response
 from .rubric_templates import get_template_for_interaction
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class NewSpeciesSuggestion(BaseModel):
+    """Suggestion for a new species"""
+    name: str = Field(default="", description="Suggested species name")
+    description: str = Field(default="", description="Suggested species description")
+
+class SpeciesEvaluationResponse(BaseModel):
+    """Structured response for species evaluation"""
+    use_existing: bool = Field(description="Whether to use an existing species")
+    species_id: str = Field(description="ID of the species to use")
+    species_name: str = Field(description="Name of the species")
+    reasoning: str = Field(description="Explanation of species choice")
+    or_create_new: bool = Field(description="Whether to create a new species")
+    new_species_suggestion: Optional[NewSpeciesSuggestion] = Field(default=None, description="New species suggestion")
+
+class NPCDetailsResponse(BaseModel):
+    """Structured response for NPC generation"""
+    npc_name: str = Field(description="NPC name")
+    personality_traits: List[str] = Field(description="List of personality traits")
+    backstory: str = Field(description="NPC backstory (2-3 paragraphs)")
+    dialogue_style: str = Field(description="Description of dialogue style")
+    quirks: List[str] = Field(default_factory=list, description="List of quirks")
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     # API key read from ANTHROPIC_API_KEY env var
     temperature=0.8,
     max_tokens=4096
@@ -123,30 +147,28 @@ Evaluate species appropriateness. Strongly prefer region-native species unless n
             for sp in other_species
         ]) if other_species else "No other species available"
 
-        # Evaluate
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
-            "role": state.get("npc_role", "Unknown"),
-            "context": state.get("narrative_context", ""),
-            "location": state.get("location_name", ""),
-            "region": state.get("region_name", "Unknown Region"),
-            "native_species": native_species_str,
-            "other_species": other_species_str
-        })
-
-        # Parse response with error handling
+        # Evaluate with structured output for guaranteed valid JSON
+        structured_llm = anthropic_client.with_structured_output(SpeciesEvaluationResponse, include_raw=False)
+        chain = prompt | structured_llm
         try:
-            evaluation = json.loads(response.content.strip())
-        except json.JSONDecodeError as json_err:
-            logger.error(f"JSON parsing failed for species evaluation: {json_err}")
-            logger.error(f"Raw response: {response.content[:500]}")
+            eval_response: SpeciesEvaluationResponse = await chain.ainvoke({
+                "role": state.get("npc_role", "Unknown"),
+                "context": state.get("narrative_context", ""),
+                "location": state.get("location_name", ""),
+                "region": state.get("region_name", "Unknown Region"),
+                "native_species": native_species_str,
+                "other_species": other_species_str
+            })
+            evaluation = eval_response.model_dump()
+        except Exception as parse_err:
+            logger.error(f"Structured output failed for species evaluation: {parse_err}")
             # Use fallback with default species (Human)
             logger.warning("Using fallback: defaulting to Human species")
             evaluation = {
                 "use_existing": True,
                 "species_id": "species1",
                 "species_name": "Human",
-                "reasoning": "Defaulted due to JSON parsing error",
+                "reasoning": "Defaulted due to parsing error",
                 "or_create_new": False
             }
 
@@ -308,25 +330,23 @@ Narrative Context: {context}
 Generate a complete NPC with personality and backstory.""")
         ])
 
-        # Generate NPC
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
-            "role": state.get("npc_role", "Unknown"),
-            "species": state.get("species_name", "Unknown"),
-            "location": state.get("location_name", ""),
-            "context": state.get("narrative_context", "")
-        })
-
-        # Parse response with error handling
+        # Generate NPC with structured output for guaranteed valid JSON
+        structured_llm = anthropic_client.with_structured_output(NPCDetailsResponse, include_raw=False)
+        chain = prompt | structured_llm
         try:
-            npc_data = json.loads(response.content.strip())
+            npc_response: NPCDetailsResponse = await chain.ainvoke({
+                "role": state.get("npc_role", "Unknown"),
+                "species": state.get("species_name", "Unknown"),
+                "location": state.get("location_name", ""),
+                "context": state.get("narrative_context", "")
+            })
+            npc_data = npc_response.model_dump()
             # Ensure backstory is always present
             if not npc_data.get("backstory") or npc_data.get("backstory").strip() == "":
                 logger.warning(f"NPC {npc_data.get('npc_name', 'unknown')} has no backstory, generating default")
                 npc_data["backstory"] = f"A {state.get('species_name', 'character')} {state.get('npc_role', 'individual')} whose story is intertwined with the events at {state.get('location_name', 'this location')}."
-        except json.JSONDecodeError as json_err:
-            logger.error(f"JSON parsing failed for NPC generation: {json_err}")
-            logger.error(f"Raw response: {response.content[:500]}")
+        except Exception as parse_err:
+            logger.error(f"Structured output failed for NPC generation: {parse_err}")
             # Use fallback with minimal NPC data
             logger.warning("Using fallback: creating minimal NPC")
             npc_data = {

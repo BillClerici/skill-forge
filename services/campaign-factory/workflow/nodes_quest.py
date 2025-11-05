@@ -8,7 +8,8 @@ import json
 import uuid
 from typing import List, Dict
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import CampaignWorkflowState, QuestData
 from .utils import add_audit_entry, publish_progress, create_checkpoint, get_blooms_level_description
@@ -21,9 +22,37 @@ from .objective_system import (
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class QuestObjectiveResponse(BaseModel):
+    """Structured response for a quest objective"""
+    description: str = Field(description="Specific, actionable objective")
+    blooms_level: int = Field(description="Bloom's taxonomy level (1-6)", ge=1, le=6)
+    required_for_completion: bool = Field(default=True, description="Whether objective is required")
+
+class LocationResponse(BaseModel):
+    """Structured response for location assignment"""
+    use_existing: bool = Field(description="Whether to use an existing location")
+    existing_location_id: str = Field(default="", description="ID of existing location if use_existing=true")
+    existing_location_name: str = Field(default="", description="Name of existing location if use_existing=true")
+    or_create_new: bool = Field(default=False, description="Whether creating a new location")
+    new_location_name: str = Field(default="", description="Name for new location if creating")
+    new_location_type: str = Field(default="", description="Type of new location if creating")
+    new_location_description: str = Field(default="", description="Description of new location if creating")
+
+class QuestGenerationResponse(BaseModel):
+    """Structured response for quest generation"""
+    quest_name: str = Field(description="Quest title from narrative plan")
+    description: str = Field(description="Detailed quest description capturing narrative beats")
+    objectives: List[QuestObjectiveResponse] = Field(description="2-4 quest objectives", min_length=2, max_length=4)
+    level_1_location: LocationResponse = Field(description="Location assignment")
+    backstory: str = Field(description="Quest backstory")
+    estimated_duration_minutes: int = Field(default=60, description="Estimated duration in minutes", ge=10)
+    difficulty_level: str = Field(description="Quest difficulty level")
+    order_sequence: int = Field(description="Quest order in campaign")
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     # API key read from ANTHROPIC_API_KEY env var
     temperature=0.8,
     max_tokens=4096
@@ -155,35 +184,7 @@ Bloom's Taxonomy Levels:
 3. Applying - Use information in new situations
 4. Analyzing - Draw connections among ideas
 5. Evaluating - Justify a decision or course of action
-6. Creating - Produce new or original work
-
-Return your response as a JSON object with this EXACT structure:
-{{
-  "quest_name": "Chapter title from narrative plan",
-  "description": "Detailed quest description that captures narrative beats",
-  "objectives": [
-    {{
-      "description": "Specific, actionable objective",
-      "blooms_level": 3,
-      "required_for_completion": true
-    }}
-  ],
-  "level_1_location": {{
-    "use_existing": true,
-    "existing_location_id": "loc_id",
-    "existing_location_name": "Location name",
-    "or_create_new": false,
-    "new_location_name": "",
-    "new_location_type": "",
-    "new_location_description": ""
-  }},
-  "backstory": "Quest backstory",
-  "estimated_duration_minutes": 60,
-  "difficulty_level": "Medium",
-  "order_sequence": 1
-}}
-
-CRITICAL: Return ONLY the JSON object, no other text."""),
+6. Creating - Produce new or original work"""),
             ("user", """Campaign Context:
 Name: {campaign_name}
 Plot: {plot}
@@ -222,7 +223,10 @@ Convert this narrative chapter into a detailed quest with objectives.""")
 
         # Generate quests from narrative blueprint
         quests: List[QuestData] = []
-        chain = prompt | anthropic_client
+
+        # Use structured output to guarantee valid responses
+        structured_llm = anthropic_client.with_structured_output(QuestGenerationResponse, include_raw=False)
+        chain = prompt | structured_llm
 
         total_quests = len(quest_chapters)
         for quest_idx, chapter in enumerate(quest_chapters):
@@ -234,7 +238,8 @@ Convert this narrative chapter into a detailed quest with objectives.""")
             # Format story beats
             story_beats_str = "\n".join([f"  {beat}" for beat in chapter.get("story_beats", [])])
 
-            response = await chain.ainvoke({
+            # Generate quest - response is already a Pydantic model
+            quest_response: QuestGenerationResponse = await chain.ainvoke({
                 "campaign_name": state["campaign_core"]["name"],
                 "plot": state["campaign_core"]["plot"],
                 "primary_objectives": objectives_str,
@@ -250,7 +255,8 @@ Convert this narrative chapter into a detailed quest with objectives.""")
                 "existing_locations": locations_str
             })
 
-            quest_data = json.loads(response.content.strip())
+            # Convert Pydantic model to dict
+            quest_data = quest_response.model_dump()
 
             # Handle location assignment
             location_info = quest_data.get("level_1_location", {})

@@ -21,7 +21,7 @@ from ..services.mcp_client import mcp_client
 from ..services.redis_manager import redis_manager
 from ..services.rabbitmq_client import rabbitmq_client
 from ..core.logging import get_logger
-from .objective_tracker import process_acquisitions
+from .objective_tracker import process_acquisitions, process_player_action_and_narrative
 
 logger = get_logger(__name__)
 
@@ -1133,19 +1133,40 @@ async def generate_scene_node(state: GameSessionState) -> GameSessionState:
                 player_id = players[0].get("player_id")
                 campaign_id = state["campaign_id"]
 
-                # Process acquisitions through objective tracker
-                acquisition_results = await process_acquisitions(
+                # Reconstruct context for comprehensive objective tracking
+                pending_action = state.get("pending_action", {})
+                player_action_text = pending_action.get("player_input", "")
+                action_interpretation = pending_action.get("interpretation", {})
+                action_type_value = action_interpretation.get("action_type", "")
+
+                # Get the most recent GM narrative from chat messages
+                chat_messages = state.get("chat_messages", [])
+                gm_narrative_text = ""
+                for msg in reversed(chat_messages):
+                    if msg.get("sender_id") == "game_master" and msg.get("message_type") == "DM_NARRATIVE":
+                        gm_narrative_text = msg.get("content", "")
+                        break
+
+                # Process acquisitions through comprehensive objective tracker
+                # This includes BOTH legacy knowledge/items AND child objective cascade
+                acquisition_results = await process_player_action_and_narrative(
                     state["session_id"],
                     player_id,
                     campaign_id,
-                    pending_acquisitions
+                    player_action_text,
+                    action_type_value,
+                    action_interpretation,
+                    gm_narrative_text,
+                    state.get("current_scene", {})
                 )
 
                 logger.info(
-                    "acquisitions_processed",
+                    "acquisitions_processed_comprehensive",
                     session_id=state["session_id"],
-                    total_acquisitions=len(acquisition_results.get("acquisitions", [])),
-                    objectives_affected=len(acquisition_results.get("affected_objectives", []))
+                    action_type=action_type_value,
+                    legacy_acquisitions=len(acquisition_results.get("legacy_results", {}).get("acquisitions", [])),
+                    child_objectives_completed=len(acquisition_results.get("child_objective_results", {}).get("completed_objectives", [])),
+                    objectives_affected=len(acquisition_results.get("legacy_results", {}).get("affected_objectives", []))
                 )
 
                 # Clear pending acquisitions after processing
@@ -1321,6 +1342,29 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
                 "success_probability": 1.0,
                 "player_input": player_input
             }
+        elif is_ending_conversation and active_npc_id:
+            # Player is ending active conversation - handle gracefully without GM interpreter
+            # Do NOT call GM interpreter to avoid it misinterpreting "End Conversation" as pausing the game
+            logger.info(
+                "ending_active_conversation",
+                session_id=state["session_id"],
+                npc_id=active_npc_id,
+                npc_name=active_npc_name
+            )
+
+            # Create a simple end_conversation action
+            action_interpretation = {
+                "action_type": "end_conversation",
+                "target_id": active_npc_id,
+                "parameters": {"npc_name": active_npc_name},
+                "success_probability": 1.0,
+                "player_input": player_input
+            }
+
+            # Clear the active conversation state immediately
+            state["active_conversation_npc_id"] = None
+            state["active_conversation_npc_name"] = None
+            state["conversation_turn_count"] = 0
         else:
             # Use Game Master agent to interpret action
             action_interpretation = await gm_agent.interpret_player_action(
@@ -1328,17 +1372,6 @@ async def interpret_action_node(state: GameSessionState) -> GameSessionState:
                 state,
                 player
             )
-
-            # If player ended conversation, clear the active conversation state
-            if is_ending_conversation:
-                logger.info(
-                    "ending_active_conversation",
-                    session_id=state["session_id"],
-                    npc_id=active_npc_id
-                )
-                state["active_conversation_npc_id"] = None
-                state["active_conversation_npc_name"] = None
-                state["conversation_turn_count"] = 0
 
         # Store interpreted action for execution
         state["pending_action"]["interpretation"] = action_interpretation
@@ -1502,6 +1535,36 @@ async def execute_action_node(state: GameSessionState) -> GameSessionState:
                 )
 
             outcome = {"question_answered": True}
+
+        elif action_type == "end_conversation":
+            # Player ended an active conversation with an NPC
+            npc_name = parameters.get("npc_name", "the person")
+
+            # Create a simple narrative about ending the conversation
+            end_narrative = f"You politely end your conversation with {npc_name} and turn your attention back to the scene around you."
+
+            chat_message = {
+                "message_id": f"msg_{datetime.utcnow().timestamp()}",
+                "session_id": state["session_id"],
+                "timestamp": datetime.utcnow().isoformat(),
+                "message_type": "DM_NARRATIVE",
+                "sender_id": "game_master",
+                "sender_name": "Game Master",
+                "content": end_narrative,
+                "metadata": {"action_type": "end_conversation"}
+            }
+            state["chat_messages"].append(chat_message)
+
+            # Broadcast to players
+            await connection_manager.broadcast_to_session(
+                state["session_id"],
+                {
+                    "type": "chat_message",
+                    "data": chat_message
+                }
+            )
+
+            outcome = {"conversation_ended": True}
 
         elif action_type == "talk_to_npc":
             # Check if there are available NPCs
@@ -2848,6 +2911,23 @@ Try examining your surroundings more carefully, or ask me about what challenges 
 
         state["last_updated"] = datetime.utcnow().isoformat()
         await redis_manager.save_state(state["session_id"], state)
+
+        # NEW: Process child objectives after action execution
+        # This uses a clean, modular integration point
+        if outcome and pending_action:
+            from .objective_processor import process_objectives_after_action
+
+            await process_objectives_after_action(
+                state=state,
+                pending_action=pending_action,
+                action_type=action_type,
+                target_id=target_id,
+                parameters=parameters,
+                outcome=outcome
+            )
+            # Note: Results are logged in objective_processor
+            # Events are published automatically by cascade system
+            # No need to handle them here
 
         logger.info(
             "action_executed",

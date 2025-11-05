@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize LLM clients
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     api_key=os.getenv('ANTHROPIC_API_KEY'),
     temperature=0.8,
     max_tokens=4096

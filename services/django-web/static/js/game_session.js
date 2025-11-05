@@ -69,8 +69,9 @@ function toggleObjectivesSidebar() {
 async function loadObjectiveProgress(sessionId, playerId) {
     try {
         // Call Django proxy (which connects to game engine internally)
+        // Add child_objectives=true to fetch hierarchical objectives
         const response = await fetch(
-            `/api/session/${sessionId}/objectives/?player_id=${playerId}`
+            `/api/session/${sessionId}/objectives/?player_id=${playerId}&child_objectives=true`
         );
 
         if (!response.ok) {
@@ -91,6 +92,149 @@ async function loadObjectiveProgress(sessionId, playerId) {
                 <span style="font-size: 0.75rem; opacity: 0.8;">${error.message}</span>
             </p>`;
     }
+}
+
+// ============================================
+// Helper Functions
+// ============================================
+
+function getRubricColor(score) {
+    if (score >= 3.5) return '#4CAF50'; // Excellent
+    if (score >= 2.5) return '#6A5ACD'; // Good
+    if (score >= 1.5) return '#FFC107'; // Basic
+    return '#f44336'; // Minimal
+}
+
+function getQualityLabel(quality) {
+    const labels = {
+        'excellent': 'EXCELLENT',
+        'good': 'GOOD',
+        'minimal': 'MINIMAL'
+    };
+    return labels[quality] || quality.toUpperCase();
+}
+
+function renderChildObjectives(childObjectives, sceneId) {
+    if (!childObjectives || childObjectives.length === 0) {
+        return '';
+    }
+
+    // Group by type
+    const discoveries = childObjectives.filter(o => o.objective_type === 'discovery');
+    const challenges = childObjectives.filter(o => o.objective_type === 'challenge');
+    const events = childObjectives.filter(o => o.objective_type === 'event');
+    const conversations = childObjectives.filter(o => o.objective_type === 'conversation');
+
+    let html = '<div class="child-objectives-container" style="margin-top: 10px; padding-left: 20px; border-left: 2px solid rgba(106, 90, 205, 0.3);">';
+
+    // Discovery Objectives
+    if (discoveries.length > 0) {
+        html += `
+            <div class="objective-group" style="margin-bottom: 12px;">
+                <h6 style="color: #6A5ACD; font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 1.1rem;">🔍</span> Discoveries (${discoveries.length})
+                </h6>
+                ${discoveries.map(d => renderChildObjective(d, '🔍')).join('')}
+            </div>
+        `;
+    }
+
+    // Challenge Objectives
+    if (challenges.length > 0) {
+        html += `
+            <div class="objective-group" style="margin-bottom: 12px;">
+                <h6 style="color: #6A5ACD; font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 1.1rem;">⚔️</span> Challenges (${challenges.length})
+                </h6>
+                ${challenges.map(c => renderChildObjective(c, '⚔️')).join('')}
+            </div>
+        `;
+    }
+
+    // Event Objectives
+    if (events.length > 0) {
+        html += `
+            <div class="objective-group" style="margin-bottom: 12px;">
+                <h6 style="color: #6A5ACD; font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 1.1rem;">⭐</span> Events (${events.length})
+                </h6>
+                ${events.map(e => renderChildObjective(e, '⭐')).join('')}
+            </div>
+        `;
+    }
+
+    // Conversation Objectives
+    if (conversations.length > 0) {
+        html += `
+            <div class="objective-group" style="margin-bottom: 12px;">
+                <h6 style="color: #6A5ACD; font-size: 0.8rem; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 1.1rem;">💬</span> Conversations (${conversations.length})
+                </h6>
+                ${conversations.map(c => renderChildObjective(c, '💬')).join('')}
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    return html;
+}
+
+function renderChildObjective(childObj, icon) {
+    const isCompleted = childObj.status === 'completed';
+    const rubricScore = childObj.rubric_score || null;
+    const minScore = childObj.minimum_rubric_score || 2.5;
+
+    return `
+        <div class="child-objective-card"
+             data-child-objective-id="${childObj.objective_id}"
+             style="margin: 6px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; border-left: 3px solid ${isCompleted ? '#4CAF50' : '#6A5ACD'};">
+
+            <div style="display: flex; align-items: start; gap: 8px;">
+                <span style="font-size: 1.2rem; line-height: 1;">${icon}</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.8rem; color: ${isCompleted ? '#4CAF50' : '#b8b8d1'}; line-height: 1.4;">
+                        ${childObj.description || 'Objective'}
+                    </div>
+
+                    <div style="display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;">
+                        ${childObj.is_required ?
+                            '<span class="chip tiny" style="background: #f44336; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 10px;">Required</span>' :
+                            '<span class="chip tiny" style="background: #888; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 10px;">Optional</span>'
+                        }
+                        ${isCompleted ?
+                            '<span class="chip tiny" style="background: #4CAF50; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 10px;">✓ Complete</span>' :
+                            ''
+                        }
+                    </div>
+
+                    ${rubricScore !== null ? `
+                        <div class="rubric-score" style="margin-top: 4px; font-size: 0.7rem; color: ${getRubricColor(rubricScore)}; font-weight: bold;">
+                            Quality: ${rubricScore.toFixed(1)}/4.0 ${rubricScore >= minScore ? '✓' : '✗'}
+                        </div>
+                    ` : ''}
+
+                    ${renderObjectiveHints(childObj)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderObjectiveHints(childObj) {
+    const type = childObj.objective_type;
+    let hint = '';
+
+    if (type === 'discovery' && childObj.scene_location_hint) {
+        hint = `<div style="font-size: 0.65rem; color: #888; margin-top: 4px; font-style: italic;">💡 ${childObj.scene_location_hint}</div>`;
+    } else if (type === 'challenge' && childObj.difficulty_hint) {
+        hint = `<div style="font-size: 0.65rem; color: #888; margin-top: 4px; font-style: italic;">⚠️ ${childObj.difficulty_hint}</div>`;
+    } else if (type === 'conversation' && childObj.npc_name_hint) {
+        hint = `<div style="font-size: 0.65rem; color: #888; margin-top: 4px; font-style: italic;">💬 Talk to ${childObj.npc_name_hint}</div>`;
+    } else if (type === 'event' && childObj.participation_type) {
+        hint = `<div style="font-size: 0.65rem; color: #888; margin-top: 4px; font-style: italic;">📋 ${childObj.participation_type}</div>`;
+    }
+
+    return hint;
 }
 
 // ============================================
@@ -211,19 +355,26 @@ function renderQuestObjective(questObj) {
     const progress = questObj.progress || 0;
 
     return `
-        <div data-objective-id="${questObj.id}" style="margin-bottom: 8px; display: flex; align-items: start; gap: 8px;">
-            <i class="material-icons tiny status-icon" style="color: ${color}; margin-top: 2px; font-size: 16px;">${icon}</i>
-            <div style="flex: 1;">
-                <span style="color: #b8b8d1; font-size: 0.85rem;">${questObj.description || 'Quest Objective'}</span>
-                ${progress > 0 ? `
-                    <div class="progress-bar" style="margin-top: 4px; height: 4px; background: rgba(192, 192, 192, 0.2); border-radius: 2px; overflow: hidden;">
-                        <div style="height: 100%; background: ${color}; width: ${progress}%; transition: width 0.5s ease;"></div>
-                    </div>
-                    <div class="percentage-text" style="margin-top: 2px; font-size: 0.75rem; color: ${color};">
-                        ${progress}% complete
-                    </div>
-                ` : ''}
+        <div data-objective-id="${questObj.id}" style="margin-bottom: 12px;">
+            <div style="display: flex; align-items: start; gap: 8px;">
+                <i class="material-icons tiny status-icon" style="color: ${color}; margin-top: 2px; font-size: 16px;">${icon}</i>
+                <div style="flex: 1;">
+                    <span style="color: #b8b8d1; font-size: 0.85rem;">${questObj.description || 'Quest Objective'}</span>
+                    ${progress > 0 ? `
+                        <div class="progress-bar" style="margin-top: 4px; height: 4px; background: rgba(192, 192, 192, 0.2); border-radius: 2px; overflow: hidden;">
+                            <div style="height: 100%; background: ${color}; width: ${progress}%; transition: width 0.5s ease;"></div>
+                        </div>
+                        <div class="percentage-text" style="margin-top: 2px; font-size: 0.75rem; color: ${color};">
+                            ${progress}% complete
+                        </div>
+                    ` : ''}
+                </div>
             </div>
+
+            ${questObj.child_objectives && questObj.child_objectives.length > 0 ?
+                renderChildObjectives(questObj.child_objectives, questObj.current_scene_id)
+                : ''
+            }
         </div>
     `;
 }
@@ -315,6 +466,239 @@ function renderDimensionalProgress(dimensions) {
 // ============================================
 // WebSocket Event Handlers
 // ============================================
+
+function handleChildObjectiveCompleted(data) {
+    console.log('Child objective completed:', data);
+
+    const childCard = document.querySelector(`[data-child-objective-id="${data.child_objective_id}"]`);
+    if (childCard) {
+        // Update card styling
+        childCard.style.borderLeftColor = '#4CAF50';
+
+        // Update text color
+        const descDiv = childCard.querySelector('div[style*="font-size: 0.8rem"]');
+        if (descDiv) {
+            descDiv.style.color = '#4CAF50';
+        }
+
+        // Add/update rubric score display
+        const existingScore = childCard.querySelector('.rubric-score');
+        if (existingScore) {
+            existingScore.remove();
+        }
+
+        const rubricScore = data.rubric_score || 0;
+        const scoreHTML = `
+            <div class="rubric-score" style="margin-top: 4px; font-size: 0.7rem; color: ${getRubricColor(rubricScore)}; font-weight: bold;">
+                Quality: ${rubricScore.toFixed(1)}/4.0 - ${getQualityLabel(data.completion_quality)}
+            </div>
+        `;
+        const contentDiv = childCard.querySelector('div[style*="flex: 1"]');
+        if (contentDiv) {
+            contentDiv.insertAdjacentHTML('beforeend', scoreHTML);
+        }
+
+        // Add completion badge
+        const badgeContainer = childCard.querySelector('div[style*="flex-wrap: wrap"]');
+        if (badgeContainer && !badgeContainer.querySelector('.chip.tiny[style*="#4CAF50"]')) {
+            badgeContainer.insertAdjacentHTML('beforeend',
+                '<span class="chip tiny" style="background: #4CAF50; color: white; font-size: 0.6rem; padding: 2px 6px; border-radius: 10px;">✓ Complete</span>'
+            );
+        }
+
+        // Trigger animation
+        childCard.style.animation = 'pulse 0.5s ease';
+        setTimeout(() => {
+            childCard.style.animation = '';
+        }, 500);
+    }
+
+    // Update parent quest objective progress
+    if (data.quest_objective_progress) {
+        updateQuestObjectiveProgress(data.quest_objective_id, data.quest_objective_progress);
+    }
+
+    // Show toast with rubric score
+    showRubricToast(data.child_objective_type, data.description, data.rubric_score, data.completion_quality);
+}
+
+function handleQuestObjectiveCompleted(data) {
+    console.log('Quest objective completed:', data);
+
+    // Update quest objective card
+    const questCard = document.querySelector(`[data-objective-id="${data.quest_objective_id}"]`);
+    if (questCard) {
+        const icon = questCard.querySelector('.status-icon');
+        if (icon) {
+            icon.textContent = 'check_circle';
+            icon.style.color = '#4CAF50';
+        }
+    }
+
+    // Show toast with average quality
+    if (typeof M !== 'undefined' && M.toast) {
+        M.toast({
+            html: `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="material-icons" style="font-size: 1.5rem;">emoji_events</i>
+                    <div>
+                        <strong>Quest Objective Complete!</strong>
+                        <div style="font-size: 0.8rem; opacity: 0.9;">Average Quality: ${data.overall_quality}</div>
+                    </div>
+                </div>
+            `,
+            classes: 'green',
+            displayLength: 5000
+        });
+    }
+
+    // Trigger celebration
+    if (typeof confetti === 'function') {
+        confetti({ particleCount: 150, spread: 90 });
+    }
+}
+
+function handleCampaignObjectiveCompleted(data) {
+    console.log('Campaign objective completed:', data);
+
+    // Update campaign objective card
+    const campaignCard = document.querySelector(`[data-campaign-objective-id="${data.objective_id}"]`);
+    if (campaignCard) {
+        const progressBar = campaignCard.querySelector('.campaign-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = '100%';
+            progressBar.style.background = '#4CAF50';
+        }
+
+        const percentageText = campaignCard.querySelector('.campaign-percentage');
+        if (percentageText) {
+            percentageText.textContent = '100%';
+            percentageText.style.color = '#4CAF50';
+        }
+    }
+
+    // Major celebration - campaign objective is huge!
+    if (typeof M !== 'undefined' && M.toast) {
+        M.toast({
+            html: `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 2rem;">🏆</span>
+                    <div>
+                        <strong>Campaign Milestone Achieved!</strong>
+                        <div style="font-size: 0.8rem;">${data.description}</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">Quality Score: ${(data.overall_quality_score || 0).toFixed(1)}/4.0</div>
+                    </div>
+                </div>
+            `,
+            classes: 'purple',
+            displayLength: 7000
+        });
+    }
+
+    // Epic celebration
+    if (typeof confetti === 'function') {
+        confetti({
+            particleCount: 300,
+            spread: 120,
+            origin: { y: 0.5 }
+        });
+    }
+
+    // Play fanfare sound
+    try {
+        const audio = new Audio('/static/sounds/campaign_milestone.mp3');
+        audio.play().catch(err => console.log('Audio play failed:', err));
+    } catch (e) {
+        // Ignore audio errors
+    }
+}
+
+function handleObjectiveCascadeUpdate(data) {
+    console.log('Cascade update:', data);
+
+    // Update all affected objectives
+    if (data.updated_objectives && Array.isArray(data.updated_objectives)) {
+        data.updated_objectives.forEach(obj => {
+            if (obj.type === 'quest') {
+                updateQuestObjectiveProgress(obj.id, obj.progress);
+            } else if (obj.type === 'campaign') {
+                updateCampaignObjectiveProgress(obj.id, obj.progress);
+            }
+        });
+    }
+}
+
+function updateQuestObjectiveProgress(objectiveId, progress) {
+    const questCard = document.querySelector(`[data-objective-id="${objectiveId}"]`);
+    if (questCard) {
+        const progressBar = questCard.querySelector('.progress-bar div');
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
+
+        const percentageText = questCard.querySelector('.percentage-text');
+        if (percentageText) {
+            percentageText.textContent = `${progress}% complete`;
+        }
+
+        // Update status icon if completed
+        if (progress === 100) {
+            const icon = questCard.querySelector('.status-icon');
+            if (icon) {
+                icon.textContent = 'check_circle';
+                icon.style.color = '#4CAF50';
+            }
+        }
+    }
+}
+
+function updateCampaignObjectiveProgress(objectiveId, progress) {
+    const campaignCard = document.querySelector(`[data-campaign-objective-id="${objectiveId}"]`);
+    if (campaignCard) {
+        const progressBar = campaignCard.querySelector('.campaign-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+        }
+
+        const percentageText = campaignCard.querySelector('.campaign-percentage');
+        if (percentageText) {
+            percentageText.textContent = `${progress}%`;
+        }
+    }
+}
+
+function showRubricToast(type, description, score, quality) {
+    const typeEmoji = {
+        'discovery': '🔍',
+        'challenge': '⚔️',
+        'event': '⭐',
+        'conversation': '💬'
+    }[type] || '✓';
+
+    const qualityColor = {
+        'excellent': '#4CAF50',
+        'good': '#6A5ACD',
+        'minimal': '#FFC107'
+    }[quality] || '#888';
+
+    if (typeof M !== 'undefined' && M.toast) {
+        M.toast({
+            html: `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.5rem;">${typeEmoji}</span>
+                    <div>
+                        <strong>${description}</strong>
+                        <div style="font-size: 0.8rem; color: ${qualityColor};">
+                            Score: ${(score || 0).toFixed(1)}/4.0 - ${getQualityLabel(quality)}
+                        </div>
+                    </div>
+                </div>
+            `,
+            classes: 'purple',
+            displayLength: 4000
+        });
+    }
+}
 
 function handleObjectiveProgress(data) {
     console.log('Objective progress update:', data);
@@ -437,5 +821,8 @@ window.GameSessionObjectives = {
     loadObjectiveProgress,
     handleObjectiveProgress,
     handleCampaignObjectiveProgress,
+    handleChildObjectiveCompleted,
+    handleQuestObjectiveCompleted,
+    handleObjectiveCascadeUpdate,
     toggleObjectivesSidebar
 };

@@ -248,6 +248,152 @@ async def persist_objective_hierarchy_to_neo4j(state: Dict[str, Any], driver: Dr
                                 logger.error(f"Parameters: {params}")
                                 # Non-critical, continue
 
+                # NEW: Create Child Objectives (all types: discovery, challenge, event, conversation)
+                child_objectives = state.get("child_objectives", [])
+                logger.info(f"Processing {len(child_objectives)} child objectives...")
+
+                for child_obj in child_objectives:
+                    child_obj_id = child_obj.get("objective_id")
+                    if not child_obj_id:
+                        logger.warning("Child objective missing objective_id, skipping")
+                        continue
+
+                    obj_type = child_obj.get("objective_type", "")
+                    quest_obj_id = child_obj.get("quest_objective_id", "")
+
+                    # 1. Create QuestChildObjective node
+                    try:
+                        params = {
+                            "obj_id": child_obj_id,
+                            "obj_type": obj_type,
+                            "quest_obj_id": quest_obj_id,
+                            "campaign_obj_ids": child_obj.get("campaign_objective_ids", []),
+                            "description": child_obj.get("description", ""),
+                            "is_required": child_obj.get("is_required", True),
+                            "bloom_level": child_obj.get("bloom_level", 2),
+                            "min_rubric_score": child_obj.get("minimum_rubric_score", 2.5),
+                            "campaign_id": campaign_id,
+                            "available_scenes": child_obj.get("available_in_scenes", []),
+                            "primary_scene_id": child_obj.get("primary_scene_id")
+                        }
+
+                        tx.run("""
+                            MERGE (co:QuestChildObjective {id: $obj_id})
+                            SET co.objective_type = $obj_type,
+                                co.description = $description,
+                                co.is_required = $is_required,
+                                co.bloom_level = $bloom_level,
+                                co.minimum_rubric_score = $min_rubric_score,
+                                co.status = 'not_started',
+                                co.campaign_id = $campaign_id,
+                                co.available_in_scenes = $available_scenes,
+                                co.primary_scene_id = $primary_scene_id
+                        """, params)
+
+                        objectives_created += 1
+
+                        # 2. Link to Quest Objective
+                        if quest_obj_id:
+                            tx.run("""
+                                MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                MATCH (qo:QuestObjective {id: $quest_obj_id})
+                                MERGE (co)-[:SUPPORTS]->(qo)
+                                MERGE (qo)-[:DECOMPOSES_TO]->(co)
+                            """, {
+                                "child_obj_id": child_obj_id,
+                                "quest_obj_id": quest_obj_id
+                            })
+
+                        # 3. Link to Campaign Objectives
+                        for camp_obj_id in child_obj.get("campaign_objective_ids", []):
+                            tx.run("""
+                                MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                MATCH (cmo:CampaignObjective {id: $camp_obj_id})
+                                MERGE (co)-[:SUPPORTS]->(cmo)
+                            """, {
+                                "child_obj_id": child_obj_id,
+                                "camp_obj_id": camp_obj_id
+                            })
+
+                        # 4. Link to Scenes (AVAILABLE_IN relationship)
+                        for scene_id in child_obj.get("available_in_scenes", []):
+                            tx.run("""
+                                MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                MATCH (s:Scene {id: $scene_id})
+                                MERGE (co)-[:AVAILABLE_IN]->(s)
+                            """, {
+                                "child_obj_id": child_obj_id,
+                                "scene_id": scene_id
+                            })
+
+                        # 5. Link to entity based on type
+                        if obj_type == "discovery":
+                            discovery_id = child_obj.get("discovery_entity_id")
+                            if discovery_id:
+                                tx.run("""
+                                    MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                    MATCH (d:Discovery {id: $discovery_id})
+                                    MERGE (co)-[:REQUIRES_DISCOVERY]->(d)
+                                """, {
+                                    "child_obj_id": child_obj_id,
+                                    "discovery_id": discovery_id
+                                })
+
+                        elif obj_type == "challenge":
+                            challenge_id = child_obj.get("challenge_entity_id")
+                            if challenge_id:
+                                tx.run("""
+                                    MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                    MATCH (ch:Challenge {id: $challenge_id})
+                                    MERGE (co)-[:REQUIRES_CHALLENGE]->(ch)
+                                """, {
+                                    "child_obj_id": child_obj_id,
+                                    "challenge_id": challenge_id
+                                })
+
+                        elif obj_type == "event":
+                            event_id = child_obj.get("event_entity_id")
+                            if event_id:
+                                tx.run("""
+                                    MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                    MATCH (e:Event {id: $event_id})
+                                    MERGE (co)-[:REQUIRES_EVENT]->(e)
+                                """, {
+                                    "child_obj_id": child_obj_id,
+                                    "event_id": event_id
+                                })
+
+                        elif obj_type == "conversation":
+                            npc_id = child_obj.get("npc_id")
+                            if npc_id:
+                                tx.run("""
+                                    MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                    MATCH (npc:NPC {id: $npc_id})
+                                    MERGE (co)-[:REQUIRES_CONVERSATION]->(npc)
+                                """, {
+                                    "child_obj_id": child_obj_id,
+                                    "npc_id": npc_id
+                                })
+
+                        # 6. Link to Rubrics
+                        for rubric_id in child_obj.get("rubric_ids", []):
+                            tx.run("""
+                                MATCH (co:QuestChildObjective {id: $child_obj_id})
+                                MATCH (r:Rubric {id: $rubric_id})
+                                MERGE (co)-[:EVALUATED_BY]->(r)
+                            """, {
+                                "child_obj_id": child_obj_id,
+                                "rubric_id": rubric_id
+                            })
+
+                        logger.debug(f"Created child objective ({obj_type}): {child_obj.get('description', '')[:50]}...")
+
+                    except Exception as e:
+                        logger.error(f"Failed to create QuestChildObjective {child_obj_id}: {str(e)}")
+                        raise
+
+                logger.info(f"✓ Created {len(child_objectives)} child objective nodes")
+
                 # Commit the transaction
                 tx.commit()
                 logger.info(f"✓ Created {objectives_created} objective nodes in Neo4j (transaction committed)")

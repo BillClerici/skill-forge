@@ -1,6 +1,7 @@
 """
 Objective Tracking System
-Handles acquisition detection, objective linking, and progress calculation
+Handles acquisition detection, objective linking, and progress calculation.
+Now includes child objective cascade tracking (discovery, challenge, event, conversation).
 """
 import json
 from typing import Dict, List, Any, Optional
@@ -9,6 +10,7 @@ from datetime import datetime
 from ..core.logging import get_logger
 from ..services.neo4j_graph import neo4j_graph
 from ..services.rabbitmq_client import rabbitmq_client
+from .child_objective_cascade import process_player_action_for_objectives
 
 logger = get_logger(__name__)
 
@@ -76,7 +78,7 @@ Return ONLY valid JSON in this exact format:
 If nothing was acquired in a category, use an empty array []."""
 
         response = await client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             max_tokens=2000,
             temperature=0,
             messages=[{
@@ -210,7 +212,7 @@ Return ONLY a JSON object with the matching knowledge ID, or null if no good mat
 {{"matched_id": "knowledge_xxx" OR null, "confidence": 0.0-1.0, "reasoning": "brief explanation"}}"""
 
         response = await client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             max_tokens=500,
             temperature=0,
             messages=[{"role": "user", "content": matching_prompt}]
@@ -861,4 +863,144 @@ async def process_acquisitions(
         return {
             "acquisitions": [],
             "affected_objectives": []
+        }
+
+
+async def process_player_action_and_narrative(
+    session_id: str,
+    player_id: str,
+    campaign_id: str,
+    player_action: str,
+    action_type: str,
+    action_data: Dict[str, Any],
+    gm_narrative: str,
+    scene_context: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    MAIN ORCHESTRATION FUNCTION for all objective tracking.
+
+    Processes both:
+    1. Legacy knowledge/item acquisitions (for old quest objectives)
+    2. NEW child objective cascade (discovery, challenge, event, conversation)
+
+    This should be called after the GM generates a narrative response.
+
+    Args:
+        session_id: Game session ID
+        player_id: Player ID
+        campaign_id: Campaign ID
+        player_action: What the player did (raw action text)
+        action_type: Type of action ("conversation", "exploration", "examination", etc.)
+        action_data: Structured data about the action (e.g., {"npc_id": "...", "message": "..."})
+        gm_narrative: The GM's narrative response
+        scene_context: Available entities in scene (discoveries, items, events, challenges)
+
+    Returns:
+        Dict with:
+        - acquisitions: Legacy knowledge/items acquired
+        - affected_objectives: Legacy quest objectives affected
+        - child_objectives_completed: New child objectives completed
+        - quest_objectives_completed: Quest objectives completed via cascade
+        - campaign_objectives_completed: Campaign objectives completed via cascade
+    """
+    try:
+        logger.info(
+            "processing_player_action_comprehensive",
+            session_id=session_id,
+            player_id=player_id,
+            action_type=action_type,
+            gm_narrative_length=len(gm_narrative)
+        )
+
+        # PART 1: Legacy acquisition detection (knowledge/items)
+        logger.info("starting_legacy_acquisition_detection")
+
+        acquisitions = await detect_acquisitions_from_narrative(
+            narrative=gm_narrative,
+            player_action=player_action,
+            scene_context=scene_context
+        )
+
+        legacy_results = await process_acquisitions(
+            session_id=session_id,
+            player_id=player_id,
+            campaign_id=campaign_id,
+            acquisitions=acquisitions
+        )
+
+        logger.info(
+            "legacy_acquisition_processing_complete",
+            acquisitions_count=len(legacy_results.get("acquisitions", [])),
+            objectives_affected=len(legacy_results.get("affected_objectives", []))
+        )
+
+        # PART 2: NEW child objective cascade tracking
+        logger.info("starting_child_objective_cascade_detection")
+
+        cascade_results = await process_player_action_for_objectives(
+            session_id=session_id,
+            player_id=player_id,
+            action_type=action_type,
+            action_data=action_data,
+            gm_narrative=gm_narrative
+        )
+
+        logger.info(
+            "child_objective_cascade_complete",
+            child_objectives_completed=len(cascade_results.get("completed_child_objectives", [])),
+            quest_objectives_completed=len(cascade_results.get("completed_quest_objectives", [])),
+            campaign_objectives_completed=len(cascade_results.get("completed_campaign_objectives", []))
+        )
+
+        # PART 3: Combine results
+        combined_results = {
+            # Legacy results
+            "acquisitions": legacy_results.get("acquisitions", []),
+            "affected_objectives": legacy_results.get("affected_objectives", []),
+
+            # New cascade results
+            "child_objectives_completed": cascade_results.get("completed_child_objectives", []),
+            "quest_objectives_completed": cascade_results.get("completed_quest_objectives", []),
+            "campaign_objectives_completed": cascade_results.get("completed_campaign_objectives", []),
+            "cascade_updates": cascade_results.get("cascade_updates", []),
+
+            # Summary
+            "summary": {
+                "legacy_acquisitions": len(legacy_results.get("acquisitions", [])),
+                "legacy_objectives_affected": len(legacy_results.get("affected_objectives", [])),
+                "child_objectives_completed": len(cascade_results.get("completed_child_objectives", [])),
+                "quest_objectives_completed": len(cascade_results.get("completed_quest_objectives", [])),
+                "campaign_objectives_completed": len(cascade_results.get("completed_campaign_objectives", [])),
+                "total_progress_updates": (
+                    len(legacy_results.get("acquisitions", [])) +
+                    len(cascade_results.get("completed_child_objectives", []))
+                )
+            }
+        }
+
+        logger.info(
+            "comprehensive_objective_tracking_complete",
+            summary=combined_results["summary"]
+        )
+
+        return combined_results
+
+    except Exception as e:
+        logger.error(
+            "comprehensive_objective_tracking_failed",
+            session_id=session_id,
+            player_id=player_id,
+            error=str(e),
+            error_type=type(e).__name__
+        )
+        return {
+            "acquisitions": [],
+            "affected_objectives": [],
+            "child_objectives_completed": [],
+            "quest_objectives_completed": [],
+            "campaign_objectives_completed": [],
+            "cascade_updates": [],
+            "summary": {
+                "error": str(e)
+            }
         }

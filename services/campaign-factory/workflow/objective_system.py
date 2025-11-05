@@ -8,7 +8,8 @@ import logging
 import json
 from typing import List, Dict, Any, Tuple, Optional
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import (
     CampaignWorkflowState,
@@ -18,12 +19,51 @@ from .state import (
     ItemData,
     SceneData
 )
+from .utils import extract_json_from_llm_response
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class KnowledgeRequirement(BaseModel):
+    """Knowledge requirement for an objective"""
+    knowledge_name: str = Field(description="Name of required knowledge")
+    knowledge_description: str = Field(description="What this knowledge entails")
+    min_level: int = Field(description="Minimum level required (1-4)", ge=1, le=4)
+    knowledge_type: str = Field(description="Type: skill, lore, clue, secret, technique, or insight")
+    primary_dimension: str = Field(description="Dimension: physical, emotional, intellectual, social, spiritual, vocational, or environmental")
+
+class ItemRequirement(BaseModel):
+    """Item requirement for an objective"""
+    item_name: str = Field(description="Name of required item")
+    item_description: str = Field(description="What this item is")
+    quantity: int = Field(description="Quantity required", ge=1)
+    item_type: str = Field(description="Type: tool, consumable, key_item, quest_item, equipment, or resource")
+
+class QuestObjectiveResponse(BaseModel):
+    """Structured response for a quest objective"""
+    objective_id: str = Field(description="Unique identifier")
+    description: str = Field(description="Objective description")
+    required_knowledge: List[KnowledgeRequirement] = Field(default_factory=list, description="Knowledge requirements")
+    required_items: List[ItemRequirement] = Field(default_factory=list, description="Item requirements")
+    supports_campaign_objective: str = Field(description="Campaign objective this supports")
+
+class QuestObjectivesResponse(BaseModel):
+    """Structured response containing all quest objectives"""
+    objectives: List[QuestObjectiveResponse] = Field(description="List of quest objectives")
+
+class PartialLevel(BaseModel):
+    """Partial mastery level for knowledge"""
+    level: int = Field(description="Level number (1-4)", ge=1, le=4)
+    description: str = Field(description="What the player knows at this level")
+    sufficient_for: List[str] = Field(default_factory=list, description="Objective IDs this level satisfies")
+
+class PartialLevelsResponse(BaseModel):
+    """Structured response for partial knowledge levels"""
+    partial_levels: List[PartialLevel] = Field(description="4 progressive levels", min_length=4, max_length=4)
+
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     temperature=0.7,
     max_tokens=4096
 )
@@ -71,34 +111,8 @@ Guidelines:
 - Items should have specific quantities
 - Be specific about what needs to be known/obtained
 - Consider prerequisite knowledge (need to know X before learning Y)
-
-Return your response as a JSON array with this structure:
-[
-  {{
-    "objective_id": "unique_id",
-    "description": "Objective description",
-    "required_knowledge": [
-      {{
-        "knowledge_name": "Name of knowledge",
-        "knowledge_description": "What this knowledge entails",
-        "min_level": 2,
-        "knowledge_type": "skill|lore|clue|secret|technique|insight",
-        "primary_dimension": "physical|emotional|intellectual|social|spiritual|vocational|environmental"
-      }}
-    ],
-    "required_items": [
-      {{
-        "item_name": "Name of item",
-        "item_description": "What this item is",
-        "quantity": 1,
-        "item_type": "tool|consumable|key_item|quest_item|equipment|resource"
-      }}
-    ],
-    "supports_campaign_objective": "ID or description of campaign objective this supports"
-  }}
-]
-
-CRITICAL: Return ONLY the JSON array, no other text."""),
+- Provide specific objective IDs and descriptions
+- Link each objective to campaign objectives it supports"""),
             ("user", """Quest Context:
 Name: {quest_name}
 Description: {quest_description}
@@ -126,9 +140,11 @@ Generate structured objectives with specific knowledge and item requirements."""
             for obj in campaign_objectives
         ])
 
-        # Generate structured objectives
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
+        # Generate structured objectives using Pydantic for validation
+        structured_llm = anthropic_client.with_structured_output(QuestObjectivesResponse, include_raw=False)
+        chain = prompt | structured_llm
+
+        objectives_response: QuestObjectivesResponse = await chain.ainvoke({
             "quest_name": quest["name"],
             "quest_description": quest["description"],
             "quest_backstory": quest.get("backstory", ""),
@@ -137,8 +153,8 @@ Generate structured objectives with specific knowledge and item requirements."""
             "campaign_objectives": campaign_objectives_str
         })
 
-        # Parse response
-        objectives_raw = json.loads(response.content.strip())
+        # Convert Pydantic model to dict
+        objectives_raw = objectives_response.model_dump()["objectives"]
 
         # Convert to QuestObjective format
         structured_objectives: List[QuestObjective] = []
@@ -235,33 +251,7 @@ Your task is to take a knowledge entity and break it into 4 progressive levels o
 - Level 3 (75%): Proficient application - Can apply in complex situations
 - Level 4 (100%): Expert mastery - Can analyze, evaluate, and create new applications
 
-Return your response as a JSON object with this structure:
-{{
-  "partial_levels": [
-    {{
-      "level": 1,
-      "description": "What the player knows at 25% mastery",
-      "sufficient_for": ["List of objective IDs this level can satisfy"]
-    }},
-    {{
-      "level": 2,
-      "description": "What the player knows at 50% mastery",
-      "sufficient_for": ["List of objective IDs this level can satisfy"]
-    }},
-    {{
-      "level": 3,
-      "description": "What the player knows at 75% mastery",
-      "sufficient_for": ["List of objective IDs this level can satisfy"]
-    }},
-    {{
-      "level": 4,
-      "description": "What the player knows at 100% mastery",
-      "sufficient_for": ["List of objective IDs this level can satisfy"]
-    }}
-  ]
-}}
-
-CRITICAL: Return ONLY the JSON object, no other text."""),
+For each level, describe what the player knows and which objectives this level can satisfy."""),
             ("user", """Knowledge Entity:
 Name: {knowledge_name}
 Description: {knowledge_description}
@@ -296,7 +286,11 @@ Generate 4 progressive levels of understanding.""")
                     if req.get("knowledge_name") == kg_name
                 ])
 
-                response = await chain.ainvoke({
+                # Use structured output for validation
+                structured_llm = anthropic_client.with_structured_output(PartialLevelsResponse, include_raw=False)
+                chain_with_struct = prompt | structured_llm
+
+                levels_response: PartialLevelsResponse = await chain_with_struct.ainvoke({
                     "knowledge_name": kg_name,
                     "knowledge_description": kg_spec.get("knowledge_description", ""),
                     "knowledge_type": kg_spec.get("knowledge_type", "skill"),
@@ -304,7 +298,7 @@ Generate 4 progressive levels of understanding.""")
                     "objectives_needing_this": objectives_str
                 })
 
-                partial_levels_raw = json.loads(response.content.strip())
+                partial_levels_raw = levels_response.model_dump()
 
                 # Create KnowledgeData entity with ID now (needed for name-to-ID conversion)
                 import uuid

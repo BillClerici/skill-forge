@@ -119,7 +119,7 @@ async def generate_world_core_node(state: WorldFactoryState) -> WorldFactoryStat
         from langchain.prompts import ChatPromptTemplate
 
         llm = ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             api_key=os.getenv('ANTHROPIC_API_KEY'),
             temperature=0.9,
             max_tokens=2048
@@ -180,7 +180,7 @@ Return ONLY the JSON object, no other text.""")
 
         # Calculate tokens and cost
         tokens_used, cost_usd = calculate_tokens_and_cost(
-            'claude-3-5-sonnet-20241022',
+            'claude-sonnet-4-5-20250929',
             response.response_metadata.get('usage', {}).get('input_tokens', 0),
             response.response_metadata.get('usage', {}).get('output_tokens', 0)
         )
@@ -254,7 +254,7 @@ async def generate_world_properties_node(state: WorldFactoryState) -> WorldFacto
         from langchain.prompts import ChatPromptTemplate
 
         llm = ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-5-20250929",
             api_key=os.getenv('ANTHROPIC_API_KEY'),
             temperature=0.8,
             max_tokens=3072
@@ -337,7 +337,7 @@ Return ONLY the JSON object.""")
 
         # Calculate tokens and cost
         tokens_used, cost_usd = calculate_tokens_and_cost(
-            'claude-3-5-sonnet-20241022',
+            'claude-sonnet-4-5-20250929',
             response.response_metadata.get('usage', {}).get('input_tokens', 0),
             response.response_metadata.get('usage', {}).get('output_tokens', 0)
         )

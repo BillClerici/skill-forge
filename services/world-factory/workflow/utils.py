@@ -101,7 +101,7 @@ def calculate_tokens_and_cost(model: str, input_tokens: int, output_tokens: int)
 
     # Pricing (as of 2024)
     pricing = {
-        'claude-3-5-sonnet-20241022': {'input': 0.003, 'output': 0.015},  # per 1K tokens
+        'claude-sonnet-4-5-20250929': {'input': 0.003, 'output': 0.015},  # per 1K tokens
         'gpt-4o': {'input': 0.0025, 'output': 0.010},
         'dall-e-3': {'per_image': 0.040}  # $0.04 per 1024x1024 image
     }

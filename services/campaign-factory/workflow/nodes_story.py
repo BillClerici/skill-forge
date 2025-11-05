@@ -10,18 +10,32 @@ import random
 from datetime import datetime
 from typing import List
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
 
 from .state import CampaignWorkflowState, StoryIdea
 from .utils import add_audit_entry, publish_progress, create_checkpoint
 
 logger = logging.getLogger(__name__)
 
+# Pydantic models for structured output
+class StoryIdeaResponse(BaseModel):
+    """Structured response for a single story idea"""
+    title: str = Field(description="Engaging campaign title")
+    summary: str = Field(description="2-3 sentence summary of the story")
+    themes: List[str] = Field(description="List of 3 themes", min_length=1, max_length=5)
+    estimated_length: str = Field(description="Story length: Long, Medium, or Short")
+    difficulty_level: str = Field(description="Difficulty level: Easy, Medium, or Hard")
+
+class StoryIdeasResponse(BaseModel):
+    """Structured response containing 3 story ideas"""
+    stories: List[StoryIdeaResponse] = Field(description="Exactly 3 story ideas", min_length=3, max_length=3)
+
 # Initialize Claude client
 # Note: API key is read from ANTHROPIC_API_KEY environment variable
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
-    temperature=1.0,  # Maximum creativity for story generation variety
+    model="claude-sonnet-4-5-20250929",
+    temperature=0.7,  # Balanced creativity with reliable JSON formatting
     max_tokens=4096
 )
 
@@ -158,38 +172,16 @@ CREATIVE INSPIRATION - Consider these diverse themes:
 - Architectural collapse revealing secrets
 - Lost language translation quest
 
-Return your response as a JSON array with this structure:
-[
-  {{
-    "title": "Engaging campaign title",
-    "summary": "2-3 sentence summary of the story",
-    "themes": ["theme1", "theme2", "theme3"],
-    "estimated_length": "Long",
-    "difficulty_level": "Medium"
-  }},
-  {{
-    "title": "Engaging campaign title",
-    "summary": "2-3 sentence summary of the story",
-    "themes": ["theme1", "theme2", "theme3"],
-    "estimated_length": "Medium",
-    "difficulty_level": "Medium"
-  }},
-  {{
-    "title": "Engaging campaign title",
-    "summary": "2-3 sentence summary of the story",
-    "themes": ["theme1", "theme2", "theme3"],
-    "estimated_length": "Short",
-    "difficulty_level": "Medium"
-  }}
-]
-
-CRITICAL: Return ONLY the JSON array, no other text. Use the Generation Context seed to ensure maximum variety and avoid similar stories across different generations."""),
+Use the Generation Context seed to ensure maximum variety and avoid similar stories across different generations."""),
             ("user", "{context}{user_direction}{randomization}\n\nGenerate 3 COMPLETELY DIFFERENT and diverse campaign story ideas (1 Long, 1 Medium, 1 Short - all Medium difficulty). Make each one wildly different from typical fantasy tropes.")
         ])
 
-        # Generate story ideas
-        chain = prompt | anthropic_client
-        response = await chain.ainvoke({
+        # Use structured output to guarantee valid responses
+        structured_llm = anthropic_client.with_structured_output(StoryIdeasResponse, include_raw=False)
+        chain = prompt | structured_llm
+
+        # Generate story ideas - response is already a Pydantic model
+        story_response: StoryIdeasResponse = await chain.ainvoke({
             "context": world_context,
             "user_direction": user_direction,
             "randomization": randomization_context
@@ -200,18 +192,16 @@ CRITICAL: Return ONLY the JSON array, no other text. Use the Generation Context 
         state["status_message"] = "Parsing story ideas..."
         await publish_progress(state)
 
-        story_ideas_raw = json.loads(response.content.strip())
-
-        # Convert to StoryIdea format
+        # Convert Pydantic models to StoryIdea format
         story_ideas: List[StoryIdea] = []
-        for idx, idea in enumerate(story_ideas_raw):
+        for idx, idea in enumerate(story_response.stories):
             story_idea: StoryIdea = {
                 "id": f"story_{uuid.uuid4().hex[:8]}",
-                "title": idea.get("title", f"Story Idea {idx + 1}"),
-                "summary": idea.get("summary", ""),
-                "themes": idea.get("themes", []),
-                "estimated_length": idea.get("estimated_length", "Medium"),
-                "difficulty_level": idea.get("difficulty_level", "Medium")
+                "title": idea.title,
+                "summary": idea.summary,
+                "themes": idea.themes,
+                "estimated_length": idea.estimated_length,
+                "difficulty_level": idea.difficulty_level
             }
             story_ideas.append(story_idea)
 

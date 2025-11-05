@@ -8,7 +8,7 @@ import json
 import uuid
 from typing import List
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 from .state import CampaignWorkflowState, PlaceData, SceneData
 from .utils import add_audit_entry, publish_progress, create_checkpoint
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     # API key read from ANTHROPIC_API_KEY env var
     temperature=0.8,
     max_tokens=4096

@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any, List
 from langchain_anthropic import ChatAnthropic
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 from .state import KnowledgeData, ItemData, AcquisitionMethod, KnowledgePartialLevel
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Claude client
 anthropic_client = ChatAnthropic(
-    model="claude-3-5-sonnet-20241022",
+    model="claude-sonnet-4-5-20250929",
     temperature=0.7,
     max_tokens=4096
 )
@@ -213,7 +213,7 @@ Generate detailed knowledge information.""")
                 "blooms_level": state.get("campaign_core", {}).get("target_blooms_level", 3)
             })
 
-            enriched = json.loads(response.content.strip())
+            enriched = json.loads(extract_json_from_llm_response(response.content))
 
             # Generate 4 partial levels (25%, 50%, 75%, 100%)
             partial_levels: List[KnowledgePartialLevel] = [
@@ -314,7 +314,7 @@ Generate detailed item information.""")
                 "campaign_plot": state.get("campaign_core", {}).get("plot", "")[:200]
             })
 
-            enriched = json.loads(response.content.strip())
+            enriched = json.loads(extract_json_from_llm_response(response.content))
 
             # Use first scene where this item appears
             scene_id = tracker_data["scenes"][0] if tracker_data["scenes"] else None
