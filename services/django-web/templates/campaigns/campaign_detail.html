@@ -1694,15 +1694,19 @@ function showCRUDPanel(entityType) {
             if (item.placeName) details = `Place: ${item.placeName}`;
             if (item.sceneName) details = `Scene: ${item.sceneName}`;
 
+            // Escape single quotes for JavaScript
+            const escapedId = item.id.replace(/'/g, "\\'");
+            const escapedName = item.name.replace(/'/g, "\\'");
+
             panelHtml += `
                 <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
                     <td style="padding: 12px; color: #e0e0e0; font-weight: 500;">${escapeHtml(item.name)}</td>
                     <td style="padding: 12px; color: #b8b8d1; font-size: 0.9em;">${escapeHtml(details)}</td>
                     <td style="padding: 12px; text-align: right;">
-                        <button class="btn-small waves-effect waves-light blue" onclick="editEntity('${entityType}', '${item.id.replace(/'/g, "\\'")}')">
+                        <button class="btn-small waves-effect waves-light blue" onclick="editEntity('${entityType}', '${escapedId}')">
                             <i class="material-icons tiny">edit</i>
                         </button>
-                        <button class="btn-small waves-effect waves-light red" onclick="deleteEntity('${entityType}', '${item.id.replace(/'/g, "\\'")}', '${item.name.replace(/'/g, "\\'")}')">
+                        <button class="btn-small waves-effect waves-light red" onclick="deleteEntity('${entityType}', '${escapedId}', '${escapedName}')">
                             <i class="material-icons tiny">delete</i>
                         </button>
                     </td>
@@ -1834,6 +1838,9 @@ async function deleteEntity(entityType, id, name) {
 }
 
 function showEditModal(entityType, entity, campaignId) {
+    // Escape entity ID for use in onclick handlers (handles apostrophes in IDs)
+    const entityId = (entity.id || entity._id).replace(/'/g, "\\'");
+
     // Build edit form based on entity type
     let formFields = '';
 
@@ -1906,7 +1913,7 @@ function showEditModal(entityType, entity, campaignId) {
                         <i class="material-icons tiny" style="vertical-align: middle;">auto_fix_high</i>
                         Narrative Content
                     </h6>
-                    <button type="button" onclick="regenerateNPCFields('${entity.id || entity._id}', '${campaignId}')"
+                    <button type="button" onclick="regenerateNPCFields('${entityId}', '${campaignId}')"
                         class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
                         <i class="material-icons left tiny">refresh</i>AI Regenerate
                     </button>
@@ -1958,13 +1965,13 @@ function showEditModal(entityType, entity, campaignId) {
                                     onclick="openImageViewer('${fullBodyImages[0].url}')"
                                     style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
                                     title="Click to view full size">
-                                <button type="button" onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${fullBodyImages[0].url}', 'full_body')"
+                                <button type="button" onclick="deleteNPCImage('${entityId}', '${campaignId}', '${fullBodyImages[0].url}', 'full_body')"
                                     class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
                                     <i class="material-icons tiny">delete</i>
                                 </button>
                             ` : '<span style="color: #888;">No image</span>'}
                         </div>
-                        <button type="button" onclick="generateNPCImage('${entity.id || entity._id}', '${campaignId}', 'full_body')"
+                        <button type="button" onclick="generateNPCImage('${entityId}', '${campaignId}', 'full_body')"
                             class="btn-small waves-effect waves-light" style="margin-top: 10px; width: 100%; background-color: var(--rpg-blue);">
                             <i class="material-icons left tiny">auto_awesome</i>Generate
                         </button>
@@ -1979,13 +1986,13 @@ function showEditModal(entityType, entity, campaignId) {
                                     onclick="openImageViewer('${avatarImages[0].url}')"
                                     style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
                                     title="Click to view full size">
-                                <button type="button" onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${avatarImages[0].url}', 'avatar')"
+                                <button type="button" onclick="deleteNPCImage('${entityId}', '${campaignId}', '${avatarImages[0].url}', 'avatar')"
                                     class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
                                     <i class="material-icons tiny">delete</i>
                                 </button>
                             ` : '<span style="color: #888;">No image</span>'}
                         </div>
-                        <button type="button" onclick="generateNPCImage('${entity.id || entity._id}', '${campaignId}', 'avatar')"
+                        <button type="button" onclick="generateNPCImage('${entityId}', '${campaignId}', 'avatar')"
                             class="btn-small waves-effect waves-light" style="margin-top: 10px; width: 100%; background-color: var(--rpg-blue);">
                             <i class="material-icons left tiny">auto_awesome</i>Generate
                         </button>
@@ -2027,7 +2034,7 @@ function showEditModal(entityType, entity, campaignId) {
             </div>
             <div class="modal-footer" style="background: rgba(27, 27, 46, 0.5); border-top: 1px solid rgba(212, 175, 55, 0.2);">
                 <button type="button" class="btn-flat waves-effect waves-light" style="color: #b8b8d1;" onclick="closeEditModal()">Cancel</button>
-                <button type="button" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);" onclick="saveEntity('${entityType}', '${entity.id || entity._id}', '${campaignId}')">
+                <button type="button" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);" onclick="saveEntity('${entityType}', '${entityId}', '${campaignId}')">
                     <i class="material-icons left">save</i>Save
                 </button>
             </div>
