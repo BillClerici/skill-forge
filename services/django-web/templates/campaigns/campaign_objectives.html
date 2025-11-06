@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}Objectives - {{ campaign.name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<style>
+/* Style for Materialize dropdown options */
+.dropdown-content li > span {
+    color: #1a1a2e !important;
+    background-color: #ffffff !important;
+}
+
+.dropdown-content li:hover, .dropdown-content li.active {
+    background-color: rgba(212, 175, 55, 0.2) !important;
+}
+
+.dropdown-content li.selected {
+    background-color: rgba(212, 175, 55, 0.3) !important;
+}
+</style>
+
+<!-- Include Navigation Toolbar -->
+{% include "campaigns/_campaign_toolbar.html" %}
+
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">flag</i>
+            Primary Objectives - {{ campaign.name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h5 style="color: var(--rpg-gold); margin: 0;">
+                        <i class="material-icons" style="vertical-align: middle;">flag</i>
+                        Manage Primary Objectives
+                    </h5>
+                    <button class="btn waves-effect waves-light green" onclick="addNewObjective()">
+                        <i class="material-icons left">add</i>Add New Objective
+                    </button>
+                </div>
+
+                <table style="border: 1px solid rgba(212, 175, 55, 0.2);">
+                    <thead style="background: rgba(212, 175, 55, 0.1);">
+                        <tr>
+                            <th style="color: var(--rpg-gold); padding: 12px; width: 60px;">#</th>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Description</th>
+                            <th style="color: var(--rpg-gold); padding: 12px; width: 120px;">Bloom's Level</th>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Contribution</th>
+                            <th style="color: var(--rpg-gold); padding: 12px; text-align: right; width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if objectives %}
+                            {% for objective in objectives %}
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);" data-index="{{ forloop.counter0 }}">
+                                <td style="padding: 12px; color: #b8b8d1;">{{ forloop.counter }}</td>
+                                <td style="padding: 12px; color: #e0e0e0; font-weight: 500;">
+                                    {% if objective.description %}
+                                        {{ objective.description }}
+                                    {% else %}
+                                        {{ objective }}
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 12px; color: #b8b8d1; text-align: center;">
+                                    {% if objective.blooms_level %}
+                                        Level {{ objective.blooms_level }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 12px; color: #b8b8d1; font-size: 0.9em;">
+                                    {% if objective.contribution %}
+                                        {{ objective.contribution|truncatechars:80 }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 12px; text-align: right; white-space: nowrap;">
+                                    <button class="btn-small waves-effect waves-light blue"
+                                            data-objective-index="{{ forloop.counter0 }}"
+                                            data-objective-description="{% if objective.description %}{{ objective.description|escapejs }}{% else %}{{ objective|escapejs }}{% endif %}"
+                                            data-objective-blooms="{% if objective.blooms_level %}{{ objective.blooms_level }}{% endif %}"
+                                            data-objective-contribution="{% if objective.contribution %}{{ objective.contribution|escapejs }}{% endif %}"
+                                            onclick="editObjectiveFromButton(this)">
+                                        <i class="material-icons tiny">edit</i>
+                                    </button>
+                                    <button class="btn-small waves-effect waves-light red" onclick='deleteObjective({{ forloop.counter0 }}, "{% if objective.description %}{{ objective.description|escapejs }}{% else %}{{ objective|escapejs }}{% endif %}")'>
+                                        <i class="material-icons tiny">delete</i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 40px; color: #888;">
+                                    <i class="material-icons" style="font-size: 48px; display: block; margin-bottom: 10px;">inbox</i>
+                                    No objectives found. Click "Add New Objective" to create one.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+const campaignId = '{{ campaign_id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function addNewObjective() {
+    const newObjective = prompt('Enter new objective:');
+    if (!newObjective) return;
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/objective/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                description: newObjective
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: 'Objective created successfully', classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to create objective', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error creating objective:', error);
+        M.toast({html: 'Error creating objective', classes: 'red'});
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text ? String(text).replace(/[&<>\"']/g, m => map[m]) : '';
+}
+
+function editObjectiveFromButton(button) {
+    const index = parseInt(button.getAttribute('data-objective-index'));
+    const description = button.getAttribute('data-objective-description') || '';
+    const bloomsLevel = button.getAttribute('data-objective-blooms');
+    const contribution = button.getAttribute('data-objective-contribution') || '';
+
+    const objData = {
+        description: description,
+        blooms_level: bloomsLevel ? parseInt(bloomsLevel) : null,
+        contribution: contribution
+    };
+
+    showEditModal(index, objData);
+}
+
+function editObjective(index, objective) {
+    // Handle both old string format and new object format
+    let objData;
+    if (typeof objective === 'string') {
+        objData = {
+            description: objective,
+            blooms_level: null,
+            contribution: null
+        };
+    } else {
+        objData = objective;
+    }
+
+    showEditModal(index, objData);
+}
+
+function showEditModal(index, objective) {
+    const modalHtml = `
+        <div id="editModal" class="modal" style="max-width: 800px; max-height: 90%; background: linear-gradient(135deg, rgba(27, 27, 46, 0.98) 0%, rgba(44, 44, 66, 0.98) 100%); border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+            <div class="modal-content" style="background: transparent; padding: 24px;">
+                <h4 style="color: var(--rpg-gold); margin-bottom: 24px;">
+                    <i class="material-icons">edit</i>
+                    Edit Objective
+                </h4>
+                <form id="editForm">
+                    <div class="input-field" style="margin-bottom: 30px;">
+                        <textarea id="edit_description" class="materialize-textarea" style="color: #e0e0e0; min-height: 100px;" required>${escapeHtml(objective.description || '')}</textarea>
+                        <label for="edit_description" class="active" style="color: var(--rpg-gold);">Description</label>
+                    </div>
+                    <div class="input-field" style="margin-bottom: 30px;">
+                        <select id="edit_blooms_level" style="display: block;">
+                            <option value="" ${!objective.blooms_level ? 'selected' : ''}>Not specified</option>
+                            <option value="1" ${objective.blooms_level === 1 ? 'selected' : ''}>Level 1 - Remember</option>
+                            <option value="2" ${objective.blooms_level === 2 ? 'selected' : ''}>Level 2 - Understand</option>
+                            <option value="3" ${objective.blooms_level === 3 ? 'selected' : ''}>Level 3 - Apply</option>
+                            <option value="4" ${objective.blooms_level === 4 ? 'selected' : ''}>Level 4 - Analyze</option>
+                            <option value="5" ${objective.blooms_level === 5 ? 'selected' : ''}>Level 5 - Evaluate</option>
+                            <option value="6" ${objective.blooms_level === 6 ? 'selected' : ''}>Level 6 - Create</option>
+                        </select>
+                        <label style="color: var(--rpg-gold);">Bloom's Taxonomy Level</label>
+                    </div>
+                    <div class="input-field" style="margin-bottom: 20px;">
+                        <textarea id="edit_contribution" class="materialize-textarea" style="color: #e0e0e0; min-height: 80px;">${escapeHtml(objective.contribution || '')}</textarea>
+                        <label for="edit_contribution" class="active" style="color: var(--rpg-gold);">Contribution to Campaign</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="background: rgba(27, 27, 46, 0.5);">
+                <button type="button" class="btn-flat waves-effect" style="color: #b8b8d1;" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);" onclick="saveObjective(${index})">
+                    <i class="material-icons left">save</i>Save
+                </button>
+            </div>
+        </div>
+    `;
+
+    const existingModal = document.getElementById('editModal');
+    if (existingModal) existingModal.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalElem = document.getElementById('editModal');
+    const modalInstance = M.Modal.init(modalElem, {
+        onCloseEnd: function() { modalElem.remove(); }
+    });
+    modalInstance.open();
+
+    M.updateTextFields();
+    M.textareaAutoResize(document.getElementById('edit_description'));
+    M.textareaAutoResize(document.getElementById('edit_contribution'));
+    M.FormSelect.init(document.querySelectorAll('select'));
+}
+
+function closeEditModal() {
+    const modalElem = document.getElementById('editModal');
+    if (modalElem) {
+        const instance = M.Modal.getInstance(modalElem);
+        if (instance) instance.close();
+    }
+}
+
+async function saveObjective(index) {
+    const description = document.getElementById('edit_description').value;
+    const bloomsLevel = document.getElementById('edit_blooms_level').value;
+    const contribution = document.getElementById('edit_contribution').value;
+
+    const objectiveData = {
+        description: description,
+        blooms_level: bloomsLevel ? parseInt(bloomsLevel) : null,
+        contribution: contribution
+    };
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/objective/obj_${index}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(objectiveData)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: 'Objective updated successfully', classes: 'green'});
+            closeEditModal();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            M.toast({html: result.error || 'Failed to update objective', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error updating objective:', error);
+        M.toast({html: 'Error updating objective', classes: 'red'});
+    }
+}
+
+async function deleteObjective(index, objectiveText) {
+    if (!confirm(`Are you sure you want to delete this objective?\n\n"${objectiveText}"`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/objective/obj_${index}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: 'Objective deleted successfully', classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to delete objective', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error deleting objective:', error);
+        M.toast({html: 'Error deleting objective', classes: 'red'});
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    M.AutoInit();
+});
+</script>
+
+<!-- Delete Campaign Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h4>Delete Campaign</h4>
+        <p>Are you sure you want to delete this campaign? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        <a href="{% url 'campaign_delete' campaign_id %}" class="waves-effect waves-red btn red">Delete</a>
+    </div>
+</div>
+
+{% endblock %}

@@ -38,28 +38,15 @@
 {% endblock %}
 
 {% block content %}
+<!-- Include Navigation Toolbar -->
+{% include "campaigns/_campaign_toolbar_main.html" with campaign_id=campaign.campaign_id %}
+
 <div class="row">
     <div class="col s12">
         <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
             <i class="material-icons left" style="font-size: 2.5rem;">book</i>
             {{ campaign.campaign_name }}
         </h3>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col s12">
-        <a href="{% url 'campaign_list' %}" class="btn waves-effect waves-light grey darken-2">
-            <i class="material-icons left">arrow_back</i>Back to Campaigns
-        </a>
-        {% if not is_new_format %}
-        <a href="{% url 'campaign_update' campaign.campaign_id %}" class="btn waves-effect waves-light">
-            <i class="material-icons left">edit</i>Edit Campaign
-        </a>
-        {% endif %}
-        <a href="#deleteModal" class="btn waves-effect waves-light red darken-2 modal-trigger">
-            <i class="material-icons left">delete</i>Delete Campaign
-        </a>
     </div>
 </div>
 
@@ -143,34 +130,6 @@
                     <i class="material-icons">campaign</i>
                     Campaign: {{ campaign.campaign_name }}
                 </h5>
-
-                <!-- Admin Menu -->
-                <div id="admin-menu" style="margin-bottom: 20px; padding: 10px; background: rgba(27, 27, 46, 0.5); border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.3);">
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-                        <span style="color: var(--rpg-gold); font-weight: 500; margin-right: 10px;">
-                            <i class="material-icons tiny" style="vertical-align: middle;">admin_panel_settings</i>
-                            Admin Tools:
-                        </span>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('quests')" style="background-color: var(--rpg-purple);">
-                            <i class="material-icons left tiny">explore</i>Quests
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('objectives')" style="background-color: var(--rpg-gold);">
-                            <i class="material-icons left tiny">flag</i>Objectives
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('storyline')" style="background-color: var(--rpg-blue);">
-                            <i class="material-icons left tiny">description</i>Storyline
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('places')" style="background-color: var(--rpg-cyan);">
-                            <i class="material-icons left tiny">place</i>Places
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('scenes')" style="background-color: var(--rpg-green);">
-                            <i class="material-icons left tiny">movie</i>Scenes
-                        </button>
-                        <button class="btn-small waves-effect waves-light" onclick="showCRUDPanel('npcs')" style="background-color: var(--rpg-orange);">
-                            <i class="material-icons left tiny">people</i>NPCs
-                        </button>
-                    </div>
-                </div>
 
                 <!-- Image -->
                 <div id="detail-image" style="margin-bottom: 20px;">

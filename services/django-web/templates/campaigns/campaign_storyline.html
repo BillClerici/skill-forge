@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Storyline - {{ campaign.name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<!-- Include Navigation Toolbar -->
+{% include "campaigns/_campaign_toolbar.html" %}
+
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">description</i>
+            Campaign Storyline - {{ campaign.name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h5 style="color: var(--rpg-gold); margin: 0;">
+                        <i class="material-icons" style="vertical-align: middle;">description</i>
+                        Edit Storyline
+                    </h5>
+                    <button class="btn waves-effect waves-light green" onclick="saveStoryline()">
+                        <i class="material-icons left">save</i>Save Changes
+                    </button>
+                </div>
+
+                <div class="input-field">
+                    <textarea id="storyline_text" class="materialize-textarea" style="min-height: 400px; color: #e0e0e0; border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 4px; padding: 15px; font-family: 'Courier New', monospace; line-height: 1.6;">{{ storyline }}</textarea>
+                    <label for="storyline_text" class="active" style="color: var(--rpg-gold);">Campaign Storyline</label>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.1); border-radius: 4px; border-left: 3px solid var(--rpg-gold);">
+                    <p style="color: #b8b8d1; margin: 0;">
+                        <i class="material-icons tiny" style="vertical-align: middle;">info</i>
+                        <strong>Tip:</strong> The storyline provides the overarching narrative arc for your campaign.
+                        It should describe the main conflict, key themes, and the journey players will experience.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+const campaignId = '{{ campaign_id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function saveStoryline() {
+    const storylineText = document.getElementById('storyline_text').value;
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/storyline/storyline_1/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                description: storylineText
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: 'Storyline saved successfully', classes: 'green'});
+        } else {
+            M.toast({html: result.error || 'Failed to save storyline', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error saving storyline:', error);
+        M.toast({html: 'Error saving storyline', classes: 'red'});
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    M.AutoInit();
+    M.textareaAutoResize(document.getElementById('storyline_text'));
+});
+</script>
+
+<!-- Delete Campaign Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h4>Delete Campaign</h4>
+        <p>Are you sure you want to delete this campaign? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        <a href="{% url 'campaign_delete' campaign_id %}" class="waves-effect waves-red btn red">Delete</a>
+    </div>
+</div>
+
+{% endblock %}

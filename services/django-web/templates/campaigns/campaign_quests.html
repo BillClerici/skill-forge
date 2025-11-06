@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Quests - {{ campaign.name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<!-- Include Navigation Toolbar -->
+{% include "campaigns/_campaign_toolbar.html" %}
+
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">explore</i>
+            Quests - {{ campaign.name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h5 style="color: var(--rpg-gold); margin: 0;">
+                        <i class="material-icons" style="vertical-align: middle;">explore</i>
+                        Manage Quests
+                    </h5>
+                    <button class="btn waves-effect waves-light green" onclick="addNewEntity('quests')">
+                        <i class="material-icons left">add</i>Add New Quest
+                    </button>
+                </div>
+
+                <table style="border: 1px solid rgba(212, 175, 55, 0.2);">
+                    <thead style="background: rgba(212, 175, 55, 0.1);">
+                        <tr>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Name</th>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Description</th>
+                            <th style="color: var(--rpg-gold); padding: 12px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if quests %}
+                            {% for quest in quests %}
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                                <td style="padding: 12px; color: #e0e0e0; font-weight: 500;">{{ quest.name }}</td>
+                                <td style="padding: 12px; color: #b8b8d1; font-size: 0.9em;">
+                                    {{ quest.description|truncatechars:100 }}
+                                </td>
+                                <td style="padding: 12px; text-align: right;">
+                                    <button class="btn-small waves-effect waves-light blue" onclick="editEntity('quests', '{{ quest.id }}')">
+                                        <i class="material-icons tiny">edit</i>
+                                    </button>
+                                    <button class="btn-small waves-effect waves-light red" onclick="deleteEntity('quests', '{{ quest.id }}', '{{ quest.name }}')">
+                                        <i class="material-icons tiny">delete</i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="3" style="text-align: center; padding: 40px; color: #888;">
+                                    <i class="material-icons" style="font-size: 48px; display: block; margin-bottom: 10px;">inbox</i>
+                                    No quests found. Click "Add New Quest" to create one.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden data for JavaScript -->
+<script id="campaign-data" type="application/json">
+{
+    "campaign": {
+        "id": "{{ campaign_id }}",
+        "name": "{{ campaign.name|default:campaign.campaign_name }}"
+    }
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+const campaignId = '{{ campaign_id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text ? String(text).replace(/[&<>"']/g, m => map[m]) : '';
+}
+
+async function addNewEntity(entityType) {
+    const newName = prompt('Enter name for new quest:');
+    if (!newName) return;
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                name: newName,
+                description: ''
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to create quest', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error creating quest:', error);
+        M.toast({html: 'Error creating quest', classes: 'red'});
+    }
+}
+
+async function editEntity(entityType, entityId) {
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/`);
+        const entity = await response.json();
+
+        if (!response.ok) {
+            M.toast({html: entity.error || 'Failed to load entity', classes: 'red'});
+            return;
+        }
+
+        showEditModal(entityType, entity, campaignId);
+    } catch (error) {
+        console.error('Error loading entity:', error);
+        M.toast({html: 'Error loading entity', classes: 'red'});
+    }
+}
+
+async function deleteEntity(entityType, entityId, entityName) {
+    if (!confirm(`Are you sure you want to delete "${entityName}"?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to delete', classes: 'red'});
+        }
+    } catch (error) {
+        console.error(`Error deleting ${entityType}:`, error);
+        M.toast({html: 'Failed to delete entity: ' + error.message, classes: 'red'});
+    }
+}
+
+function showEditModal(entityType, entity, campaignId) {
+    const entityId = (entity.id || entity._id).replace(/'/g, "\\'");
+    let formFields = '';
+
+    // Common fields
+    formFields += `
+        <div class="input-field">
+            <input id="edit_name" type="text" value="${escapeHtml(entity.name || '')}" required style="color: #e0e0e0;">
+            <label for="edit_name" class="active" style="color: var(--rpg-gold);">Name</label>
+        </div>
+        <div class="input-field">
+            <textarea id="edit_description" class="materialize-textarea" style="color: #e0e0e0; min-height: 100px;">${escapeHtml(entity.description || '')}</textarea>
+            <label for="edit_description" class="active" style="color: var(--rpg-gold);">Description</label>
+        </div>
+    `;
+
+    const modalHtml = `
+        <div id="editModal" class="modal" style="max-width: 800px; max-height: 90%; background: linear-gradient(135deg, rgba(27, 27, 46, 0.98) 0%, rgba(44, 44, 66, 0.98) 100%); border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+            <div class="modal-content" style="background: transparent; padding: 24px;">
+                <h4 style="color: var(--rpg-gold); margin-bottom: 24px;">
+                    <i class="material-icons">edit</i>
+                    Edit ${entityType.charAt(0).toUpperCase() + entityType.slice(1)}
+                </h4>
+                <form id="editForm">
+                    ${formFields}
+                </form>
+            </div>
+            <div class="modal-footer" style="background: rgba(27, 27, 46, 0.5);">
+                <button type="button" class="btn-flat waves-effect" style="color: #b8b8d1;" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);" onclick="saveEntity('${entityType}', '${entityId}', '${campaignId}')">
+                    <i class="material-icons left">save</i>Save
+                </button>
+            </div>
+        </div>
+    `;
+
+    const existingModal = document.getElementById('editModal');
+    if (existingModal) existingModal.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalElem = document.getElementById('editModal');
+    const modalInstance = M.Modal.init(modalElem, {
+        onCloseEnd: function() { modalElem.remove(); }
+    });
+    modalInstance.open();
+
+    M.updateTextFields();
+    M.textareaAutoResize(document.getElementById('edit_description'));
+}
+
+function closeEditModal() {
+    const modalElem = document.getElementById('editModal');
+    if (modalElem) {
+        const instance = M.Modal.getInstance(modalElem);
+        if (instance) instance.close();
+    }
+}
+
+async function saveEntity(entityType, entityId, campaignId) {
+    const data = {
+        name: document.getElementById('edit_name').value,
+        description: document.getElementById('edit_description').value
+    };
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            closeEditModal();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            M.toast({html: result.error || 'Failed to save', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error saving entity:', error);
+        M.toast({html: 'Error saving changes', classes: 'red'});
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    M.AutoInit();
+});
+</script>
+
+<!-- Delete Campaign Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h4>Delete Campaign</h4>
+        <p>Are you sure you want to delete this campaign? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        <a href="{% url 'campaign_delete' campaign_id %}" class="waves-effect waves-red btn red">Delete</a>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,41 @@
+<!-- Campaign Navigation Toolbar -->
+<div class="row" style="margin-bottom: 20px;">
+    <div class="col s12">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; background: rgba(27, 27, 46, 0.5); padding: 15px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.3);">
+            <!-- Left: Back Button -->
+            <div>
+                <a href="{% url 'campaign_detail' campaign_id %}" class="btn waves-effect waves-light grey darken-2">
+                    <i class="material-icons left">arrow_back</i>Campaign
+                </a>
+            </div>
+
+            <!-- Right: Admin Tools and Campaign Actions -->
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+                <a href="{% url 'campaign_quests' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                    <i class="material-icons left tiny">explore</i>Quests
+                </a>
+                <a href="{% url 'campaign_objectives' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-gold);">
+                    <i class="material-icons left tiny">flag</i>Objectives
+                </a>
+                <a href="{% url 'campaign_storyline' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-blue);">
+                    <i class="material-icons left tiny">description</i>Storyline
+                </a>
+                <a href="{% url 'campaign_places' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-cyan);">
+                    <i class="material-icons left tiny">place</i>Places
+                </a>
+                <a href="{% url 'campaign_scenes' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-green);">
+                    <i class="material-icons left tiny">movie</i>Scenes
+                </a>
+                <a href="{% url 'campaign_npcs' campaign_id %}" class="btn-small waves-effect waves-light" style="background-color: var(--rpg-orange);">
+                    <i class="material-icons left tiny">people</i>NPCs
+                </a>
+
+                <span style="color: var(--rpg-silver); margin: 0 5px;">|</span>
+
+                <a href="#deleteModal" class="btn-small waves-effect waves-light red darken-2 modal-trigger">
+                    <i class="material-icons left tiny">delete</i>Delete
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

@@ -228,8 +228,18 @@ class UpdateEntityAPIView(EntityCRUDAPIView):
                     try:
                         idx = int(entity_id.split('_')[1])
                         if 0 <= idx < len(objectives):
-                            # Update with name or description
-                            new_value = data.get('name', data.get('description', objectives[idx]))
+                            # Handle both old string format and new object format
+                            if 'blooms_level' in data or 'contribution' in data:
+                                # New format: save as object with all fields
+                                new_value = {
+                                    'description': data.get('description', ''),
+                                    'blooms_level': data.get('blooms_level'),
+                                    'contribution': data.get('contribution', '')
+                                }
+                            else:
+                                # Old format: just description as string
+                                new_value = data.get('name', data.get('description', objectives[idx]))
+
                             objectives[idx] = new_value
                             db.campaigns.update_one(
                                 {'_id': campaign_id},

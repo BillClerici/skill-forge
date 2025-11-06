@@ -47,6 +47,8 @@ from worlds.views_world_factory import (
 from campaigns.views import (
     CampaignListView, CampaignCreateView, CampaignDetailView, CampaignStartView,
     CampaignUpdateView, CampaignDeleteView, CampaignDesignerWizardView,
+    CampaignQuestsView, CampaignObjectivesView, CampaignStorylineView,
+    CampaignPlacesView, CampaignScenesView, CampaignNPCsView,
     CampaignGenerateImageView, QuestGenerateImageView, PlaceGenerateImageView, SceneGenerateImageView,
     CampaignSetPrimaryImageView, QuestSetPrimaryImageView, PlaceSetPrimaryImageView, SceneSetPrimaryImageView,
     CampaignDeletionProgressView, CampaignDeletionStatusAPI,
@@ -176,6 +178,14 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/edit/', CampaignUpdateView.as_view(), name='campaign_update'),
     path('campaigns/<str:campaign_id>/delete/', CampaignDeleteView.as_view(), name='campaign_delete'),
     path('campaigns/<str:campaign_id>/start/', StartGameSessionView.as_view(), name='campaign_start'),
+
+    # Campaign CRUD List Pages
+    path('campaigns/<str:campaign_id>/quests/', CampaignQuestsView.as_view(), name='campaign_quests'),
+    path('campaigns/<str:campaign_id>/objectives/', CampaignObjectivesView.as_view(), name='campaign_objectives'),
+    path('campaigns/<str:campaign_id>/storyline/', CampaignStorylineView.as_view(), name='campaign_storyline'),
+    path('campaigns/<str:campaign_id>/places/', CampaignPlacesView.as_view(), name='campaign_places'),
+    path('campaigns/<str:campaign_id>/scenes/', CampaignScenesView.as_view(), name='campaign_scenes'),
+    path('campaigns/<str:campaign_id>/npcs-list/', CampaignNPCsView.as_view(), name='campaign_npcs'),
 
     # Game Lobby & Sessions
     path('game/lobby/', GameLobbyView.as_view(), name='game_lobby'),

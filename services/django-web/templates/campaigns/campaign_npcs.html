@@ -1,0 +1,673 @@
+{% extends "base.html" %}
+
+{% block title %}NPCs - {{ campaign.name }} - SkillForge RPG{% endblock %}
+
+{% block content %}
+<!-- Include Navigation Toolbar -->
+{% include "campaigns/_campaign_toolbar.html" %}
+
+<div class="row">
+    <div class="col s12">
+        <h3 style="color: var(--rpg-gold); text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);">
+            <i class="material-icons left" style="font-size: 2.5rem;">people</i>
+            NPCs - {{ campaign.name }}
+        </h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col s12">
+        <div class="card">
+            <div class="card-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h5 style="color: var(--rpg-gold); margin: 0;">
+                        <i class="material-icons" style="vertical-align: middle;">people</i>
+                        Manage NPCs
+                    </h5>
+                    <button class="btn waves-effect waves-light green" onclick="addNewEntity('npcs')">
+                        <i class="material-icons left">add</i>Add New NPC
+                    </button>
+                </div>
+
+                <table style="border: 1px solid rgba(212, 175, 55, 0.2);">
+                    <thead style="background: rgba(212, 175, 55, 0.1);">
+                        <tr>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Name</th>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Scene</th>
+                            <th style="color: var(--rpg-gold); padding: 12px;">Role</th>
+                            <th style="color: var(--rpg-gold); padding: 12px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if npcs %}
+                            {% for npc in npcs %}
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                                <td style="padding: 12px; color: #e0e0e0; font-weight: 500;">{{ npc.name }}</td>
+                                <td style="padding: 12px; color: #b8b8d1; font-size: 0.9em;">{{ npc.sceneName }}</td>
+                                <td style="padding: 12px; color: #b8b8d1; font-size: 0.9em;">{{ npc.role|default:"N/A" }}</td>
+                                <td style="padding: 12px; text-align: right;">
+                                    <button class="btn-small waves-effect waves-light blue" onclick="editEntity('npcs', '{{ npc.id }}')">
+                                        <i class="material-icons tiny">edit</i>
+                                    </button>
+                                    <button class="btn-small waves-effect waves-light red" onclick="deleteEntity('npcs', '{{ npc.id }}', '{{ npc.name }}')">
+                                        <i class="material-icons tiny">delete</i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 40px; color: #888;">
+                                    <i class="material-icons" style="font-size: 48px; display: block; margin-bottom: 10px;">inbox</i>
+                                    No NPCs found. Click "Add New NPC" to create one.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden campaign data for JavaScript -->
+<script id="campaign-data" type="application/json">
+{
+    "campaign": {
+        "id": "{{ campaign_id }}",
+        "name": "{{ campaign.name|default:campaign.campaign_name }}",
+        "world_id": "{{ campaign.world_id }}"
+    }
+}
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+const campaignId = '{{ campaign_id }}';
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text ? String(text).replace(/[&<>"']/g, m => map[m]) : '';
+}
+
+async function addNewEntity(entityType) {
+    const newName = prompt('Enter name for new NPC:');
+    if (!newName) return;
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                name: newName,
+                role: '',
+                description: ''
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to create NPC', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error creating NPC:', error);
+        M.toast({html: 'Error creating NPC', classes: 'red'});
+    }
+}
+
+async function editEntity(entityType, entityId) {
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/`);
+        const entity = await response.json();
+
+        if (!response.ok) {
+            M.toast({html: entity.error || 'Failed to load entity', classes: 'red'});
+            return;
+        }
+
+        showEditModal(entityType, entity, campaignId);
+    } catch (error) {
+        console.error('Error loading entity:', error);
+        M.toast({html: 'Error loading entity', classes: 'red'});
+    }
+}
+
+async function deleteEntity(entityType, entityId, entityName) {
+    if (!confirm(`Are you sure you want to delete "${entityName}"?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            location.reload();
+        } else {
+            M.toast({html: result.error || 'Failed to delete', classes: 'red'});
+        }
+    } catch (error) {
+        console.error(`Error deleting ${entityType}:`, error);
+        M.toast({html: 'Failed to delete entity: ' + error.message, classes: 'red'});
+    }
+}
+
+function showEditModal(entityType, entity, campaignId) {
+    const entityId = (entity.id || entity._id).replace(/'/g, "\\'");
+    let formFields = '';
+
+    const currentSpecies = entity.species_name || '';
+    const currentRole = entity.role || '';
+    const currentArchetype = entity.archetype || '';
+    const currentDialogueStyle = entity.dialogue_style || '';
+
+    formFields += `
+        <div class="input-field">
+            <input id="edit_name" type="text" value="${escapeHtml(entity.name || '')}" required style="color: #e0e0e0;">
+            <label for="edit_name" class="active" style="color: var(--rpg-gold);">Name</label>
+        </div>
+
+        <div style="margin-top: 20px; margin-bottom: 25px;">
+            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Species</label>
+            <select id="edit_species_name" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                <option value="">Loading species...</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 25px; margin-bottom: 25px;">
+            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Role</label>
+            <select id="edit_role" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                <option value="ally" ${currentRole === 'ally' ? 'selected' : ''}>Ally</option>
+                <option value="antagonist" ${currentRole === 'antagonist' ? 'selected' : ''}>Antagonist</option>
+                <option value="elder" ${currentRole === 'elder' ? 'selected' : ''}>Elder</option>
+                <option value="guide" ${currentRole === 'guide' ? 'selected' : ''}>Guide</option>
+                <option value="merchant" ${currentRole === 'merchant' ? 'selected' : ''}>Merchant</option>
+                <option value="neutral" ${currentRole === 'neutral' ? 'selected' : ''}>Neutral</option>
+                <option value="scholar" ${currentRole === 'scholar' ? 'selected' : ''}>Scholar</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 25px; margin-bottom: 25px;">
+            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Archetype</label>
+            <select id="edit_archetype" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                <option value="guardian" ${currentArchetype === 'guardian' ? 'selected' : ''}>Guardian</option>
+                <option value="herald" ${currentArchetype === 'herald' ? 'selected' : ''}>Herald</option>
+                <option value="mentor" ${currentArchetype === 'mentor' ? 'selected' : ''}>Mentor</option>
+                <option value="shadow" ${currentArchetype === 'shadow' ? 'selected' : ''}>Shadow</option>
+                <option value="trickster" ${currentArchetype === 'trickster' ? 'selected' : ''}>Trickster</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 25px; margin-bottom: 25px;">
+            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Dialogue Style</label>
+            <select id="edit_dialogue_style" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                <option value="casual" ${currentDialogueStyle === 'casual' ? 'selected' : ''}>Casual</option>
+                <option value="cryptic" ${currentDialogueStyle === 'cryptic' ? 'selected' : ''}>Cryptic</option>
+                <option value="eloquent" ${currentDialogueStyle === 'eloquent' ? 'selected' : ''}>Eloquent</option>
+                <option value="formal" ${currentDialogueStyle === 'formal' ? 'selected' : ''}>Formal</option>
+                <option value="stern" ${currentDialogueStyle === 'stern' ? 'selected' : ''}>Stern</option>
+                <option value="warm" ${currentDialogueStyle === 'warm' ? 'selected' : ''}>Warm</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 30px; margin-bottom: 15px; padding: 15px; background: rgba(44, 44, 66, 0.5); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h6 style="color: var(--rpg-gold); margin: 0;">
+                    <i class="material-icons tiny" style="vertical-align: middle;">auto_fix_high</i>
+                    Narrative Content
+                </h6>
+                <button type="button" onclick="regenerateNPCFields('${entityId}', '${campaignId}')"
+                    class="btn-small waves-effect waves-light" style="background-color: var(--rpg-purple);">
+                    <i class="material-icons left tiny">refresh</i>AI Regenerate
+                </button>
+            </div>
+
+            <div class="input-field" style="margin-top: 15px; margin-bottom: 20px;">
+                <textarea id="edit_description" class="materialize-textarea" style="color: #e0e0e0; min-height: 80px;">${escapeHtml(entity.description || '')}</textarea>
+                <label for="edit_description" class="active" style="color: var(--rpg-gold);">Description</label>
+            </div>
+            <div class="input-field" style="margin-top: 20px; margin-bottom: 20px;">
+                <textarea id="edit_purpose" class="materialize-textarea" style="color: #e0e0e0; min-height: 80px;">${escapeHtml(entity.purpose || '')}</textarea>
+                <label for="edit_purpose" class="active" style="color: var(--rpg-gold);">Purpose</label>
+            </div>
+            <div class="input-field" style="margin-top: 20px; margin-bottom: 10px;">
+                <textarea id="edit_backstory_summary" class="materialize-textarea" style="color: #e0e0e0; min-height: 120px;">${escapeHtml(entity.backstory_summary || '')}</textarea>
+                <label for="edit_backstory_summary" class="active" style="color: var(--rpg-gold);">Backstory Summary</label>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(212, 175, 55, 0.3);">
+            <h6 style="color: var(--rpg-gold); margin-bottom: 15px;">
+                <i class="material-icons tiny" style="vertical-align: middle;">image</i>
+                Character Images
+            </h6>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Full Body Image -->
+                <div>
+                    <label style="color: var(--rpg-gold); font-size: 0.9em; display: block; margin-bottom: 10px;">Full Body</label>
+                    <div id="fullbody-preview" style="width: 100%; height: 200px; background: rgba(27, 27, 46, 0.5); border: 2px dashed rgba(212, 175, 55, 0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative;">
+                        ${entity.images?.full_body?.length > 0 ? `
+                            <img src="${entity.images.full_body[0].url}"
+                                onclick="openImageViewer('${entity.images.full_body[0].url}')"
+                                style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                                title="Click to view full size">
+                            <button type="button" onclick="deleteNPCImage('${entityId}', '${campaignId}', '${entity.images.full_body[0].url}', 'full_body')"
+                                class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
+                                <i class="material-icons tiny">delete</i>
+                            </button>
+                        ` : '<span style="color: #888;">No image</span>'}
+                    </div>
+                    <button type="button" onclick="generateNPCImage('${entityId}', '${campaignId}', 'full_body')"
+                        class="btn-small waves-effect waves-light" style="margin-top: 10px; width: 100%; background-color: var(--rpg-blue);">
+                        <i class="material-icons left tiny">auto_awesome</i>Generate
+                    </button>
+                </div>
+
+                <!-- Avatar Image -->
+                <div>
+                    <label style="color: var(--rpg-gold); font-size: 0.9em; display: block; margin-bottom: 10px;">Avatar (Bust)</label>
+                    <div id="avatar-preview" style="width: 100%; height: 200px; background: rgba(27, 27, 46, 0.5); border: 2px dashed rgba(212, 175, 55, 0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative;">
+                        ${entity.images?.avatar?.length > 0 ? `
+                            <img src="${entity.images.avatar[0].url}"
+                                onclick="openImageViewer('${entity.images.avatar[0].url}')"
+                                style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                                title="Click to view full size">
+                            <button type="button" onclick="deleteNPCImage('${entityId}', '${campaignId}', '${entity.images.avatar[0].url}', 'avatar')"
+                                class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
+                                <i class="material-icons tiny">delete</i>
+                            </button>
+                        ` : '<span style="color: #888;">No image</span>'}
+                    </div>
+                    <button type="button" onclick="generateNPCImage('${entityId}', '${campaignId}', 'avatar')"
+                        class="btn-small waves-effect waves-light" style="margin-top: 10px; width: 100%; background-color: var(--rpg-blue);">
+                        <i class="material-icons left tiny">auto_awesome</i>Generate
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const modalHtml = `
+        <div id="editModal" class="modal" style="max-width: 800px; max-height: 90%; background: linear-gradient(135deg, rgba(27, 27, 46, 0.98) 0%, rgba(44, 44, 66, 0.98) 100%); border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+            <div class="modal-content" style="background: transparent; padding: 24px;">
+                <h4 style="color: var(--rpg-gold); margin-bottom: 24px;">
+                    <i class="material-icons">edit</i>
+                    Edit NPC
+                </h4>
+                <form id="editForm">
+                    ${formFields}
+                </form>
+            </div>
+            <div class="modal-footer" style="background: rgba(27, 27, 46, 0.5);">
+                <button type="button" class="btn-flat waves-effect" style="color: #b8b8d1;" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="btn waves-effect waves-light" style="background-color: var(--rpg-gold);" onclick="saveEntity('${entityType}', '${entityId}', '${campaignId}')">
+                    <i class="material-icons left">save</i>Save
+                </button>
+            </div>
+        </div>
+    `;
+
+    const existingModal = document.getElementById('editModal');
+    if (existingModal) existingModal.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modalElem = document.getElementById('editModal');
+    const modalInstance = M.Modal.init(modalElem, {
+        onCloseEnd: function() { modalElem.remove(); }
+    });
+    modalInstance.open();
+
+    M.updateTextFields();
+    M.textareaAutoResize(document.getElementById('edit_description'));
+    M.textareaAutoResize(document.getElementById('edit_purpose'));
+    M.textareaAutoResize(document.getElementById('edit_backstory_summary'));
+
+    // Load species
+    setTimeout(() => loadSpeciesForWorld(currentSpecies), 0);
+}
+
+function closeEditModal() {
+    const modalElem = document.getElementById('editModal');
+    if (modalElem) {
+        const instance = M.Modal.getInstance(modalElem);
+        if (instance) instance.close();
+    }
+}
+
+async function saveEntity(entityType, entityId, campaignId) {
+    const data = {
+        name: document.getElementById('edit_name').value,
+        species_name: document.getElementById('edit_species_name').value,
+        role: document.getElementById('edit_role').value,
+        archetype: document.getElementById('edit_archetype').value,
+        dialogue_style: document.getElementById('edit_dialogue_style').value,
+        description: document.getElementById('edit_description').value,
+        purpose: document.getElementById('edit_purpose').value,
+        backstory_summary: document.getElementById('edit_backstory_summary').value
+    };
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/${entityType}/${entityId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            M.toast({html: result.message, classes: 'green'});
+            closeEditModal();
+            setTimeout(() => location.reload(), 500);
+        } else {
+            M.toast({html: result.error || 'Failed to save', classes: 'red'});
+        }
+    } catch (error) {
+        console.error('Error saving entity:', error);
+        M.toast({html: 'Error saving changes', classes: 'red'});
+    }
+}
+
+async function loadSpeciesForWorld(currentSpecies) {
+    const campaignDataEl = document.getElementById('campaign-data');
+    if (!campaignDataEl) return;
+
+    const data = JSON.parse(campaignDataEl.textContent);
+    const worldId = data.campaign.world_id;
+
+    if (!worldId) {
+        const speciesSelect = document.getElementById('edit_species_name');
+        if (speciesSelect) {
+            speciesSelect.innerHTML = '<option value="">No world associated</option>';
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/worlds/${worldId}/species/`);
+        const result = await response.json();
+
+        const speciesSelect = document.getElementById('edit_species_name');
+        if (!speciesSelect) return;
+
+        if (!result.species || result.species.length === 0) {
+            speciesSelect.innerHTML = '<option value="">No species defined for this world</option>';
+            return;
+        }
+
+        result.species.sort((a, b) => a.name.localeCompare(b.name));
+
+        let options = '<option value="">Select a species</option>';
+        for (const species of result.species) {
+            const selected = species.name === currentSpecies ? 'selected' : '';
+            options += `<option value="${escapeHtml(species.name)}" ${selected}>${escapeHtml(species.name)}</option>`;
+        }
+
+        speciesSelect.innerHTML = options;
+
+    } catch (error) {
+        console.error('Error loading species:', error);
+        const speciesSelect = document.getElementById('edit_species_name');
+        if (speciesSelect) {
+            speciesSelect.innerHTML = '<option value="">Error loading species</option>';
+        }
+    }
+}
+
+async function regenerateNPCFields(npcId, campaignId) {
+    if (!confirm('This will regenerate the Description, Purpose, and Backstory Summary using AI. Current content will be replaced. Continue?')) {
+        return;
+    }
+
+    try {
+        M.toast({html: 'Regenerating narrative content with AI...', classes: 'blue'});
+
+        const response = await fetch(`/api/campaigns/${campaignId}/npcs/${npcId}/regenerate-fields/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to regenerate fields');
+        }
+
+        if (result.description) {
+            document.getElementById('edit_description').value = result.description;
+            M.textareaAutoResize(document.getElementById('edit_description'));
+        }
+        if (result.purpose) {
+            document.getElementById('edit_purpose').value = result.purpose;
+            M.textareaAutoResize(document.getElementById('edit_purpose'));
+        }
+        if (result.backstory_summary) {
+            document.getElementById('edit_backstory_summary').value = result.backstory_summary;
+            M.textareaAutoResize(document.getElementById('edit_backstory_summary'));
+        }
+
+        M.toast({html: 'Narrative content regenerated! Review and save when ready.', classes: 'green'});
+
+    } catch (error) {
+        console.error('Error regenerating NPC fields:', error);
+        M.toast({html: `Error: ${error.message}`, classes: 'red'});
+    }
+}
+
+async function generateNPCImage(npcId, campaignId, imageType) {
+    const previewId = imageType === 'full_body' ? 'fullbody-preview' : 'avatar-preview';
+    const previewContainer = document.getElementById(previewId);
+
+    if (!previewContainer) {
+        M.toast({html: 'Preview container not found', classes: 'red'});
+        return;
+    }
+
+    previewContainer.innerHTML = `
+        <div class="preloader-wrapper small active">
+            <div class="spinner-layer spinner-yellow-only">
+                <div class="circle-clipper left">
+                    <div class="circle"></div>
+                </div>
+                <div class="gap-patch">
+                    <div class="circle"></div>
+                </div>
+                <div class="circle-clipper right">
+                    <div class="circle"></div>
+                </div>
+            </div>
+        </div>
+        <div style="color: var(--rpg-gold); margin-top: 10px; font-size: 0.9em;">Generating...</div>
+    `;
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/npcs/${npcId}/generate-image/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                image_type: imageType
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Image generation failed');
+        }
+
+        if (!result.image_url) {
+            throw new Error('No image URL returned');
+        }
+
+        previewContainer.innerHTML = `
+            <img src="${result.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
+            <div style="position: absolute; bottom: 5px; left: 5px; right: 5px; display: flex; gap: 5px;">
+                <button type="button" onclick="saveNPCImage('${npcId}', '${campaignId}', '${result.image_url}', '${imageType}')"
+                    class="btn-small waves-effect waves-light green" style="flex: 1;">
+                    <i class="material-icons tiny">save</i> Save
+                </button>
+                <button type="button" onclick="generateNPCImage('${npcId}', '${campaignId}', '${imageType}')"
+                    class="btn-small waves-effect waves-light blue" style="flex: 1;">
+                    <i class="material-icons tiny">refresh</i> Retry
+                </button>
+            </div>
+        `;
+
+        M.toast({html: 'Image generated! Click Save to keep it.', classes: 'green'});
+
+    } catch (error) {
+        console.error('Error generating NPC image:', error);
+        M.toast({html: `Error: ${error.message}`, classes: 'red'});
+        previewContainer.innerHTML = '<span style="color: #888;">Generation failed</span>';
+    }
+}
+
+async function saveNPCImage(npcId, campaignId, imageUrl, imageType) {
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/npcs/${npcId}/save-image/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                image_url: imageUrl,
+                image_type: imageType,
+                timestamp: new Date().toISOString()
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to save image');
+        }
+
+        M.toast({html: `${imageType.replace('_', ' ')} image saved successfully!`, classes: 'green'});
+
+        const previewId = imageType === 'full_body' ? 'fullbody-preview' : 'avatar-preview';
+        const previewContainer = document.getElementById(previewId);
+
+        if (previewContainer) {
+            previewContainer.innerHTML = `
+                <img src="${imageUrl}"
+                    onclick="openImageViewer('${imageUrl}')"
+                    style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                    title="Click to view full size">
+                <button type="button" onclick="deleteNPCImage('${npcId}', '${campaignId}', '${imageUrl}', '${imageType}')"
+                    class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
+                    <i class="material-icons tiny">delete</i>
+                </button>
+            `;
+        }
+
+    } catch (error) {
+        console.error('Error saving NPC image:', error);
+        M.toast({html: `Error: ${error.message}`, classes: 'red'});
+    }
+}
+
+async function deleteNPCImage(npcId, campaignId, imageUrl, imageType) {
+    if (!confirm('Are you sure you want to delete this image?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/campaigns/${campaignId}/npcs/${npcId}/delete-image/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                image_url: imageUrl,
+                image_type: imageType
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to delete image');
+        }
+
+        M.toast({html: 'Image deleted successfully', classes: 'green'});
+
+        const previewId = imageType === 'full_body' ? 'fullbody-preview' : 'avatar-preview';
+        const previewContainer = document.getElementById(previewId);
+        if (previewContainer) {
+            previewContainer.innerHTML = '<span style="color: #888;">No image</span>';
+        }
+
+    } catch (error) {
+        console.error('Error deleting image:', error);
+        M.toast({html: `Error: ${error.message}`, classes: 'red'});
+    }
+}
+
+function openImageViewer(imageUrl) {
+    window.open(imageUrl, '_blank');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    M.AutoInit();
+});
+</script>
+
+<!-- Delete Campaign Modal -->
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <h4>Delete Campaign</h4>
+        <p>Are you sure you want to delete this campaign? This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">Cancel</a>
+        <a href="{% url 'campaign_delete' campaign_id %}" class="waves-effect waves-red btn red">Delete</a>
+    </div>
+</div>
+
+{% endblock %}

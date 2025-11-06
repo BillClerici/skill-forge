@@ -1972,3 +1972,279 @@ class SessionObjectivesAPIView(View):
             logger = logging.getLogger(__name__)
             logger.error(f"Error getting session objectives: {e}", exc_info=True)
             return JsonResponse({'error': str(e)}, status=500)
+
+
+class CampaignQuestsView(View):
+    """List all quests for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            # Get all quests for this campaign
+            quest_ids = campaign.get('quest_ids', [])
+            quests = list(db.quests.find({'_id': {'$in': quest_ids}})) if quest_ids else []
+
+            # Add id field for template access
+            for quest in quests:
+                quest['id'] = quest['_id']
+
+            return render(request, 'campaigns/campaign_quests.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'quests': quests
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing quests: {e}", exc_info=True)
+            messages.error(request, f'Error loading quests: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+class CampaignObjectivesView(View):
+    """List all objectives for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            # Get objectives without normalization to preserve full structure
+            objectives = campaign.get('primary_objectives', [])
+
+            return render(request, 'campaigns/campaign_objectives.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'objectives': objectives
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing objectives: {e}", exc_info=True)
+            messages.error(request, f'Error loading objectives: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+class CampaignStorylineView(View):
+    """View/Edit the campaign storyline"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            storyline = campaign.get('storyline', '')
+
+            return render(request, 'campaigns/campaign_storyline.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'storyline': storyline
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing storyline: {e}", exc_info=True)
+            messages.error(request, f'Error loading storyline: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+class CampaignPlacesView(View):
+    """List all places for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            # Get all quests and their places
+            quest_ids = campaign.get('quest_ids', [])
+            quests = list(db.quests.find({'_id': {'$in': quest_ids}})) if quest_ids else []
+
+            # Gather all place IDs from quests
+            place_ids = []
+            for quest in quests:
+                place_ids.extend(quest.get('place_ids', []))
+
+            # Get place documents
+            places = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
+
+            # Add quest name to each place
+            quest_map = {q['_id']: q.get('name', 'Unknown Quest') for q in quests}
+            for place in places:
+                # Add id field for template access
+                place['id'] = place['_id']
+                # Find parent quest
+                parent_quest_id = None
+                for quest in quests:
+                    if place['_id'] in quest.get('place_ids', []):
+                        parent_quest_id = quest['_id']
+                        break
+                place['questName'] = quest_map.get(parent_quest_id, 'Unknown Quest')
+
+            return render(request, 'campaigns/campaign_places.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'places': places
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing places: {e}", exc_info=True)
+            messages.error(request, f'Error loading places: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+class CampaignScenesView(View):
+    """List all scenes for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            # Get all quests and places
+            quest_ids = campaign.get('quest_ids', [])
+            quests = list(db.quests.find({'_id': {'$in': quest_ids}})) if quest_ids else []
+
+            place_ids = []
+            for quest in quests:
+                place_ids.extend(quest.get('place_ids', []))
+
+            places = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
+
+            # Gather all scene IDs from places
+            scene_ids = []
+            for place in places:
+                scene_ids.extend(place.get('scene_ids', []))
+
+            # Get scene documents
+            scenes = list(db.scenes.find({'_id': {'$in': scene_ids}})) if scene_ids else []
+
+            # Add place name to each scene
+            place_map = {p['_id']: p.get('name', 'Unknown Place') for p in places}
+            for scene in scenes:
+                # Add id field for template access
+                scene['id'] = scene['_id']
+                # Find parent place
+                parent_place_id = None
+                for place in places:
+                    if scene['_id'] in place.get('scene_ids', []):
+                        parent_place_id = place['_id']
+                        break
+                scene['placeName'] = place_map.get(parent_place_id, 'Unknown Place')
+
+            return render(request, 'campaigns/campaign_scenes.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'scenes': scenes
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing scenes: {e}", exc_info=True)
+            messages.error(request, f'Error loading scenes: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
+
+
+class CampaignNPCsView(View):
+    """List all NPCs for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    messages.error(request, 'Campaign not found')
+                    return redirect('campaign_list')
+
+            # Normalize campaign name field
+            if 'name' in campaign and 'campaign_name' not in campaign:
+                campaign['campaign_name'] = campaign['name']
+
+            # Get all scenes
+            quest_ids = campaign.get('quest_ids', [])
+            quests = list(db.quests.find({'_id': {'$in': quest_ids}})) if quest_ids else []
+
+            place_ids = []
+            for quest in quests:
+                place_ids.extend(quest.get('place_ids', []))
+
+            places = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
+
+            scene_ids = []
+            for place in places:
+                scene_ids.extend(place.get('scene_ids', []))
+
+            scenes = list(db.scenes.find({'_id': {'$in': scene_ids}})) if scene_ids else []
+
+            # Gather all NPC IDs from scenes
+            npc_ids = []
+            for scene in scenes:
+                npc_ids.extend(scene.get('npc_ids', []))
+
+            # Get NPC documents
+            npcs = list(db.npcs.find({'_id': {'$in': npc_ids}})) if npc_ids else []
+
+            # Add scene name to each NPC
+            scene_map = {s['_id']: s.get('name', 'Unknown Scene') for s in scenes}
+            for npc in npcs:
+                # Add id field for template access
+                npc['id'] = npc['_id']
+                # Find primary scene
+                primary_scene_id = npc.get('primary_scene_id') or npc.get('level_3_location_id')
+                npc['sceneName'] = scene_map.get(primary_scene_id, 'Unknown Scene')
+
+            return render(request, 'campaigns/campaign_npcs.html', {
+                'campaign': campaign,
+                'campaign_id': campaign_id,
+                'npcs': npcs
+            })
+
+        except Exception as e:
+            logger.error(f"Error viewing NPCs: {e}", exc_info=True)
+            messages.error(request, f'Error loading NPCs: {str(e)}')
+            return redirect('campaign_detail', campaign_id=campaign_id)
