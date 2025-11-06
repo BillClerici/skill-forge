@@ -66,46 +66,124 @@ class NPCGenerateImageView(View):
             # Focus on visual appearance and role
             char_description = description if description else f"A {species} character with a {role} role"
 
-            # Strong anti-text prefix
-            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+            # Check for existing image of the opposite type to use as reference
+            reference_image_description = ""
+            opposite_type = 'full_body' if image_type == 'avatar' else 'avatar'
+            existing_opposite_images = npc.get('images', {}).get(opposite_type, [])
 
+            if existing_opposite_images:
+                # We have an existing image of the opposite type - use it as reference
+                reference_image_url = existing_opposite_images[0]['url']
+
+                # Convert relative path to absolute local path for Vision API
+                if reference_image_url.startswith('/media/'):
+                    reference_image_path = Path(settings.MEDIA_ROOT) / reference_image_url.replace('/media/', '')
+
+                    if reference_image_path.exists():
+                        try:
+                            # Use GPT-4 Vision to analyze the existing image
+                            import base64
+                            with open(reference_image_path, 'rb') as img_file:
+                                base64_image = base64.b64encode(img_file.read()).decode('utf-8')
+
+                            vision_response = openai_client.chat.completions.create(
+                                model="gpt-4o",
+                                messages=[
+                                    {
+                                        "role": "user",
+                                        "content": [
+                                            {
+                                                "type": "text",
+                                                "text": "Describe this character's visual appearance in detail for the purpose of generating a consistent matching image. Focus ONLY on: facial features (eyes, nose, mouth, face shape, skin tone), hair (color, style, length), distinctive features (scars, tattoos, markings), clothing style and colors, overall aesthetic. Be specific and concise. Maximum 150 words."
+                                            },
+                                            {
+                                                "type": "image_url",
+                                                "image_url": {
+                                                    "url": f"data:image/png;base64,{base64_image}"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ],
+                                max_tokens=300
+                            )
+
+                            reference_image_description = vision_response.choices[0].message.content
+                            logger.info(f"Extracted visual reference from existing {opposite_type} image: {reference_image_description[:100]}...")
+
+                        except Exception as e:
+                            logger.warning(f"Could not analyze reference image: {e}")
+                            reference_image_description = ""
+
+            # CRITICAL: No text requirements - must be extremely explicit
+            no_text_requirements = """
+CRITICAL REQUIREMENT - ABSOLUTELY NO TEXT OR SYMBOLS:
+- ZERO text of any kind - no words, letters, numbers, runes, glyphs, or writing systems
+- NO symbols, signs, emblems, crests, or heraldic marks
+- NO banners, flags, shop signs, labels, or inscriptions
+- NO book text, scroll writing, tattoos with text, or magical symbols
+- NO UI elements, watermarks, signatures, or captions
+- If it looks like it could be text or a symbol, DO NOT include it
+- Pure visual imagery ONLY - this is mandatory and non-negotiable
 """
-
-            # Strong anti-text suffix
-            no_text_suffix = """
-
-ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
-- NO text, letters, numbers, symbols, or writing of ANY kind
-- NO signs, banners, flags with text, shop signs, or labels
-- NO book text, scrolls with writing, or inscriptions
-- NO UI elements, watermarks, or captions
-- Pure visual imagery only - if it looks like text, don't include it
-This is mandatory and non-negotiable."""
 
             # Build safe, generic prompt based on image type
             # Keep prompts simple to avoid content policy violations
             personality_str = ', '.join(personality_traits[:3]) if personality_traits else 'confident and capable'
 
+            # Add reference consistency instruction if we have a reference image
+            consistency_instruction = ""
+            if reference_image_description:
+                consistency_instruction = f"""
+
+CRITICAL - VISUAL CONSISTENCY REQUIREMENT:
+This character MUST match the following existing appearance exactly:
+{reference_image_description}
+
+Maintain perfect consistency with these visual details - same face, same hair, same features, same clothing style and colors."""
+
             if image_type == 'avatar':
                 base_prompt = f"""Fantasy RPG character portrait: a {species} {role} character.
-{char_description[:200]}
+{char_description[:200]}{consistency_instruction}
+{no_text_requirements}
 
-Art style: Professional character portrait, head and shoulders view, detailed facial features.
+FRAMING REQUIREMENTS:
+- Professional character portrait, head and shoulders view
+- Detailed facial features and expressions
+- Clear, focused composition
+- NO text, symbols, or writing anywhere in the image
+
+Art style: Clean fantasy character portrait with detailed facial features.
 Character traits: {personality_str}
 Archetype: {archetype}
 
-Fantasy character illustration with clear facial details and distinctive appearance."""
+Fantasy character illustration with clear facial details and distinctive appearance. REMEMBER: Absolutely no text or symbols of any kind."""
             else:  # full_body
-                base_prompt = f"""Fantasy RPG character art: a {species} {role} character.
-{char_description[:200]}
+                base_prompt = f"""CRITICAL: Generate EXACTLY ONE character. NOT two, NOT three, NOT multiple figures. ONLY ONE SINGLE CHARACTER.
 
-Art style: Full body fantasy character illustration, standing pose, detailed costume.
+Fantasy RPG character art: A SINGLE {species} {role} character.
+{char_description[:200]}{consistency_instruction}
+{no_text_requirements}
+
+ABSOLUTE REQUIREMENTS - THESE ARE MANDATORY:
+1. EXACTLY ONE CHARACTER: Show only ONE person/figure in the entire image. Do NOT include multiple copies, versions, or instances of the character.
+2. NOT A CHARACTER SHEET: This is NOT a character turnaround or reference sheet. Do NOT show front/side/back views.
+3. NOT A LINEUP: Do NOT show multiple figures standing side by side.
+4. SINGLE FIGURE ONLY: If you see more than one character appearing, STOP and generate only one.
+5. FRONTAL VIEW: One character facing forward toward the viewer
+6. FULL BODY VIEW: Show the ENTIRE character from head to toe - head, torso, arms, legs, and feet must ALL be visible
+7. STANDING POSE: Character must be standing upright (not sitting, crouching, or lying down)
+8. COMPLETE FIGURE: Do NOT crop any part of the body - the full figure must fit in frame
+9. VERTICAL COMPOSITION: Use the full vertical space to show the complete standing character
+10. NO TEXT OR SYMBOLS: Absolutely no text, writing, symbols, or emblems anywhere in the image
+
+Art style: Single solo character portrait, full body, frontal standing pose, detailed costume and equipment. ONE character ONLY.
 Character traits: {personality_str}
 Archetype: {archetype}
 
-Complete character view from head to toe, fantasy setting, detailed clothing and equipment."""
+Generate ONE individual character in frontal standing view, showing their entire body from head to toe. CRITICAL: Only ONE character must appear in the image - not two, not three, ONLY ONE. This is a portrait of a SINGLE individual."""
 
-            full_prompt = no_text_prefix + base_prompt + no_text_suffix
+            full_prompt = base_prompt
 
             # Generate image with DALL-E 3
             logger.info(f"Generating {image_type} image for NPC: {name}")

@@ -445,15 +445,16 @@
     </div>
 </div>
 
-<!-- Image Viewer Modal -->
-<div id="imageViewerModal" class="modal" style="max-width: 90%; max-height: 90%;">
-    <div class="modal-content" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #e0e0e0; padding: 10px;">
-        <img id="viewer-image" src="" alt="Full Size Image" style="width: 100%; height: auto; max-height: 80vh; object-fit: contain; border-radius: 8px;">
-    </div>
-    <div class="modal-footer" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
-        <a href="#!" class="modal-close waves-effect waves-light btn grey darken-2">
-            <i class="material-icons left">close</i>Close
-        </a>
+<!-- Custom Image Viewer Overlay (Not a Materialize Modal) -->
+<div id="imageViewerOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
+    <!-- Close button -->
+    <button onclick="closeImageViewer()" style="position: absolute; top: 20px; right: 20px; z-index: 100000; background: rgba(255,255,255,0.2); border: 2px solid white; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; font-size: 24px; transition: all 0.3s;">
+        <i class="material-icons">close</i>
+    </button>
+
+    <!-- Image container -->
+    <div style="max-width: 90%; max-height: 90vh; display: flex; align-items: center; justify-content: center;">
+        <img id="viewer-image" src="" alt="Full Size Image" onclick="closeImageViewer()" style="max-width: 100%; max-height: 90vh; object-fit: contain; border-radius: 8px; cursor: pointer; box-shadow: 0 0 50px rgba(0,0,0,0.5);" title="Click to close">
     </div>
 </div>
 
@@ -528,6 +529,43 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
 <script>
+// Simple custom image viewer (not using Materialize modals)
+function openImageViewer(imageSrc) {
+    const overlay = document.getElementById('imageViewerOverlay');
+    const image = document.getElementById('viewer-image');
+
+    image.src = imageSrc;
+    overlay.style.display = 'flex';
+
+    // Prevent body scroll when overlay is open
+    document.body.style.overflow = 'hidden';
+}
+
+function closeImageViewer() {
+    const overlay = document.getElementById('imageViewerOverlay');
+    overlay.style.display = 'none';
+
+    // Restore body scroll
+    document.body.style.overflow = '';
+}
+
+// Close on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('imageViewerOverlay');
+        if (overlay && overlay.style.display === 'flex') {
+            closeImageViewer();
+        }
+    }
+});
+
+// Close when clicking on the dark background (but not the image)
+document.getElementById('imageViewerOverlay')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeImageViewer();
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize modals
     var deleteModal = document.querySelectorAll('.modal');
@@ -1183,18 +1221,7 @@ document.addEventListener('DOMContentLoaded', function() {
         dismissible: false
     });
 
-    // Image Viewer Modal
-    const imageViewerModal = M.Modal.init(document.getElementById('imageViewerModal'), {
-        dismissible: true
-    });
-
     let currentImageContext = null; // Stores {type, campaignId, questId, placeId, sceneId}
-
-    // Function to open image viewer
-    function openImageViewer(imageSrc) {
-        document.getElementById('viewer-image').src = imageSrc;
-        imageViewerModal.open();
-    }
 
     // Function to make images clickable
     function makeImageClickable(imageElement) {
@@ -1927,9 +1954,12 @@ function showEditModal(entityType, entity, campaignId) {
                         <label style="color: var(--rpg-gold); font-size: 0.9em; display: block; margin-bottom: 10px;">Full Body</label>
                         <div id="fullbody-preview" style="width: 100%; height: 200px; background: rgba(27, 27, 46, 0.5); border: 2px dashed rgba(212, 175, 55, 0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative;">
                             ${fullBodyImages.length > 0 ? `
-                                <img src="${fullBodyImages[0].url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
-                                <button onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${fullBodyImages[0].url}', 'full_body')"
-                                    class="btn-small red" style="position: absolute; top: 5px; right: 5px;">
+                                <img src="${fullBodyImages[0].url}"
+                                    onclick="openImageViewer('${fullBodyImages[0].url}')"
+                                    style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                                    title="Click to view full size">
+                                <button type="button" onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${fullBodyImages[0].url}', 'full_body')"
+                                    class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
                                     <i class="material-icons tiny">delete</i>
                                 </button>
                             ` : '<span style="color: #888;">No image</span>'}
@@ -1945,9 +1975,12 @@ function showEditModal(entityType, entity, campaignId) {
                         <label style="color: var(--rpg-gold); font-size: 0.9em; display: block; margin-bottom: 10px;">Avatar (Bust)</label>
                         <div id="avatar-preview" style="width: 100%; height: 200px; background: rgba(27, 27, 46, 0.5); border: 2px dashed rgba(212, 175, 55, 0.3); border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative;">
                             ${avatarImages.length > 0 ? `
-                                <img src="${avatarImages[0].url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
-                                <button onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${avatarImages[0].url}', 'avatar')"
-                                    class="btn-small red" style="position: absolute; top: 5px; right: 5px;">
+                                <img src="${avatarImages[0].url}"
+                                    onclick="openImageViewer('${avatarImages[0].url}')"
+                                    style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                                    title="Click to view full size">
+                                <button type="button" onclick="deleteNPCImage('${entity.id || entity._id}', '${campaignId}', '${avatarImages[0].url}', 'avatar')"
+                                    class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
                                     <i class="material-icons tiny">delete</i>
                                 </button>
                             ` : '<span style="color: #888;">No image</span>'}
@@ -2150,9 +2183,12 @@ async function saveNPCImage(npcId, campaignId, imageUrl, imageType) {
 
         if (previewContainer) {
             previewContainer.innerHTML = `
-                <img src="${imageUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
+                <img src="${imageUrl}"
+                    onclick="openImageViewer('${imageUrl}')"
+                    style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; cursor: pointer;"
+                    title="Click to view full size">
                 <button type="button" onclick="deleteNPCImage('${npcId}', '${campaignId}', '${imageUrl}', '${imageType}')"
-                    class="btn-small red" style="position: absolute; top: 5px; right: 5px;">
+                    class="btn-small red" style="position: absolute; top: 5px; right: 5px; z-index: 10;">
                     <i class="material-icons tiny">delete</i>
                 </button>
             `;
