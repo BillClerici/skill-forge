@@ -181,13 +181,17 @@ function showEditModal(entityType, entity, campaignId) {
     let formFields = '';
 
     formFields += `
-        <div class="input-field">
+        <div class="input-field" style="margin-bottom: 25px;">
             <input id="edit_name" type="text" value="${escapeHtml(entity.name || '')}" required style="color: #e0e0e0;">
             <label for="edit_name" class="active" style="color: var(--rpg-gold);">Name</label>
         </div>
-        <div class="input-field">
+        <div class="input-field" style="margin-bottom: 25px;">
             <textarea id="edit_description" class="materialize-textarea" style="color: #e0e0e0; min-height: 100px;">${escapeHtml(entity.description || '')}</textarea>
             <label for="edit_description" class="active" style="color: var(--rpg-gold);">Description</label>
+        </div>
+        <div class="input-field" style="margin-bottom: 20px;">
+            <input id="edit_order_sequence" type="number" value="${entity.order_sequence || ''}" style="color: #e0e0e0;" min="0">
+            <label for="edit_order_sequence" class="active" style="color: var(--rpg-gold);">Order Sequence</label>
         </div>
     `;
 
@@ -218,6 +222,7 @@ function showEditModal(entityType, entity, campaignId) {
 
     const modalElem = document.getElementById('editModal');
     const modalInstance = M.Modal.init(modalElem, {
+        dismissible: false,  // Prevent closing by clicking outside
         onCloseEnd: function() { modalElem.remove(); }
     });
     modalInstance.open();
@@ -237,7 +242,8 @@ function closeEditModal() {
 async function saveEntity(entityType, entityId, campaignId) {
     const data = {
         name: document.getElementById('edit_name').value,
-        description: document.getElementById('edit_description').value
+        description: document.getElementById('edit_description').value,
+        order_sequence: parseInt(document.getElementById('edit_order_sequence')?.value) || null
     };
 
     try {

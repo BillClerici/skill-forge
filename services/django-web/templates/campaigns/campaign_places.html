@@ -3,6 +3,22 @@
 {% block title %}Places - {{ campaign.name }} - SkillForge RPG{% endblock %}
 
 {% block content %}
+<style>
+/* Style for Materialize dropdown options */
+.dropdown-content li > span {
+    color: #1a1a2e !important;
+    background-color: #ffffff !important;
+}
+
+.dropdown-content li:hover, .dropdown-content li.active {
+    background-color: rgba(212, 175, 55, 0.2) !important;
+}
+
+.dropdown-content li.selected {
+    background-color: rgba(212, 175, 55, 0.3) !important;
+}
+</style>
+
 <!-- Include Navigation Toolbar -->
 {% include "campaigns/_campaign_toolbar.html" %}
 
@@ -181,13 +197,26 @@ function showEditModal(entityType, entity, campaignId) {
     let formFields = '';
 
     formFields += `
-        <div class="input-field">
+        <div class="input-field" style="margin-bottom: 25px;">
             <input id="edit_name" type="text" value="${escapeHtml(entity.name || '')}" required style="color: #e0e0e0;">
             <label for="edit_name" class="active" style="color: var(--rpg-gold);">Name</label>
         </div>
-        <div class="input-field">
+        <div class="input-field" style="margin-bottom: 25px;">
             <textarea id="edit_description" class="materialize-textarea" style="color: #e0e0e0; min-height: 100px;">${escapeHtml(entity.description || '')}</textarea>
             <label for="edit_description" class="active" style="color: var(--rpg-gold);">Description</label>
+        </div>
+        <div class="input-field" style="margin-bottom: 25px;">
+            <textarea id="edit_narrative_purpose" class="materialize-textarea" style="color: #e0e0e0; min-height: 80px;">${escapeHtml(entity.narrative_purpose || '')}</textarea>
+            <label for="edit_narrative_purpose" class="active" style="color: var(--rpg-gold);">Narrative Purpose</label>
+        </div>
+        <div class="input-field" style="margin-bottom: 20px;">
+            <select id="edit_when_visited" style="display: block;">
+                <option value="" ${!entity.when_visited ? 'selected' : ''}>Not specified</option>
+                <option value="beginning" ${entity.when_visited === 'beginning' ? 'selected' : ''}>Beginning</option>
+                <option value="middle" ${entity.when_visited === 'middle' ? 'selected' : ''}>Middle</option>
+                <option value="end" ${entity.when_visited === 'end' ? 'selected' : ''}>End</option>
+            </select>
+            <label style="color: var(--rpg-gold);">When Visited</label>
         </div>
     `;
 
@@ -218,12 +247,19 @@ function showEditModal(entityType, entity, campaignId) {
 
     const modalElem = document.getElementById('editModal');
     const modalInstance = M.Modal.init(modalElem, {
+        dismissible: false,  // Prevent closing by clicking outside
         onCloseEnd: function() { modalElem.remove(); }
     });
     modalInstance.open();
 
     M.updateTextFields();
     M.textareaAutoResize(document.getElementById('edit_description'));
+    if (document.getElementById('edit_narrative_purpose')) {
+        M.textareaAutoResize(document.getElementById('edit_narrative_purpose'));
+    }
+    if (document.getElementById('edit_when_visited')) {
+        M.FormSelect.init(document.querySelectorAll('select'));
+    }
 }
 
 function closeEditModal() {
@@ -237,7 +273,9 @@ function closeEditModal() {
 async function saveEntity(entityType, entityId, campaignId) {
     const data = {
         name: document.getElementById('edit_name').value,
-        description: document.getElementById('edit_description').value
+        description: document.getElementById('edit_description').value,
+        narrative_purpose: document.getElementById('edit_narrative_purpose')?.value || '',
+        when_visited: document.getElementById('edit_when_visited')?.value || ''
     };
 
     try {

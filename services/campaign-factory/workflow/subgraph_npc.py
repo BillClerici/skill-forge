@@ -442,6 +442,10 @@ IMPORTANT: Ensure the npc_name is completely unique and NOT in the existing name
             # Location
             "level_3_location_id": state.get("level_3_location_id", ""),
             "level_3_location_name": state.get("location_name", "Unknown Location"),
+            "primary_scene_id": state.get("level_3_location_id", ""),  # Same as level_3_location_id
+            "primary_scene_name": state.get("location_name", "Unknown Location"),
+            "appears_in_scenes": [state.get("level_3_location_id", "")] if state.get("level_3_location_id") else [],  # Initially just primary scene
+            "appearance_conditions": {},  # Can be customized later
 
             # World & items
             "is_world_permanent": True,  # All campaign NPCs are added to world

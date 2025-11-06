@@ -201,47 +201,60 @@ function showEditModal(entityType, entity, campaignId) {
             <label for="edit_name" class="active" style="color: var(--rpg-gold);">Name</label>
         </div>
 
-        <div style="margin-top: 20px; margin-bottom: 25px;">
-            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Species</label>
-            <select id="edit_species_name" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
-                <option value="">Loading species...</option>
-            </select>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; margin-bottom: 25px;">
+            <div>
+                <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Species</label>
+                <select id="edit_species_name" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                    <option value="">Loading species...</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Role</label>
+                <select id="edit_role" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                    <option value="ally" ${currentRole === 'ally' ? 'selected' : ''}>Ally</option>
+                    <option value="antagonist" ${currentRole === 'antagonist' ? 'selected' : ''}>Antagonist</option>
+                    <option value="elder" ${currentRole === 'elder' ? 'selected' : ''}>Elder</option>
+                    <option value="guide" ${currentRole === 'guide' ? 'selected' : ''}>Guide</option>
+                    <option value="merchant" ${currentRole === 'merchant' ? 'selected' : ''}>Merchant</option>
+                    <option value="neutral" ${currentRole === 'neutral' ? 'selected' : ''}>Neutral</option>
+                    <option value="scholar" ${currentRole === 'scholar' ? 'selected' : ''}>Scholar</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Archetype</label>
+                <select id="edit_archetype" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                    <option value="guardian" ${currentArchetype === 'guardian' ? 'selected' : ''}>Guardian</option>
+                    <option value="herald" ${currentArchetype === 'herald' ? 'selected' : ''}>Herald</option>
+                    <option value="mentor" ${currentArchetype === 'mentor' ? 'selected' : ''}>Mentor</option>
+                    <option value="shadow" ${currentArchetype === 'shadow' ? 'selected' : ''}>Shadow</option>
+                    <option value="trickster" ${currentArchetype === 'trickster' ? 'selected' : ''}>Trickster</option>
+                </select>
+            </div>
+
+            <div>
+                <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Dialogue Style</label>
+                <select id="edit_dialogue_style" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                    <option value="casual" ${currentDialogueStyle === 'casual' ? 'selected' : ''}>Casual</option>
+                    <option value="cryptic" ${currentDialogueStyle === 'cryptic' ? 'selected' : ''}>Cryptic</option>
+                    <option value="eloquent" ${currentDialogueStyle === 'eloquent' ? 'selected' : ''}>Eloquent</option>
+                    <option value="formal" ${currentDialogueStyle === 'formal' ? 'selected' : ''}>Formal</option>
+                    <option value="stern" ${currentDialogueStyle === 'stern' ? 'selected' : ''}>Stern</option>
+                    <option value="warm" ${currentDialogueStyle === 'warm' ? 'selected' : ''}>Warm</option>
+                </select>
+            </div>
         </div>
 
         <div style="margin-top: 25px; margin-bottom: 25px;">
-            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Role</label>
-            <select id="edit_role" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
-                <option value="ally" ${currentRole === 'ally' ? 'selected' : ''}>Ally</option>
-                <option value="antagonist" ${currentRole === 'antagonist' ? 'selected' : ''}>Antagonist</option>
-                <option value="elder" ${currentRole === 'elder' ? 'selected' : ''}>Elder</option>
-                <option value="guide" ${currentRole === 'guide' ? 'selected' : ''}>Guide</option>
-                <option value="merchant" ${currentRole === 'merchant' ? 'selected' : ''}>Merchant</option>
-                <option value="neutral" ${currentRole === 'neutral' ? 'selected' : ''}>Neutral</option>
-                <option value="scholar" ${currentRole === 'scholar' ? 'selected' : ''}>Scholar</option>
+            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">
+                <i class="material-icons tiny" style="vertical-align: middle;">place</i>
+                Scenes <span style="color: #888; font-size: 0.85em;">(where this NPC appears)</span>
+            </label>
+            <select id="edit_scenes" multiple style="display: block; width: 100%; min-height: 120px; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
+                <option value="">Loading scenes...</option>
             </select>
-        </div>
-
-        <div style="margin-top: 25px; margin-bottom: 25px;">
-            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Archetype</label>
-            <select id="edit_archetype" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
-                <option value="guardian" ${currentArchetype === 'guardian' ? 'selected' : ''}>Guardian</option>
-                <option value="herald" ${currentArchetype === 'herald' ? 'selected' : ''}>Herald</option>
-                <option value="mentor" ${currentArchetype === 'mentor' ? 'selected' : ''}>Mentor</option>
-                <option value="shadow" ${currentArchetype === 'shadow' ? 'selected' : ''}>Shadow</option>
-                <option value="trickster" ${currentArchetype === 'trickster' ? 'selected' : ''}>Trickster</option>
-            </select>
-        </div>
-
-        <div style="margin-top: 25px; margin-bottom: 25px;">
-            <label style="color: var(--rpg-gold); display: block; margin-bottom: 8px; font-size: 0.9em;">Dialogue Style</label>
-            <select id="edit_dialogue_style" style="display: block; width: 100%; color: #e0e0e0; background-color: rgba(27, 27, 46, 0.8); border: 1px solid rgba(212, 175, 55, 0.5); border-radius: 4px; padding: 8px;">
-                <option value="casual" ${currentDialogueStyle === 'casual' ? 'selected' : ''}>Casual</option>
-                <option value="cryptic" ${currentDialogueStyle === 'cryptic' ? 'selected' : ''}>Cryptic</option>
-                <option value="eloquent" ${currentDialogueStyle === 'eloquent' ? 'selected' : ''}>Eloquent</option>
-                <option value="formal" ${currentDialogueStyle === 'formal' ? 'selected' : ''}>Formal</option>
-                <option value="stern" ${currentDialogueStyle === 'stern' ? 'selected' : ''}>Stern</option>
-                <option value="warm" ${currentDialogueStyle === 'warm' ? 'selected' : ''}>Warm</option>
-            </select>
+            <small style="color: #888; display: block; margin-top: 8px;">Hold Ctrl/Cmd to select multiple scenes</small>
         </div>
 
         <div style="margin-top: 30px; margin-bottom: 15px; padding: 15px; background: rgba(44, 44, 66, 0.5); border: 1px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
@@ -323,7 +336,7 @@ function showEditModal(entityType, entity, campaignId) {
     `;
 
     const modalHtml = `
-        <div id="editModal" class="modal" style="max-width: 800px; max-height: 90%; background: linear-gradient(135deg, rgba(27, 27, 46, 0.98) 0%, rgba(44, 44, 66, 0.98) 100%); border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
+        <div id="editModal" class="modal" style="max-width: 1200px; width: 95%; max-height: 90%; background: linear-gradient(135deg, rgba(27, 27, 46, 0.98) 0%, rgba(44, 44, 66, 0.98) 100%); border: 2px solid rgba(212, 175, 55, 0.3); border-radius: 8px;">
             <div class="modal-content" style="background: transparent; padding: 24px;">
                 <h4 style="color: var(--rpg-gold); margin-bottom: 24px;">
                     <i class="material-icons">edit</i>
@@ -349,6 +362,7 @@ function showEditModal(entityType, entity, campaignId) {
 
     const modalElem = document.getElementById('editModal');
     const modalInstance = M.Modal.init(modalElem, {
+        dismissible: false,  // Prevent closing by clicking outside
         onCloseEnd: function() { modalElem.remove(); }
     });
     modalInstance.open();
@@ -358,8 +372,11 @@ function showEditModal(entityType, entity, campaignId) {
     M.textareaAutoResize(document.getElementById('edit_purpose'));
     M.textareaAutoResize(document.getElementById('edit_backstory_summary'));
 
-    // Load species
-    setTimeout(() => loadSpeciesForWorld(currentSpecies), 0);
+    // Load species and scenes
+    setTimeout(() => {
+        loadSpeciesForWorld(currentSpecies);
+        loadScenesForCampaign(campaignId, entity);
+    }, 0);
 }
 
 function closeEditModal() {
@@ -371,6 +388,10 @@ function closeEditModal() {
 }
 
 async function saveEntity(entityType, entityId, campaignId) {
+    // Get selected scenes
+    const scenesSelect = document.getElementById('edit_scenes');
+    const selectedScenes = Array.from(scenesSelect.selectedOptions).map(opt => opt.value);
+
     const data = {
         name: document.getElementById('edit_name').value,
         species_name: document.getElementById('edit_species_name').value,
@@ -379,7 +400,9 @@ async function saveEntity(entityType, entityId, campaignId) {
         dialogue_style: document.getElementById('edit_dialogue_style').value,
         description: document.getElementById('edit_description').value,
         purpose: document.getElementById('edit_purpose').value,
-        backstory_summary: document.getElementById('edit_backstory_summary').value
+        backstory_summary: document.getElementById('edit_backstory_summary').value,
+        appears_in_scenes: selectedScenes,
+        primary_scene_id: selectedScenes.length > 0 ? selectedScenes[0] : null
     };
 
     try {
@@ -448,6 +471,47 @@ async function loadSpeciesForWorld(currentSpecies) {
         const speciesSelect = document.getElementById('edit_species_name');
         if (speciesSelect) {
             speciesSelect.innerHTML = '<option value="">Error loading species</option>';
+        }
+    }
+}
+
+async function loadScenesForCampaign(campaignId, entity) {
+    try {
+        // Get all scenes for this campaign
+        const response = await fetch(`/api/campaigns/${campaignId}/scenes/list/`);
+        const result = await response.json();
+
+        const scenesSelect = document.getElementById('edit_scenes');
+        if (!scenesSelect) return;
+
+        if (!result.scenes || result.scenes.length === 0) {
+            scenesSelect.innerHTML = '<option value="">No scenes defined for this campaign</option>';
+            return;
+        }
+
+        // Get current scene assignments
+        const currentScenes = entity.appears_in_scenes || [];
+        const primarySceneId = entity.primary_scene_id || entity.level_3_location_id;
+
+        let options = '';
+        for (const scene of result.scenes) {
+            // Check if selected using both _id and level_3_location_id
+            const isSelected = currentScenes.includes(scene._id) ||
+                               currentScenes.includes(scene.level_3_location_id) ||
+                               scene._id === primarySceneId ||
+                               scene.level_3_location_id === primarySceneId;
+            const isPrimary = (scene._id === primarySceneId || scene.level_3_location_id === primarySceneId) ? ' (Primary)' : '';
+            const orderPrefix = scene.order_sequence ? `[${scene.order_sequence}] ` : '';
+            options += `<option value="${escapeHtml(scene._id)}" ${isSelected ? 'selected' : ''}>${orderPrefix}${escapeHtml(scene.name)}${isPrimary}</option>`;
+        }
+
+        scenesSelect.innerHTML = options;
+
+    } catch (error) {
+        console.error('Error loading scenes:', error);
+        const scenesSelect = document.getElementById('edit_scenes');
+        if (scenesSelect) {
+            scenesSelect.innerHTML = '<option value="">Error loading scenes</option>';
         }
     }
 }

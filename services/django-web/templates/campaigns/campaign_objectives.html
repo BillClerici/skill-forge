@@ -248,6 +248,7 @@ function showEditModal(index, objective) {
 
     const modalElem = document.getElementById('editModal');
     const modalInstance = M.Modal.init(modalElem, {
+        dismissible: false,  // Prevent closing by clicking outside
         onCloseEnd: function() { modalElem.remove(); }
     });
     modalInstance.open();

@@ -453,3 +453,55 @@ class WorldSpeciesListView(View):
         except Exception as e:
             logger.error(f"Error fetching species for world {world_id}: {e}", exc_info=True)
             return JsonResponse({'error': 'Internal server error'}, status=500)
+
+
+class ListScenesAPIView(View):
+    """API to list all scenes for a campaign"""
+
+    def get(self, request, campaign_id):
+        try:
+            # Get campaign
+            campaign = db.campaigns.find_one({'_id': campaign_id})
+            if not campaign:
+                campaign = db.campaign_state.find_one({'_id': campaign_id})
+                if not campaign:
+                    return JsonResponse({'error': 'Campaign not found'}, status=404)
+
+            # Get all quests and their places
+            quest_ids = campaign.get('quest_ids', [])
+            quests = list(db.quests.find({'_id': {'$in': quest_ids}})) if quest_ids else []
+
+            place_ids = []
+            for quest in quests:
+                place_ids.extend(quest.get('place_ids', []))
+
+            places = list(db.places.find({'_id': {'$in': place_ids}})) if place_ids else []
+
+            # Gather all scene IDs from places
+            scene_ids = []
+            for place in places:
+                scene_ids.extend(place.get('scene_ids', []))
+
+            # Get scene documents
+            scenes = list(db.scenes.find({'_id': {'$in': scene_ids}})) if scene_ids else []
+
+            # Format scenes for response - sort by order_sequence
+            scenes_data = [
+                {
+                    '_id': scene['_id'],
+                    'level_3_location_id': scene.get('level_3_location_id'),
+                    'name': scene.get('name', 'Unnamed Scene'),
+                    'description': scene.get('description', ''),
+                    'order_sequence': scene.get('order_sequence', 0)
+                }
+                for scene in scenes
+            ]
+
+            # Sort by order_sequence
+            scenes_data.sort(key=lambda s: s.get('order_sequence', 0))
+
+            return JsonResponse({'scenes': scenes_data})
+
+        except Exception as e:
+            logger.error(f"Error fetching scenes for campaign {campaign_id}: {e}", exc_info=True)
+            return JsonResponse({'error': 'Internal server error'}, status=500)

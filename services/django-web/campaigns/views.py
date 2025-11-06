@@ -2230,13 +2230,46 @@ class CampaignNPCsView(View):
             npcs = list(db.npcs.find({'_id': {'$in': npc_ids}})) if npc_ids else []
 
             # Add scene name to each NPC
-            scene_map = {s['_id']: s.get('name', 'Unknown Scene') for s in scenes}
+            # Create map using both _id and level_3_location_id as keys
+            scene_map = {}
+            for s in scenes:
+                scene_name = s.get('name', 'Unknown Scene')
+                scene_map[s['_id']] = scene_name
+                if 'level_3_location_id' in s:
+                    scene_map[s['level_3_location_id']] = scene_name
+
             for npc in npcs:
                 # Add id field for template access
                 npc['id'] = npc['_id']
-                # Find primary scene
+
+                # Collect all scenes this NPC appears in
+                scene_ids = []
+
+                # Add primary scene
                 primary_scene_id = npc.get('primary_scene_id') or npc.get('level_3_location_id')
-                npc['sceneName'] = scene_map.get(primary_scene_id, 'Unknown Scene')
+                if primary_scene_id:
+                    scene_ids.append(primary_scene_id)
+
+                # Add all scenes from appears_in_scenes array
+                appears_in = npc.get('appears_in_scenes', [])
+                scene_ids.extend(appears_in)
+
+                # Remove duplicates and get scene names
+                scene_names = []
+                seen_ids = set()
+                for scene_id in scene_ids:
+                    if scene_id not in seen_ids:
+                        scene_name = scene_map.get(scene_id, 'Unknown Scene')
+                        if scene_name != 'Unknown Scene':  # Only add if we found a valid scene
+                            scene_names.append(scene_name)
+                            seen_ids.add(scene_id)
+
+                # If no valid scenes found, show Unknown Scene
+                if not scene_names:
+                    scene_names.append('Unknown Scene')
+
+                # Store as comma-separated string for backward compatibility with template
+                npc['sceneName'] = ', '.join(scene_names)
 
             return render(request, 'campaigns/campaign_npcs.html', {
                 'campaign': campaign,

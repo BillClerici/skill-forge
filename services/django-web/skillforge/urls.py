@@ -214,7 +214,8 @@ urlpatterns = [
     path('campaigns/<str:campaign_id>/quests/<str:quest_id>/reorder-places/', QuestReorderPlacesView.as_view(), name='quest_reorder_places'),
     path('campaigns/<str:campaign_id>/places/<str:place_id>/reorder-scenes/', PlaceReorderScenesView.as_view(), name='place_reorder_scenes'),
 
-    # Entity CRUD API
+    # Entity CRUD API - Specific routes first before generic patterns
+    path('api/campaigns/<str:campaign_id>/scenes/list/', crud_views.ListScenesAPIView.as_view(), name='scenes_list'),
     path('api/campaigns/<str:campaign_id>/<str:entity_type>/create/', crud_views.CreateEntityAPIView.as_view(), name='entity_create'),
     path('api/campaigns/<str:campaign_id>/<str:entity_type>/<str:entity_id>/', crud_views.GetEntityAPIView.as_view(), name='entity_get'),
     path('api/campaigns/<str:campaign_id>/<str:entity_type>/<str:entity_id>/update/', crud_views.UpdateEntityAPIView.as_view(), name='entity_update'),
