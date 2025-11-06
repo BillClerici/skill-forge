@@ -315,6 +315,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ORCHESTRATOR_URL=http://agent-orchestrator:9000
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN}
       - PYTHONUNBUFFERED=1
     depends_on:
       - rabbitmq

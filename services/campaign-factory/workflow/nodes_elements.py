@@ -441,6 +441,9 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
 
             # Step 2: Generate NPCs using subgraph
             for npc_role in elements_needed.get("npcs", []):
+                # Collect existing NPC names to avoid duplicates
+                existing_npc_names = [npc["name"] for npc in all_npcs]
+
                 npc_state = {
                     "npc_role": npc_role,
                     "narrative_context": scene["description"],
@@ -450,6 +453,7 @@ async def generate_scene_elements_node(state: CampaignWorkflowState) -> Campaign
                     "region_id": state["region_id"],
                     "region_name": state["region_name"],
                     "region_data": state.get("region_data", {}),  # Pass region inhabitants
+                    "existing_npc_names": existing_npc_names,  # Pass existing names to avoid duplicates
                     "errors": [],
                     "rubrics": []  # Initialize rubrics list for subgraph
                 }

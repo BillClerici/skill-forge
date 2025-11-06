@@ -58,7 +58,7 @@ class QuestChapterResponse(BaseModel):
     chapter_summary: str = Field(description="What happens in this chapter")
     narrative_purpose: str = Field(description="Why this chapter exists (setup/complication/climax/resolution)")
     story_beats: List[str] = Field(description="Specific story events", min_length=2)
-    places: List[PlaceResponse] = Field(description="2-6 places where story events occur", min_length=2, max_length=6)
+    places: List[PlaceResponse] = Field(description="2-6 places where story events occur", min_length=2)  # Removed max_length, will truncate after parsing
 
 class NarrativeBlueprintResponse(BaseModel):
     """Structured response for complete narrative blueprint"""
@@ -266,8 +266,8 @@ Ensure every quest objective is addressable in at least 2 different scenes for r
         state["status_message"] = f"Generating {state['num_quests']}-quest story arc with objective awareness..."
         await publish_progress(state)
 
-        # Use structured output with raw response to handle edge cases gracefully
-        structured_llm = anthropic_client.with_structured_output(NarrativeBlueprintResponse, include_raw=True)
+        # Use structured output - validation will pass since we removed max_length constraint
+        structured_llm = anthropic_client.with_structured_output(NarrativeBlueprintResponse, include_raw=False)
         chain = prompt | structured_llm
 
         response = await chain.ainvoke({
@@ -285,27 +285,14 @@ Ensure every quest objective is addressable in at least 2 different scenes for r
         state["status_message"] = "Parsing narrative blueprint..."
         await publish_progress(state)
 
-        # Handle graceful truncation if needed
-        if "parsed" in response and response["parsed"]:
-            blueprint_response = response["parsed"]
-        else:
-            # Fallback: manually parse and truncate excess places
-            raw_dict = response.get("raw", {})
-            if "content" in raw_dict and len(raw_dict["content"]) > 0:
-                content_block = raw_dict["content"][0]
-                if hasattr(content_block, "input"):
-                    blueprint_dict = content_block.input
-                    # Truncate excess places if any quest has > 6 places
-                    if "quests" in blueprint_dict:
-                        for quest in blueprint_dict["quests"]:
-                            if "places" in quest and len(quest["places"]) > 6:
-                                logger.warning(f"Quest {quest.get('quest_number')} has {len(quest['places'])} places, truncating to 6")
-                                quest["places"] = quest["places"][:6]
-                    blueprint_response = NarrativeBlueprintResponse(**blueprint_dict)
-                else:
-                    raise ValueError("Unable to parse blueprint response")
-            else:
-                raise ValueError("No content in response")
+        # Response is a Pydantic object
+        blueprint_response = response
+
+        # Truncate excess places if any quest has > 6 places (enforce our business rule)
+        for quest in blueprint_response.quests:
+            if len(quest.places) > 6:
+                logger.warning(f"Quest {quest.quest_number} has {len(quest.places)} places, truncating to 6")
+                quest.places = quest.places[:6]
 
         # Convert Pydantic model to dict
         narrative_blueprint = blueprint_response.model_dump()

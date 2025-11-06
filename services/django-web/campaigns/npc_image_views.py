@@ -5,12 +5,15 @@ Also handles AI-powered regeneration of NPC descriptions
 """
 import json
 import logging
-import httpx
+import os
+import uuid
+import urllib.request
+from pathlib import Path
 from django.views import View
 from django.http import JsonResponse
+from django.conf import settings
 from pymongo import MongoClient
 from anthropic import Anthropic
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -19,17 +22,24 @@ MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mong
 mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client['skillforge']
 
-# Image generation service URL
-IMAGE_GEN_URL = os.getenv('IMAGE_GEN_URL', 'http://image-gen:8002')
+# OpenAI client for DALL-E 3 image generation
+openai_api_key = os.getenv('OPENAI_API_KEY')
+openai_client = None
+if openai_api_key:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=openai_api_key)
 
 # Anthropic client for AI generation
 anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
 
 class NPCGenerateImageView(View):
-    """Generate full-body or avatar image for an NPC"""
+    """Generate full-body or avatar image for an NPC using DALL-E 3"""
 
     def post(self, request, campaign_id, npc_id):
+        if not openai_client:
+            return JsonResponse({'error': 'OpenAI API key not configured'}, status=500)
+
         try:
             data = json.loads(request.body)
             image_type = data.get('image_type', 'full_body')  # 'full_body' or 'avatar'
@@ -39,76 +49,122 @@ class NPCGenerateImageView(View):
             if not npc:
                 return JsonResponse({'error': 'NPC not found'}, status=404)
 
+            # Check existing images count
+            current_images = npc.get('images', {}).get(image_type, [])
+            if len(current_images) >= 4:
+                return JsonResponse({'error': f'Already have 4 {image_type} images. Delete some first to generate more.'}, status=400)
+
             # Build prompt from NPC data
             name = npc.get('name', 'Character')
             species = npc.get('species_name', 'humanoid')
             role = npc.get('role', 'character')
-            backstory = npc.get('backstory', '')
-            backstory_summary = npc.get('backstory_summary', '')
+            description = npc.get('description', '')
             personality_traits = npc.get('personality_traits', [])
+            archetype = npc.get('archetype', 'neutral')
 
-            # Use backstory or summary for description
-            description = backstory if backstory else backstory_summary
-            if not description:
-                description = f"A {species} who serves as a {role}"
+            # Use only safe, descriptive fields - avoid backstory which may contain policy-violating content
+            # Focus on visual appearance and role
+            char_description = description if description else f"A {species} character with a {role} role"
 
-            # Build prompt based on image type
+            # Strong anti-text prefix
+            no_text_prefix = """CRITICAL REQUIREMENT: This image must contain ZERO text. No words, no letters, no symbols, no signs, no banners, no labels, no writing of any kind. Do not add any textual elements whatsoever.
+
+"""
+
+            # Strong anti-text suffix
+            no_text_suffix = """
+
+ABSOLUTE REQUIREMENT - NO EXCEPTIONS:
+- NO text, letters, numbers, symbols, or writing of ANY kind
+- NO signs, banners, flags with text, shop signs, or labels
+- NO book text, scrolls with writing, or inscriptions
+- NO UI elements, watermarks, or captions
+- Pure visual imagery only - if it looks like text, don't include it
+This is mandatory and non-negotiable."""
+
+            # Build safe, generic prompt based on image type
+            # Keep prompts simple to avoid content policy violations
+            personality_str = ', '.join(personality_traits[:3]) if personality_traits else 'confident and capable'
+
             if image_type == 'avatar':
-                prompt = f"""Portrait bust shot of {name}, a {species} {role}.
-{description[:500]}
+                base_prompt = f"""Fantasy RPG character portrait: a {species} {role} character.
+{char_description[:200]}
 
-Style: Character portrait, head and shoulders, detailed facial features, professional RPG character art.
-Personality: {', '.join(personality_traits[:3]) if personality_traits else 'dignified'}
-Focus on facial expression and character details."""
+Art style: Professional character portrait, head and shoulders view, detailed facial features.
+Character traits: {personality_str}
+Archetype: {archetype}
+
+Fantasy character illustration with clear facial details and distinctive appearance."""
             else:  # full_body
-                prompt = f"""Full body character art of {name}, a {species} {role}.
-{description[:500]}
+                base_prompt = f"""Fantasy RPG character art: a {species} {role} character.
+{char_description[:200]}
 
-Style: Full body RPG character illustration, dynamic pose, detailed costume and equipment.
-Personality: {', '.join(personality_traits[:3]) if personality_traits else 'dignified'}
-Show complete character from head to toe."""
+Art style: Full body fantasy character illustration, standing pose, detailed costume.
+Character traits: {personality_str}
+Archetype: {archetype}
 
-            # Call image generation service
-            timeout = httpx.Timeout(120.0, connect=10.0)
-            with httpx.Client(timeout=timeout) as client:
-                response = client.post(
-                    f"{IMAGE_GEN_URL}/generate",
-                    json={
-                        'prompt': prompt,
-                        'entity_type': 'npc',
-                        'entity_id': npc_id,
-                        'image_type': image_type,
-                        'width': 512 if image_type == 'avatar' else 512,
-                        'height': 512 if image_type == 'avatar' else 768
-                    }
-                )
+Complete character view from head to toe, fantasy setting, detailed clothing and equipment."""
 
-                if response.status_code != 200:
-                    logger.error(f"Image generation failed: {response.text}")
-                    return JsonResponse({
-                        'error': 'Image generation failed',
-                        'details': response.text
-                    }, status=500)
+            full_prompt = no_text_prefix + base_prompt + no_text_suffix
 
-                result = response.json()
-                image_url = result.get('url')
+            # Generate image with DALL-E 3
+            logger.info(f"Generating {image_type} image for NPC: {name}")
+            response = openai_client.images.generate(
+                model="dall-e-3",
+                prompt=full_prompt,
+                size="1024x1792" if image_type == 'full_body' else "1024x1024",
+                quality="standard",
+                n=1
+            )
 
-                if not image_url:
-                    return JsonResponse({'error': 'No image URL returned'}, status=500)
+            image_url = response.data[0].url
 
-                return JsonResponse({
-                    'success': True,
-                    'image_url': image_url,
-                    'image_type': image_type,
-                    'message': f'{image_type.replace("_", " ").title()} image generated successfully'
-                })
+            # Download and save image locally
+            media_root = Path(settings.MEDIA_ROOT)
+            npc_images_dir = media_root / 'npc_images' / npc_id
+            npc_images_dir.mkdir(parents=True, exist_ok=True)
 
-        except httpx.TimeoutException:
-            logger.error("Image generation timeout")
-            return JsonResponse({'error': 'Image generation timed out. Please try again.'}, status=504)
+            # Generate unique filename
+            image_filename = f"{image_type}_{uuid.uuid4().hex[:8]}.png"
+            image_path = npc_images_dir / image_filename
+
+            # Download image
+            urllib.request.urlretrieve(image_url, str(image_path))
+
+            # Generate relative URL path
+            relative_path = f"/media/npc_images/{npc_id}/{image_filename}"
+
+            # Initialize images structure if needed
+            if 'images' not in npc:
+                npc['images'] = {'full_body': [], 'avatar': []}
+            if image_type not in npc['images']:
+                npc['images'][image_type] = []
+
+            # Add new image to NPC
+            from datetime import datetime
+            npc['images'][image_type].append({
+                'url': relative_path,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+
+            # Update MongoDB
+            db.npcs.update_one(
+                {'_id': npc_id},
+                {'$set': {'images': npc['images']}}
+            )
+
+            logger.info(f"Successfully generated {image_type} image for NPC {name}: {relative_path}")
+
+            return JsonResponse({
+                'success': True,
+                'image_url': relative_path,
+                'image_type': image_type,
+                'message': f'{image_type.replace("_", " ").title()} image generated successfully'
+            })
+
         except Exception as e:
             logger.error(f"Error generating NPC image: {e}", exc_info=True)
-            return JsonResponse({'error': 'Internal server error'}, status=500)
+            return JsonResponse({'error': f'Image generation failed: {str(e)}'}, status=500)
 
 
 class NPCSaveImageView(View):

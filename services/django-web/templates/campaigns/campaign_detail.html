@@ -539,6 +539,16 @@ document.addEventListener('DOMContentLoaded', function() {
         accordion: true
     });
 
+    // Restore entity list view if returning from save/delete
+    const returnToEntity = sessionStorage.getItem('returnToEntityList');
+    if (returnToEntity) {
+        sessionStorage.removeItem('returnToEntityList');
+        // Trigger showing the CRUD panel for that entity type after a brief delay to ensure elements are loaded
+        setTimeout(() => {
+            showCRUDPanel(returnToEntity);
+        }, 100);
+    }
+
     // Get campaign data
     const campaignDataEl = document.getElementById('campaign-data');
     if (!campaignDataEl) return;
@@ -1725,6 +1735,8 @@ async function addNewEntity(entityType) {
 
         if (result.success) {
             M.toast({html: result.message, classes: 'green', displayLength: 2000});
+            // Store current entity type before reload to return to the same list
+            sessionStorage.setItem('returnToEntityList', entityType);
             // Reload to show new entity
             setTimeout(() => location.reload(), 1000);
         } else {
@@ -1781,6 +1793,8 @@ async function deleteEntity(entityType, id, name) {
 
         if (result.success) {
             M.toast({html: result.message, classes: 'green', displayLength: 2000});
+            // Store current entity type before reload to return to the same list
+            sessionStorage.setItem('returnToEntityList', entityType);
             // Reload to show updated list
             setTimeout(() => location.reload(), 1000);
         } else {
@@ -2085,11 +2099,11 @@ async function generateNPCImage(npcId, campaignId, imageType) {
         previewContainer.innerHTML = `
             <img src="${result.image_url}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
             <div style="position: absolute; bottom: 5px; left: 5px; right: 5px; display: flex; gap: 5px;">
-                <button onclick="saveNPCImage('${npcId}', '${campaignId}', '${result.image_url}', '${imageType}')"
+                <button type="button" onclick="saveNPCImage('${npcId}', '${campaignId}', '${result.image_url}', '${imageType}')"
                     class="btn-small waves-effect waves-light green" style="flex: 1;">
                     <i class="material-icons tiny">save</i> Save
                 </button>
-                <button onclick="generateNPCImage('${npcId}', '${campaignId}', '${imageType}')"
+                <button type="button" onclick="generateNPCImage('${npcId}', '${campaignId}', '${imageType}')"
                     class="btn-small waves-effect waves-light blue" style="flex: 1;">
                     <i class="material-icons tiny">refresh</i> Retry
                 </button>
@@ -2137,7 +2151,7 @@ async function saveNPCImage(npcId, campaignId, imageUrl, imageType) {
         if (previewContainer) {
             previewContainer.innerHTML = `
                 <img src="${imageUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
-                <button onclick="deleteNPCImage('${npcId}', '${campaignId}', '${imageUrl}', '${imageType}')"
+                <button type="button" onclick="deleteNPCImage('${npcId}', '${campaignId}', '${imageUrl}', '${imageType}')"
                     class="btn-small red" style="position: absolute; top: 5px; right: 5px;">
                     <i class="material-icons tiny">delete</i>
                 </button>
@@ -2321,6 +2335,8 @@ async function saveEntity(entityType, entityId, campaignId) {
         if (result.success) {
             M.toast({html: result.message, classes: 'green', displayLength: 2000});
             closeEditModal();
+            // Store current entity type before reload to return to the same list
+            sessionStorage.setItem('returnToEntityList', entityType);
             // Reload page to get fresh data and return to list
             setTimeout(() => location.reload(), 1000);
         } else {

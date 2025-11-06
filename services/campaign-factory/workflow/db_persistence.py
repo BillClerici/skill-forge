@@ -308,10 +308,14 @@ async def persist_npcs(state: CampaignWorkflowState):
             "name": npc["name"],
             "species_id": npc["species_id"],
             "species_name": npc["species_name"],
+            "description": npc.get("description", ""),  # Brief one-sentence description
+            "purpose": npc.get("purpose", ""),  # NPC's function in the campaign narrative
+            "archetype": npc.get("archetype", "neutral"),  # Character archetype
             "personality_traits": npc["personality_traits"],
             "role": npc["role"],
             "dialogue_style": npc["dialogue_style"],
             "backstory": npc["backstory"],
+            "backstory_summary": npc.get("backstory_summary", ""),  # One-paragraph backstory summary
             "world_id": state["world_id"],
             "campaign_id": campaign_id,  # Add campaign_id for easy querying
             "level_3_location_id": npc["level_3_location_id"],

@@ -317,6 +317,12 @@ The NPC should:
 - Have a clear archetype (mentor, trickster, guardian, herald, or shadow)
 - Have a clear purpose in the campaign narrative
 
+CRITICAL - NAME UNIQUENESS:
+- The NPC name MUST be completely unique and different from all existing NPCs
+- DO NOT use any names that appear in the "Existing NPC Names" list
+- Generate a fresh, original name that fits the species and culture
+- Avoid similar-sounding names or variations of existing names
+
 Return your response as JSON with ALL these fields:
 {{
   "npc_name": "NPC name",
@@ -337,8 +343,16 @@ Species: {species}
 Location: {location}
 Narrative Context: {context}
 
-Generate a complete NPC with personality, backstory, purpose, archetype, and all required fields.""")
+Existing NPC Names (DO NOT USE ANY OF THESE):
+{existing_names}
+
+Generate a complete NPC with personality, backstory, purpose, archetype, and all required fields.
+IMPORTANT: Ensure the npc_name is completely unique and NOT in the existing names list.""")
         ])
+
+        # Format existing NPC names for prompt
+        existing_names = state.get("existing_npc_names", [])
+        existing_names_str = "\n".join([f"- {name}" for name in existing_names]) if existing_names else "(No existing NPCs - this is the first NPC)"
 
         # Generate NPC with structured output for guaranteed valid JSON
         structured_llm = anthropic_client.with_structured_output(NPCDetailsResponse, include_raw=False)
@@ -348,7 +362,8 @@ Generate a complete NPC with personality, backstory, purpose, archetype, and all
                 "role": state.get("npc_role", "Unknown"),
                 "species": state.get("species_name", "Unknown"),
                 "location": state.get("location_name", ""),
-                "context": state.get("narrative_context", "")
+                "context": state.get("narrative_context", ""),
+                "existing_names": existing_names_str
             })
             npc_data = npc_response.model_dump()
             # Ensure required fields are always present
@@ -414,6 +429,7 @@ Generate a complete NPC with personality, backstory, purpose, archetype, and all
 
             # Core identity (NEW FIELDS)
             "role": state.get("npc_role", "neutral") if not isinstance(npc_role_data, dict) else npc_role_data.get("type", "neutral"),
+            "description": npc_data.get("description", ""),  # Brief one-sentence description
             "purpose": npc_data.get("purpose", ""),
             "archetype": npc_data.get("archetype", "neutral"),
 
