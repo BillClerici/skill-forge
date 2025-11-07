@@ -8,6 +8,7 @@ import requests
 import os
 import logging
 from uuid import uuid4
+from pymongo import MongoClient
 from characters.models import Character
 from members.models import Player
 
@@ -15,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 # Game Engine API URL (use services instead of direct database access)
 GAME_ENGINE_URL = os.getenv('GAME_ENGINE_URL', 'http://game-engine:9500')
+
+# MongoDB connection
+MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://admin:mongo_dev_pass_2024@mongodb:27017')
+mongo_client = MongoClient(MONGODB_URL)
+db = mongo_client['skillforge']
 
 
 class GamesLobbyView(View):
@@ -85,19 +91,14 @@ class GamesLobbyView(View):
             return []
 
     def _get_available_campaigns(self):
-        """Get available campaigns from game engine API"""
+        """Get available campaigns from MongoDB"""
         try:
-            response = requests.get(
-                f'{GAME_ENGINE_URL}/api/v1/campaigns',
-                timeout=5
-            )
+            # Fetch campaigns from MongoDB directly
+            campaigns = list(db.campaigns.find())
 
-            if response.status_code != 200:
-                logger.error(f"Error fetching campaigns: {response.status_code}")
-                return []
-
-            data = response.json()
-            campaigns = data.get('campaigns', [])
+            # If no campaigns in 'campaigns' collection, check 'campaign_state' (legacy)
+            if not campaigns:
+                campaigns = list(db.campaign_state.find())
 
             # Process campaigns for display
             processed_campaigns = []
